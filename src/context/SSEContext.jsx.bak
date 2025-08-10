@@ -1,7 +1,6 @@
-import { createContext, useContext, useRef } from 'react';
+import { useContext, useRef } from 'react';
 import PropTypes from 'prop-types';
-
-const SSEContext = createContext();
+import SSEContext from './SSEContext';
 
 export const useSSEContext = () => {
   const context = useContext(SSEContext);
@@ -92,5 +91,3 @@ export const SSEProvider = ({ children }) => {
 SSEProvider.propTypes = {
   children: PropTypes.node.isRequired
 };
-
-export default SSEContext;

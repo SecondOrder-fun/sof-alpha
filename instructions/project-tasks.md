@@ -106,4 +106,8 @@ All frontend development setup tasks have been completed:
 - [x] Fix all backend/config lint errors (process, require, __dirname, unused vars)
 - [x] Fix all frontend unused variable/import warnings
 - [x] Design and document InfoFi market API endpoints
+- [x] Implement mock implementations for placeholder backend endpoints:
+  - [x] Raffle endpoints (`/api/raffles`)
+  - [x] User profile endpoints (`/api/users`)
+  - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
 <!-- New tasks discovered during development will be added here -->
