@@ -1,4 +1,3 @@
-/* eslint-env node */
 
 import { EventEmitter } from 'events';
 import { db } from './supabaseClient.js';

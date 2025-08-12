@@ -1,4 +1,3 @@
-/* eslint-env node */
 
 import { db } from './supabaseClient.js';
 

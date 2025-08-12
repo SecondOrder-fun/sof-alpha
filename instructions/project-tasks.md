@@ -19,7 +19,7 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - [x] Deploy script updated to premint 10,000,000 SOF to deployer for local testing
 - [ ] Set up development environments (testnet)
 
-### Frontend Development Setup (COMPLETED)
+### Frontend Development Setup
 
 All frontend development setup tasks have been completed:
 
@@ -80,16 +80,14 @@ All frontend development setup tasks have been completed:
 ### Frontend Contract Integration (NEXT)
 
 - **Network & Config**
-
-  - [ ] Add network toggle UI (Local/Anvil default, Testnet) in a `NetworkToggle` component
-  - [ ] Provide network config via `src/config/networks.js` (RPC URLs, chain IDs)
-  - [ ] Provide contract address map via `src/config/contracts.js` (RAFFLE, SOF, BONDING_CURVE per network)
-  - [ ] Default network to Local/Anvil; persist selection in localStorage
+  - [x] Add network toggle UI (Local/Anvil default, Testnet) in a `NetworkToggle` component
+  - [x] Provide network config via `src/config/networks.js` (RPC URLs, chain IDs)
+  - [x] Provide contract address map via `src/config/contracts.js` (RAFFLE, SOF, BONDING_CURVE per network)
+  - [x] Default network to Local/Anvil; persist selection in localStorage
   - [ ] Update Wagmi config to switch chains dynamically based on toggle
 
 - **Wagmi/Viem Hooks**
-
-  - [ ] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
+  - [x] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
   - [ ] `useRaffleAdmin()` for `createSeason()`, `startSeason()`, `requestSeasonEnd()` (role-gated)
   - [ ] `useCurve()` for `buyTickets(amount)`, allowance and SOF approvals
   - [ ] `useAccessControl()` to check `hasRole` for admin actions
@@ -104,11 +102,12 @@ All frontend development setup tasks have been completed:
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 - **ENV & Addresses**
-
+  
   - [ ] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
   - [ ] Add `VITE_RAFFLE_ADDRESS_LOCAL`, `VITE_SOF_ADDRESS_LOCAL`, `VITE_CURVE_ADDRESS_LOCAL`
   - [ ] Add testnet equivalents (left empty until deployment)
   - [ ] Update frontend README with network toggle and env examples
+  - [x] Add `.env.example` template with all required frontend/backend variables
 
 - **Testing**
   - [ ] Vitest tests for hooks (1 success, 1 edge, 1 failure per hook)
@@ -118,19 +117,16 @@ All frontend development setup tasks have been completed:
 ### Backend API Alignment (Onchain)
 
 - **Standards & Conventions**
-
   - [ ] Ensure backend follows `instructions/project-structure.md` and `.windsurf/rules/project-framework.md` conventions
   - [ ] Use ES Modules with ES6 imports; prefer TypeScript or JSDoc types
-  - [ ] Centralize RPC and addresses in `backend/src/config/chain.js` (env-driven)
+  - [x] Centralize RPC and addresses in `backend/src/config/chain.js` (env-driven)
 
 - **Viem Server Clients**
-
-  - [ ] Create `backend/src/lib/viemClient.js` with `createPublicClient(http)` per network
+  - [x] Create `backend/src/lib/viemClient.js` with `createPublicClient(http)` per network
   - [ ] Do NOT hold private keys in backend; no signing server-side
   - [ ] Add helpers to build calldata for admin/user actions (frontend signs)
 
 - **Replace Mocked Endpoints with Onchain Reads**
-
   - [ ] GET `/api/raffles` → read current/active seasons from Raffle contract
   - [ ] GET `/api/raffles/:id` → `getSeasonDetails`, state, VRF status
   - [ ] GET `/api/raffles/:id/positions` → aggregate from contract events/state

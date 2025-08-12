@@ -1,4 +1,3 @@
-/* eslint-env node */
 import { createClient } from '@supabase/supabase-js';
 import process from 'node:process';
 

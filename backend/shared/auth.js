@@ -1,4 +1,3 @@
-/* eslint-env node */
 import jwt from 'jsonwebtoken';
 import { db } from './supabaseClient.js';
 import process from 'node:process';

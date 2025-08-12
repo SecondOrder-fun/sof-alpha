@@ -37,4 +37,20 @@ export default [
       'no-console': 'warn',
     },
   },
+  // Backend (Node) files: enable Node globals like `process`
+  {
+    files: ['backend/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-console': 'warn',
+    },
+  },
 ];
