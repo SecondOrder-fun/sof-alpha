@@ -88,8 +88,8 @@ sof-alpha/
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/secondorder-fun.git
-   cd secondorder-fun
+   git clone https://github.com/SecondOrder-fun/sof-alpha.git
+   cd sof-alpha
    ```
 
 2. Install frontend dependencies:
@@ -246,35 +246,6 @@ The prediction market contract that handles:
 - `GET /sse/raffles` - SSE endpoint for real-time raffle updates
 - `GET /sse/infofi-markets` - SSE endpoint for real-time InfoFi market updates
 - `GET /sse/arbitrage` - SSE endpoint for arbitrage opportunities
-
-## Development Phases
-
-1. **Foundation** (Week 1-2)
-
-   - Project setup and structure
-   - Basic frontend components
-   - Backend API endpoints
-   - Smart contract development
-
-2. **Core Features** (Week 3-4)
-
-   - Raffle creation and participation
-   - InfoFi market creation and betting
-   - Wallet integration
-   - Basic UI/UX
-
-3. **Advanced Features** (Week 5-6)
-
-   - Hybrid pricing mechanisms
-   - Arbitrage detection
-   - Real-time updates
-   - Advanced UI components
-
-4. **Testing & Refinement** (Week 7-8)
-   - Comprehensive testing
-   - Bug fixes and optimizations
-   - Documentation
-   - Deployment preparation
 
 ## Contributing
 
