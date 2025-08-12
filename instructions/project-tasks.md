@@ -13,6 +13,7 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 - [x] Configure Vite build system
 - [x] Set up Tailwind CSS and shadcn/ui
 - [x] Initialize Git repository with proper .gitignore
+- [ ] Set up development environments (local/testnet, env files, scripts)
 
 ### Frontend Development Setup (COMPLETED)
 
@@ -59,6 +60,18 @@ All frontend development setup tasks have been completed:
 - [x] Implement cross-layer settlement coordination
 - [x] Implement advanced analytics endpoints
 - [x] Create comprehensive API documentation
+- [ ] Create database schema and migrations (markets, positions, winnings, pricing cache)
+- [ ] Connect frontend to backend services (query/mutations wired to API)
+
+### Frontend Features
+
+- [ ] Build raffle display components (season list, ticket positions, odds)
+- [ ] Build InfoFi market components with real-time updates
+- [ ] Implement arbitrage opportunity display
+- [ ] Create cross-layer strategy panel
+- [ ] Add settlement status tracking
+- [ ] Build winnings claim interface
+- [ ] User experience refinement (copy, flows, accessibility)
 
 ### Smart Contracts Development
 
@@ -69,6 +82,10 @@ All frontend development setup tasks have been completed:
 - [x] Integrate Chainlink VRF for provably fair resolution
 - [x] Implement OpenZeppelin AccessControl for permissions
 - [x] Add minimal Foundry tests for season-based Raffle + BondingCurve integration
+- [ ] Security audits of smart contracts
+- [ ] Deploy InfoFiMarketFactory.sol with AccessControl (testnet)
+- [ ] Integrate VRF callbacks with InfoFiSettlement.sol (testnet validation)
+- [ ] Enhance RaffleBondingCurve.sol with InfoFi event emission (verified on testnet)
 
 ### Documentation and Testing
 
@@ -79,6 +96,9 @@ All frontend development setup tasks have been completed:
 - [x] Document initial API endpoints
 - [x] Create comprehensive API documentation for all endpoints
 - [x] Document smart contract deployment for Anvil, testnet, and mainnet
+- [ ] Comprehensive testing of all components (frontend, backend, contracts)
+- [ ] Security testing of arbitrage execution paths
+- [ ] User acceptance testing (UAT)
 
 #### Smart Contract Testing Roadmap (Discovered During Work)
 
@@ -88,70 +108,18 @@ All frontend development setup tasks have been completed:
 - [ ] Trading lock enforcement after `requestSeasonEnd()`
 - [x] Prize pool accounting from curve reserves at end-of-season
 - [ ] Access control checks for season lifecycle and emergency paths
+- [ ] End-to-end testing of VRF → InfoFi settlement flow
 
 Note: Trading lock was validated at the curve level via `lockTrading()`; add a follow-up test to exercise `Raffle.requestSeasonEnd()` path and broader role-gated lifecycle actions.
 
-## Development Phases
+### Optimization & QA
 
-### Phase 1: Foundation
+- [ ] Performance optimization for real-time pricing and SSE
+- [ ] General performance optimization (frontend/backend)
 
-- Complete project structure initialization
-- Set up development environments
-- Implement basic frontend layout
-- Create initial smart contract framework
+### Release & Deployment
 
-### Phase 2: Core Functionality
-
-- Implement raffle mechanics
-- Develop InfoFi market contracts
-- Build frontend components for raffle display
-- Create backend services for data management
-
-### Phase 3: Integration
-
-- Connect frontend to backend services
-- Integrate Web3 functionality
-- Implement real-time SSE updates
-- Develop cross-layer strategy components
-
-### Phase 4: Testing and Refinement
-
-- Comprehensive testing of all components
-- Security audits of smart contracts
-- Performance optimization
-- User experience refinement
-
-### Phase 5: Core InfoFi Smart Contracts
-
-- Deploy InfoFiMarketFactory.sol with OpenZeppelin AccessControl
-- Implement InfoFiPriceOracle.sol with hybrid pricing model
-- Integrate VRF callbacks with InfoFiSettlement.sol
-- Enhance RaffleBondingCurve.sol with InfoFi event emission
-- Complete smart contract audit and testing
-
-### Phase 6: Real-Time Data Integration
-
-- Implement RealTimePricingService with SSE streams
-- Deploy arbitrage detection system
-- Create database schema and migrations
-- Build backend services for market management
-- Test cross-layer event coordination
-
-### Phase 7: Frontend Integration
-
-- Build InfoFi market components with real-time updates
-- Implement arbitrage opportunity display
-- Create cross-layer strategy panel
-- Add settlement status tracking
-- Build winnings claim interface
-
-### Phase 8: Testing & Optimization
-
-- End-to-end testing of VRF → InfoFi settlement flow
-- Performance optimization for real-time pricing
-- Security testing of arbitrage execution
-- User acceptance testing
-- Production deployment preparation
+- [ ] Production deployment preparation (envs, build, CI/CD)
 
 ## Discovered During Work
 
