@@ -1,1 +1,232 @@
-node_modules
+# ==================================
+# Node.js / React / Vite
+# ==================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+
+# Runtime and cache
+.vite/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.output/
+.vercel/
+.netlify/
+
+# Logs
+logs/
+*.log
+
+# ==================================
+# Foundry / Solidity
+# ==================================
+
+# Foundry build artifacts
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Gas reports and coverage
+gas-report.txt
+lcov.info
+coverage/
+coverage.json
+
+# Foundry cache and temp files
+.forge-cache/
+.foundry/
+
+# Solidity compiler cache
+contracts/.solcache/
+
+# ==================================
+# Backend Development
+# ==================================
+
+# Server logs and temp files
+backend/logs/
+backend/tmp/
+backend/.cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# ==================================
+# Testing and Documentation
+# ==================================
+
+# Test outputs
+test-results/
+playwright-report/
+test-report/
+coverage/
+.nyc_output/
+
+# Documentation builds
+docs/build/
+.docusaurus/
+
+# ==================================
+# IDE and Editor Files
+# ==================================
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ==================================
+# Operating System Files
+# ==================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==================================
+# Security and Sensitive Files
+# ==================================
+
+# Private keys and secrets
+*.pem
+*.key
+*.p12
+*.pfx
+.secret
+.private
+secrets/
+private/
+
+# Mnemonic phrases and wallets
+mnemonic.txt
+seed.txt
+wallet.json
+keystore/
+
+# API keys and tokens
+.env.keys
+.env.secrets
+config/secrets.json
+
+# ==================================
+# Package Managers
+# ==================================
+
+# Yarn
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# pnpm
+.pnpm-debug.log*
+.pnpm-store/
+
+# ==================================
+# Miscellaneous
+# ==================================
+
+# Temporary files
+*.tmp
+*.temp
+.temp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Archive files (unless intentional)
+*.tar
+*.tar.gz
+*.zip
+*.rar
+
+# Generated files
+generated/
+auto-generated/
+
+# Local development overrides
+docker-compose.override.yml
+.local/
+local/
+
+# Sentry
+.sentryclirc
+
+# Turborepo
+.turbo/
+
+# Analytics and tracking
+.analytics/
+.tracking/
