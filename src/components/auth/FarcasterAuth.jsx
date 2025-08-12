@@ -1,5 +1,5 @@
 import { SignInButton } from '@farcaster/auth-kit';
-import { useFarcaster } from '@/context/FarcasterContext';
+import { useFarcaster } from '@/hooks/useFarcaster';
 import { useToast } from '@/hooks/useToast';
 
 const FarcasterAuth = () => {

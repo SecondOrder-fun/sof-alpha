@@ -1,7 +1,7 @@
 import WalletConnection from '@/components/wallet/WalletConnection';
 import FarcasterAuth from '@/components/auth/FarcasterAuth';
-import { useWallet } from '@/context/WalletContext';
-import { useFarcaster } from '@/context/FarcasterContext';
+import { useWallet } from '@/hooks/useWallet';
+import { useFarcaster } from '@/hooks/useFarcaster';
 
 const TestPage = () => {
   const { address, isConnected, balance } = useWallet();

@@ -12,9 +12,9 @@ import './styles/tailwind.css';
 
 import App from './App';
 import ErrorPage from './components/common/ErrorPage';
-import { WalletProvider } from './context/WalletContext';
-import { FarcasterProvider } from './context/FarcasterContext';
-import { SSEProvider } from './context/SSEContext';
+import { WalletProvider } from './context/WalletProvider';
+import { FarcasterProvider } from './context/FarcasterProvider';
+import { SSEProvider } from './context/SSEProvider';
 
 // Initialize query client
 const queryClient = new QueryClient({

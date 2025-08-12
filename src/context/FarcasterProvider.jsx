@@ -1,16 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProfile } from '@farcaster/auth-kit';
 import PropTypes from 'prop-types';
-
-const FarcasterContext = createContext();
-
-export const useFarcaster = () => {
-  const context = useContext(FarcasterContext);
-  if (!context) {
-    throw new Error('useFarcaster must be used within a FarcasterProvider');
-  }
-  return context;
-};
+import FarcasterContext from './farcasterContext';
 
 const FarcasterProvider = ({ children }) => {
   const { isAuthenticated, profile } = useProfile();

@@ -1,16 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useBalance, useEnsName } from 'wagmi';
 import PropTypes from 'prop-types';
-
-const WalletContext = createContext();
-
-export const useWallet = () => {
-  const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
-  return context;
-};
+import WalletContext from './walletContext';
 
 export const WalletProvider = ({ children }) => {
   const { address, isConnected, status } = useAccount();

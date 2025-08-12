@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSSEContext } from '@/context/SSEContext';
+import { useSSEContext } from '@/hooks/useSSEContext';
 import { useToast } from '@/hooks/useToast';
 
 const SSETest = () => {

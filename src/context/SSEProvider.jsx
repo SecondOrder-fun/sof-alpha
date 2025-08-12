@@ -1,15 +1,6 @@
-import { createContext, useContext, useRef } from 'react';
+import { useRef } from 'react';
 import PropTypes from 'prop-types';
-
-const SSEContext = createContext();
-
-export const useSSEContext = () => {
-  const context = useContext(SSEContext);
-  if (!context) {
-    throw new Error('useSSEContext must be used within an SSEProvider');
-  }
-  return context;
-};
+import SSEContext from './sseContext';
 
 export const SSEProvider = ({ children }) => {
   const connectionsRef = useRef({});
