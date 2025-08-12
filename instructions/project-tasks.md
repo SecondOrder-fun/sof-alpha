@@ -60,6 +60,7 @@ All frontend development setup tasks have been completed:
 - [x] Develop InfoFi market contracts
 - [x] Integrate Chainlink VRF for provably fair resolution
 - [x] Implement OpenZeppelin AccessControl for permissions
+- [x] Add minimal Foundry tests for season-based Raffle + BondingCurve integration
 
 ### Documentation and Testing
 
@@ -69,6 +70,17 @@ All frontend development setup tasks have been completed:
 - [x] Set up Foundry for smart contract testing
 - [x] Document initial API endpoints
 - [x] Create comprehensive API documentation for all endpoints
+
+#### Smart Contract Testing Roadmap (Discovered During Work)
+
+- [x] Minimal integration tests for season creation, curve buy/sell, participant tracking
+- [x] VRF winner selection flow with mock coordinator (request -> fulfill -> Completed status)
+- [x] Edge cases: zero participants, duplicate winners handling
+- [ ] Trading lock enforcement after `requestSeasonEnd()`
+- [x] Prize pool accounting from curve reserves at end-of-season
+- [ ] Access control checks for season lifecycle and emergency paths
+
+Note: Trading lock was validated at the curve level via `lockTrading()`; add a follow-up test to exercise `Raffle.requestSeasonEnd()` path and broader role-gated lifecycle actions.
 
 ## Development Phases
 
@@ -103,11 +115,11 @@ All frontend development setup tasks have been completed:
 ## Discovered During Work
 
 - [x] Fix all backend Fastify route lint errors (unused vars, undefined identifiers, unreachable code)
-- [x] Fix all backend/config lint errors (process, require, __dirname, unused vars)
+- [x] Fix all backend/config lint errors (process, require, \_\_dirname, unused vars)
 - [x] Fix all frontend unused variable/import warnings
 - [x] Design and document InfoFi market API endpoints
 - [x] Implement mock implementations for placeholder backend endpoints:
   - [x] Raffle endpoints (`/api/raffles`)
   - [x] User profile endpoints (`/api/users`)
   - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
-<!-- New tasks discovered during development will be added here -->
+  <!-- New tasks discovered during development will be added here -->

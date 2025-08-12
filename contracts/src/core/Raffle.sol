@@ -1,321 +1,365 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import "openzeppelin-contracts/contracts/utils/Pausable.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import "../token/RaffleToken.sol";
+import "../curve/SOFBondingCurve.sol";
 
-contract Raffle is AccessControl, ReentrancyGuard, Pausable, VRFConsumerBaseV2Plus {
-    // Role definitions
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+/**
+ * @title Raffle Contract
+ * @notice Manages seasons, deploys per-season RaffleToken and SOFBondingCurve, integrates VRF v2+.
+ */
+contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
+    using SafeERC20 for IERC20;
 
-    // Events
-    event RaffleCreated(uint256 indexed raffleId, string name, uint256 duration, uint256 ticketPrice);
-    event TicketPurchased(address indexed player, uint256 indexed raffleId, uint256 amount, uint256 ticketCount);
-    event RaffleEnded(uint256 indexed raffleId, uint256 winningTicket, address[] winners);
-    event WinnerSelected(uint256 indexed raffleId, address indexed winner, uint256 prizeAmount);
-    event PrizeClaimed(address indexed winner, uint256 amount);
+    // Roles
+    bytes32 public constant SEASON_CREATOR_ROLE = keccak256("SEASON_CREATOR_ROLE");
+    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+    bytes32 public constant BONDING_CURVE_ROLE = keccak256("BONDING_CURVE_ROLE");
 
-    // Structs
-    struct RaffleInfo {
-        uint256 id;
+    // VRF v2+
+    bytes32 public vrfKeyHash;
+    uint256 public vrfSubscriptionId;
+    uint32 public vrfCallbackGasLimit = 100000;
+    uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
+
+    // Core
+    IERC20 public immutable sofToken;
+
+    // Season configuration
+    struct SeasonConfig {
         string name;
-        string description;
         uint256 startTime;
         uint256 endTime;
-        uint256 ticketPrice;
-        uint256 totalPrize;
-        uint256 totalTickets;
-        uint256 winnerCount;
-        RaffleStatus status;
-        address tokenAddress;
-        uint256 vrfRequestId;
-        uint256 winningTicket;
-        bool prizeDistributed;
+        uint32 maxParticipants;
+        uint16 winnerCount;
+        uint16 prizePercentage;       // bps
+        uint16 consolationPercentage; // bps
+        bool isActive;
+        bool isCompleted;
+        address raffleToken;
+        address bondingCurve;
     }
 
-    struct PlayerInfo {
+    enum SeasonStatus { NotStarted, Active, EndRequested, VRFPending, Distributing, Completed }
+
+    struct ParticipantPosition {
         uint256 ticketCount;
-        uint256 firstTicketId;
-        uint256 lastTicketId;
-        bool hasWon;
-        bool hasClaimed;
-        uint256 prizeAmount;
+        uint256 entryBlock;
+        uint256 lastUpdateBlock;
+        bool isActive;
     }
 
-    enum RaffleStatus {
-        Pending,
-        Active,
-        Ended,
-        Cancelled
+    struct SeasonState {
+        SeasonStatus status;
+        uint256 totalParticipants;
+        uint256 totalTickets;
+        uint256 totalPrizePool;
+        address[] winners;
+        uint256 vrfRequestId;
+        mapping(address => ParticipantPosition) participantPositions;
+        address[] participants;
     }
 
-    // State variables
-    uint256 public nextRaffleId;
-    uint256 public nextTicketId;
-    mapping(uint256 => RaffleInfo) public raffles;
-    mapping(uint256 => mapping(address => PlayerInfo)) public playerInfo;
-    mapping(uint256 => address[]) public raffleParticipants;
-    mapping(address => uint256[]) public playerRaffles;
-    mapping(uint256 => address[]) public raffleWinners;
+    // Storage
+    uint256 public currentSeasonId;
+    mapping(uint256 => SeasonConfig) public seasons;
+    mapping(uint256 => SeasonState) public seasonStates;
+    mapping(uint256 => uint256) public vrfRequestToSeason;
 
-    // Chainlink VRF variables
-    bytes32 public i_keyHash;
-    uint256 public i_subscriptionId;
-    uint32 public callbackGasLimit = 100000;
-    uint16 public requestConfirmations = 3;
-    uint32 public numWords = 1;
-
-    // Constants
-    uint256 public constant MAX_TICKET_PRICE = 10000 * 10**18; // 10,000 tokens
-    uint256 public constant MAX_DURATION = 14 days; // 2 weeks
-    uint256 public constant MIN_DURATION = 1 hours; // 1 hour
+    // Events
+    event SeasonCreated(uint256 indexed seasonId, string name, uint256 startTime, uint256 endTime, address raffleToken, address bondingCurve);
+    event SeasonStarted(uint256 indexed seasonId);
+    event SeasonLocked(uint256 indexed seasonId);
+    event SeasonEndRequested(uint256 indexed seasonId, uint256 vrfRequestId);
+    event WinnersSelected(uint256 indexed seasonId, address[] winners);
+    event PrizeDistributionSetup(uint256 indexed seasonId, address merkleDistributor);
+    event ParticipantAdded(uint256 indexed seasonId, address participant, uint256 tickets, uint256 totalTickets);
+    event ParticipantUpdated(uint256 indexed seasonId, address participant, uint256 newTickets, uint256 totalTickets);
+    event ParticipantRemoved(uint256 indexed seasonId, address participant, uint256 totalTickets);
 
     constructor(
-        address vrfCoordinator,
-        bytes32 keyHash,
-        uint256 subscriptionId
-    ) VRFConsumerBaseV2Plus(vrfCoordinator) {
-        i_keyHash = keyHash;
-        i_subscriptionId = subscriptionId;
-        
+        address _sofToken,
+        address _vrfCoordinator,
+        uint256 _vrfSubscriptionId,
+        bytes32 _vrfKeyHash
+    ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
+        require(_sofToken != address(0), "Raffle: SOF zero");
+        sofToken = IERC20(_sofToken);
+        vrfSubscriptionId = _vrfSubscriptionId;
+        vrfKeyHash = _vrfKeyHash;
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        _grantRole(OPERATOR_ROLE, msg.sender);
+        _grantRole(SEASON_CREATOR_ROLE, msg.sender);
+        _grantRole(EMERGENCY_ROLE, msg.sender);
     }
 
     /**
-     * @dev Create a new raffle
-     * @param name Name of the raffle
-     * @param description Description of the raffle
-     * @param duration Duration of the raffle in seconds
-     * @param ticketPrice Price per ticket in token units
-     * @param winnerCount Number of winners
-     * @param tokenAddress Address of the ERC20 token used for tickets
+     * @notice Create a new season: deploy RaffleToken and SOFBondingCurve, grant roles, init curve.
      */
-    function createRaffle(
-        string memory name,
-        string memory description,
-        uint256 duration,
-        uint256 ticketPrice,
-        uint256 winnerCount,
-        address tokenAddress
-    ) external onlyRole(OPERATOR_ROLE) whenNotPaused {
-        require(bytes(name).length > 0, "Raffle: name cannot be empty");
-        require(duration >= MIN_DURATION && duration <= MAX_DURATION, "Raffle: invalid duration");
-        require(ticketPrice > 0 && ticketPrice <= MAX_TICKET_PRICE, "Raffle: invalid ticket price");
-        require(winnerCount > 0 && winnerCount <= 10, "Raffle: invalid winner count");
-        require(tokenAddress != address(0), "Raffle: invalid token address");
+    function createSeason(
+        SeasonConfig memory config,
+        SOFBondingCurve.BondStep[] calldata bondSteps,
+        uint16 buyFeeBps,
+        uint16 sellFeeBps
+    ) external onlyRole(SEASON_CREATOR_ROLE) nonReentrant returns (uint256 seasonId) {
+        require(config.startTime > block.timestamp, "Raffle: start in future");
+        require(config.endTime > config.startTime, "Raffle: bad end");
+        require(config.winnerCount > 0, "Raffle: winners 0");
+        require(config.prizePercentage + config.consolationPercentage <= 10000, "Raffle: pct > 100%");
+        require(bondSteps.length > 0, "Raffle: steps 0");
 
-        uint256 raffleId = nextRaffleId++;
-        
-        raffles[raffleId] = RaffleInfo({
-            id: raffleId,
-            name: name,
-            description: description,
-            startTime: block.timestamp,
-            endTime: block.timestamp + duration,
-            ticketPrice: ticketPrice,
-            totalPrize: 0,
-            totalTickets: 0,
-            winnerCount: winnerCount,
-            status: RaffleStatus.Active,
-            tokenAddress: tokenAddress,
-            vrfRequestId: 0,
-            winningTicket: 0,
-            prizeDistributed: false
-        });
+        seasonId = ++currentSeasonId;
 
-        emit RaffleCreated(raffleId, name, duration, ticketPrice);
+        // Deploy RaffleToken for this season
+        RaffleToken raffleToken = new RaffleToken(
+            string(abi.encodePacked("SecondOrder ", config.name)),
+            string(abi.encodePacked("SOF-", _toString(seasonId))),
+            seasonId,
+            config.name,
+            config.startTime,
+            config.endTime
+        );
+
+        // Deploy curve for this season (constructor needs sofToken)
+        SOFBondingCurve curve = new SOFBondingCurve(address(sofToken));
+        // Grant Raffle contract manager role on curve and initialize
+        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), address(this));
+        curve.initializeCurve(address(raffleToken), bondSteps, buyFeeBps, sellFeeBps);
+        // Set raffle callback info
+        curve.setRaffleInfo(address(this), seasonId);
+
+        // Grant curve rights on raffle token
+        raffleToken.grantRole(raffleToken.MINTER_ROLE(), address(curve));
+        raffleToken.grantRole(raffleToken.BURNER_ROLE(), address(curve));
+
+        // Persist config
+        config.raffleToken = address(raffleToken);
+        config.bondingCurve = address(curve);
+        config.isActive = false;
+        config.isCompleted = false;
+        seasons[seasonId] = config;
+        seasonStates[seasonId].status = SeasonStatus.NotStarted;
+
+        // Allow the curve to call participant hooks
+        _grantRole(BONDING_CURVE_ROLE, address(curve));
+
+        emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, address(raffleToken), address(curve));
     }
 
-    /**
-     * @dev Buy tickets for a raffle
-     * @param raffleId ID of the raffle
-     * @param ticketCount Number of tickets to buy
-     */
-    function buyTickets(uint256 raffleId, uint256 ticketCount) external nonReentrant whenNotPaused {
-        RaffleInfo storage raffle = raffles[raffleId];
-        require(raffle.status == RaffleStatus.Active, "Raffle: not active");
-        require(block.timestamp < raffle.endTime, "Raffle: ended");
-        require(ticketCount > 0, "Raffle: invalid ticket count");
+    function startSeason(uint256 seasonId) external onlyRole(SEASON_CREATOR_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(!seasons[seasonId].isActive, "Raffle: active");
+        require(block.timestamp >= seasons[seasonId].startTime, "Raffle: not started");
+        require(block.timestamp < seasons[seasonId].endTime, "Raffle: expired");
+        require(seasonStates[seasonId].status == SeasonStatus.NotStarted, "Raffle: bad status");
 
-        uint256 totalCost = raffle.ticketPrice * ticketCount;
-        IERC20 token = IERC20(raffle.tokenAddress);
-        
-        // Transfer tokens from player to contract
-        require(token.transferFrom(msg.sender, address(this), totalCost), "Raffle: token transfer failed");
-
-        // Update player info
-        PlayerInfo storage player = playerInfo[raffleId][msg.sender];
-        if (player.ticketCount == 0) {
-            // New player
-            player.firstTicketId = nextTicketId;
-            raffleParticipants[raffleId].push(msg.sender);
-            playerRaffles[msg.sender].push(raffleId);
-        }
-        
-        player.lastTicketId = nextTicketId + ticketCount - 1;
-        player.ticketCount += ticketCount;
-
-        // Update raffle info
-        raffle.totalTickets += ticketCount;
-        raffle.totalPrize += totalCost;
-        nextTicketId += ticketCount;
-
-        emit TicketPurchased(msg.sender, raffleId, totalCost, ticketCount);
+        seasons[seasonId].isActive = true;
+        seasonStates[seasonId].status = SeasonStatus.Active;
+        emit SeasonStarted(seasonId);
     }
 
-    /**
-     * @dev End a raffle and request random number for winner selection
-     * @param raffleId ID of the raffle
-     */
-    function endRaffle(uint256 raffleId) external onlyRole(OPERATOR_ROLE) whenNotPaused {
-        RaffleInfo storage raffle = raffles[raffleId];
-        require(raffle.status == RaffleStatus.Active, "Raffle: not active");
-        require(block.timestamp >= raffle.endTime, "Raffle: not yet ended");
+    function requestSeasonEnd(uint256 seasonId) external onlyRole(SEASON_CREATOR_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(seasons[seasonId].isActive, "Raffle: not active");
+        require(block.timestamp >= seasons[seasonId].endTime, "Raffle: not ended");
+        require(seasonStates[seasonId].status == SeasonStatus.Active, "Raffle: bad status");
 
-        raffle.status = RaffleStatus.Ended;
+        // Lock trading on curve
+        SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
+        seasons[seasonId].isActive = false;
+        seasonStates[seasonId].status = SeasonStatus.EndRequested;
+        emit SeasonLocked(seasonId);
 
-        // Request random number from Chainlink VRF
+        // VRF request for winner selection (numWords == winnerCount)
         VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: i_keyHash,
-            subId: i_subscriptionId,
-            requestConfirmations: requestConfirmations,
-            callbackGasLimit: callbackGasLimit,
-            numWords: numWords,
-            extraArgs: ""
+            keyHash: vrfKeyHash,
+            subId: vrfSubscriptionId,
+            requestConfirmations: VRF_REQUEST_CONFIRMATIONS,
+            callbackGasLimit: vrfCallbackGasLimit,
+            numWords: seasons[seasonId].winnerCount,
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
         });
 
         uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
-        raffle.vrfRequestId = requestId;
-
-        emit RaffleEnded(raffleId, 0, new address[](0));
+        seasonStates[seasonId].vrfRequestId = requestId;
+        seasonStates[seasonId].status = SeasonStatus.VRFPending;
+        vrfRequestToSeason[requestId] = seasonId;
+        emit SeasonEndRequested(seasonId, requestId);
     }
 
-    /**
-     * @dev Callback function for Chainlink VRF
-     * @param requestId ID of the VRF request
-     * @param randomWords Random words generated by VRF
-     */
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
-        // Find the raffle associated with this request
-        uint256 raffleId;
-        bool found = false;
-        
-        for (uint256 i = 0; i < nextRaffleId; i++) {
-            if (raffles[i].vrfRequestId == requestId) {
-                raffleId = i;
-                found = true;
-                break;
+        uint256 seasonId = vrfRequestToSeason[requestId];
+        require(seasonId != 0, "Raffle: bad req");
+        require(seasonStates[seasonId].status == SeasonStatus.VRFPending, "Raffle: bad status");
+
+        // Prize pool from curve reserves
+        uint256 totalPrizePool = SOFBondingCurve(seasons[seasonId].bondingCurve).getSofReserves();
+        seasonStates[seasonId].totalPrizePool = totalPrizePool;
+
+        // Select winners address-based
+        address[] memory winners = _selectWinnersAddressBased(seasonId, randomWords);
+        seasonStates[seasonId].winners = winners;
+
+        seasonStates[seasonId].status = SeasonStatus.Distributing;
+        emit WinnersSelected(seasonId, winners);
+
+        _setupPrizeDistribution(seasonId, winners, totalPrizePool);
+    }
+
+    // Called by curve
+    function recordParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external onlyRole(BONDING_CURVE_ROLE) {
+        require(seasons[seasonId].isActive, "Raffle: season inactive");
+        SeasonState storage state = seasonStates[seasonId];
+        ParticipantPosition storage pos = state.participantPositions[participant];
+        if (!pos.isActive) {
+            state.participants.push(participant);
+            state.totalParticipants++;
+            pos.entryBlock = block.number;
+            pos.isActive = true;
+            emit ParticipantAdded(seasonId, participant, ticketAmount, state.totalTickets + ticketAmount);
+        } else {
+            emit ParticipantUpdated(seasonId, participant, pos.ticketCount + ticketAmount, state.totalTickets + ticketAmount);
+        }
+        pos.ticketCount += ticketAmount;
+        pos.lastUpdateBlock = block.number;
+        state.totalTickets += ticketAmount;
+    }
+
+    function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external onlyRole(BONDING_CURVE_ROLE) {
+        require(seasons[seasonId].isActive, "Raffle: season inactive");
+        SeasonState storage state = seasonStates[seasonId];
+        ParticipantPosition storage pos = state.participantPositions[participant];
+        require(pos.isActive, "Raffle: not active");
+        require(pos.ticketCount >= ticketAmount, "Raffle: too much");
+
+        pos.ticketCount -= ticketAmount;
+        pos.lastUpdateBlock = block.number;
+        state.totalTickets -= ticketAmount;
+
+        if (pos.ticketCount == 0) {
+            pos.isActive = false;
+            state.totalParticipants--;
+            // remove from array (swap and pop)
+            for (uint256 i = 0; i < state.participants.length; i++) {
+                if (state.participants[i] == participant) {
+                    state.participants[i] = state.participants[state.participants.length - 1];
+                    state.participants.pop();
+                    break;
+                }
             }
         }
-        
-        require(found, "Raffle: request not found");
-        
-        RaffleInfo storage raffle = raffles[raffleId];
-        require(raffle.status == RaffleStatus.Ended, "Raffle: not ended");
-        
-        // Select winners
-        uint256 winningTicket = (randomWords[0] % raffle.totalTickets) + 1;
-        raffle.winningTicket = winningTicket;
-        
-        // Find winners (simplified for now - in practice, would need to map ticket IDs to players)
-        address[] memory winners = new address[](raffle.winnerCount);
-        // TODO: Implement proper winner selection algorithm
-        
-        raffleWinners[raffleId] = winners;
-        
-        emit RaffleEnded(raffleId, winningTicket, winners);
+        emit ParticipantRemoved(seasonId, participant, state.totalTickets);
     }
 
-    /**
-     * @dev Claim prize for winning
-     * @param raffleId ID of the raffle
-     */
-    function claimPrize(uint256 raffleId) external nonReentrant whenNotPaused {
-        RaffleInfo storage raffle = raffles[raffleId];
-        PlayerInfo storage player = playerInfo[raffleId][msg.sender];
-        
-        require(raffle.status == RaffleStatus.Ended, "Raffle: not ended");
-        require(player.hasWon, "Raffle: not a winner");
-        require(!player.hasClaimed, "Raffle: prize already claimed");
-        
-        player.hasClaimed = true;
-        uint256 prizeAmount = player.prizeAmount;
-        
-        IERC20 token = IERC20(raffle.tokenAddress);
-        require(token.transfer(msg.sender, prizeAmount), "Raffle: prize transfer failed");
-        
-        emit PrizeClaimed(msg.sender, prizeAmount);
+    // Views
+    function getParticipants(uint256 seasonId) external view returns (address[] memory) { return seasonStates[seasonId].participants; }
+
+    function getParticipantPosition(uint256 seasonId, address participant) external view returns (ParticipantPosition memory position) {
+        return seasonStates[seasonId].participantPositions[participant];
     }
 
-    /**
-     * @dev Cancel a raffle (only before it ends)
-     * @param raffleId ID of the raffle
-     */
-    function cancelRaffle(uint256 raffleId) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        RaffleInfo storage raffle = raffles[raffleId];
-        require(raffle.status == RaffleStatus.Active, "Raffle: not active");
-        require(block.timestamp < raffle.endTime, "Raffle: already ended");
-
-        raffle.status = RaffleStatus.Cancelled;
-        
-        // TODO: Implement refund logic
+    function getParticipantNumberRange(uint256 seasonId, address participant) external view returns (uint256 start, uint256 end) {
+        SeasonState storage state = seasonStates[seasonId];
+        ParticipantPosition storage p = state.participantPositions[participant];
+        if (!p.isActive) return (0, 0);
+        uint256 cur = 1;
+        for (uint256 i = 0; i < state.participants.length; i++) {
+            address addr = state.participants[i];
+            ParticipantPosition storage pos = state.participantPositions[addr];
+            if (addr == participant) { return (cur, cur + pos.ticketCount - 1); }
+            cur += pos.ticketCount;
+        }
+        return (0, 0);
     }
 
-    /**
-     * @dev Pause the contract
-     */
-    function pause() external onlyRole(ADMIN_ROLE) {
-        _pause();
+    function getSeasonDetails(uint256 seasonId) external view returns (
+        SeasonConfig memory config,
+        SeasonStatus status,
+        uint256 totalParticipants,
+        uint256 totalTickets,
+        uint256 totalPrizePool
+    ) {
+        config = seasons[seasonId];
+        SeasonState storage state = seasonStates[seasonId];
+        status = state.status;
+        totalParticipants = state.totalParticipants;
+        totalTickets = state.totalTickets;
+        totalPrizePool = state.totalPrizePool;
     }
 
-    /**
-     * @dev Unpause the contract
-     */
-    function unpause() external onlyRole(ADMIN_ROLE) {
-        _unpause();
+    function getWinners(uint256 seasonId) external view returns (address[] memory) {
+        require(seasonStates[seasonId].status == SeasonStatus.Completed, "Raffle: not completed");
+        return seasonStates[seasonId].winners;
     }
 
-    /**
-     * @dev Get raffle information
-     * @param raffleId ID of the raffle
-     * @return RaffleInfo
-     */
-    function getRaffle(uint256 raffleId) external view returns (RaffleInfo memory) {
-        return raffles[raffleId];
+    // Admin
+    function pauseSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) { require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season"); seasons[seasonId].isActive = false; }
+
+    function updateVRFConfig(uint256 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        vrfSubscriptionId = subscriptionId; vrfKeyHash = keyHash; vrfCallbackGasLimit = callbackGasLimit;
     }
 
-    /**
-     * @dev Get player information for a raffle
-     * @param raffleId ID of the raffle
-     * @param player Address of the player
-     * @return PlayerInfo
-     */
-    function getPlayerInfo(uint256 raffleId, address player) external view returns (PlayerInfo memory) {
-        return playerInfo[raffleId][player];
+    // Internals
+    function _selectWinnersAddressBased(uint256 seasonId, uint256[] calldata randomWords) internal view returns (address[] memory) {
+        SeasonState storage state = seasonStates[seasonId];
+        uint256 winnerCount = seasons[seasonId].winnerCount;
+        if (state.totalTickets == 0 || state.participants.length == 0 || winnerCount == 0) {
+            return new address[](0);
+        }
+
+        address[] memory temp = new address[](winnerCount);
+        bool[] memory picked = new bool[](state.participants.length);
+        uint256 selected = 0;
+
+        for (uint256 i = 0; i < winnerCount && selected < winnerCount; i++) {
+            uint256 ticketNumber = (randomWords[i % randomWords.length] % state.totalTickets) + 1;
+            (uint256 idx, address addr) = _findParticipantByTicket(seasonId, ticketNumber);
+            if (addr != address(0) && !picked[idx]) {
+                temp[selected] = addr;
+                picked[idx] = true;
+                selected++;
+            }
+        }
+
+        // Shrink to exact length
+        address[] memory winners = new address[](selected);
+        for (uint256 k = 0; k < selected; k++) {
+            winners[k] = temp[k];
+        }
+        return winners;
     }
 
-    /**
-     * @dev Get participants of a raffle
-     * @param raffleId ID of the raffle
-     * @return Array of participant addresses
-     */
-    function getParticipants(uint256 raffleId) external view returns (address[] memory) {
-        return raffleParticipants[raffleId];
+    function _findParticipantByTicket(uint256 seasonId, uint256 ticketNumber) internal view returns (uint256 idx, address addr) {
+        SeasonState storage state = seasonStates[seasonId];
+        uint256 cur = 1;
+        for (uint256 j = 0; j < state.participants.length; j++) {
+            address p = state.participants[j];
+            ParticipantPosition storage pos = state.participantPositions[p];
+            uint256 end = cur + pos.ticketCount;
+            if (ticketNumber >= cur && ticketNumber < end) {
+                return (j, p);
+            }
+            cur = end;
+        }
+        return (type(uint256).max, address(0));
     }
 
-    /**
-     * @dev Get winners of a raffle
-     * @param raffleId ID of the raffle
-     * @return Array of winner addresses
-     */
-    function getWinners(uint256 raffleId) external view returns (address[] memory) {
-        return raffleWinners[raffleId];
+    function _setupPrizeDistribution(uint256 seasonId, address[] memory /*winners*/, uint256 /*totalPrizePool*/) internal {
+        seasons[seasonId].isCompleted = true; seasonStates[seasonId].status = SeasonStatus.Completed; emit PrizeDistributionSetup(seasonId, address(0));
+    }
+
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) return "0";
+        uint256 temp = value; uint256 digits;
+        while (temp != 0) { digits++; temp /= 10; }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) { digits -= 1; buffer[digits] = bytes1(uint8(48 + uint256(value % 10))); value /= 10; }
+        return string(buffer);
     }
 }
