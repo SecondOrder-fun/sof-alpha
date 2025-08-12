@@ -37,6 +37,14 @@ All frontend development setup tasks have been completed:
   - [x] Create SSEContext for managing connections (src/context/SSEContext.jsx)
   - [x] Add SSEProvider to main.jsx
   - [x] Create SSE test component (src/components/common/SSETest.jsx)
+  
+### Routing Scaffolding (COMPLETED)
+
+- [x] Scaffold React Router structure under `src/routes/`
+  - [x] Create `Home.jsx`, `Test.jsx`, and `NotFound.jsx`
+  - [x] Update router to lazy-load routes with `React.lazy` and `Suspense` in `src/main.jsx`
+  - [x] Add index route (`/` → `Home`) and catch-all 404 route (`*` → `NotFound`)
+  - [x] Replace prior test page reference from `src/app/test/page.jsx` to `src/routes/Test.jsx`
 
 ### Backend Services Setup
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -42,7 +42,10 @@ const farcasterConfig = {
   rpcUrl: 'https://mainnet.optimism.io',
 };
 
-import TestPage from './app/test/page';
+// Lazy-loaded route components
+const Home = lazy(() => import('./routes/Home'));
+const Test = lazy(() => import('./routes/Test'));
+const NotFound = lazy(() => import('./routes/NotFound'));
 
 // Create router
 const router = createBrowserRouter([
@@ -52,8 +55,28 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       {
+        index: true,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <Home />
+          </Suspense>
+        ),
+      },
+      {
         path: 'test',
-        element: <TestPage />,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <Test />
+          </Suspense>
+        ),
+      },
+      {
+        path: '*',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <NotFound />
+          </Suspense>
+        ),
       },
     ],
   },
