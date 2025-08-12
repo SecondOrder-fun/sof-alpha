@@ -2,9 +2,8 @@
 // Fastify routes to expose onchain-backed raffle data (read-only)
 
 import { getChainByKey } from "../config/chain.js";
-
-// TODO: replace with real ABI imports
-// import RaffleAbi from "../../abis/Raffle.json" assert { type: "json" };
+import { getPublicClient } from "../lib/viemClient.js";
+import RaffleAbi from "../abis/RaffleAbi.js";
 
 /**
  * Registers raffle routes.
@@ -15,16 +14,19 @@ export default async function raffleRoutes(fastify) {
   fastify.get("/api/raffles", async (request, reply) => {
     const network = String(request.query.network || process.env.DEFAULT_NETWORK || "LOCAL");
     const chain = getChainByKey(network);
-    // const client = getPublicClient(network); // Uncomment when onchain reads are wired
+    const client = getPublicClient(network);
 
     if (!chain.raffle) {
       return reply.code(200).send({ items: [], network, message: "RAFFLE address not set" });
     }
 
     try {
-      // Example placeholder until ABI wired
-      // const currentSeasonId = await client.readContract({ address: chain.raffle, abi: RaffleAbi, functionName: 'currentSeasonId' });
-      const currentSeasonId = null;
+      const currentSeasonId = await client.readContract({
+        address: chain.raffle,
+        abi: RaffleAbi,
+        functionName: "currentSeasonId",
+        args: [],
+      });
       return { items: currentSeasonId != null ? [{ id: Number(currentSeasonId) }] : [], network };
     } catch (err) {
       request.log.error({ err }, "raffles list failed");
@@ -42,7 +44,7 @@ export default async function raffleRoutes(fastify) {
     if (!chain.raffle) return reply.code(404).send({ error: "RAFFLE_NOT_CONFIGURED" });
 
     try {
-      // const details = await client.readContract({ address: chain.raffle, abi: RaffleAbi, functionName: 'getSeasonDetails', args: [BigInt(id)] });
+      // TODO: implement getSeasonDetails read when ABI is added
       const details = null;
       return { id: Number(id), details, network };
     } catch (err) {

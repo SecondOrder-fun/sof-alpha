@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractsByKey } from "@/config/contracts";
+import RaffleAbi from "@/contracts/abis/Raffle.json";
 
 export function useRaffleRead() {
   const netKey = getStoredNetworkKey();
@@ -25,11 +26,16 @@ export function useRaffleRead() {
     });
   }, [net.id, net.name, net.rpcUrl]);
 
-  // Placeholder fetchers until ABI is wired
   const fetchCurrentSeasonId = async () => {
     if (!addr.RAFFLE) return null;
-    // return await client.readContract({ address: addr.RAFFLE, abi: RaffleAbi, functionName: 'currentSeasonId' });
-    return null;
+    const id = await client.readContract({
+      address: addr.RAFFLE,
+      abi: RaffleAbi,
+      functionName: "currentSeasonId",
+      args: [],
+    });
+    // Ensure number for convenience in UI
+    return Number(id);
   };
 
   const currentSeasonQuery = useQuery({
@@ -57,7 +63,7 @@ export function useSeasonDetailsQuery(seasonId) {
 
   const fetchSeasonDetails = async () => {
     if (!addr.RAFFLE || seasonId == null) return null;
-    // return await client.readContract({ address: addr.RAFFLE, abi: RaffleAbi, functionName: 'getSeasonDetails', args: [seasonId] });
+    // TODO: implement when getSeasonDetails ABI is available
     return null;
   };
 
