@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import PropTypes from 'prop-types';
-import SSEContext from './sseContext';
+import SSEContext from './SSEContext';
 
 export const SSEProvider = ({ children }) => {
   const connectionsRef = useRef({});
@@ -84,4 +84,4 @@ SSEProvider.propTypes = {
   children: PropTypes.node.isRequired
 };
 
-export default SSEContext;
+export default SSEProvider;
