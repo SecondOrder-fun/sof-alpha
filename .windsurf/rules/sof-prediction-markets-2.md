@@ -1,5 +1,5 @@
 ---
-trigger: manual
+trigger: always_on
 ---
 
 # SecondOrder.fun Prediction Market Integration: Technical Implementation Part 2

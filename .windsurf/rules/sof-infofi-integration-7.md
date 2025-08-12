@@ -1,5 +1,5 @@
 ---
-trigger: manual
+trigger: always_on
 ---
 
 # SecondOrder.fun InfoFi Integration: Complete Technical Specification Part 7
