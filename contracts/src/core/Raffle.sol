@@ -5,16 +5,16 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
 
 /**
  * @title Raffle Contract
- * @notice Manages seasons, deploys per-season RaffleToken and SOFBondingCurve, integrates VRF v2+.
+ * @notice Manages seasons, deploys per-season RaffleToken and SOFBondingCurve, integrates VRF v2.
  */
-contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
+contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
     using SafeERC20 for IERC20;
 
     // Roles
@@ -22,9 +22,10 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
     bytes32 public constant BONDING_CURVE_ROLE = keccak256("BONDING_CURVE_ROLE");
 
-    // VRF v2+
+    // VRF v2
+    VRFCoordinatorV2Interface private COORDINATOR;
     bytes32 public vrfKeyHash;
-    uint256 public vrfSubscriptionId;
+    uint64 public vrfSubscriptionId;
     uint32 public vrfCallbackGasLimit = 100000;
     uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
 
@@ -86,11 +87,12 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
     constructor(
         address _sofToken,
         address _vrfCoordinator,
-        uint256 _vrfSubscriptionId,
+        uint64 _vrfSubscriptionId,
         bytes32 _vrfKeyHash
-    ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
+    ) VRFConsumerBaseV2(_vrfCoordinator) {
         require(_sofToken != address(0), "Raffle: SOF zero");
         sofToken = IERC20(_sofToken);
+        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
         vrfSubscriptionId = _vrfSubscriptionId;
         vrfKeyHash = _vrfKeyHash;
 
@@ -176,24 +178,21 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
         seasonStates[seasonId].status = SeasonStatus.EndRequested;
         emit SeasonLocked(seasonId);
 
-        // VRF request for winner selection (numWords == winnerCount)
-        VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: vrfKeyHash,
-            subId: vrfSubscriptionId,
-            requestConfirmations: VRF_REQUEST_CONFIRMATIONS,
-            callbackGasLimit: vrfCallbackGasLimit,
-            numWords: seasons[seasonId].winnerCount,
-            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
-        });
-
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
+        // VRF v2 request for winner selection (numWords == winnerCount)
+        uint256 requestId = COORDINATOR.requestRandomWords(
+            vrfKeyHash,
+            vrfSubscriptionId,
+            VRF_REQUEST_CONFIRMATIONS,
+            vrfCallbackGasLimit,
+            seasons[seasonId].winnerCount
+        );
         seasonStates[seasonId].vrfRequestId = requestId;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
         vrfRequestToSeason[requestId] = seasonId;
         emit SeasonEndRequested(seasonId, requestId);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         uint256 seasonId = vrfRequestToSeason[requestId];
         require(seasonId != 0, "Raffle: bad req");
         require(seasonStates[seasonId].status == SeasonStatus.VRFPending, "Raffle: bad status");
@@ -301,12 +300,12 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2Plus {
     // Admin
     function pauseSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) { require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season"); seasons[seasonId].isActive = false; }
 
-    function updateVRFConfig(uint256 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function updateVRFConfig(uint64 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit) external onlyRole(DEFAULT_ADMIN_ROLE) {
         vrfSubscriptionId = subscriptionId; vrfKeyHash = keyHash; vrfCallbackGasLimit = callbackGasLimit;
     }
 
     // Internals
-    function _selectWinnersAddressBased(uint256 seasonId, uint256[] calldata randomWords) internal view returns (address[] memory) {
+    function _selectWinnersAddressBased(uint256 seasonId, uint256[] memory randomWords) internal view returns (address[] memory) {
         SeasonState storage state = seasonStates[seasonId];
         uint256 winnerCount = seasons[seasonId].winnerCount;
         if (state.totalTickets == 0 || state.participants.length == 0 || winnerCount == 0) {

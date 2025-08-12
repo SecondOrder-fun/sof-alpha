@@ -5,8 +5,14 @@ libs = ['lib']
 test = 'test'
 script = 'script'
 via_ir = true
+optimizer = true
+optimizer_runs = 20
+bytecode_hash = "none"
+cbor_metadata = false
 remappings = [
   'forge-std/=lib/forge-std/src/'
+  , 'openzeppelin-contracts/=lib/openzeppelin-contracts/'
+  , 'chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/'
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

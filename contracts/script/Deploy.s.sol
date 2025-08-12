@@ -13,12 +13,14 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
         bytes32 keyHash = vm.envBytes32("VRF_KEY_HASH");
-        uint256 subscriptionId = vm.envUint("VRF_SUBSCRIPTION_ID");
+        uint64 subscriptionId = uint64(vm.envUint("VRF_SUBSCRIPTION_ID"));
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy SOF token (for demo purposes; in prod pass existing SOF address)
-        SOFToken sof = new SOFToken("SOF Token", "SOF", 0, msg.sender);
+        // Deploy SOF token with a 10,000,000 SOF premint to the deployer (18 decimals)
+        uint256 initialSupply = 10_000_000 ether; // 10,000,000 * 1e18
+        SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, msg.sender);
+        console2.log("SOF initial supply minted to deployer:", initialSupply);
 
         // Deploy Raffle contract (new signature)
         Raffle raffle = new Raffle(address(sof), vrfCoordinator, subscriptionId, keyHash);
