@@ -85,38 +85,70 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 ## Development Phases
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation
 
 - Complete project structure initialization
 - Set up development environments
 - Implement basic frontend layout
 - Create initial smart contract framework
 
-### Phase 2: Core Functionality (Week 3-4)
+### Phase 2: Core Functionality
 
 - Implement raffle mechanics
 - Develop InfoFi market contracts
 - Build frontend components for raffle display
 - Create backend services for data management
 
-### Phase 3: Integration (Week 5-6)
+### Phase 3: Integration
 
 - Connect frontend to backend services
 - Integrate Web3 functionality
 - Implement real-time SSE updates
 - Develop cross-layer strategy components
 
-### Phase 4: Testing and Refinement (Week 7-8)
+### Phase 4: Testing and Refinement
 
 - Comprehensive testing of all components
 - Security audits of smart contracts
 - Performance optimization
 - User experience refinement
 
+### Phase 5: Core InfoFi Smart Contracts
+
+- Deploy InfoFiMarketFactory.sol with OpenZeppelin AccessControl
+- Implement InfoFiPriceOracle.sol with hybrid pricing model
+- Integrate VRF callbacks with InfoFiSettlement.sol
+- Enhance RaffleBondingCurve.sol with InfoFi event emission
+- Complete smart contract audit and testing
+
+### Phase 6: Real-Time Data Integration
+
+- Implement RealTimePricingService with SSE streams
+- Deploy arbitrage detection system
+- Create database schema and migrations
+- Build backend services for market management
+- Test cross-layer event coordination
+
+### Phase 7: Frontend Integration
+
+- Build InfoFi market components with real-time updates
+- Implement arbitrage opportunity display
+- Create cross-layer strategy panel
+- Add settlement status tracking
+- Build winnings claim interface
+
+### Phase 8: Testing & Optimization
+
+- End-to-end testing of VRF → InfoFi settlement flow
+- Performance optimization for real-time pricing
+- Security testing of arbitrage execution
+- User acceptance testing
+- Production deployment preparation
+
 ## Discovered During Work
 
 - [x] Fix all backend Fastify route lint errors (unused vars, undefined identifiers, unreachable code)
-- [x] Fix all backend/config lint errors (process, require, __dirname, unused vars)
+- [x] Fix all backend/config lint errors (process, require, \_\_dirname, unused vars)
 - [x] Fix all frontend unused variable/import warnings
 - [x] Design and document InfoFi market API endpoints
 - [x] Implement mock implementations for placeholder backend endpoints:
