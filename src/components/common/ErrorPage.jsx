@@ -3,6 +3,14 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const ErrorPage = ({ error, resetErrorBoundary }) => {
+  const handleRetry = () => {
+    if (typeof resetErrorBoundary === 'function') {
+      resetErrorBoundary();
+    } else {
+      // Fallback for Router errorElement usage where no resetErrorBoundary is provided
+      window.location.reload();
+    }
+  };
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
       <div className="max-w-md w-full space-y-8">
@@ -24,7 +32,7 @@ const ErrorPage = ({ error, resetErrorBoundary }) => {
         )}
         
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button onClick={resetErrorBoundary} size="lg">
+          <Button onClick={handleRetry} size="lg">
             Try Again
           </Button>
           <Button asChild variant="outline" size="lg">
@@ -40,7 +48,7 @@ ErrorPage.propTypes = {
   error: PropTypes.shape({
     message: PropTypes.string.isRequired
   }),
-  resetErrorBoundary: PropTypes.func.isRequired
+  resetErrorBoundary: PropTypes.func
 };
 
 export default ErrorPage;
