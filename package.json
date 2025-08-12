@@ -11,7 +11,11 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "lint": "eslint . --max-warnings 0",
-    "preview-https": "vite preview --https"
+    "preview-https": "vite preview --https",
+    "anvil": "anvil -p 8545 --chain-id 31337 --block-base-fee-per-gas 0",
+    "deploy:anvil": "VRF_COORDINATOR=0x000000000000000000000000000000000000cAFe VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000000 VRF_SUBSCRIPTION_ID=0 ANVIL_MNEMONIC=\"test test test test test test test test test test test junk\" forge script contracts/script/Deploy.s.sol:DeployScript --rpc-url http://127.0.0.1:8545 --mnemonic \"$ANVIL_MNEMONIC\" --mnemonic-index 0 --broadcast -vvvv",
+    "deploy:anvil:pk": "VRF_COORDINATOR=0x000000000000000000000000000000000000cAFe VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000000 VRF_SUBSCRIPTION_ID=0 forge script contracts/script/Deploy.s.sol:DeployScript --rpc-url http://127.0.0.1:8545 --private-key \"$ANVIL_PK\" --broadcast -vvvv",
+    "anvil:deploy": "sh -c 'anvil -p 8545 --chain-id 31337 --block-base-fee-per-gas 0 & until curl -s http://127.0.0.1:8545 >/dev/null 2>&1; do sleep 1; done; VRF_COORDINATOR=0x000000000000000000000000000000000000cAFe VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000000 VRF_SUBSCRIPTION_ID=0 ANVIL_MNEMONIC=\"test test test test test test test test test test test junk\" forge script contracts/script/Deploy.s.sol:DeployScript --rpc-url http://127.0.0.1:8545 --mnemonic \"$ANVIL_MNEMONIC\" --mnemonic-index 0 --broadcast -vvvv'"
   },
   "dependencies": {
     "@farcaster/auth-kit": "^0.1.4",

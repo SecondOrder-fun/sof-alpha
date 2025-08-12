@@ -291,3 +291,99 @@ MIT
 ## Contact
 
 For questions or support, please open an issue on GitHub.
+
+## Smart Contract Deployment
+
+This project uses Foundry for deployments via `contracts/script/Deploy.s.sol:DeployScript`.
+
+### Deployment Prerequisites
+
+- Foundry installed (`forge`, `anvil`)
+- Environment variables set (see below)
+
+Required env vars (place in your shell or a `.env` you source before running):
+
+```bash
+# Chainlink VRF (use realistic values for live networks)
+export VRF_COORDINATOR=0x000000000000000000000000000000000000cAFe
+export VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000000
+export VRF_SUBSCRIPTION_ID=0
+
+# Deployer key for testnet/mainnet (never commit!)
+export PRIVATE_KEY=your_private_key
+
+# RPC URLs
+export RPC_URL_TESTNET=https://sepolia.infura.io/v3/<YOUR_KEY>
+export RPC_URL_MAINNET=https://mainnet.infura.io/v3/<YOUR_KEY>
+
+# Optional verification keys if you verify later
+export ETHERSCAN_API_KEY=your_key
+```
+
+### Anvil (Local)
+
+You can use the provided npm scripts from the repo root.
+
+Terminal A (start local node):
+
+```bash
+npm run anvil
+```
+
+Terminal B (deploy to Anvil using default mnemonic):
+
+```bash
+npm run deploy:anvil
+```
+
+One-shot (spawns Anvil, waits, deploys):
+
+```bash
+npm run anvil:deploy
+```
+
+Alternatively, using a private key:
+
+```bash
+export ANVIL_PK=<anvil_account_private_key>
+npm run deploy:anvil:pk
+```
+
+### Testnet
+
+Example (Sepolia shown; replace with your target):
+
+```bash
+cd contracts
+forge script script/Deploy.s.sol:DeployScript \
+  --rpc-url "$RPC_URL_TESTNET" \
+  --private-key "$PRIVATE_KEY" \
+  --broadcast -vvvv
+```
+
+If your deploy script reads VRF env vars, ensure `VRF_COORDINATOR`, `VRF_KEY_HASH`, and `VRF_SUBSCRIPTION_ID` are set for the target chain.
+
+Optional verification (if configured in your script):
+
+```bash
+forge verify-contract --chain sepolia <DEPLOYED_ADDRESS> <FULLY_QUALIFIED_NAME> \
+  --etherscan-api-key "$ETHERSCAN_API_KEY"
+```
+
+### Mainnet
+
+Same flow as testnet, but point to a mainnet RPC. Double-check VRF config and balances.
+
+```bash
+cd contracts
+forge script script/Deploy.s.sol:DeployScript \
+  --rpc-url "$RPC_URL_MAINNET" \
+  --private-key "$PRIVATE_KEY" \
+  --broadcast -vvvv
+```
+
+Best practices:
+
+- Fund the deployer with adequate ETH for gas.
+- Use a hardware wallet or secure key management for `PRIVATE_KEY`.
+- Review `Deploy.s.sol` parameters before broadcasting.
