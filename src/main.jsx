@@ -15,6 +15,7 @@ import ErrorPage from './components/common/ErrorPage';
 import { WalletProvider } from './context/WalletProvider';
 import { FarcasterProvider } from './context/FarcasterProvider';
 import { SSEProvider } from './context/SSEProvider';
+import ClientOnly from './components/common/ClientOnly';
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -29,12 +30,12 @@ const queryClient = new QueryClient({
 
 
 // Initialize Farcaster AuthKit
-const farcasterConfig = {
+const farcasterConfig = typeof window !== 'undefined' ? {
   domain: window.location.host,
-  siweUri: window.location.origin + '/login',
+  siweUri: `${window.location.origin}/login`,
   relay: 'https://relay.farcaster.xyz',
   rpcUrl: 'https://mainnet.optimism.io',
-};
+} : {};
 
 // Lazy-loaded route components
 const Home = lazy(() => import('./routes/Home'));
@@ -72,7 +73,9 @@ const router = createBrowserRouter([
         path: 'raffles',
         element: (
           <Suspense fallback={<div>Loading...</div>}>
-            <RaffleList />
+            <ClientOnly>
+              <RaffleList />
+            </ClientOnly>
           </Suspense>
         ),
       },
