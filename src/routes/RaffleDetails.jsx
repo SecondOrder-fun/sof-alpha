@@ -15,7 +15,7 @@ const RaffleDetails = () => {
   const { seasonId } = useParams();
   const { seasonDetailsQuery } = useRaffleState(seasonId);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
-  const { buyTokens } = useCurve(bondingCurveAddress);
+  const { buyTokens, approve } = useCurve(bondingCurveAddress);
   const [buyAmount, setBuyAmount] = useState('');
   const [chainNow, setChainNow] = useState(null);
 
@@ -54,12 +54,18 @@ const RaffleDetails = () => {
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  const handleBuyTickets = (e) => {
+  const handleBuyTickets = async (e) => {
     e.preventDefault();
     if (!buyAmount) return;
-    // Interpret input as token amount to buy; max SOF set to 0 for now (adjust when pricing is wired)
+    if (!bondingCurveAddress) return;
+    // Reason: contracts typically require spender allowance and a non-zero max spend cap
+    // Use a generous cap until pricing math is wired in the UI
+    const cap = 10n ** 24n; // 1,000,000 SOF with 18 decimals (approx), adjust later
     try {
-      buyTokens.mutate({ tokenAmount: BigInt(buyAmount), maxSofAmount: BigInt(0) });
+      // Approve SOF spend for bonding curve first
+      await approve.mutateAsync({ amount: cap });
+      // Then execute buy with non-zero maxSofAmount to avoid slippage checks failing
+      buyTokens.mutate({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
     } catch (_) {
       // no-op: mutation will surface errors
     }
@@ -142,12 +148,14 @@ const RaffleDetails = () => {
               />
               <Button
                 type="submit"
-                disabled={buyTokens.isPending || seasonDetailsQuery.data.status !== 1}
+                disabled={approve.isPending || buyTokens.isPending || seasonDetailsQuery.data.status !== 1}
               >
-                {buyTokens.isPending ? 'Purchasing...' : 'Buy Tickets'}
+                {approve.isPending || buyTokens.isPending ? 'Processing...' : 'Buy Tickets'}
               </Button>
             </form>
-            {buyTokens.isError && <p className="text-red-500">Error: {buyTokens.error.message}</p>}
+            {(approve.isError || buyTokens.isError) && (
+              <p className="text-red-500">Error: {(approve.error?.message || buyTokens.error?.message)}</p>
+            )}
             {buyTokens.isSuccess && <p className="text-green-500">Purchase successful!</p>}
               </CardContent>
             </Card>

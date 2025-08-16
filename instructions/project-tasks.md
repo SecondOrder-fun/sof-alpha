@@ -219,11 +219,16 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 - **Premint added**: `contracts/script/Deploy.s.sol` now mints 10,000,000 SOF to deployer to simplify local testing/funding.
 - **Docs improved**: `contracts/README.md` updated with buyer funding, env vars, VRF v2 mock fulfillment, and zsh-safe commands.
 - **Tests**: Trading lock enforcement, access control checks, prize pool accounting, zero participants, and duplicate winners handling covered; tests passing locally.
+- **Frontend (raffles UX)**: Replaced "Current Season" with **Active Seasons** grid in `src/routes/RaffleList.jsx` (shows all `status === 1`).
+- **Frontend (guards)**: Added "Season not found or not initialized" guard in `src/routes/RaffleDetails.jsx` to hide default/ghost season structs (1970 timestamps).
+- **Frontend (reads alignment)**: Updated `src/hooks/useAllSeasons.js` to use the selected network key and filter out ghost/default seasons (zero start/end or zero bondingCurve).
+- **Environment**: `.env.local` validated; address and network resolution consistent across reads.
+- **Next Bug**: **Cannot buy tickets in the active raffle**.
 
 ## Discovered During Work
 
 - [x] Fix all backend Fastify route lint errors (unused vars, undefined identifiers, unreachable code)
-- [x] Fix all backend/config lint errors (process, require, \_\_dirname, unused vars)
+- [x] Fix all backend/config lint errors (process, require, __dirname, unused vars)
 - [x] Fix all frontend unused variable/import warnings
 - [x] Design and document InfoFi market API endpoints
 - [x] Implement mock implementations for placeholder backend endpoints:
@@ -231,3 +236,4 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
   - [x] User profile endpoints (`/api/users`)
   - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
   - [x] Add npm scripts to run Anvil and deploy contracts locally (`anvil`, `deploy:anvil`, `anvil:deploy`)
+ - [ ] Investigate and fix: **Cannot buy tickets in the active raffle** (next task)

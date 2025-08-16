@@ -20,7 +20,8 @@ export function useCurve(bondingCurveAddress) {
 
   const curveContractConfig = {
     address: bondingCurveAddress,
-    abi: SOFBondingCurveAbi.abi,
+    // Note: SOFBondingCurve.json exports a raw ABI array, not an object with `.abi`
+    abi: SOFBondingCurveAbi,
   };
 
   /**
@@ -29,7 +30,7 @@ export function useCurve(bondingCurveAddress) {
   const approveMutation = useMutation({
     mutationFn: async ({ amount }) => {
       return await writeContractAsync({
-        address: contracts.SOF_TOKEN, // Address of the main SOF token
+        address: contracts.SOF, // Address of the main SOF token
         abi: ERC20Abi.abi, // Generic ERC20 ABI
         functionName: 'approve',
         args: [bondingCurveAddress, amount],
