@@ -1,6 +1,7 @@
 // React import not needed with Vite JSX transform
 import { Link } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import NetworkToggle from '@/components/common/NetworkToggle';
 
 const Header = () => {
   return (
@@ -11,21 +12,19 @@ const Header = () => {
             SecondOrder.fun
           </Link>
           <nav className="hidden md:flex space-x-6">
-            <Link to="/" className="hover:text-primary transition-colors">
+            <Link to="/raffles" className="hover:text-primary transition-colors">
               Raffles
             </Link>
-            <Link to="/infofi" className="hover:text-primary transition-colors">
-              InfoFi Markets
+            <Link to="/admin" className="hover:text-primary transition-colors">
+              Admin
             </Link>
-            <Link to="/portfolio" className="hover:text-primary transition-colors">
-              Portfolio
-            </Link>
-            <Link to="/leaderboard" className="hover:text-primary transition-colors">
-              Leaderboard
+            <Link to="/account" className="hover:text-primary transition-colors">
+              My Account
             </Link>
           </nav>
         </div>
         <div className="flex items-center space-x-4">
+          <NetworkToggle />
           <ConnectButton
             showBalance={false}
             chainStatus="icon"

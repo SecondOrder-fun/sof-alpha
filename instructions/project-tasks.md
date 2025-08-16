@@ -87,7 +87,7 @@ All frontend development setup tasks have been completed:
   - [ ] Update Wagmi config to switch chains dynamically based on toggle
 
 - **Build & Tooling**
-  - [ ] Create script to copy contract ABIs to frontend directory
+  - [x] Create script to copy contract ABIs to frontend directory
 
 - **Wagmi/Viem Hooks**
   - [x] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
@@ -103,12 +103,12 @@ All frontend development setup tasks have been completed:
   - [x] Implement `RaffleDetails` page to show season timings, status, odds, buy form
   - [x] Implement `AdminPanel` page to create/start/end season, role status
   - [x] Implement `AccountPage` to show user's tickets, past participation, winnings
-  - [ ] Header: `NetworkToggle`, wallet connect, current chain indicator
+  - [x] Header: `NetworkToggle`, wallet connect, current chain indicator
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 - **ENV & Addresses**
   
-  - [ ] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
+  - [x] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
   - [ ] Add `VITE_RAFFLE_ADDRESS_LOCAL`, `VITE_SOF_ADDRESS_LOCAL`, `VITE_CURVE_ADDRESS_LOCAL`
   - [ ] Add testnet equivalents (left empty until deployment)
   - [ ] Update frontend README with network toggle and env examples
