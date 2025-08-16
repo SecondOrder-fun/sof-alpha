@@ -4,7 +4,7 @@ This guide shows how to:
 
 - Start a local Anvil chain with funded accounts
 - Deploy contracts with Foundry scripts
-- (Option A) Stand up a Chainlink VRF v2 mock locally
+- Stand up a Chainlink VRF v2 mock automatically for local development
 - Create and run a raffle season (buy/sell tickets) on the bonding curve
 - Call relevant contract functions end-to-end
 
@@ -27,106 +27,45 @@ export RPC_URL=http://127.0.0.1:8545
 
 ## 2) Environment variables for deployment
 
-The deployment script `contracts/script/Deploy.s.sol` expects:
+The deployment script `contracts/script/Deploy.s.sol` only expects `PRIVATE_KEY` for local Anvil deployment. The VRF mock and its configuration are now handled automatically by the script.
 
-- `PRIVATE_KEY` – your anvil deployer key
-- `VRF_COORDINATOR` – Chainlink VRF v2 coordinator address (mock for local)
-- `VRF_KEY_HASH` – key hash used by the coordinator (mock value OK)
-- `VRF_SUBSCRIPTION_ID` – VRF subId (from mock)
+## 3) Deploy contracts with Foundry script
 
-You can either:
+The script now automatically handles VRF mock deployment and creates a default "Season 1".
 
-- Use a VRF v2 mock (recommended for testing full flow)
-- Or deploy Raffle and avoid calling `requestSeasonEnd` until VRF is properly configured
+It deploys:
 
-## 3) Deploy VRF v2 Mock (Recommended)
-
-The repo includes Chainlink deps via `chainlink-brownie-contracts`. For VRF v2, use `VRFCoordinatorV2Mock`:
-
-```bash
-# Deploy VRF v2 mock (baseFee, gasPriceLink)
-forge create \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol:VRFCoordinatorV2Mock \
-  --constructor-args 100000000000000000 1000000000
-
-export VRF_COORDINATOR=<address_from_output>
-```
-
-Create and fund a subscription, then add your consumer (Raffle):
-
-```bash
-# Create sub (returns uint64 subId via event)
-cast send $VRF_COORDINATOR "createSubscription() returns (uint64)" \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-
-# Get subId from receipt events
-export VRF_SUBSCRIPTION_ID=<decoded_uint64_sub_id>
-
-# Fund sub (mock treats this as LINK-like units)
-cast send $VRF_COORDINATOR "fundSubscription(uint64,uint96)" \
-  $VRF_SUBSCRIPTION_ID 100000000000000000000 \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-
-# Pick any 32-byte keyHash for mock usage
-export VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000001
-```
-
-## 4) Deploy contracts with Foundry script
-
-The script deploys:
-
+- `VRFCoordinatorV2Mock` (for local testing)
 - `SOFToken` (demo local $SOF)
-- `Raffle` (constructed with SOF + VRF config)
+- `Raffle` (constructed with SOF + VRF mock config)
+- `SeasonFactory`
 - `InfoFiMarket` (standalone for now)
 
-Set the required env vars for the script:
-
-```bash
-export VRF_COORDINATOR=<deployed_mock_address>
-export VRF_SUBSCRIPTION_ID=<your_sub_id>
-export VRF_KEY_HASH=<your_keyhash>
-```
+It also performs the following setup:
+- Creates and funds a VRF subscription.
+- Adds the `Raffle` contract as a VRF consumer.
+- Creates a default "Season 1" so the app is ready to use immediately after deployment.
 
 **For ANVIL**
-Set the following env vars:
+Set the following env var if you plan to verify on a testnet (it can be a dummy value for local deployment):
 
 ```bash
 export ETHERSCAN_API_KEY=dummy
 ```
 
-Run the script:
+Run the script from the `contracts` directory:
 
 ```bash
-cd contracts
 forge script script/Deploy.s.sol:DeployScript \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  -vvvv \
-  --sender $(cast wallet address --private-key $PRIVATE_KEY) \
   --via-ir
 ```
 
-After run, note the console logs with deployed addresses:
+After the run, note the console logs with deployed addresses. You will need to copy these into your frontend and backend `.env` files.
 
-```bash
-export SOF_TOKEN_ADDRESS=<deployed_sof_token_address>
-export RAFFLE_ADDRESS=<deployed_raffle_address>
-```
-
-Add the Raffle address as a VRF consumer on the mock (so callbacks work):
-
-```bash
-cast send $VRF_COORDINATOR \
-  "addConsumer(uint64,address)" $VRF_SUBSCRIPTION_ID $RAFFLE_ADDRESS \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-```
-
-Optionally fund the subscription if the mock requires it (some mocks accept LINK-like tokens or don’t enforce funding).
-
-## 5) Creating a season (Raffle)
+## 4) Interacting with the contracts
 
 Contract: `contracts/src/core/Raffle.sol`
 
@@ -164,7 +103,9 @@ struct BondStep {
 }
 ```
 
-### Example: create a season via `cast`
+### Example: create a new season via `cast`
+
+The deployment script automatically creates **Season 1**. The following example shows how to create a subsequent season (which will be Season 2).
 
 Pick a start/end time in the future and steps:
 
@@ -196,7 +137,8 @@ cast send $RAFFLE_ADDRESS \
 Get the current `seasonId` (the contract increments `currentSeasonId`):
 
 ```bash
-SEASON_ID=$(cast call $RAFFLE_ADDRESS "currentSeasonId()" --rpc-url $RPC_URL)
+# The first manually created season will be ID 2, since Season 1 is created on deploy.
+SEASON_ID=2
 
 cast call $RAFFLE_ADDRESS "seasons(uint256)" $SEASON_ID --rpc-url $RPC_URL
 ```
@@ -213,7 +155,7 @@ Fetch season details:
 cast call $RAFFLE_ADDRESS "getSeasonDetails(uint256)" $SEASON_ID --rpc-url $RPC_URL
 ```
 
-## 6) Buying and selling tickets on the curve
+## 5) Buying and selling tickets on the curve
 
 Contract: `contracts/src/curve/SOFBondingCurve.sol`
 
@@ -273,7 +215,7 @@ Notes:
 
 Selling works similarly (ensure you hold raffle tokens). The curve will callback Raffle to update positions.
 
-## 7) Ending the season (VRF)
+## 6) Ending the season (VRF)
 
 When `block.timestamp >= endTime`, end the season and request VRF:
 
@@ -299,7 +241,7 @@ cast call $RAFFLE_ADDRESS "seasonStates(uint256)" $SEASON_ID --rpc-url $RPC_URL
 # parse struct fields; or add a view if convenient
 ```
 
-## 8) Roles & Admin utilities
+## 7) Roles & Admin utilities
 
 - `Raffle` uses AccessControl:
   - `DEFAULT_ADMIN_ROLE` – full admin
@@ -323,7 +265,7 @@ cast send $CURVE "grantRole(bytes32,address)" $(cast keccak "RAFFLE_MANAGER_ROLE
   --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
 
-## 9) Quick reference: core function calls
+## 8) Quick reference: core function calls
 
 - `Raffle.createSeason(config, steps[], buyFeeBps, sellFeeBps) -> seasonId`
 - `Raffle.startSeason(seasonId)`

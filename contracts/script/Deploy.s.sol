@@ -7,20 +7,26 @@ import "../src/core/Raffle.sol";
 import "../src/infofi/InfoFiMarket.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
+import "../src/lib/RaffleTypes.sol";
+import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract DeployScript is Script {
     function run() external {
-        // Load environment variables
-        address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
-        bytes32 keyHash = vm.envBytes32("VRF_KEY_HASH");
-        uint64 subscriptionId = uint64(vm.envUint("VRF_SUBSCRIPTION_ID"));
-
         if (vm.envExists("PRIVATE_KEY")) {
             uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
             vm.startBroadcast(deployerPrivateKey);
         } else {
             vm.startBroadcast();
         }
+
+        // Deploy VRF Mock for local development
+        console2.log("Deploying VRFCoordinatorV2Mock...");
+        VRFCoordinatorV2Mock vrfCoordinator = new VRFCoordinatorV2Mock(1e17, 1e9);
+        uint64 subscriptionId = vrfCoordinator.createSubscription();
+        vrfCoordinator.fundSubscription(subscriptionId, 100 ether);
+        bytes32 keyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        console2.log("VRF Mock deployed at:", address(vrfCoordinator));
+        console2.log("VRF Subscription created with ID:", subscriptionId);
         
         // Deploy SOF token with a 10,000,000 SOF premint to the deployer (18 decimals)
         uint256 initialSupply = 10_000_000 ether; // 10,000,000 * 1e18
@@ -28,7 +34,11 @@ contract DeployScript is Script {
         console2.log("SOF initial supply minted to deployer:", initialSupply);
 
         // Deploy Raffle contract first
-        Raffle raffle = new Raffle(address(sof), vrfCoordinator, subscriptionId, keyHash);
+        Raffle raffle = new Raffle(address(sof), address(vrfCoordinator), subscriptionId, keyHash);
+
+        // Add Raffle contract as a consumer to the VRF mock
+        vrfCoordinator.addConsumer(subscriptionId, address(raffle));
+        console2.log("Raffle contract added as VRF consumer.");
 
         // Deploy SeasonFactory, passing the Raffle contract's address
         SeasonFactory seasonFactory = new SeasonFactory(address(raffle));
@@ -39,9 +49,38 @@ contract DeployScript is Script {
         // Grant the RAFFLE_ADMIN_ROLE on the factory to the Raffle contract
         bytes32 raffleAdminRole = seasonFactory.RAFFLE_ADMIN_ROLE();
         seasonFactory.grantRole(raffleAdminRole, address(raffle));
+
+        // Grant the SEASON_CREATOR_ROLE on the Raffle contract to the SeasonFactory
+        bytes32 seasonCreatorRole = raffle.SEASON_CREATOR_ROLE();
+        raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
+
+        // Create a default Season 0
+        RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
+            name: "Season 0",
+            startTime: block.timestamp + 1 days,
+            endTime: block.timestamp + 15 days,
+            winnerCount: 3,
+            prizePercentage: 5000, // 50%
+            consolationPercentage: 4000, // 40%
+            raffleToken: address(0), // Will be set by the factory
+            bondingCurve: address(0), // Will be set by the factory
+            isActive: false,
+            isCompleted: false
+        });
+
+        RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](3);
+        bondSteps[0] = RaffleTypes.BondStep({rangeTo: 1000, price: 10 ether});
+        bondSteps[1] = RaffleTypes.BondStep({rangeTo: 5000, price: 20 ether});
+        bondSteps[2] = RaffleTypes.BondStep({rangeTo: 10000, price: 30 ether});
+
+        uint16 buyFeeBps = 10; // 0.1%
+        uint16 sellFeeBps = 70; // 0.7%
+
+        raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
+        console2.log("Default Season 0 created.");
         
         vm.stopBroadcast();
         
@@ -50,5 +89,6 @@ contract DeployScript is Script {
         console2.log("SeasonFactory contract deployed at:", address(seasonFactory));
         console2.log("Raffle contract deployed at:", address(raffle));
         console2.log("InfoFiMarket contract deployed at:", address(infoFiMarket));
+        console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
     }
 }

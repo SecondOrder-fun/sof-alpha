@@ -76,7 +76,7 @@ All frontend development setup tasks have been completed:
 - [ ] Add settlement status tracking
 - [ ] Build winnings claim interface
 - [ ] User experience refinement (copy, flows, accessibility)
-- [ ] Implement Admin page authorization (default to deployer `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, allow adding more admins)
+- [x] Implement Admin page authorization (default to deployer `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, allow adding more admins)
 
 ### Frontend Contract Integration (NEXT)
 

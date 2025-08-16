@@ -59,13 +59,26 @@ export function useRaffleRead() {
  */
 export function useSeasonDetailsQuery(seasonId) {
   const netKey = getStoredNetworkKey();
+  const net = getNetworkByKey(netKey);
   const addr = getContractsByKey(netKey);
+
+  const client = useMemo(() => {
+    return createPublicClient({
+      chain: {
+        id: net.id,
+        name: net.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [net.rpcUrl] } },
+      },
+      transport: http(net.rpcUrl),
+    });
+  }, [net.id, net.name, net.rpcUrl]);
 
   const fetchSeasonDetails = async () => {
     if (!addr.RAFFLE || seasonId == null) return null;
     return await client.readContract({
       address: addr.RAFFLE,
-      abi: RaffleAbi.abi,
+      abi: RaffleAbi,
       functionName: "getSeason",
       args: [seasonId],
     });
