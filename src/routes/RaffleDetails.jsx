@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { createPublicClient, http } from 'viem';
 import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
+import { useCurveState } from '@/hooks/useCurveState';
+import { computeMaxWithSlippage, computeMinAfterSlippage, simBuyCurve, simSellCurve } from '@/lib/curveMath';
 
 const RaffleDetails = () => {
   const { seasonId } = useParams();
@@ -25,46 +27,15 @@ const RaffleDetails = () => {
   const [sellEstError, setSellEstError] = useState('');
   const [buyEstimate, setBuyEstimate] = useState(0n);
   const [buyEstError, setBuyEstError] = useState('');
-  const [curveSupply, setCurveSupply] = useState(0n);
-  const [curveReserves, setCurveReserves] = useState(0n);
-  const [curveStep, setCurveStep] = useState(null); // { step, price, rangeTo }
-  const [bondStepsPreview, setBondStepsPreview] = useState([]); // last few steps
-  const [allBondSteps, setAllBondSteps] = useState([]);
+  const { curveSupply, curveReserves, curveStep, bondStepsPreview, allBondSteps, debouncedRefresh } = useCurveState(
+    bondingCurveAddress,
+    { isActive: seasonDetailsQuery?.data?.status === 1, pollMs: 12000 }
+  );
   const [testSell1, setTestSell1] = useState(0n);
   const [testSell10, setTestSell10] = useState(0n);
   const [testBuy1, setTestBuy1] = useState(0n);
   const [testBuy10, setTestBuy10] = useState(0n);
-
-  // Helper to compute min after slippage in basis points safely from string input (e.g., "0.5")
-  const computeMinAfterSlippage = (estimate, pctStr) => {
-    try {
-      const pctFloat = Number.parseFloat(pctStr || '0');
-      if (!Number.isFinite(pctFloat) || pctFloat < 0) return estimate;
-      // Clamp to [0, 100]
-      const clamped = Math.max(0, Math.min(100, pctFloat));
-      // Convert percent to basis points integer (e.g., 1.25% => 125 bps)
-      const bps = BigInt(Math.round(clamped * 100));
-      const deduction = (estimate * bps) / 10000n;
-      const minAmt = estimate - deduction;
-      return minAmt < 0n ? 0n : minAmt;
-    } catch (_e) {
-      return estimate;
-    }
-  };
-
-  // Compute a max cap adding slippage for buys
-  const computeMaxWithSlippage = (estimate, pctStr) => {
-    try {
-      const pctFloat = Number.parseFloat(pctStr || '0');
-      if (!Number.isFinite(pctFloat) || pctFloat < 0) return estimate;
-      const clamped = Math.max(0, Math.min(100, pctFloat));
-      const bps = BigInt(Math.round(clamped * 100));
-      const add = (estimate * bps) / 10000n;
-      return estimate + add;
-    } catch (_e) {
-      return estimate;
-    }
-  };
+  // helpers now imported from lib/curveMath
 
   // Format SOF (18 decimals) to a string with floor(4) decimals
   const formatSof4 = (amountWeiLike) => {
@@ -193,39 +164,6 @@ const RaffleDetails = () => {
         });
         const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
         const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-        // Read curve config pieces for visibility
-        const cfg = await client.readContract({
-          address: bondingCurveAddress,
-          abi: SOFBondingCurveAbi,
-          functionName: 'curveConfig',
-          args: [],
-        });
-        // Read current step
-        const stepInfo = await client.readContract({
-          address: bondingCurveAddress,
-          abi: SOFBondingCurveAbi,
-          functionName: 'getCurrentStep',
-          args: [],
-        });
-        // Get a small preview of steps to validate config
-        let steps = [];
-        try {
-          const all = await client.readContract({
-            address: bondingCurveAddress,
-            abi: SOFBondingCurveAbi,
-            functionName: 'getBondSteps',
-            args: [],
-          });
-          steps = Array.isArray(all) ? all : [];
-        } catch (e) { void e; }
-        if (!cancelled) {
-          setCurveSupply(cfg[0] ?? 0n);
-          setCurveReserves(cfg[1] ?? 0n);
-          // stepInfo => [step, price, rangeTo]
-          setCurveStep({ step: stepInfo?.[0] ?? 0n, price: stepInfo?.[1] ?? 0n, rangeTo: stepInfo?.[2] ?? 0n });
-          setBondStepsPreview(steps.slice(Math.max(0, steps.length - 3)));
-          setAllBondSteps(steps);
-        }
         if (!sellAmount) { if (!cancelled) setSellEstimate(0n); return; }
         const est = await client.readContract({
           address: bondingCurveAddress,
@@ -252,6 +190,14 @@ const RaffleDetails = () => {
     })();
     return () => { cancelled = true; };
   }, [sellAmount, bondingCurveAddress]);
+
+  // Debounced refresh when transactions succeed (buy/sell)
+  useEffect(() => {
+    if (buyTokens.isSuccess || sellTokens.isSuccess) {
+      debouncedRefresh(600);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buyTokens.isSuccess, sellTokens.isSuccess, bondingCurveAddress]);
 
   // Update estimated SOF cost for buy when amount changes
   useEffect(() => {
@@ -300,55 +246,10 @@ const RaffleDetails = () => {
   }, [buyAmount, bondingCurveAddress]);
 
   // Client-side simulator for buy
-  const simBuy = (amount) => {
-    try {
-      const amt = BigInt(amount || '0');
-      if (amt === 0n || allBondSteps.length === 0) return 0n;
-      let current = curveSupply;
-      let target = current + amt;
-      let total = 0n;
-      for (let i = 0; i < allBondSteps.length; i++) {
-        const stepStart = i === 0 ? 0n : BigInt(allBondSteps[i - 1].rangeTo);
-        const stepEnd = BigInt(allBondSteps[i].rangeTo);
-        if (current >= stepEnd) continue; // already above this step
-        if (target <= stepStart) break; // before this step
-        const buyStart = current > stepStart ? current : stepStart;
-        const buyEnd = target < stepEnd ? target : stepEnd;
-        const tokensInStep = buyEnd - buyStart;
-        if (tokensInStep > 0n) total += tokensInStep * BigInt(allBondSteps[i].price);
-      }
-      return total;
-    } catch {
-      return 0n;
-    }
-  };
+  const simBuy = (amount) => simBuyCurve(BigInt(amount || '0'), curveSupply, allBondSteps);
 
   // Client-side simulator as fallback when estimate is 0
-  const simSell = (amount) => {
-    try {
-      const amt = BigInt(amount || '0');
-      if (amt === 0n || allBondSteps.length === 0) return 0n;
-      let currentSupply = curveSupply;
-      if (amt > currentSupply) return 0n;
-      let targetSupply = currentSupply - amt;
-      let total = 0n;
-      for (let i = allBondSteps.length - 1; i >= 0; i--) {
-        const stepStart = i === 0 ? 0n : BigInt(allBondSteps[i - 1].rangeTo);
-        const stepEnd = BigInt(allBondSteps[i].rangeTo);
-        if (targetSupply >= stepEnd) continue;
-        if (currentSupply <= stepStart) break;
-        const sellStart = targetSupply > stepStart ? targetSupply : stepStart;
-        const sellEnd = currentSupply < stepEnd ? currentSupply : stepEnd;
-        const tokensInStep = sellEnd - sellStart;
-        if (tokensInStep > 0n) {
-          total += tokensInStep * BigInt(allBondSteps[i].price);
-        }
-      }
-      return total;
-    } catch {
-      return 0n;
-    }
-  };
+  const simSell = (amount) => simSellCurve(BigInt(amount || '0'), curveSupply, allBondSteps);
 
   return (
     <div>
