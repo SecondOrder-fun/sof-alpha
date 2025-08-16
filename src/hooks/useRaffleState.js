@@ -13,7 +13,20 @@ export function useRaffleState() {
   // Read hooks
   const { currentSeasonQuery } = useRaffleRead();
   const currentSeasonId = currentSeasonQuery.data;
-  const seasonDetailsQuery = useSeasonDetailsQuery(currentSeasonId);
+  const rawSeasonDetailsQuery = useSeasonDetailsQuery(currentSeasonId);
+
+  const seasonDetailsQuery = {
+    ...rawSeasonDetailsQuery,
+    data: rawSeasonDetailsQuery.data
+      ? {
+          config: rawSeasonDetailsQuery.data[0],
+          status: rawSeasonDetailsQuery.data[1],
+          totalParticipants: rawSeasonDetailsQuery.data[2],
+          totalTickets: rawSeasonDetailsQuery.data[3],
+          totalPrizePool: rawSeasonDetailsQuery.data[4],
+        }
+      : null,
+  };
 
   // Admin write hooks
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleAdmin();

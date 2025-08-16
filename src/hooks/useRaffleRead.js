@@ -6,13 +6,12 @@ import { createPublicClient, http } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { getContractsByKey } from "@/config/contracts";
-import RaffleAbi from "@/contracts/abis/Raffle.json";
+import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
 
 export function useRaffleRead() {
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const addr = getContractsByKey(netKey);
+  const addr = getContractAddresses(netKey);
 
   const client = useMemo(() => {
     return createPublicClient({
@@ -30,7 +29,7 @@ export function useRaffleRead() {
     if (!addr.RAFFLE) return null;
     const id = await client.readContract({
       address: addr.RAFFLE,
-      abi: RaffleAbi,
+      abi: RAFFLE_ABI,
       functionName: "currentSeasonId",
       args: [],
     });
@@ -60,7 +59,7 @@ export function useRaffleRead() {
 export function useSeasonDetailsQuery(seasonId) {
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const addr = getContractsByKey(netKey);
+  const addr = getContractAddresses(netKey);
 
   const client = useMemo(() => {
     return createPublicClient({
@@ -78,8 +77,8 @@ export function useSeasonDetailsQuery(seasonId) {
     if (!addr.RAFFLE || seasonId == null) return null;
     return await client.readContract({
       address: addr.RAFFLE,
-      abi: RaffleAbi,
-      functionName: "getSeason",
+      abi: RAFFLE_ABI,
+      functionName: "getSeasonDetails",
       args: [seasonId],
     });
   };

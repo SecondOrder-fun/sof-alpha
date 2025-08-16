@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
 import { useRaffleState } from '@/hooks/useRaffleState';
+import { useAllSeasons } from '@/hooks/useAllSeasons';
+import { Badge } from '@/components/ui/badge';
 import { useAccessControl } from '@/hooks/useAccessControl';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,11 +12,11 @@ import { Input } from '@/components/ui/input';
 
 const AdminPanel = () => {
   const { 
-    currentSeasonQuery,
     createSeason,
     startSeason,
     requestSeasonEnd
   } = useRaffleState();
+  const allSeasonsQuery = useAllSeasons();
   const { address } = useAccount();
   const { hasRole } = useAccessControl();
 
@@ -51,9 +53,6 @@ const AdminPanel = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Admin Panel</h1>
-      <p>Current Season ID: {currentSeasonQuery.data != null ? String(currentSeasonQuery.data) : 'N/A'}</p>
-
-      
       <div className="grid md:grid-cols-2 gap-4 mt-4">
         <Card>
           <CardHeader>
@@ -73,21 +72,37 @@ const AdminPanel = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="md:col-span-1">
           <CardHeader>
-            <CardTitle>Manage Current Season</CardTitle>
-            <CardDescription>Actions for the current active season.</CardDescription>
+            <CardTitle>Manage Seasons</CardTitle>
+            <CardDescription>Start or end existing raffle seasons.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={() => startSeason.mutate({ seasonId: currentSeasonQuery.data })} disabled={startSeason.isPending || currentSeasonQuery.data == null}>
-              {startSeason.isPending ? 'Starting...' : 'Start Season'}
-            </Button>
-            {startSeason.isError && <p className="text-red-500">{startSeason.error.message}</p>}
-
-            <Button onClick={() => requestSeasonEnd.mutate({ seasonId: currentSeasonQuery.data })} disabled={requestSeasonEnd.isPending || currentSeasonQuery.data == null} variant="destructive">
-              {requestSeasonEnd.isPending ? 'Ending...' : 'End Season'}
-            </Button>
-            {requestSeasonEnd.isError && <p className="text-red-500">{requestSeasonEnd.error.message}</p>}
+            {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+            {allSeasonsQuery.error && <p>Error loading seasons: {allSeasonsQuery.error.message}</p>}
+            {allSeasonsQuery.data && allSeasonsQuery.data.map((season) => (
+              <div key={season.id} className="p-2 border rounded flex justify-between items-center">
+                <div>
+                  <p className="font-bold">Season #{season.id} - {season.config.name}</p>
+                  <div className="flex gap-2 mt-1">
+                    <Badge variant={season.config.isActive ? 'secondary' : 'outline'}>
+                      {season.config.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                    <Badge variant={season.config.isCompleted ? 'destructive' : 'outline'}>
+                      {season.config.isCompleted ? 'Completed' : 'Ongoing'}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => startSeason.mutate({ seasonId: season.id })} disabled={startSeason.isPending || season.config.isActive}>
+                    Start
+                  </Button>
+                  <Button onClick={() => requestSeasonEnd.mutate({ seasonId: season.id })} disabled={requestSeasonEnd.isPending || !season.config.isActive || season.config.isCompleted} variant="destructive">
+                    End
+                  </Button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>

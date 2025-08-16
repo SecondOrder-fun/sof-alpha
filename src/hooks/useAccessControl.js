@@ -5,8 +5,7 @@ import { useMemo } from "react";
 import { createPublicClient, http, getAddress } from "viem";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { getContractsByKey } from "@/config/contracts";
-import AccessControlAbi from "@/contracts/abis/AccessControl.json";
+import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
 
 /**
  * Roles can be provided as hex or computed in app. Placeholder until ABI wired.
@@ -14,7 +13,7 @@ import AccessControlAbi from "@/contracts/abis/AccessControl.json";
 export function useAccessControl() {
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const addr = getContractsByKey(netKey);
+  const addr = getContractAddresses(netKey);
 
   const client = useMemo(
     () =>
@@ -40,7 +39,7 @@ export function useAccessControl() {
       const normalized = getAddress(account);
       const has = await client.readContract({
         address: addr.RAFFLE,
-        abi: AccessControlAbi,
+        abi: RAFFLE_ABI,
         functionName: "hasRole",
         args: [roleHex, normalized],
       });

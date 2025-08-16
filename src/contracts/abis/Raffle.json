@@ -97,7 +97,7 @@
       {
         "name": "config",
         "type": "tuple",
-        "internalType": "struct Raffle.SeasonConfig",
+        "internalType": "struct RaffleTypes.SeasonConfig",
         "components": [
           {
             "name": "name",
@@ -115,11 +115,6 @@
             "internalType": "uint256"
           },
           {
-            "name": "maxParticipants",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
             "name": "winnerCount",
             "type": "uint16",
             "internalType": "uint16"
@@ -135,16 +130,6 @@
             "internalType": "uint16"
           },
           {
-            "name": "isActive",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "isCompleted",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "raffleToken",
             "type": "address",
             "internalType": "address"
@@ -153,13 +138,23 @@
             "name": "bondingCurve",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "isActive",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "isCompleted",
+            "type": "bool",
+            "internalType": "bool"
           }
         ]
       },
       {
         "name": "bondSteps",
         "type": "tuple[]",
-        "internalType": "struct SOFBondingCurve.BondStep[]",
+        "internalType": "struct RaffleTypes.BondStep[]",
         "components": [
           {
             "name": "rangeTo",
@@ -254,7 +249,7 @@
       {
         "name": "position",
         "type": "tuple",
-        "internalType": "struct Raffle.ParticipantPosition",
+        "internalType": "struct RaffleStorage.ParticipantPosition",
         "components": [
           {
             "name": "ticketCount",
@@ -333,7 +328,7 @@
       {
         "name": "config",
         "type": "tuple",
-        "internalType": "struct Raffle.SeasonConfig",
+        "internalType": "struct RaffleTypes.SeasonConfig",
         "components": [
           {
             "name": "name",
@@ -351,11 +346,6 @@
             "internalType": "uint256"
           },
           {
-            "name": "maxParticipants",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
             "name": "winnerCount",
             "type": "uint16",
             "internalType": "uint16"
@@ -371,16 +361,6 @@
             "internalType": "uint16"
           },
           {
-            "name": "isActive",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "isCompleted",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "raffleToken",
             "type": "address",
             "internalType": "address"
@@ -389,13 +369,23 @@
             "name": "bondingCurve",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "isActive",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "isCompleted",
+            "type": "bool",
+            "internalType": "bool"
           }
         ]
       },
       {
         "name": "status",
         "type": "uint8",
-        "internalType": "enum Raffle.SeasonStatus"
+        "internalType": "enum RaffleStorage.SeasonStatus"
       },
       {
         "name": "totalParticipants",
@@ -604,6 +594,19 @@
   },
   {
     "type": "function",
+    "name": "seasonFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ISeasonFactory"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "seasonStates",
     "inputs": [
       {
@@ -616,7 +619,7 @@
       {
         "name": "status",
         "type": "uint8",
-        "internalType": "enum Raffle.SeasonStatus"
+        "internalType": "enum RaffleStorage.SeasonStatus"
       },
       {
         "name": "totalParticipants",
@@ -668,11 +671,6 @@
         "internalType": "uint256"
       },
       {
-        "name": "maxParticipants",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
         "name": "winnerCount",
         "type": "uint16",
         "internalType": "uint16"
@@ -688,16 +686,6 @@
         "internalType": "uint16"
       },
       {
-        "name": "isActive",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "isCompleted",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
         "name": "raffleToken",
         "type": "address",
         "internalType": "address"
@@ -706,9 +694,32 @@
         "name": "bondingCurve",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "isActive",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "isCompleted",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setSeasonFactory",
+    "inputs": [
+      {
+        "name": "_seasonFactoryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

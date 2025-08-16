@@ -25,23 +25,23 @@ const RaffleDetails = () => {
       <h1 className="text-2xl font-bold mb-4">Raffle Details</h1>
       {seasonDetailsQuery.isLoading && <p>Loading season details...</p>}
       {seasonDetailsQuery.error && <p>Error: {seasonDetailsQuery.error.message}</p>}
-      {seasonDetailsQuery.data && (
+      {seasonDetailsQuery.data && seasonDetailsQuery.data.config && (
         <Card>
           <CardHeader>
-            <CardTitle>{seasonDetailsQuery.data.name} - Season #{seasonId}</CardTitle>
+            <CardTitle>{seasonDetailsQuery.data.config.name} - Season #{seasonId}</CardTitle>
             <CardDescription>Detailed view of the raffle season.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex space-x-2 my-2">
-              <Badge variant={seasonDetailsQuery.data.isActive ? 'default' : 'secondary'}>
-                {seasonDetailsQuery.data.isActive ? 'Active' : 'Inactive'}
+              <Badge variant={seasonDetailsQuery.data.config.isActive ? 'default' : 'secondary'}>
+                {seasonDetailsQuery.data.config.isActive ? 'Active' : 'Inactive'}
               </Badge>
-              <Badge variant={seasonDetailsQuery.data.isCompleted ? 'destructive' : 'outline'}>
-                {seasonDetailsQuery.data.isCompleted ? 'Completed' : 'Ongoing'}
+              <Badge variant={seasonDetailsQuery.data.config.isCompleted ? 'destructive' : 'outline'}>
+                {seasonDetailsQuery.data.config.isCompleted ? 'Completed' : 'Ongoing'}
               </Badge>
             </div>
-            <p>Start Time: {new Date(Number(seasonDetailsQuery.data.startTime) * 1000).toLocaleString()}</p>
-            <p>End Time: {new Date(Number(seasonDetailsQuery.data.endTime) * 1000).toLocaleString()}</p>
+            <p>Start Time: {new Date(Number(seasonDetailsQuery.data.config.startTime) * 1000).toLocaleString()}</p>
+            <p>End Time: {new Date(Number(seasonDetailsQuery.data.config.endTime) * 1000).toLocaleString()}</p>
 
             <form onSubmit={handleBuyTickets} className="mt-4 space-y-2">
               <Input 

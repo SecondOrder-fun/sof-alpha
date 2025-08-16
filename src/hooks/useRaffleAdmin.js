@@ -4,8 +4,7 @@
 import { useWriteContract } from 'wagmi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { getContractsByKey } from '@/config/contracts';
-import RaffleAbi from '@/contracts/abis/Raffle.json';
+import { getContractAddresses, RAFFLE_ABI } from '@/config/contracts';
 
 /**
  * @notice Hook for Raffle contract administrative write functions.
@@ -13,13 +12,13 @@ import RaffleAbi from '@/contracts/abis/Raffle.json';
  */
 export function useRaffleAdmin() {
   const netKey = getStoredNetworkKey();
-  const contracts = getContractsByKey(netKey);
+  const contracts = getContractAddresses(netKey);
   const { writeContractAsync } = useWriteContract();
   const queryClient = useQueryClient();
 
   const raffleContractConfig = {
     address: contracts.RAFFLE,
-    abi: RaffleAbi.abi, // The ABI is nested under the 'abi' key in the JSON artifact
+    abi: RAFFLE_ABI,
   };
 
   /**

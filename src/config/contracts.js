@@ -10,6 +10,9 @@
  * @property {`0x${string}` | string} INFOFI_MARKET
  */
 
+import RAFFLE_ABI_JSON from '../contracts/abis/Raffle.json';
+export const RAFFLE_ABI = RAFFLE_ABI_JSON;
+
 /** @type {Record<string, ContractAddresses>} */
 export const CONTRACTS = {
   LOCAL: {
@@ -31,7 +34,7 @@ export const CONTRACTS = {
  * @param {string} key
  * @returns {ContractAddresses}
  */
-export function getContractsByKey(key) {
+export function getContractAddresses(key) {
   const k = (key || "LOCAL").toUpperCase();
   return CONTRACTS[k] || CONTRACTS.LOCAL;
 }

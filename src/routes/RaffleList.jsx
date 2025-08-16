@@ -29,15 +29,15 @@ const RaffleList = () => {
         <CardContent>
           {seasonDetailsQuery.isLoading && <p>Loading details...</p>}
           {seasonDetailsQuery.error && <p>Error loading details.</p>}
-          {seasonDetailsQuery.data && (
+          {seasonDetailsQuery.data && seasonDetailsQuery.data.config && (
             <div>
-              <p className="font-bold text-lg">{seasonDetailsQuery.data.name}</p>
+              <p className="font-bold text-lg">{seasonDetailsQuery.data.config.name}</p>
               <div className="flex space-x-2 my-2">
-                <Badge variant={seasonDetailsQuery.data.isActive ? 'default' : 'secondary'}>
-                  {seasonDetailsQuery.data.isActive ? 'Active' : 'Inactive'}
+                <Badge variant={seasonDetailsQuery.data.config.isActive ? 'default' : 'secondary'}>
+                  {seasonDetailsQuery.data.config.isActive ? 'Active' : 'Inactive'}
                 </Badge>
-                <Badge variant={seasonDetailsQuery.data.isCompleted ? 'destructive' : 'outline'}>
-                  {seasonDetailsQuery.data.isCompleted ? 'Completed' : 'Ongoing'}
+                <Badge variant={seasonDetailsQuery.data.config.isCompleted ? 'destructive' : 'outline'}>
+                  {seasonDetailsQuery.data.config.isCompleted ? 'Completed' : 'Ongoing'}
                 </Badge>
               </div>
               <Link to={`/raffles/${currentSeasonQuery.data}`} className="text-blue-500 hover:underline">

@@ -4,7 +4,7 @@
 import { useWriteContract } from 'wagmi';
 import { useMutation } from '@tanstack/react-query';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { getContractsByKey } from '@/config/contracts';
+import { getContractAddresses } from '@/config/contracts';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import ERC20Abi from '@/contracts/abis/ERC20.json'; // Assuming a standard ERC20 ABI is available
 
@@ -15,7 +15,7 @@ import ERC20Abi from '@/contracts/abis/ERC20.json'; // Assuming a standard ERC20
  */
 export function useCurve(bondingCurveAddress) {
   const netKey = getStoredNetworkKey();
-  const contracts = getContractsByKey(netKey);
+  const contracts = getContractAddresses(netKey);
   const { writeContractAsync } = useWriteContract();
 
   const curveContractConfig = {
