@@ -66,7 +66,7 @@ export function useSeasonDetailsQuery(seasonId) {
       chain: {
         id: net.id,
         name: net.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
         rpcUrls: { default: { http: [net.rpcUrl] } },
       },
       transport: http(net.rpcUrl),
@@ -75,18 +75,20 @@ export function useSeasonDetailsQuery(seasonId) {
 
   const fetchSeasonDetails = async () => {
     if (!addr.RAFFLE || seasonId == null) return null;
+    const sid = typeof seasonId === 'bigint' ? seasonId : BigInt(seasonId);
     return await client.readContract({
       address: addr.RAFFLE,
       abi: RAFFLE_ABI,
-      functionName: "getSeasonDetails",
-      args: [seasonId],
+      functionName: 'getSeasonDetails',
+      args: [sid],
     });
   };
 
   return useQuery({
-    queryKey: ["raffle", netKey, "season", seasonId, addr.RAFFLE],
+    queryKey: ['raffle', netKey, 'season', seasonId, addr.RAFFLE],
     queryFn: fetchSeasonDetails,
-    enabled: Boolean(addr.RAFFLE && seasonId != null),
-    staleTime: 10_000,
+    enabled: !!addr.RAFFLE && seasonId != null && String(seasonId).length > 0,
+    staleTime: 5_000,
+    refetchInterval: 10_000,
   });
 }

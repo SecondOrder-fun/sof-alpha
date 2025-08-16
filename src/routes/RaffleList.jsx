@@ -1,44 +1,40 @@
 // src/routes/RaffleList.jsx
 import { Link } from 'react-router-dom';
 import { useRaffleState } from '@/hooks/useRaffleState';
+import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 const RaffleList = () => {
   const { currentSeasonQuery, seasonDetailsQuery } = useRaffleState();
+  const allSeasonsQuery = useAllSeasons();
 
-  const renderContent = () => {
-    if (currentSeasonQuery.isLoading) {
-      return <p>Loading current season...</p>;
-    }
+  const renderBadge = (st) => {
+    const label = st === 1 ? 'Active' : st === 0 ? 'NotStarted' : 'Completed';
+    const variant = st === 1 ? 'default' : st === 0 ? 'secondary' : 'destructive';
+    return <Badge variant={variant}>{label}</Badge>;
+  };
 
-    if (currentSeasonQuery.error) {
-      return <p>Error loading season: {currentSeasonQuery.error.message}</p>;
-    }
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-4">Raffles</h1>
 
-    if (currentSeasonQuery.data == null) {
-      return <p>No active season.</p>;
-    }
-
-    return (
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Current Season: #{String(currentSeasonQuery.data)}</CardTitle>
-          <CardDescription>The currently active raffle season.</CardDescription>
+          <CardTitle>Current Season</CardTitle>
+          <CardDescription>The currently selected season from contract.</CardDescription>
         </CardHeader>
         <CardContent>
-          {seasonDetailsQuery.isLoading && <p>Loading details...</p>}
-          {seasonDetailsQuery.error && <p>Error loading details.</p>}
-          {seasonDetailsQuery.data && seasonDetailsQuery.data.config && (
+          {currentSeasonQuery.isLoading && <p>Loading current season...</p>}
+          {currentSeasonQuery.error && <p>Error loading season: {currentSeasonQuery.error.message}</p>}
+          {currentSeasonQuery.data == null && !currentSeasonQuery.isLoading && (
+            <p>No current season set.</p>
+          )}
+          {currentSeasonQuery.data != null && seasonDetailsQuery.data && (
             <div>
-              <p className="font-bold text-lg">{seasonDetailsQuery.data.config.name}</p>
-              <div className="flex space-x-2 my-2">
-                <Badge variant={seasonDetailsQuery.data.config.isActive ? 'default' : 'secondary'}>
-                  {seasonDetailsQuery.data.config.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-                <Badge variant={seasonDetailsQuery.data.config.isCompleted ? 'destructive' : 'outline'}>
-                  {seasonDetailsQuery.data.config.isCompleted ? 'Completed' : 'Ongoing'}
-                </Badge>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="font-bold text-lg">#{String(currentSeasonQuery.data)} — {seasonDetailsQuery.data.config?.name}</p>
+                {renderBadge(seasonDetailsQuery.data.status)}
               </div>
               <Link to={`/raffles/${currentSeasonQuery.data}`} className="text-blue-500 hover:underline">
                 View Details
@@ -47,13 +43,32 @@ const RaffleList = () => {
           )}
         </CardContent>
       </Card>
-    );
-  };
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Active Raffles</h1>
-      {renderContent()}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Seasons</CardTitle>
+          <CardDescription>Includes started and completed seasons.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+          {allSeasonsQuery.error && <p>Error loading seasons.</p>}
+          {allSeasonsQuery.data && allSeasonsQuery.data.length === 0 && !allSeasonsQuery.isLoading && (
+            <p>No seasons found.</p>
+          )}
+          <div className="space-y-3">
+            {allSeasonsQuery.data && allSeasonsQuery.data.map((s) => (
+              <div key={s.id} className="flex items-center justify-between border rounded p-3">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono">#{s.id}</span>
+                  <span className="font-medium">{s.config?.name}</span>
+                  {renderBadge(s.status)}
+                </div>
+                <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

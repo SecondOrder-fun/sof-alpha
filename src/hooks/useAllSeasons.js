@@ -14,13 +14,13 @@ export function useAllSeasons() {
     if (!addr.RAFFLE || currentSeasonId == null) return [];
 
     const seasonPromises = [];
-    for (let i = 0; i <= currentSeasonId; i++) {
+    for (let i = 0; i <= Number(currentSeasonId); i++) {
       seasonPromises.push(
         client.readContract({
           address: addr.RAFFLE,
           abi: RAFFLE_ABI,
           functionName: 'getSeasonDetails',
-          args: [i],
+          args: [BigInt(i)],
         })
       );
     }
@@ -38,8 +38,10 @@ export function useAllSeasons() {
   };
 
   return useQuery({
-    queryKey: ['allSeasons', currentSeasonQuery.data],
+    queryKey: ['allSeasons', currentSeasonQuery.data, addr.RAFFLE],
     queryFn: fetchAllSeasons,
-    enabled: currentSeasonQuery.isSuccess && currentSeasonQuery.data != null,
+    enabled: Boolean(addr.RAFFLE) && currentSeasonQuery.isSuccess && currentSeasonQuery.data != null,
+    staleTime: 5_000,
+    refetchInterval: 10_000,
   });
 }

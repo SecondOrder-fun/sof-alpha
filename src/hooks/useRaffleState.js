@@ -1,19 +1,18 @@
 // src/hooks/useRaffleState.js
-// Consolidates raffle state and actions into a single hook.
+// Consolidates raffle read-only state into a single hook.
 
 import { useRaffleRead, useSeasonDetailsQuery } from './useRaffleRead';
-import { useRaffleAdmin } from './useRaffleAdmin';
 import { useAccessControl } from './useAccessControl';
 
 /**
- * @notice A unified hook to manage all state and actions for the raffle.
- * @returns {object} An object containing queries, mutations, and role-checking functions.
+ * @notice A unified hook to manage all read-only state for the raffle.
+ * @returns {object} An object containing queries and role-checking functions.
  */
-export function useRaffleState() {
+export function useRaffleState(overrideSeasonId) {
   // Read hooks
   const { currentSeasonQuery } = useRaffleRead();
-  const currentSeasonId = currentSeasonQuery.data;
-  const rawSeasonDetailsQuery = useSeasonDetailsQuery(currentSeasonId);
+  const effectiveSeasonId = overrideSeasonId ?? currentSeasonQuery.data;
+  const rawSeasonDetailsQuery = useSeasonDetailsQuery(effectiveSeasonId);
 
   const seasonDetailsQuery = {
     ...rawSeasonDetailsQuery,
@@ -28,9 +27,6 @@ export function useRaffleState() {
       : null,
   };
 
-  // Admin write hooks
-  const { createSeason, startSeason, requestSeasonEnd } = useRaffleAdmin();
-
   // Access control
   const { hasRole } = useAccessControl();
 
@@ -38,11 +34,6 @@ export function useRaffleState() {
     // Queries
     currentSeasonQuery,
     seasonDetailsQuery,
-
-    // Mutations
-    createSeason,
-    startSeason,
-    requestSeasonEnd,
 
     // Functions
     hasRole,

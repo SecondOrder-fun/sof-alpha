@@ -58,10 +58,21 @@ contract DeployScript is Script {
         InfoFiMarket infoFiMarket = new InfoFiMarket();
 
         // Create a default Season 0
+        // For local/dev testing, allow immediate start via FAST_START env (defaults true)
+        bool fastStart;
+        try vm.envBool("FAST_START") returns (bool v) {
+            fastStart = v;
+        } catch {
+            fastStart = true; // default to fast start when not set
+        }
+
+        uint256 startTs = fastStart ? block.timestamp - 1 hours : block.timestamp + 1 days;
+        uint256 endTs = startTs + 14 days;
+
         RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
             name: "Season 0",
-            startTime: block.timestamp + 1 days,
-            endTime: block.timestamp + 15 days,
+            startTime: startTs,
+            endTime: endTs,
             winnerCount: 3,
             prizePercentage: 5000, // 50%
             consolationPercentage: 4000, // 40%
