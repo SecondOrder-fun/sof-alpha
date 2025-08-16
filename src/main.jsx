@@ -3,9 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
-import { mainnet, polygon, optimism, arbitrum, base } from 'wagmi/chains';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { mainnet, polygon, optimism, arbitrum, base } from 'wagmi/chains'; // Keep for Farcaster AuthKit
+import { WagmiConfigProvider } from './context/WagmiConfigProvider';
 import { AuthKitProvider } from '@farcaster/auth-kit';
 import '@rainbow-me/rainbowkit/styles.css';
 import './styles/tailwind.css';
@@ -26,13 +26,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Initialize Wagmi and RainbowKit
-const config = getDefaultConfig({
-  appName: 'SecondOrder.fun',
-  projectId: import.meta.env.VITE_WALLET_CONNECT_PROJECT_ID || 'YOUR_PROJECT_ID_HERE',
-  chains: [mainnet, polygon, optimism, arbitrum, base],
-  ssr: true,
-});
+
 
 // Initialize Farcaster AuthKit
 const farcasterConfig = {
@@ -121,7 +115,7 @@ const router = createBrowserRouter([
 // Render application
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <WagmiProvider config={config}>
+    <WagmiConfigProvider>
       <AuthKitProvider config={farcasterConfig}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider>
@@ -136,6 +130,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           </RainbowKitProvider>
         </QueryClientProvider>
       </AuthKitProvider>
-    </WagmiProvider>
+    </WagmiConfigProvider>
   </React.StrictMode>,
 );

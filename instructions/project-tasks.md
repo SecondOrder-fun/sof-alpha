@@ -84,7 +84,7 @@ All frontend development setup tasks have been completed:
   - [x] Provide network config via `src/config/networks.js` (RPC URLs, chain IDs)
   - [x] Provide contract address map via `src/config/contracts.js` (RAFFLE, SOF, BONDING_CURVE per network)
   - [x] Default network to Local/Anvil; persist selection in localStorage
-  - [ ] Update Wagmi config to switch chains dynamically based on toggle
+  - [x] Update Wagmi config to switch chains dynamically based on toggle
 
 - **Build & Tooling**
   - [x] Create script to copy contract ABIs to frontend directory
@@ -109,7 +109,7 @@ All frontend development setup tasks have been completed:
 - **ENV & Addresses**
   
   - [x] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
-  - [ ] Add `VITE_RAFFLE_ADDRESS_LOCAL`, `VITE_SOF_ADDRESS_LOCAL`, `VITE_CURVE_ADDRESS_LOCAL`
+  - [x] Add `VITE_RAFFLE_ADDRESS_LOCAL`, `VITE_SOF_ADDRESS_LOCAL`, `VITE_SEASON_FACTORY_ADDRESS_LOCAL`, `VITE_INFOFI_MARKET_ADDRESS_LOCAL`
   - [ ] Add testnet equivalents (left empty until deployment)
   - [ ] Update frontend README with network toggle and env examples
   - [x] Add `.env.example` template with all required frontend/backend variables
@@ -171,6 +171,7 @@ All frontend development setup tasks have been completed:
 - [x] Add minimal Foundry tests for season-based Raffle + BondingCurve integration
 - [ ] Security audits of smart contracts
 - [x] Update `Deploy.s.sol` to premint 10,000,000 SOF to deployer (local runs)
+- [x] Resolve contract size limit by refactoring with SeasonFactory
 - [ ] Deploy InfoFiMarketFactory.sol with AccessControl (testnet)
 - [ ] Integrate VRF callbacks with InfoFiSettlement.sol (testnet validation)
 - [ ] Enhance RaffleBondingCurve.sol with InfoFi event emission (verified on testnet)
@@ -209,7 +210,9 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 - [ ] Production deployment preparation (envs, build, CI/CD)
 
-## Latest Progress (2025-08-13)
+- [ ] Refactor contract files to move library-like contracts into `contracts/src/lib`
+
+## Latest Progress (2025-08-16)
 
 - **Local VRF v2 flow validated**: Created season, started, advanced chain time, called `requestSeasonEnd()`; SeasonEndRequested emitted and VRF request created.
 - **Premint added**: `contracts/script/Deploy.s.sol` now mints 10,000,000 SOF to deployer to simplify local testing/funding.

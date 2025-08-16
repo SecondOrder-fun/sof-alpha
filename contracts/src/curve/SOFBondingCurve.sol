@@ -7,7 +7,8 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {IRaffleToken} from "./IRaffleToken.sol";
-import {IRaffle} from "../core/IRaffle.sol";
+import {IRaffle} from "../lib/IRaffle.sol";
+import {RaffleTypes} from "../lib/RaffleTypes.sol";
 
 /**
  * @title SOF Bonding Curve
@@ -27,11 +28,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     address public raffle;
     uint256 public raffleSeasonId;
 
-    // Mint.club-inspired BondStep structure
-    struct BondStep {
-        uint128 rangeTo; // Token supply level where this step ends
-        uint128 price; // Price in $SOF per token for this step
-    }
+
 
     // Curve configuration
     struct CurveConfig {
@@ -45,7 +42,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     CurveConfig public curveConfig;
-    BondStep[] public bondSteps;
+    RaffleTypes.BondStep[] public bondSteps;
 
     // Events
     event TokensPurchased( // total paid including fee
@@ -72,7 +69,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param _buyFee Buy fee in basis points
      * @param _sellFee Sell fee in basis points
      */
-    function initializeCurve(address _raffleToken, BondStep[] calldata _bondSteps, uint16 _buyFee, uint16 _sellFee)
+    function initializeCurve(address _raffleToken, RaffleTypes.BondStep[] calldata _bondSteps, uint16 _buyFee, uint16 _sellFee)
         external
         onlyRole(RAFFLE_MANAGER_ROLE)
     {
@@ -306,7 +303,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @notice Get all bond steps
      */
-    function getBondSteps() external view returns (BondStep[] memory) {
+    function getBondSteps() external view returns (RaffleTypes.BondStep[] memory) {
         return bondSteps;
     }
 

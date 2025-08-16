@@ -9,18 +9,17 @@ import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
+import "./RaffleStorage.sol";
+import "../lib/RaffleLogic.sol";
+import "../lib/ISeasonFactory.sol";
+import "../lib/RaffleTypes.sol";
 
 /**
  * @title Raffle Contract
  * @notice Manages seasons, deploys per-season RaffleToken and SOFBondingCurve, integrates VRF v2.
  */
-contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
+contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
     using SafeERC20 for IERC20;
-
-    // Roles
-    bytes32 public constant SEASON_CREATOR_ROLE = keccak256("SEASON_CREATOR_ROLE");
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
-    bytes32 public constant BONDING_CURVE_ROLE = keccak256("BONDING_CURVE_ROLE");
 
     // VRF v2
     VRFCoordinatorV2Interface private COORDINATOR;
@@ -31,58 +30,7 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
 
     // Core
     IERC20 public immutable sofToken;
-
-    // Season configuration
-    struct SeasonConfig {
-        string name;
-        uint256 startTime;
-        uint256 endTime;
-        uint32 maxParticipants;
-        uint16 winnerCount;
-        uint16 prizePercentage;       // bps
-        uint16 consolationPercentage; // bps
-        bool isActive;
-        bool isCompleted;
-        address raffleToken;
-        address bondingCurve;
-    }
-
-    enum SeasonStatus { NotStarted, Active, EndRequested, VRFPending, Distributing, Completed }
-
-    struct ParticipantPosition {
-        uint256 ticketCount;
-        uint256 entryBlock;
-        uint256 lastUpdateBlock;
-        bool isActive;
-    }
-
-    struct SeasonState {
-        SeasonStatus status;
-        uint256 totalParticipants;
-        uint256 totalTickets;
-        uint256 totalPrizePool;
-        address[] winners;
-        uint256 vrfRequestId;
-        mapping(address => ParticipantPosition) participantPositions;
-        address[] participants;
-    }
-
-    // Storage
-    uint256 public currentSeasonId;
-    mapping(uint256 => SeasonConfig) public seasons;
-    mapping(uint256 => SeasonState) public seasonStates;
-    mapping(uint256 => uint256) public vrfRequestToSeason;
-
-    // Events
-    event SeasonCreated(uint256 indexed seasonId, string name, uint256 startTime, uint256 endTime, address raffleToken, address bondingCurve);
-    event SeasonStarted(uint256 indexed seasonId);
-    event SeasonLocked(uint256 indexed seasonId);
-    event SeasonEndRequested(uint256 indexed seasonId, uint256 vrfRequestId);
-    event WinnersSelected(uint256 indexed seasonId, address[] winners);
-    event PrizeDistributionSetup(uint256 indexed seasonId, address merkleDistributor);
-    event ParticipantAdded(uint256 indexed seasonId, address participant, uint256 tickets, uint256 totalTickets);
-    event ParticipantUpdated(uint256 indexed seasonId, address participant, uint256 newTickets, uint256 totalTickets);
-    event ParticipantRemoved(uint256 indexed seasonId, address participant, uint256 totalTickets);
+    ISeasonFactory public seasonFactory;
 
     constructor(
         address _sofToken,
@@ -101,15 +49,22 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
         _grantRole(EMERGENCY_ROLE, msg.sender);
     }
 
+    function setSeasonFactory(address _seasonFactoryAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(address(seasonFactory) == address(0), "Raffle: factory already set");
+        require(_seasonFactoryAddress != address(0), "Raffle: factory zero");
+        seasonFactory = ISeasonFactory(_seasonFactoryAddress);
+    }
+
     /**
      * @notice Create a new season: deploy RaffleToken and SOFBondingCurve, grant roles, init curve.
      */
     function createSeason(
-        SeasonConfig memory config,
-        SOFBondingCurve.BondStep[] calldata bondSteps,
+        RaffleTypes.SeasonConfig memory config,
+        RaffleTypes.BondStep[] calldata bondSteps,
         uint16 buyFeeBps,
         uint16 sellFeeBps
     ) external onlyRole(SEASON_CREATOR_ROLE) nonReentrant returns (uint256 seasonId) {
+        require(address(seasonFactory) != address(0), "Raffle: factory not set");
         require(config.startTime > block.timestamp, "Raffle: start in future");
         require(config.endTime > config.startTime, "Raffle: bad end");
         require(config.winnerCount > 0, "Raffle: winners 0");
@@ -118,40 +73,26 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
 
         seasonId = ++currentSeasonId;
 
-        // Deploy RaffleToken for this season
-        RaffleToken raffleToken = new RaffleToken(
-            string(abi.encodePacked("SecondOrder ", config.name)),
-            string(abi.encodePacked("SOF-", _toString(seasonId))),
+        (address raffleTokenAddr, address curveAddr) = seasonFactory.createSeasonContracts(
             seasonId,
-            config.name,
-            config.startTime,
-            config.endTime
+            config,
+            bondSteps,
+            buyFeeBps,
+            sellFeeBps
         );
 
-        // Deploy curve for this season (constructor needs sofToken)
-        SOFBondingCurve curve = new SOFBondingCurve(address(sofToken));
-        // Grant Raffle contract manager role on curve and initialize
-        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), address(this));
-        curve.initializeCurve(address(raffleToken), bondSteps, buyFeeBps, sellFeeBps);
-        // Set raffle callback info
-        curve.setRaffleInfo(address(this), seasonId);
-
-        // Grant curve rights on raffle token
-        raffleToken.grantRole(raffleToken.MINTER_ROLE(), address(curve));
-        raffleToken.grantRole(raffleToken.BURNER_ROLE(), address(curve));
-
         // Persist config
-        config.raffleToken = address(raffleToken);
-        config.bondingCurve = address(curve);
+        config.raffleToken = raffleTokenAddr;
+        config.bondingCurve = curveAddr;
         config.isActive = false;
         config.isCompleted = false;
         seasons[seasonId] = config;
         seasonStates[seasonId].status = SeasonStatus.NotStarted;
 
         // Allow the curve to call participant hooks
-        _grantRole(BONDING_CURVE_ROLE, address(curve));
+        _grantRole(BONDING_CURVE_ROLE, curveAddr);
 
-        emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, address(raffleToken), address(curve));
+        emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
     }
 
     function startSeason(uint256 seasonId) external onlyRole(SEASON_CREATOR_ROLE) {
@@ -202,7 +143,7 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
         seasonStates[seasonId].totalPrizePool = totalPrizePool;
 
         // Select winners address-based
-        address[] memory winners = _selectWinnersAddressBased(seasonId, randomWords);
+        address[] memory winners = RaffleLogic._selectWinnersAddressBased(seasonStates[seasonId], seasons[seasonId].winnerCount, randomWords);
         seasonStates[seasonId].winners = winners;
 
         seasonStates[seasonId].status = SeasonStatus.Distributing;
@@ -278,7 +219,7 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
     }
 
     function getSeasonDetails(uint256 seasonId) external view returns (
-        SeasonConfig memory config,
+        RaffleTypes.SeasonConfig memory config,
         SeasonStatus status,
         uint256 totalParticipants,
         uint256 totalTickets,
@@ -305,60 +246,7 @@ contract Raffle is AccessControl, ReentrancyGuard, VRFConsumerBaseV2 {
     }
 
     // Internals
-    function _selectWinnersAddressBased(uint256 seasonId, uint256[] memory randomWords) internal view returns (address[] memory) {
-        SeasonState storage state = seasonStates[seasonId];
-        uint256 winnerCount = seasons[seasonId].winnerCount;
-        if (state.totalTickets == 0 || state.participants.length == 0 || winnerCount == 0) {
-            return new address[](0);
-        }
-
-        address[] memory temp = new address[](winnerCount);
-        bool[] memory picked = new bool[](state.participants.length);
-        uint256 selected = 0;
-
-        for (uint256 i = 0; i < winnerCount && selected < winnerCount; i++) {
-            uint256 ticketNumber = (randomWords[i % randomWords.length] % state.totalTickets) + 1;
-            (uint256 idx, address addr) = _findParticipantByTicket(seasonId, ticketNumber);
-            if (addr != address(0) && !picked[idx]) {
-                temp[selected] = addr;
-                picked[idx] = true;
-                selected++;
-            }
-        }
-
-        // Shrink to exact length
-        address[] memory winners = new address[](selected);
-        for (uint256 k = 0; k < selected; k++) {
-            winners[k] = temp[k];
-        }
-        return winners;
-    }
-
-    function _findParticipantByTicket(uint256 seasonId, uint256 ticketNumber) internal view returns (uint256 idx, address addr) {
-        SeasonState storage state = seasonStates[seasonId];
-        uint256 cur = 1;
-        for (uint256 j = 0; j < state.participants.length; j++) {
-            address p = state.participants[j];
-            ParticipantPosition storage pos = state.participantPositions[p];
-            uint256 end = cur + pos.ticketCount;
-            if (ticketNumber >= cur && ticketNumber < end) {
-                return (j, p);
-            }
-            cur = end;
-        }
-        return (type(uint256).max, address(0));
-    }
-
     function _setupPrizeDistribution(uint256 seasonId, address[] memory /*winners*/, uint256 /*totalPrizePool*/) internal {
         seasons[seasonId].isCompleted = true; seasonStates[seasonId].status = SeasonStatus.Completed; emit PrizeDistributionSetup(seasonId, address(0));
-    }
-
-    function _toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) return "0";
-        uint256 temp = value; uint256 digits;
-        while (temp != 0) { digits++; temp /= 10; }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) { digits -= 1; buffer[digits] = bytes1(uint8(48 + uint256(value % 10))); value /= 10; }
-        return string(buffer);
     }
 }

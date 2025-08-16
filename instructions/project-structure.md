@@ -65,6 +65,27 @@ graph TD
     E --> E3[API Documentation]
 ```
 
+#### Smart Contracts Directory Breakdown
+
+```bash
+contracts/src/
+├── core/
+│   ├── Raffle.sol              # Main raffle contract, manages seasons and VRF
+│   ├── SeasonFactory.sol       # Deploys seasonal contracts (RaffleToken, SOFBondingCurve)
+│   ├── ISeasonFactory.sol      # Interface for SeasonFactory
+│   └── IRaffle.sol             # Interface for Raffle
+├── curve/
+│   └── SOFBondingCurve.sol     # Stepped linear bonding curve for ticket-tokens
+├── infofi/
+│   └── InfoFiMarket.sol        # Prediction market contract (placeholder)
+├── lib/
+│   ├── RaffleLogic.sol         # Shared logic for raffle mechanics
+│   └── RaffleStorage.sol       # Shared storage structs for raffle state
+└── token/
+    ├── SOFToken.sol            # The main project token ($SOF)
+    └── RaffleToken.sol         # Per-season ticket token (ERC20)
+```
+
 ## Detailed Directory Structure Enhanced with InfoFi
 
 ### Root Level Files

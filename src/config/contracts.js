@@ -6,7 +6,8 @@
  * @typedef {Object} ContractAddresses
  * @property {`0x${string}` | string} RAFFLE
  * @property {`0x${string}` | string} SOF
- * @property {`0x${string}` | string} BONDING_CURVE
+ * @property {`0x${string}` | string} SEASON_FACTORY
+ * @property {`0x${string}` | string} INFOFI_MARKET
  */
 
 /** @type {Record<string, ContractAddresses>} */
@@ -14,12 +15,14 @@ export const CONTRACTS = {
   LOCAL: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_LOCAL || "",
     SOF: import.meta.env.VITE_SOF_ADDRESS_LOCAL || "",
-    BONDING_CURVE: import.meta.env.VITE_CURVE_ADDRESS_LOCAL || "",
+    SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_LOCAL || "",
+    INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_LOCAL || "",
   },
   TESTNET: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || "",
     SOF: import.meta.env.VITE_SOF_ADDRESS_TESTNET || "",
-    BONDING_CURVE: import.meta.env.VITE_CURVE_ADDRESS_TESTNET || "",
+    SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_TESTNET || "",
+    INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_TESTNET || "",
   },
 };
 
