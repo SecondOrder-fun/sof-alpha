@@ -51,8 +51,22 @@ export function useCurve(bondingCurveAddress) {
     },
   });
 
+  /**
+   * @notice Sells raffle tickets back to the bonding curve.
+   */
+  const sellTokensMutation = useMutation({
+    mutationFn: async ({ tokenAmount, minSofAmount }) => {
+      return await writeContractAsync({
+        ...curveContractConfig,
+        functionName: 'sellTokens',
+        args: [tokenAmount, minSofAmount],
+      });
+    },
+  });
+
   return {
     approve: approveMutation,
     buyTokens: buyTokensMutation,
+    sellTokens: sellTokensMutation,
   };
 }

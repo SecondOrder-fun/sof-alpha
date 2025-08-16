@@ -213,6 +213,14 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 - [ ] Refactor contract files to move library-like contracts into `contracts/src/lib`
 
+## Latest Progress (2025-08-17)
+
+- **Frontend (sell flow)**: Implemented ticket sell flow in `src/routes/RaffleDetails.jsx` with integer amount, slippage input, estimated SOF receive, and "Min after slippage" display.
+- **Hooks (curve)**: Added `sellTokens(tokenAmount, minSofAmount)` mutation in `src/hooks/useCurve.js` using Wagmi + React Query.
+- **UX & guards**: Disabled sell when season not active; mirrored buy flow feedback states.
+- **Lint & quality**: Removed debug logs, fixed variable shadowing, ensured unconditional hook declarations to avoid HMR hook-order errors.
+- **Docs**: Fixed Markdown list formatting (MD005/MD007, MD032) in this file.
+
 ## Latest Progress (2025-08-16)
 
 - **Local VRF v2 flow validated**: Created season, started, advanced chain time, called `requestSeasonEnd()`; SeasonEndRequested emitted and VRF request created.
@@ -236,4 +244,8 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
   - [x] User profile endpoints (`/api/users`)
   - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
   - [x] Add npm scripts to run Anvil and deploy contracts locally (`anvil`, `deploy:anvil`, `anvil:deploy`)
- - [ ] Investigate and fix: **Cannot buy tickets in the active raffle** (next task)
+- [ ] Investigate and fix: **Cannot buy tickets in the active raffle** (next task)
+
+- [x] Resolved React hook-order warnings during HMR by making hook declarations unconditional in `useCurve`.
+- [x] Fixed Markdown list indentation (MD005, MD007) and blanks-around-lists (MD032) in `instructions/project-tasks.md`.
+- [x] Added UI copy in `RaffleDetails.jsx` to show "Estimated receive" and "Min after slippage" for sell transactions.

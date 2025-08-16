@@ -277,14 +277,12 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         for (int256 i = int256(bondSteps.length) - 1; i >= 0; i--) {
             uint256 stepStart = i == 0 ? 0 : bondSteps[uint256(i - 1)].rangeTo;
             uint256 stepEnd = bondSteps[uint256(i)].rangeTo;
-
             if (targetSupply >= stepEnd) continue;
-            if (currentSupply <= stepStart) break;
-
+            // If currentSupply is below this step, keep iterating to lower steps instead of breaking
+            if (currentSupply <= stepStart) continue;
             uint256 sellStart = targetSupply > stepStart ? targetSupply : stepStart;
             uint256 sellEnd = currentSupply < stepEnd ? currentSupply : stepEnd;
             uint256 tokensInStep = sellEnd - sellStart;
-
             totalReturn += tokensInStep * uint256(bondSteps[uint256(i)].price);
         }
 
