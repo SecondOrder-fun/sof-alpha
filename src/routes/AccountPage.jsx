@@ -89,7 +89,10 @@ const AccountPage = () => {
               args: [address],
             }),
           ]);
-          results.push({ seasonId: s.id, name: s?.config?.name, token: raffleTokenAddr, balance: bal, decimals });
+          // Only include raffles where user balance > 0
+          if ((bal ?? 0n) > 0n) {
+            results.push({ seasonId: s.id, name: s?.config?.name, token: raffleTokenAddr, balance: bal, decimals });
+          }
         } catch (e) {
           // Skip problematic season gracefully
         }
@@ -134,20 +137,12 @@ const AccountPage = () => {
                       <p className="text-muted-foreground">No ticket balances found.</p>
                     )}
                     {(seasonBalancesQuery.data || []).map((row) => (
-                      <div key={row.seasonId} className="border rounded p-2">
-                        <div className="flex justify-between">
-                          <span>Season #{row.seasonId}{row.name ? ` — ${row.name}` : ''}</span>
-                          {(() => {
-                            const d = BigInt(Number(row.decimals || 0));
-                            const base = 10n ** d;
-                            const tickets = (row.balance ?? 0n) / base; // floor
-                            return (
-                              <span className="font-mono">{tickets.toString()} Tickets</span>
-                            );
-                          })()}
-                        </div>
-                        <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
-                      </div>
+                      <RaffleEntryRow
+                        key={row.seasonId}
+                        row={row}
+                        address={address}
+                        client={client}
+                      />
                     ))}
                   </div>
                 )}
@@ -156,6 +151,136 @@ const AccountPage = () => {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+};
+
+// Subcomponent: one raffle entry with expandable transaction history
+const RaffleEntryRow = ({ row, address, client }) => {
+  const [open, setOpen] = useState(false);
+
+  // Fetch transfer logs lazily when expanded
+  const transfersQuery = useQuery({
+    queryKey: ['raffleTransfers', row.token, address],
+    enabled: open && !!client && !!row?.token && !!address,
+    queryFn: async () => {
+      // Use ERC20 Transfer event topic; get all IN/OUT involving user
+      const logs = await client.getLogs({
+        address: row.token,
+        event: {
+          type: 'event',
+          name: 'Transfer',
+          inputs: [
+            { indexed: true, name: 'from', type: 'address' },
+            { indexed: true, name: 'to', type: 'address' },
+            { indexed: false, name: 'value', type: 'uint256' },
+          ],
+        },
+        args: {
+          // Either from=user or to=user; viem supports filtering one indexed arg at a time
+          // We'll fetch twice and merge
+        },
+        fromBlock: 'earliest',
+        toBlock: 'latest',
+      });
+      return logs;
+    },
+    // We'll actually do two queries below to filter both directions since viem doesn't OR by default
+    enabled: false,
+  });
+
+  // Separate queries for IN and OUT, then merge
+  const inQuery = useQuery({
+    queryKey: ['raffleTransfersIn', row.token, address],
+    enabled: open && !!client && !!row?.token && !!address,
+    queryFn: async () => client.getLogs({
+      address: row.token,
+      event: {
+        type: 'event', name: 'Transfer', inputs: [
+          { indexed: true, name: 'from', type: 'address' },
+          { indexed: true, name: 'to', type: 'address' },
+          { indexed: false, name: 'value', type: 'uint256' },
+        ]},
+      args: { to: address },
+      fromBlock: 'earliest', toBlock: 'latest',
+    }),
+  });
+
+  const outQuery = useQuery({
+    queryKey: ['raffleTransfersOut', row.token, address],
+    enabled: open && !!client && !!row?.token && !!address,
+    queryFn: async () => client.getLogs({
+      address: row.token,
+      event: {
+        type: 'event', name: 'Transfer', inputs: [
+          { indexed: true, name: 'from', type: 'address' },
+          { indexed: true, name: 'to', type: 'address' },
+          { indexed: false, name: 'value', type: 'uint256' },
+        ]},
+      args: { from: address },
+      fromBlock: 'earliest', toBlock: 'latest',
+    }),
+  });
+
+  const decimals = Number(row.decimals || 0);
+  const base = 10n ** BigInt(decimals);
+  const tickets = (row.balance ?? 0n) / base;
+
+  const merged = useMemo(() => {
+    const ins = (inQuery.data || []).map((l) => ({
+      dir: 'IN',
+      value: l.args?.value ?? 0n,
+      blockNumber: l.blockNumber,
+      txHash: l.transactionHash,
+      from: l.args?.from,
+      to: l.args?.to,
+    }));
+    const outs = (outQuery.data || []).map((l) => ({
+      dir: 'OUT',
+      value: l.args?.value ?? 0n,
+      blockNumber: l.blockNumber,
+      txHash: l.transactionHash,
+      from: l.args?.from,
+      to: l.args?.to,
+    }));
+    return [...ins, ...outs].sort((a, b) => Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n)));
+  }, [inQuery.data, outQuery.data]);
+
+  return (
+    <div className="border rounded p-2">
+      <button className="w-full text-left" onClick={() => setOpen((v) => !v)}>
+        <div className="flex justify-between">
+          <span>Season #{row.seasonId}{row.name ? ` — ${row.name}` : ''}</span>
+          <span className="font-mono">{tickets.toString()} Tickets</span>
+        </div>
+        <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
+      </button>
+      {open && (
+        <div className="mt-2 border-t pt-2">
+          <p className="font-semibold mb-2">Transactions</p>
+          {(inQuery.isLoading || outQuery.isLoading) && (
+            <p className="text-muted-foreground">Loading...</p>
+          )}
+          {(inQuery.error || outQuery.error) && (
+            <p className="text-red-500">Error loading transfers</p>
+          )}
+          {!inQuery.isLoading && !outQuery.isLoading && (
+            <div className="space-y-1">
+              {merged.length === 0 && (
+                <p className="text-muted-foreground">No transfers found.</p>
+              )}
+              {merged.map((t) => (
+                <div key={t.txHash + String(t.blockNumber)} className="text-sm flex justify-between">
+                  <span className={t.dir === 'IN' ? 'text-green-600' : 'text-red-600'}>
+                    {t.dir === 'IN' ? '+' : '-'}{((t.value ?? 0n) / base).toString()} tickets
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[60%]">{t.txHash}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
