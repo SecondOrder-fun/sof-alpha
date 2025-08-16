@@ -48,6 +48,14 @@ contract RaffleToken is ERC20, ERC20Burnable, AccessControl {
     }
 
     /**
+     * @notice Tickets are non-fractional
+     * @dev Override ERC20 decimals to return 0
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return 0;
+    }
+
+    /**
      * @notice Mint tokens (only callable by bonding curve)
      * @param to Address to mint tokens to
      * @param amount Amount of tokens to mint

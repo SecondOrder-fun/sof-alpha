@@ -64,8 +64,31 @@ const RaffleDetails = () => {
     try {
       // Approve SOF spend for bonding curve first
       await approve.mutateAsync({ amount: cap });
-      // Then execute buy with non-zero maxSofAmount to avoid slippage checks failing
-      buyTokens.mutate({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
+      // Resolve raffle token and decimals to scale human ticket count -> base units
+      const netKey = getStoredNetworkKey();
+      const net = getNetworkByKey(netKey);
+      const client = createPublicClient({
+        chain: {
+          id: net.id,
+          name: net.name,
+          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          rpcUrls: { default: { http: [net.rpcUrl] } },
+        },
+        transport: http(net.rpcUrl),
+      });
+      // Read raffleToken address from curve
+      // Import ABI inline to avoid extra imports here
+      const SOFBondingCurveAbi = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
+      const raffleToken = await client.readContract({
+        address: bondingCurveAddress,
+        abi: SOFBondingCurveAbi,
+        functionName: 'raffleToken',
+        args: [],
+      });
+      // Tickets are non-fractional (decimals = 0). Use whole-unit amount directly.
+      const tokenAmountUnits = BigInt(buyAmount);
+      // Then execute buy with non-zero maxSofAmount
+      buyTokens.mutate({ tokenAmount: tokenAmountUnits, maxSofAmount: cap });
     } catch (_) {
       // no-op: mutation will surface errors
     }

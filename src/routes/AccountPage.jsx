@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useQuery } from '@tanstack/react-query';
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, formatUnits } from 'viem';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
@@ -34,7 +34,7 @@ const AccountPage = () => {
   }, [net.id, net.name, net.rpcUrl]);
 
   // Fetch all seasons (filtered for valid configs in hook)
-  const { allSeasonsQuery } = useAllSeasons();
+  const allSeasonsQuery = useAllSeasons();
 
   // SOF balance query
   const sofBalanceQuery = useQuery({
@@ -52,13 +52,9 @@ const AccountPage = () => {
     staleTime: 15_000,
   });
 
-  // Helper to format BigInt 18-decimals
-  const format18 = (v) => {
-    if (v == null) return '0';
-    const s = v.toString().padStart(19, '0');
-    const intPart = s.slice(0, -18) || '0';
-    const frac = s.slice(-18).replace(/0+$/, '');
-    return frac ? `${intPart}.${frac}` : intPart;
+  // Helper to safely format BigInt by decimals
+  const fmt = (v, decimals) => {
+    try { return formatUnits(v ?? 0n, decimals); } catch { return '0'; }
   };
 
   // For each season, resolve raffleToken from the bonding curve, then read balanceOf
@@ -79,13 +75,21 @@ const AccountPage = () => {
             args: [],
           });
           // Read user balance in raffle token
-          const bal = await client.readContract({
-            address: raffleTokenAddr,
-            abi: ERC20Abi.abi,
-            functionName: 'balanceOf',
-            args: [address],
-          });
-          results.push({ seasonId: s.id, name: s?.config?.name, token: raffleTokenAddr, balance: bal });
+          const [decimals, bal] = await Promise.all([
+            client.readContract({
+              address: raffleTokenAddr,
+              abi: ERC20Abi.abi,
+              functionName: 'decimals',
+              args: [],
+            }),
+            client.readContract({
+              address: raffleTokenAddr,
+              abi: ERC20Abi.abi,
+              functionName: 'balanceOf',
+              args: [address],
+            }),
+          ]);
+          results.push({ seasonId: s.id, name: s?.config?.name, token: raffleTokenAddr, balance: bal, decimals });
         } catch (e) {
           // Skip problematic season gracefully
         }
@@ -95,7 +99,7 @@ const AccountPage = () => {
     staleTime: 15_000,
   });
 
-  const sofBalance = useMemo(() => format18(sofBalanceQuery.data), [sofBalanceQuery.data]);
+  const sofBalance = useMemo(() => fmt(sofBalanceQuery.data, 18), [sofBalanceQuery.data]);
 
   return (
     <div>
@@ -133,7 +137,14 @@ const AccountPage = () => {
                       <div key={row.seasonId} className="border rounded p-2">
                         <div className="flex justify-between">
                           <span>Season #{row.seasonId}{row.name ? ` — ${row.name}` : ''}</span>
-                          <span className="font-mono">{format18(row.balance)} Tickets</span>
+                          {(() => {
+                            const d = BigInt(Number(row.decimals || 0));
+                            const base = 10n ** d;
+                            const tickets = (row.balance ?? 0n) / base; // floor
+                            return (
+                              <span className="font-mono">{tickets.toString()} Tickets</span>
+                            );
+                          })()}
                         </div>
                         <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
                       </div>
