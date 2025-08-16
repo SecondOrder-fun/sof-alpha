@@ -2,6 +2,149 @@
 
 This document defines the data schema and formats for all entities in the SecondOrder.fun platform, including raffles, users, InfoFi markets, and real-time pricing data.
 
+---
+
+## Updated Schema (2025-08-17)
+
+The following models align with the current smart contracts, InfoFi roadmap, and real-time pricing architecture. Values using basis points (bps) are integers from 0–10000.
+
+### Season / Raffle (Onchain-aligned)
+
+```typescript
+type Season = {
+  seasonId: number;                 // Unique season/raffle ID (uint256 onchain)
+  status: number;                   // Enum-like numeric status (e.g., 0=Uninitialized,1=Active,2=Ended)
+  raffleContract: string;           // Address of the Raffle contract
+  bondingCurveContract: string;     // Address of the curve/ticket token
+  startTime: number;                // Unix ms
+  endTime: number;                  // Unix ms
+  winnerCount: number;              // 1,3,5,10, etc.
+  totalTickets: number;             // Current total supply of tickets
+  vrfRequestId?: string;            // Optional VRF request identifier
+  vrfStatus?: string;               // 'none' | 'requested' | 'fulfilled' | 'failed'
+  prizePoolSof?: string;            // Optional SOF totals (string for bigints)
+  consolationPoolSof?: string;
+  buyFeeBps?: number;               // e.g., 10 = 0.1%
+  sellFeeBps?: number;              // e.g., 70 = 0.7%
+}
+```
+
+### Player Position (Per Season)
+
+```typescript
+type PlayerPosition = {
+  seasonId: number;
+  address: string;                  // EVM address
+  ticketCount: number;              // Current tickets
+  startRange: number;               // Sliding-window start index for the player
+  lastUpdate: number;               // Unix ms
+  winProbabilityBps: number;        // (ticketCount / totalTickets) * 10000
+}
+```
+
+### InfoFi Market (Platform-level)
+
+```typescript
+type InfoFiMarket = {
+  id: string | number;              // DB identifier
+  seasonId: number;                 // Associated raffle/season
+  playerAddress?: string;           // For player-focused markets
+  marketType: 'WINNER_PREDICTION' | 'POSITION_SIZE' | 'BEHAVIORAL';
+  contractAddress?: string;         // Onchain market address if deployed
+  initialProbabilityBps: number;    // Snapshot at creation
+  currentProbabilityBps: number;    // Updated via position changes
+  isActive: boolean;
+  isSettled: boolean;
+  settlementTime?: string;          // ISO timestamp
+  winningOutcome?: boolean;         // Depends on market type
+  createdAt: string;                // ISO timestamp
+  updatedAt: string;                // ISO timestamp
+}
+```
+
+### InfoFi Position (User Bet)
+
+```typescript
+type InfoFiUserPosition = {
+  id: string | number;
+  marketId: string | number;
+  userAddress: string;              // EVM address
+  outcome: 'YES' | 'NO';
+  amount: string;                   // Decimal string
+  price?: string;                   // Price at entry
+  createdAt: string;                // ISO timestamp
+}
+```
+
+### InfoFi Winnings (Claimable)
+
+```typescript
+type InfoFiWinnings = {
+  id: string | number;
+  userAddress: string;
+  marketId: string | number;
+  amount: string;                   // Decimal string
+  isClaimed: boolean;
+  claimedAt?: string;               // ISO timestamp
+  createdAt: string;                // ISO timestamp
+}
+```
+
+### Market Pricing Cache (Hybrid Model)
+
+```typescript
+type MarketPricingCache = {
+  marketId: string | number;
+  raffleProbabilityBps: number;     // From onchain positions
+  marketSentimentBps: number;       // From trading activity
+  hybridPriceBps: number;           // (raffleWeight*raffle + marketWeight*sentiment)/10000
+  raffleWeightBps: number;          // Default 7000
+  marketWeightBps: number;          // Default 3000
+  lastUpdated: string;              // ISO timestamp
+}
+```
+
+### Arbitrage Opportunity (Analytics)
+
+```typescript
+type ArbitrageOpportunity = {
+  id: string | number;
+  seasonId: number;
+  playerAddress: string;
+  marketId: string | number;
+  rafflePriceBps: number;           // Effective raffle-implied price
+  marketPriceBps: number;           // Current hybrid market price
+  priceDifferenceBps: number;
+  profitabilityPct: number;         // Percentage (e.g., 2.5 means 2.5%)
+  estimatedProfit: string;          // Decimal string
+  isExecuted: boolean;
+  executedAt?: string;              // ISO timestamp
+  createdAt: string;                // ISO timestamp
+}
+```
+
+### SSE Pricing Update (Hybrid)
+
+```typescript
+type SSEPricingUpdate = {
+  type: 'initial_price' | 'raffle_probability_update' | 'market_sentiment_update' | 'heartbeat';
+  marketId: string | number;
+  raffleProbabilityBps?: number;
+  marketSentimentBps?: number;
+  hybridPriceBps?: number;
+  timestamp: string;                // ISO timestamp
+}
+```
+
+### REST Snapshot (Pricing)
+
+```typescript
+// GET /stream/pricing/:marketId/current
+type PricingSnapshot = MarketPricingCache;
+```
+
+---
+
 ## Raffle Schema
 
 ### Raffle Object

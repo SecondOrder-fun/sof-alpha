@@ -2,6 +2,12 @@
 
 This directory contains documentation for all API endpoints in the SecondOrder.fun platform.
 
+## Base Services
+
+- __Onit Mock/Prod Base__: configurable via `VITE_ONIT_API_BASE` (frontend) / `ONIT_API_BASE` (backend)
+  - Dev: `http://localhost:8787`
+  - Prod: `https://markets.onit-labs.workers.dev`
+
 ## InfoFi Markets API
 
 Documentation for InfoFi market management, including CRUD operations, betting, and odds retrieval.
@@ -12,7 +18,7 @@ Documentation for InfoFi market management, including CRUD operations, betting, 
 
 Documentation for real-time pricing updates via Server-Sent Events (SSE).
 
-- [Pricing API Documentation](./pricing-api.md)
+- [Pricing API Documentation](./pricing-api.md) — `GET /stream/pricing/:marketId`, `GET /stream/pricing/:marketId/current`
 
 ## Arbitrage API
 

@@ -1,75 +1,85 @@
 # Pricing API Documentation
 
-This document outlines the Pricing API endpoints for the SecondOrder.fun platform.
+This document outlines the hybrid Pricing API for InfoFi markets (basis points model).
 
-## Real-Time Pricing Stream
+## Endpoints
 
-### Get Market Pricing Stream
+- `GET /stream/pricing/:marketId` — SSE stream of hybrid price updates
+- `GET /stream/pricing/:marketId/current` — current pricing snapshot (REST)
 
-Establishes a Server-Sent Events (SSE) connection to receive real-time price updates for a specific InfoFi market.
+## Real-Time Pricing Stream (SSE)
 
-- **Endpoint**: `GET /api/pricing/markets/:id/pricing-stream`
-- **Authentication**: None required
+Establishes a Server-Sent Events (SSE) connection to receive real-time price updates for a specific InfoFi market using the hybrid pricing model.
+
+- **Endpoint**: `GET /stream/pricing/:marketId`
+- **Authentication**: None
 - **Protocol**: Server-Sent Events (SSE)
 
-#### Parameters
+### Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| id | number | InfoFi market ID |
+| marketId  | string/number | InfoFi market ID |
 
-#### Response (SSE Events)
+### Event Types
 
-The endpoint sends SSE events with the following types:
+- **initial_price** — sent immediately after connection with the current snapshot
+- **raffle_probability_update** — raffle component changed
+- **market_sentiment_update** — sentiment component changed
+- **heartbeat** — keep-alive message
 
-1. **Connected Event**
-
-```json
-{
-  "type": "connected",
-  "timestamp": 1684154400000
-}
-```
-
-1. **Price Update Event**
+### Payload (bps fields)
 
 ```json
 {
-  "market_id": 1,
-  "yes_price": 0.65,
-  "no_price": 0.35,
-  "timestamp": "2023-05-15T14:30:00Z"
+  "type": "raffle_probability_update",
+  "marketId": 123,
+  "raffleProbabilityBps": 1234,
+  "marketSentimentBps": 1100,
+  "hybridPriceBps": 1188,
+  "timestamp": "2025-08-17T00:00:00.000Z"
 }
 ```
 
-1. **Heartbeat Event**
-
-```json
-{
-  "type": "heartbeat",
-  "timestamp": 1684154400000
-}
-```
-
-#### Example JavaScript Usage
+### Example JavaScript Usage
 
 ```javascript
-const eventSource = new EventSource('/api/pricing/markets/1/pricing-stream');
+const eventSource = new EventSource('/stream/pricing/123');
 
-eventSource.onmessage = function(event) {
+eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  
-  if (data.type === 'connected') {
-    console.log('Connected to pricing stream');
-  } else if (data.type === 'heartbeat') {
-    console.log('Heartbeat received');
-  } else {
-    // Price update
-    console.log('Price update:', data);
+  switch (data.type) {
+    case 'initial_price':
+      // hydrate UI with snapshot
+      break;
+    case 'raffle_probability_update':
+    case 'market_sentiment_update':
+      // update live price from data.hybridPriceBps
+      break;
+    case 'heartbeat':
+    default:
+      break;
   }
 };
 
-eventSource.onerror = function(err) {
-  console.error('EventSource failed:', err);
+eventSource.onerror = (err) => {
+  console.error('SSE error:', err);
 };
+```
+
+## Current Pricing Snapshot (REST)
+
+- **Endpoint**: `GET /stream/pricing/:marketId/current`
+- **Response**: `MarketPricingCache`
+
+```json
+{
+  "marketId": 123,
+  "raffleProbabilityBps": 1234,
+  "marketSentimentBps": 1100,
+  "hybridPriceBps": 1188,
+  "raffleWeightBps": 7000,
+  "marketWeightBps": 3000,
+  "lastUpdated": "2025-08-17T00:00:00.000Z"
+}
 ```

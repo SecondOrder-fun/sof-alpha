@@ -6,9 +6,17 @@ The InfoFi Market API provides endpoints for managing prediction markets, real-t
 
 ## Base URL
 
+The InfoFi layer integrates with the Onit SDK by pointing to a configurable base URL.
+
 ```text
-/api/infofi
+VITE_ONIT_API_BASE (frontend)
+ONIT_API_BASE (backend)
 ```
+
+Defaults:
+
+- Dev (local mock): `http://localhost:8787`
+- Prod (hosted): `https://markets.onit-labs.workers.dev`
 
 ## InfoFi Markets
 
@@ -26,42 +34,44 @@ GET /markets
 {
   "markets": [
     {
-      "id": 1,
-      "raffle_id": 1,
-      "question": "Will Bitcoin reach $100,000 by end of season?",
-      "yes_price": 0.65,
-      "no_price": 0.35,
-      "volume": 12500,
-      "created_at": "2023-01-01T00:00:00Z",
-      "expires_at": "2023-01-15T00:00:00Z",
-      "status": "active"
+      "id": 123,
+      "seasonId": 1,
+      "playerAddress": "0xabc...",
+      "marketType": "WINNER_PREDICTION",
+      "initialProbabilityBps": 1200,
+      "currentProbabilityBps": 1350,
+      "isActive": true,
+      "isSettled": false,
+      "createdAt": "2025-08-17T00:00:00Z",
+      "updatedAt": "2025-08-17T00:10:00Z"
     }
   ]
 }
 ```
 
-### Get InfoFi Market by ID
+### Get InfoFi Market by Address/ID
 
 Retrieve a specific prediction market by ID.
 
 ```http
-GET /markets/:id
+GET /markets/:marketAddress
 ```
 
 **Response:**
 
 ```json
 {
-  "id": 1,
-  "raffle_id": 1,
-  "question": "Will Bitcoin reach $100,000 by end of season?",
-  "yes_price": 0.65,
-  "no_price": 0.35,
-  "volume": 12500,
-  "created_at": "2023-01-01T00:00:00Z",
-  "expires_at": "2023-01-15T00:00:00Z",
-  "status": "active",
-  "description": "Prediction market for Bitcoin price at end of raffle season"
+  "id": 123,
+  "seasonId": 1,
+  "playerAddress": "0xabc...",
+  "marketType": "WINNER_PREDICTION",
+  "initialProbabilityBps": 1200,
+  "currentProbabilityBps": 1350,
+  "isActive": true,
+  "isSettled": false,
+  "createdAt": "2025-08-17T00:00:00Z",
+  "updatedAt": "2025-08-17T00:10:00Z",
+  "contractAddress": "0xMarket..."
 }
 ```
 
@@ -77,10 +87,9 @@ POST /markets
 
 ```json
 {
-  "raffle_id": 1,
-  "question": "Will Bitcoin reach $100,000 by end of season?",
-  "description": "Prediction market for Bitcoin price at end of raffle season",
-  "expires_at": "2023-01-15T00:00:00Z"
+  "seasonId": 1,
+  "playerAddress": "0xabc...",
+  "marketType": "WINNER_PREDICTION"
 }
 ```
 
@@ -88,16 +97,17 @@ POST /markets
 
 ```json
 {
-  "id": 1,
-  "raffle_id": 1,
-  "question": "Will Bitcoin reach $100,000 by end of season?",
-  "yes_price": 0.5,
-  "no_price": 0.5,
-  "volume": 0,
-  "created_at": "2023-01-01T00:00:00Z",
-  "expires_at": "2023-01-15T00:00:00Z",
-  "status": "active",
-  "description": "Prediction market for Bitcoin price at end of raffle season"
+  "id": 123,
+  "seasonId": 1,
+  "playerAddress": "0xabc...",
+  "marketType": "WINNER_PREDICTION",
+  "initialProbabilityBps": 1200,
+  "currentProbabilityBps": 1200,
+  "isActive": true,
+  "isSettled": false,
+  "createdAt": "2025-08-17T00:00:00Z",
+  "updatedAt": "2025-08-17T00:00:00Z",
+  "contractAddress": "0xMarket..."
 }
 ```
 
@@ -153,20 +163,10 @@ DELETE /markets/:id
 
 ## Real-Time Pricing
 
-### SSE Stream for Market Prices
+For pricing stream and snapshot formats, see `pricing-api.md` (hybrid model with bps fields):
 
-Server-Sent Events endpoint for real-time market price updates.
-
-```http
-GET /markets/:id/pricing-stream
-```
-
-**Response (SSE):**
-
-```json
-data: {"type": "price_update", "market_id": 1, "yes_price": 0.67, "no_price": 0.33, "timestamp": "2023-01-01T00:00:00Z"}
-
-```
+- `GET /stream/pricing/:marketId` (SSE)
+- `GET /stream/pricing/:marketId/current` (REST)
 
 ## Arbitrage Opportunities
 

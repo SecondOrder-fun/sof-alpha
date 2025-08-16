@@ -4,6 +4,11 @@
 
 SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency speculation into structured, fair finite games through applied game theory enhanced with InfoFi (Information Finance) integration. The platform combines transparent raffle mechanics with sophisticated prediction markets to create a multi-layer system enabling cross-layer strategies, real-time arbitrage opportunities, and information-based value creation.
 
+## Known Issues (2025-08-17)
+
+- [ ] Tests currently failing locally; triage pending. Add a task to run unit tests across frontend, backend, and contracts, capture failures, and create follow-ups.
+- [ ] Cannot buy tickets in the active raffle (tracked below in "Discovered During Work").
+
 ## Initial Setup Tasks
 
 ### Project Structure Initialization
@@ -212,6 +217,70 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 - [ ] Production deployment preparation (envs, build, CI/CD)
 
 - [ ] Refactor contract files to move library-like contracts into `contracts/src/lib`
+
+## InfoFi Integration Roadmap (NEXT)
+
+This roadmap consolidates the InfoFi specs into executable tasks across contracts, backend, frontend, and testing. These will be the next priorities after stabilizing tests and the ticket purchase bug.
+
+### InfoFi Smart Contracts
+
+- [ ] Deploy `InfoFiMarketFactory.sol` (AccessControl configured) to testnet; record addresses in `src/config/contracts.js` and backend env.
+- [ ] Deploy `InfoFiPriceOracle.sol`; set initial weights (70/30) and wire updater roles.
+- [ ] Deploy `InfoFiSettlement.sol`; grant `SETTLER_ROLE` to raffle/curve contract.
+- [ ] Wire `Raffle`/`BondingCurve` events to factory `onPositionUpdate(...)` (emit and cross-contract call as per spec).
+- [ ] Validate VRF winner flow triggers settlement path (factory → settlement) on testnet.
+
+### Backend (Services, SSE, DB)
+
+- [ ] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
+- [ ] Implement pricing cache service with SSE streams: `/stream/pricing/:marketId` and `/stream/pricing/all`.
+- [ ] Implement `infoFiMarketService` for market CRUD, pricing updates, settlement.
+- [ ] Implement `arbitrageDetectionService` reacting to price updates; persist opportunities.
+- [ ] Add REST endpoints: list markets for raffle, get user positions, place bet (mock/payments TBD), get current price snapshot.
+- [ ] Add healthcheck and env validation for oracle/factory addresses.
+
+### Frontend (Hooks & Components)
+
+- [ ] Hook `useInfoFiMarkets(raffleId)` with React Query to fetch markets and user positions.
+- [ ] Component `ArbitrageOpportunityDisplay` rendering live opportunities and execution stub.
+- [ ] Components: `InfoFiMarketCard`, `ProbabilityChart`, `SettlementStatus`, `WinningsClaimPanel` (MVP scope).
+- [ ] Connect SSE pricing stream to UI (initial snapshot + live updates).
+- [ ] Add basic market actions (place YES/NO bet – mocked until payments are finalized).
+
+### Testing
+
+- [ ] Contracts: fork/testnet tests for factory creation thresholds and settlement triggers.
+- [ ] Backend: unit tests for pricing service and arbitrage detection; SSE integration test.
+- [ ] Frontend: Vitest tests for `useInfoFiMarkets` and `ArbitrageOpportunityDisplay` (success/edge/failure).
+
+### Onit Integration (Local Mock Plan)
+
+Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local deploy), we'll integrate by mocking the API locally and swapping the base URL.
+
+- **Env & Config**
+  - [ ] Add `VITE_ONIT_API_BASE` (frontend) and `ONIT_API_BASE` (backend) to `.env.example`.
+  - [ ] Default to `http://localhost:8787` in dev; `https://markets.onit-labs.workers.dev` in prod.
+
+- **Backend (API Mock, Hono/Fastify)**
+  - [ ] Implement endpoints compatible with `onit-markets` client:
+    - [ ] `GET /api/markets` (list)
+    - [ ] `POST /api/markets` (mock create)
+    - [ ] `GET /api/markets/:marketAddress` (detail)
+    - [ ] `GET /stream/pricing/:marketId/current` (snapshot)
+    - [ ] `GET /stream/pricing/:marketId` (SSE hybrid updates)
+  - [ ] Use SuperJSON-compatible serialization and zod validation (align with SDK expectations).
+
+- **Frontend (Client Wiring)**
+  - [ ] Create `onitClient.ts` wrapper using `getClient(import.meta.env.VITE_ONIT_API_BASE)`.
+  - [ ] Add hooks to consume: list markets, get market, place bet (mock), subscribe to SSE.
+  - [ ] Feature-flag switch between local mock and hosted API by env.
+
+- **Testing**
+  - [ ] Backend: unit tests for endpoints + SSE (initial snapshot + update event).
+  - [ ] Frontend: integration tests validating client calls and SSE handling against local mock.
+
+- **Note**
+  - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
 
 ## Latest Progress (2025-08-17)
 
