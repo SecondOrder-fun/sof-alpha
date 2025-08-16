@@ -86,6 +86,9 @@ All frontend development setup tasks have been completed:
   - [x] Default network to Local/Anvil; persist selection in localStorage
   - [ ] Update Wagmi config to switch chains dynamically based on toggle
 
+- **Build & Tooling**
+  - [ ] Create script to copy contract ABIs to frontend directory
+
 - **Wagmi/Viem Hooks**
   - [x] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
   - [x] `useRaffleAdmin()` for `createSeason()`, `startSeason()`, `requestSeasonEnd()` (role-gated)
