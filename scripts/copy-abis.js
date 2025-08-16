@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,22 +10,17 @@ const contractsDir = path.join(__dirname, '..', 'contracts', 'out');
 const frontendAbisDir = path.join(__dirname, '..', 'src', 'contracts', 'abis');
 
 const contractsToCopy = [
-  {
-    sourceFile: 'Raffle.sol/Raffle.json',
-    destFile: 'Raffle.json',
-  },
-  {
-    sourceFile: 'SOF.sol/SOF.json',
-    destFile: 'SOF.json',
-  },
-  {
-    sourceFile: 'SOFBondingCurve.sol/SOFBondingCurve.json',
-    destFile: 'SOFBondingCurve.json',
-  },
-  {
-    sourceFile: 'AccessControl.sol/AccessControl.json',
-    destFile: 'AccessControl.json',
-  },
+  // Core contracts
+  { sourceFile: 'Raffle.sol/Raffle.json', destFile: 'Raffle.json' },
+  { sourceFile: 'SeasonFactory.sol/SeasonFactory.json', destFile: 'SeasonFactory.json' },
+
+  // Curve + tokens
+  { sourceFile: 'SOFBondingCurve.sol/SOFBondingCurve.json', destFile: 'SOFBondingCurve.json' },
+  { sourceFile: 'RaffleToken.sol/RaffleToken.json', destFile: 'RaffleToken.json' },
+  { sourceFile: 'SOFToken.sol/SOFToken.json', destFile: 'SOFToken.json' },
+
+  // InfoFi
+  { sourceFile: 'InfoFiMarket.sol/InfoFiMarket.json', destFile: 'InfoFiMarket.json' },
 ];
 
 async function copyAbis() {

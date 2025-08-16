@@ -71,12 +71,35 @@ const RaffleDetails = () => {
       {seasonDetailsQuery.isLoading && <p>Loading season details...</p>}
       {seasonDetailsQuery.error && <p>Error: {seasonDetailsQuery.error.message}</p>}
       {seasonDetailsQuery.data && seasonDetailsQuery.data.config && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{seasonDetailsQuery.data.config.name} - Season #{seasonId}</CardTitle>
-            <CardDescription>Detailed view of the raffle season.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        (() => {
+          const cfg = seasonDetailsQuery.data.config;
+          const start = Number(cfg?.startTime || 0);
+          const end = Number(cfg?.endTime || 0);
+          const bc = cfg?.bondingCurve;
+          const isZeroAddr = typeof bc === 'string' && /^0x0{40}$/i.test(bc);
+          const isValid = start > 0 && end > 0 && bc && !isZeroAddr;
+
+          if (!isValid) {
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Season #{seasonId}</CardTitle>
+                  <CardDescription>Detailed view of the raffle season.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Season not found or not initialized.</p>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>{cfg.name} - Season #{seasonId}</CardTitle>
+                <CardDescription>Detailed view of the raffle season.</CardDescription>
+              </CardHeader>
+              <CardContent>
             <div className="flex space-x-2 my-2">
               {(() => {
                 const st = seasonDetailsQuery.data.status;
@@ -87,7 +110,6 @@ const RaffleDetails = () => {
             </div>
             {(() => {
               const st = seasonDetailsQuery.data.status;
-              const cfg = seasonDetailsQuery.data.config;
               const start = Number(cfg.startTime);
               const end = Number(cfg.endTime);
               if (chainNow && st === 0) {
@@ -108,8 +130,8 @@ const RaffleDetails = () => {
               }
               return null;
             })()}
-            <p>Start Time: {new Date(Number(seasonDetailsQuery.data.config.startTime) * 1000).toLocaleString()}</p>
-            <p>End Time: {new Date(Number(seasonDetailsQuery.data.config.endTime) * 1000).toLocaleString()}</p>
+            <p>Start Time: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</p>
+            <p>End Time: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</p>
 
             <form onSubmit={handleBuyTickets} className="mt-4 space-y-2">
               <Input 
@@ -127,8 +149,10 @@ const RaffleDetails = () => {
             </form>
             {buyTokens.isError && <p className="text-red-500">Error: {buyTokens.error.message}</p>}
             {buyTokens.isSuccess && <p className="text-green-500">Purchase successful!</p>}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          );
+        })()
       )}
     </div>
   );

@@ -1,9 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import * as LabelPrimitive from '@radix-ui/react-label';
 import { cn } from '@/lib/utils';
 
 const Label = React.forwardRef(({ className, ...props }, ref) => (
-  <label
+  <LabelPrimitive.Root
     ref={ref}
     className={cn(
       'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
@@ -12,7 +13,8 @@ const Label = React.forwardRef(({ className, ...props }, ref) => (
     {...props}
   />
 ));
-Label.displayName = 'Label';
+
+Label.displayName = LabelPrimitive.Root.displayName || 'Label';
 
 Label.propTypes = {
   className: PropTypes.string

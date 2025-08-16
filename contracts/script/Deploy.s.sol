@@ -57,41 +57,53 @@ contract DeployScript is Script {
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
 
-        // Create a default Season 0
-        // For local/dev testing, allow immediate start via FAST_START env (defaults true)
-        bool fastStart;
-        try vm.envBool("FAST_START") returns (bool v) {
-            fastStart = v;
+        // Optional: Create a default Season 0 (disabled by default)
+        // Control via env var CREATE_SEASON=true to enable.
+        bool createSeason;
+        try vm.envBool("CREATE_SEASON") returns (bool vCreate) {
+            createSeason = vCreate;
         } catch {
-            fastStart = true; // default to fast start when not set
+            createSeason = false; // default: do NOT create a season during deployment
         }
 
-        uint256 startTs = fastStart ? block.timestamp - 1 hours : block.timestamp + 1 days;
-        uint256 endTs = startTs + 14 days;
+        if (createSeason) {
+            // For local/dev testing, allow immediate start via FAST_START env (defaults true)
+            bool fastStart;
+            try vm.envBool("FAST_START") returns (bool v) {
+                fastStart = v;
+            } catch {
+                fastStart = true; // default to fast start when not set
+            }
 
-        RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
-            name: "Season 0",
-            startTime: startTs,
-            endTime: endTs,
-            winnerCount: 3,
-            prizePercentage: 5000, // 50%
-            consolationPercentage: 4000, // 40%
-            raffleToken: address(0), // Will be set by the factory
-            bondingCurve: address(0), // Will be set by the factory
-            isActive: false,
-            isCompleted: false
-        });
+            uint256 startTs = fastStart ? block.timestamp - 1 hours : block.timestamp + 1 days;
+            uint256 endTs = startTs + 14 days;
 
-        RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](3);
-        bondSteps[0] = RaffleTypes.BondStep({rangeTo: 1000, price: 10 ether});
-        bondSteps[1] = RaffleTypes.BondStep({rangeTo: 5000, price: 20 ether});
-        bondSteps[2] = RaffleTypes.BondStep({rangeTo: 10000, price: 30 ether});
+            RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
+                name: "Season 0",
+                startTime: startTs,
+                endTime: endTs,
+                winnerCount: 3,
+                prizePercentage: 5000, // 50%
+                consolationPercentage: 4000, // 40%
+                raffleToken: address(0), // Will be set by the factory
+                bondingCurve: address(0), // Will be set by the factory
+                isActive: false,
+                isCompleted: false
+            });
 
-        uint16 buyFeeBps = 10; // 0.1%
-        uint16 sellFeeBps = 70; // 0.7%
+            RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](3);
+            bondSteps[0] = RaffleTypes.BondStep({rangeTo: 1000, price: 10 ether});
+            bondSteps[1] = RaffleTypes.BondStep({rangeTo: 5000, price: 20 ether});
+            bondSteps[2] = RaffleTypes.BondStep({rangeTo: 10000, price: 30 ether});
 
-        raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
-        console2.log("Default Season 0 created.");
+            uint16 buyFeeBps = 10; // 0.1%
+            uint16 sellFeeBps = 70; // 0.7%
+
+            raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
+            console2.log("Default Season 0 created.");
+        } else {
+            console2.log("Skipping season creation (CREATE_SEASON not set to true).");
+        }
         
         vm.stopBroadcast();
         

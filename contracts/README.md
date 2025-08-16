@@ -31,7 +31,7 @@ The deployment script `contracts/script/Deploy.s.sol` only expects `PRIVATE_KEY`
 
 ## 3) Deploy contracts with Foundry script
 
-The script now automatically handles VRF mock deployment and creates a default "Season 1".
+The script now automatically handles VRF mock deployment. By default, it does NOT create a season on deploy.
 
 It deploys:
 
@@ -44,7 +44,7 @@ It deploys:
 It also performs the following setup:
 - Creates and funds a VRF subscription.
 - Adds the `Raffle` contract as a VRF consumer.
-- Creates a default "Season 1" so the app is ready to use immediately after deployment.
+- (Optional) Creates a default season when explicitly enabled (see examples below).
 
 **For ANVIL**
 Set the following env var if you plan to verify on a testnet (it can be a dummy value for local deployment):
@@ -64,6 +64,28 @@ forge script script/Deploy.s.sol:DeployScript \
 ```
 
 After the run, note the console logs with deployed addresses. You will need to copy these into your frontend and backend `.env` files.
+
+### Enable season creation during deploy (optional)
+
+Season creation is disabled by default. To create a default season during deployment, set the `CREATE_SEASON=true` flag. You can also control whether it starts immediately by setting `FAST_START=true|false` (defaults to `true` when `CREATE_SEASON` is enabled).
+
+Examples:
+
+```bash
+# Using package script from project root
+CREATE_SEASON=true FAST_START=true npm run anvil:deploy
+
+# Or with pnpm
+CREATE_SEASON=true FAST_START=false pnpm run anvil:deploy
+
+# Or running the forge script directly from contracts/
+CREATE_SEASON=true FAST_START=true \
+forge script script/Deploy.s.sol:DeployScript \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --via-ir
+```
 
 ## 4) Interacting with the contracts
 

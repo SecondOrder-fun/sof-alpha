@@ -168,9 +168,27 @@ export function useRaffleWrite() {
     },
   });
 
+  // Emergency-only early end (skips time check). Requires EMERGENCY_ROLE on-chain.
+  const requestSeasonEndEarly = useContractWriteWithFeedback({
+    contractConfig: ({ seasonId }) => {
+      if (!hasAddress) throw new Error('Raffle contract address not configured');
+      return {
+        ...raffleContractConfig,
+        functionName: 'requestSeasonEndEarly',
+        args: [typeof seasonId === 'bigint' ? seasonId : BigInt(seasonId)],
+      };
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['raffle', netKey, 'season', variables.seasonId] });
+      queryClient.invalidateQueries({ queryKey: ['raffle', netKey, 'currentSeasonId'] });
+      queryClient.invalidateQueries({ queryKey: ['allSeasons'] });
+    },
+  });
+
   return {
     createSeason,
     startSeason,
     requestSeasonEnd,
+    requestSeasonEndEarly,
   };
 }

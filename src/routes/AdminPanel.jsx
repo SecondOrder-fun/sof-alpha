@@ -12,6 +12,7 @@ import { getNetworkByKey } from '@/config/networks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { keccak256, stringToHex, parseUnits, formatUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 
@@ -116,7 +117,7 @@ TransactionStatus.propTypes = {
 };
 
 const AdminPanel = () => {
-  const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
+  const { createSeason, startSeason, requestSeasonEnd, requestSeasonEndEarly } = useRaffleWrite();
   const allSeasonsQuery = useAllSeasons();
   const { address } = useAccount();
   const { hasRole } = useAccessControl();
@@ -125,6 +126,7 @@ const AdminPanel = () => {
 
   const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
   const SEASON_CREATOR_ROLE = keccak256(stringToHex('SEASON_CREATOR_ROLE'));
+  const EMERGENCY_ROLE = keccak256(stringToHex('EMERGENCY_ROLE'));
 
   const { data: isAdmin, isLoading: isAdminLoading } = useQuery({
     queryKey: ['isAdmin', address],
@@ -135,6 +137,12 @@ const AdminPanel = () => {
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
     queryKey: ['hasSeasonCreatorRole', address],
     queryFn: () => hasRole(SEASON_CREATOR_ROLE, address),
+    enabled: !!address,
+  });
+
+  const { data: hasEmergencyRole, isLoading: isEmergencyLoading } = useQuery({
+    queryKey: ['hasEmergencyRole', address],
+    queryFn: () => hasRole(EMERGENCY_ROLE, address),
     enabled: !!address,
   });
 
@@ -152,6 +160,7 @@ const AdminPanel = () => {
   // Track which season row initiated actions to scope status/errors per row
   const [lastStartSeasonId, setLastStartSeasonId] = useState(null);
   const [lastEndSeasonId, setLastEndSeasonId] = useState(null);
+  const [lastEarlyEndSeasonId, setLastEarlyEndSeasonId] = useState(null);
   const [pendingStartThenEndId, setPendingStartThenEndId] = useState(null);
   const stepSize = useMemo(() => {
     const max = Number(maxTickets);
@@ -187,6 +196,9 @@ const AdminPanel = () => {
   }, [addresses.SOF, publicClient]);
 
   // Chain time (block.timestamp) for correct time-window checks
+  const [showEarlyEndConfirm, setShowEarlyEndConfirm] = useState(false);
+  const [earlyEndSeasonId, setEarlyEndSeasonId] = useState(null);
+
   const chainTimeQuery = useQuery({
     queryKey: ['chainTime', netKey],
     queryFn: async () => {
@@ -194,7 +206,7 @@ const AdminPanel = () => {
       const block = await publicClient.getBlock();
       return Number(block.timestamp);
     },
-    enabled: !!publicClient,
+    enabled: !!publicClient && !showEarlyEndConfirm,
     refetchInterval: 10_000,
     staleTime: 5_000,
   });
@@ -289,7 +301,7 @@ const AdminPanel = () => {
     setPendingStartThenEndId(null);
   }, [pendingStartThenEndId, startSeason?.isConfirmed, lastStartSeasonId, requestSeasonEnd]);
 
-  if (isAdminLoading || isCreatorLoading) {
+  if (isAdminLoading || isCreatorLoading || isEmergencyLoading) {
     return <p>Checking authorization...</p>;
   }
 
@@ -434,6 +446,7 @@ const AdminPanel = () => {
               const isNotStarted = season.status === 0; // NotStarted
               const isActive = season.status === 1; // Active
               const isCreator = !!hasCreatorRole;
+              const isEmergency = !!hasEmergencyRole;
               const chainMatch = chainId === net.id;
               // Allow late start as long as NotStarted and within window
               const canStart = isNotStarted && isWindowOpen;
@@ -460,6 +473,9 @@ const AdminPanel = () => {
                     </Badge>
                     <Badge variant={isWindowOpen ? 'secondary' : 'destructive'}>
                       {isWindowOpen ? 'Chain Time OK' : 'Chain Time Closed'}
+                    </Badge>
+                    <Badge variant={isEmergency ? 'secondary' : 'destructive'}>
+                      {isEmergency ? 'Emergency OK' : 'No Emergency Role'}
                     </Badge>
                     <Badge variant={isNotStarted ? 'secondary' : isActive ? 'destructive' : 'destructive'}>
                       {isNotStarted ? 'Ready to Start' : (isActive ? 'Already Active' : 'Completed')}
@@ -492,6 +508,19 @@ const AdminPanel = () => {
                     >
                       {isPastEnd ? 'End Season' : 'End'}
                     </Button>
+                    {/* Early end button: only when Active and before end, gated by EMERGENCY_ROLE */}
+                    {isActive && !isPastEnd && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          setEarlyEndSeasonId(season.id);
+                          setShowEarlyEndConfirm(true);
+                        }}
+                        disabled={requestSeasonEndEarly?.isPending || !isEmergency || !chainMatch}
+                      >
+                        End Now (early)
+                      </Button>
+                    )}
                     {isNotStarted && isPastEnd && (
                       <Button
                         variant="secondary"
@@ -504,12 +533,43 @@ const AdminPanel = () => {
                   </div>
                   {showStartStatus && <TransactionStatus mutation={startSeason} />}
                   {showEndStatus && <TransactionStatus mutation={requestSeasonEnd} />}
+                  {lastEarlyEndSeasonId === season.id && <TransactionStatus mutation={requestSeasonEndEarly} />}
                 </div>
               </div>
             );})}
           </CardContent>
         </Card>
       </div>
+
+      {/* Early End Confirmation Modal */}
+      <Dialog open={showEarlyEndConfirm} onOpenChange={(open) => { if (!open) { setShowEarlyEndConfirm(false); setEarlyEndSeasonId(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>End Season Early</DialogTitle>
+            <DialogDescription>
+              This will immediately lock trading and request VRF to resolve the season. Are you sure you want to proceed?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => { setShowEarlyEndConfirm(false); setEarlyEndSeasonId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={requestSeasonEndEarly?.isPending || !hasEmergencyRole}
+              onClick={() => {
+                if (!earlyEndSeasonId) return;
+                setLastEarlyEndSeasonId(earlyEndSeasonId);
+                requestSeasonEndEarly?.mutate && requestSeasonEndEarly.mutate({ seasonId: earlyEndSeasonId });
+                setShowEarlyEndConfirm(false);
+                // keep earlyEndSeasonId so per-row TransactionStatus renders; it resets when list re-renders
+              }}
+            >
+              Confirm End Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

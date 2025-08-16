@@ -12,7 +12,8 @@ This document outlines the development standards, patterns, and best practices f
 - **Vite 6** for fast development and optimized builds
 - **TypeScript/JavaScript** with JSDoc for type annotations
 - **Tailwind CSS** for utility-first styling
-- **shadcn/ui** for consistent, accessible components
+- **shadcn/ui** for consistent, accessible components (built on **Radix UI**)
+- **Radix UI primitives** adopted for headless a11y and focus management
 
 ### State Management
 
@@ -53,6 +54,27 @@ src/features/raffle/
 ```
 
 ## Component Development Standards
+
+### UI Component System (Radix + shadcn/ui)
+
+We adopt Radix UI primitives wrapped in shadcn-style components for accessibility and consistency.
+
+Currently adopted primitives under `src/components/ui/`:
+
+- **Dialog**: `@radix-ui/react-dialog` (`dialog.jsx`)
+- **Label**: `@radix-ui/react-label` (`label.jsx`)
+- **Toast**: `@radix-ui/react-toast` (`toast.jsx`, `toaster.jsx`)
+- **Dropdown Menu**: `@radix-ui/react-dropdown-menu` (`dropdown-menu.jsx`)
+- **Select**: `@radix-ui/react-select` (`select.jsx`)
+- **Popover**: `@radix-ui/react-popover` (`popover.jsx`)
+- **Tooltip**: `@radix-ui/react-tooltip` (`tooltip.jsx`)
+
+Guidelines:
+
+- **Prefer Radix** for overlays and complex a11y: dialog, popover, tooltip, dropdown-menu, select, toast, sheet, navigation-menu, context-menu.
+- **Keep exports stable**: wrap Radix primitives in shadcn-style components with Tailwind classes and export simple APIs.
+- **Styling**: Tailwind utilities + `cn` helper; no inline styles.
+- **Animation**: use existing tailwindcss-animate utilities.
 
 ### Component Guidelines
 

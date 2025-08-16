@@ -133,6 +133,35 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         emit SeasonEndRequested(seasonId, requestId);
     }
 
+    /**
+     * @notice Emergency-only early end. Skips endTime check but requires Active status.
+     * @dev Locks trading, marks EndRequested -> VRFPending, and triggers VRF like normal end.
+     */
+    function requestSeasonEndEarly(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(seasons[seasonId].isActive, "Raffle: not active");
+        require(seasonStates[seasonId].status == SeasonStatus.Active, "Raffle: bad status");
+
+        // Lock trading on curve
+        SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
+        seasons[seasonId].isActive = false;
+        seasonStates[seasonId].status = SeasonStatus.EndRequested;
+        emit SeasonLocked(seasonId);
+
+        // VRF v2 request for winner selection (numWords == winnerCount)
+        uint256 requestId = COORDINATOR.requestRandomWords(
+            vrfKeyHash,
+            vrfSubscriptionId,
+            VRF_REQUEST_CONFIRMATIONS,
+            vrfCallbackGasLimit,
+            seasons[seasonId].winnerCount
+        );
+        seasonStates[seasonId].vrfRequestId = requestId;
+        seasonStates[seasonId].status = SeasonStatus.VRFPending;
+        vrfRequestToSeason[requestId] = seasonId;
+        emit SeasonEndRequested(seasonId, requestId);
+    }
+
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         uint256 seasonId = vrfRequestToSeason[requestId];
         require(seasonId != 0, "Raffle: bad req");

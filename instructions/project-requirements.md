@@ -204,6 +204,26 @@ import "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 
 ## Frontend Architecture Enhanced with InfoFi Integration
 
+### UI Component System (Radix + shadcn/ui)
+
+We standardize on Radix UI primitives wrapped in shadcn-style components for accessible, composable UI.
+
+Currently adopted primitives under `src/components/ui/`:
+
+- Dialog: `@radix-ui/react-dialog` (`dialog.jsx`)
+- Label: `@radix-ui/react-label` (`label.jsx`)
+- Toast: `@radix-ui/react-toast` (`toast.jsx`, `toaster.jsx`)
+- Dropdown Menu: `@radix-ui/react-dropdown-menu` (`dropdown-menu.jsx`)
+- Select: `@radix-ui/react-select` (`select.jsx`)
+- Popover: `@radix-ui/react-popover` (`popover.jsx`)
+- Tooltip: `@radix-ui/react-tooltip` (`tooltip.jsx`)
+
+Guidelines:
+
+- Prefer Radix for overlays and complex a11y (dialog, popover, tooltip, dropdown-menu, select, toast, sheet, navigation-menu, context-menu).
+- Keep exports stable; wrap primitives with Tailwind classes and the `cn` helper.
+- Reuse `tailwindcss-animate` utilities for enter/exit transitions.
+
 ### Enhanced Project Structure Supporting InfoFi
 
 ```bash
