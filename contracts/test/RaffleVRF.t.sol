@@ -9,7 +9,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 // Harness that exposes fulfillRandomWords and VRF state setter
 contract RaffleHarness is Raffle {
-    constructor(address sof, address coord, uint256 subId, bytes32 keyHash)
+    constructor(address sof, address coord, uint64 subId, bytes32 keyHash)
         Raffle(sof, coord, subId, keyHash) {}
     function testSetVrf(uint256 seasonId, uint256 requestId) external {
         seasonStates[seasonId].status = SeasonStatus.VRFPending;

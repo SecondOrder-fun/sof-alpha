@@ -63,8 +63,12 @@ export function useSeasonDetailsQuery(seasonId) {
 
   const fetchSeasonDetails = async () => {
     if (!addr.RAFFLE || seasonId == null) return null;
-    // TODO: implement when getSeasonDetails ABI is available
-    return null;
+    return await client.readContract({
+      address: addr.RAFFLE,
+      abi: RaffleAbi.abi,
+      functionName: "getSeason",
+      args: [seasonId],
+    });
   };
 
   return useQuery({

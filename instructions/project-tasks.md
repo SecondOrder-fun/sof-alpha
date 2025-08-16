@@ -88,16 +88,18 @@ All frontend development setup tasks have been completed:
 
 - **Wagmi/Viem Hooks**
   - [x] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
-  - [ ] `useRaffleAdmin()` for `createSeason()`, `startSeason()`, `requestSeasonEnd()` (role-gated)
-  - [ ] `useCurve()` for `buyTickets(amount)`, allowance and SOF approvals
-  - [ ] `useAccessControl()` to check `hasRole` for admin actions
-  - [ ] React Query integration (queries + mutations + invalidation) for reads/writes
+  - [x] `useRaffleAdmin()` for `createSeason()`, `startSeason()`, `requestSeasonEnd()` (role-gated)
+  - [x] `useCurve()` for `buyTickets(amount)`, allowance and SOF approvals
+  - [x] `useAccessControl()` to check `hasRole` for admin actions
+  - [x] React Query integration (queries + mutations + invalidation) for reads/writes
 
 - **Routing & Pages**
 
-  - [ ] Route: `/raffles` – `RaffleList` (active/current season overview)
-  - [ ] Route: `/raffles/:id` – `RaffleDetails` (season timings, status, odds, buy form)
-  - [ ] Route: `/admin` – `AdminPanel` (create/start/end season, role status)
+  - [x] Add routes for `/raffles`, `/raffles/:id`, `/admin`, and `/account`
+  - [x] Implement `RaffleList` page to show active/current season overview
+  - [x] Implement `RaffleDetails` page to show season timings, status, odds, buy form
+  - [x] Implement `AdminPanel` page to create/start/end season, role status
+  - [x] Implement `AccountPage` to show user's tickets, past participation, winnings
   - [ ] Header: `NetworkToggle`, wallet connect, current chain indicator
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 

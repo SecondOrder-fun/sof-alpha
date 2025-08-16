@@ -46,6 +46,10 @@ const farcasterConfig = {
 const Home = lazy(() => import('./routes/Home'));
 const Test = lazy(() => import('./routes/Test'));
 const NotFound = lazy(() => import('./routes/NotFound'));
+const RaffleList = lazy(() => import('./routes/RaffleList'));
+const RaffleDetails = lazy(() => import('./routes/RaffleDetails'));
+const AdminPanel = lazy(() => import('./routes/AdminPanel'));
+const AccountPage = lazy(() => import('./routes/AccountPage'));
 
 // Create router
 const router = createBrowserRouter([
@@ -67,6 +71,38 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<div>Loading...</div>}>
             <Test />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'raffles',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <RaffleList />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'raffles/:seasonId',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <RaffleDetails />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminPanel />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'account',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <AccountPage />
           </Suspense>
         ),
       },
