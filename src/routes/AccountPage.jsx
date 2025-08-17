@@ -322,3 +322,27 @@ const PredictionPositionsCard = ({ address, isConnected }) => {
     </Card>
   );
 };
+
+// PropTypes appended at end of file to satisfy ESLint prop validation
+RaffleEntryRow.propTypes = {
+  row: PropTypes.shape({
+    token: PropTypes.string,
+    decimals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    balance: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.object, // some toolchains may serialize BigInt values
+    ]),
+    seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    name: PropTypes.string,
+  }).isRequired,
+  address: PropTypes.string,
+  client: PropTypes.shape({
+    getLogs: PropTypes.func,
+  }),
+};
+
+PredictionPositionsCard.propTypes = {
+  address: PropTypes.string,
+  isConnected: PropTypes.bool,
+};

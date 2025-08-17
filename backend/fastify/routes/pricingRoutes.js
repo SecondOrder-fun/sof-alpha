@@ -1,5 +1,6 @@
 import { fastifyPlugin } from 'fastify-plugin';
 import { pricingService } from '../../shared/pricingService.js';
+import { isValidMarketId } from '../../shared/marketId.js';
 
 export async function pricingRoutes(fastify, options) {
   // options parameter required by Fastify plugin interface
@@ -61,6 +62,9 @@ export async function pricingRoutes(fastify, options) {
     const { marketId } = request.params;
     if (!marketId) {
       return reply.status(400).send({ error: 'marketId is required' });
+    }
+    if (!isValidMarketId(marketId)) {
+      return reply.status(400).send({ error: 'invalid marketId format' });
     }
 
     reply.header('Content-Type', 'text/event-stream');
@@ -125,6 +129,9 @@ export async function pricingRoutes(fastify, options) {
     const { marketId } = request.params;
     if (!marketId) {
       return reply.status(400).send({ error: 'marketId is required' });
+    }
+    if (!isValidMarketId(marketId)) {
+      return reply.status(400).send({ error: 'invalid marketId format' });
     }
     const cached = pricingService.getCachedPricing(marketId);
     if (!cached) {

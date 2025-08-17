@@ -9,6 +9,28 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 - [ ] Tests currently failing locally; triage pending. Add a task to run unit tests across frontend, backend, and contracts, capture failures, and create follow-ups.
 - [ ] Cannot buy tickets in the active raffle (tracked below in "Discovered During Work").
 
+### Development Servers & Start Scripts
+
+- Backend runs on port **3000** (Fastify). Frontend runs on port **5173** (Vite). This avoids the previous collision where port 3000 showed the web app.
+- New scripts in `package.json`:
+  - `npm run dev:backend` → start Fastify backend on port 3000
+  - `npm run dev:frontend` → start Vite frontend on port 5173
+  - `npm run dev` → alias for frontend (5173)
+  - `npm run start:backend` / `npm run start:frontend` → same as above (explicit names)
+  - `npm run kill:zombies` → kills processes on 8545 (anvil), 3000 (backend), 5173 (frontend)
+  - `npm run anvil:deploy` → starts Anvil on 8545 and deploys contracts (then copies ABIs)
+  - `npm run start:full` → executes the full local dev startup sequence:
+    1. Kills any zombie servers (anvil/backend/frontend)
+    2. Starts Anvil on 8545
+    3. Deploys contracts and copies ABIs
+    4. Starts backend on 3000
+    5. Starts frontend on 5173
+
+Notes:
+
+- Backend port is controlled via `PORT` env (defaults to 3001 in code); scripts set `PORT=3000` to standardize.
+- CORS in `backend/fastify/server.js` already allows <http://localhost:3000> and <http://localhost:5173> in dev.
+
 ## Initial Setup Tasks
 
 ### Project Structure Initialization
