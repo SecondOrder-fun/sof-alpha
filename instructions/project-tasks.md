@@ -110,6 +110,7 @@ All frontend development setup tasks have been completed:
   - [x] Implement `AdminPanel` page to create/start/end season, role status
   - [x] Implement `AccountPage` to show user's tickets, past participation, winnings
   - [x] Header: `NetworkToggle`, wallet connect, current chain indicator
+  - [ ] Header: add "Prediction Markets" nav entry (temporary label; may shorten later) linking to markets index
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 - **ENV & Addresses**
@@ -233,6 +234,10 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 ### Backend (Services, SSE, DB)
 
 - [ ] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
+- [ ] Define marketId generation scheme and association with `seasonId` (multiple markets per season):
+  - [ ] Choose deterministic ID format (e.g., `${seasonId}:${marketType}:${playerAddr}`) or DB PK + unique index on (seasonId, marketType, subject)
+  - [ ] Expose resolver endpoints to list markets by season and fetch by marketId
+  - [ ] Ensure SSE and snapshot endpoints accept the canonical marketId
 - [ ] Implement pricing cache service with SSE streams: `/stream/pricing/:marketId` and `/stream/pricing/all`.
 - [ ] Implement `infoFiMarketService` for market CRUD, pricing updates, settlement.
 - [ ] Implement `arbitrageDetectionService` reacting to price updates; persist opportunities.
@@ -246,6 +251,7 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 - [ ] Components: `InfoFiMarketCard`, `ProbabilityChart`, `SettlementStatus`, `WinningsClaimPanel` (MVP scope).
 - [ ] Connect SSE pricing stream to UI (initial snapshot + live updates).
 - [ ] Add basic market actions (place YES/NO bet – mocked until payments are finalized).
+- [ ] Account integration: show user's open prediction market positions in `AccountPage` (query by wallet → positions with PnL placeholders).
 
 ### Testing
 

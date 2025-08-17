@@ -12,6 +12,7 @@ import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useCurveState } from '@/hooks/useCurveState';
 import { computeMaxWithSlippage, computeMinAfterSlippage, simBuyCurve, simSellCurve } from '@/lib/curveMath';
+import { usePricingStream } from '@/hooks/usePricingStream';
 
 const RaffleDetails = () => {
   const { seasonId } = useParams();
@@ -36,6 +37,15 @@ const RaffleDetails = () => {
   const [testBuy1, setTestBuy1] = useState(0n);
   const [testBuy10, setTestBuy10] = useState(0n);
   // helpers now imported from lib/curveMath
+
+  // Format basis points to percentage string with 2 decimals
+  const formatBpsPct = (bps) => {
+    if (bps === null || bps === undefined) return '—';
+    try { return `${(Number(bps) / 100).toFixed(2)}%`; } catch { return '—'; }
+  };
+
+  // Subscribe to hybrid pricing SSE (provisionally using seasonId as marketId)
+  const { data: pricing, isConnected: pricingConnected } = usePricingStream(seasonId);
 
   // Format SOF (18 decimals) to a string with floor(4) decimals
   const formatSof4 = (amountWeiLike) => {
@@ -286,6 +296,25 @@ const RaffleDetails = () => {
                 <CardDescription>Detailed view of the raffle season.</CardDescription>
               </CardHeader>
               <CardContent>
+            {/* Live Hybrid Pricing (InfoFi) */}
+            <div className="mb-3 p-3 border rounded-md bg-muted/30">
+              <div className="text-sm text-muted-foreground mb-1">Live Hybrid Price (bps model)</div>
+              <div className="flex gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Hybrid:</span>
+                  <span className="ml-2 font-mono">{formatBpsPct(pricing.hybridPriceBps)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Raffle Prob:</span>
+                  <span className="ml-2 font-mono">{formatBpsPct(pricing.raffleProbabilityBps)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Market Sent.:</span>
+                  <span className="ml-2 font-mono">{formatBpsPct(pricing.marketSentimentBps)}</span>
+                </div>
+                <div className="text-muted-foreground">{pricingConnected ? 'live' : 'offline'}</div>
+              </div>
+            </div>
             <div className="flex space-x-2 my-2">
               {(() => {
                 const st = seasonDetailsQuery.data.status;
