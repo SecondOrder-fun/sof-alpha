@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * Custom hook for Server-Sent Events (SSE) integration
@@ -18,7 +18,8 @@ export const useSSE = (url, onMessage, options = {}) => {
     withCredentials = false, 
     maxRetries = 5, 
     retryInterval = 3000,
-    heartbeatInterval = 30000
+    heartbeatInterval = 30000,
+    EventSourceClass,
   } = options;
   
   const heartbeatRef = useRef(null);
@@ -48,7 +49,8 @@ export const useSSE = (url, onMessage, options = {}) => {
     try {
       cleanup();
       
-      const eventSource = new EventSource(url, { withCredentials });
+      const ES = EventSourceClass || globalThis.EventSource;
+      const eventSource = new ES(url, { withCredentials });
       eventSourceRef.current = eventSource;
       
       eventSource.onopen = () => {
@@ -102,7 +104,7 @@ export const useSSE = (url, onMessage, options = {}) => {
       setError(err);
       setIsConnected(false);
     }
-  }, [url, withCredentials, heartbeatInterval, onMessage, retryCount, maxRetries, retryInterval, cleanup]);
+  }, [url, withCredentials, heartbeatInterval, onMessage, retryCount, maxRetries, retryInterval, cleanup, EventSourceClass]);
   
   // Disconnect SSE connection
   const disconnect = useCallback(() => {
@@ -116,8 +118,8 @@ export const useSSE = (url, onMessage, options = {}) => {
     connect();
   }, [disconnect, connect]);
   
-  // Set up effect to manage connection lifecycle
-  useEffect(() => {
+  // Set up effect to manage connection lifecycle (layout effect for more deterministic timing in tests)
+  useLayoutEffect(() => {
     connect();
     
     return () => {
