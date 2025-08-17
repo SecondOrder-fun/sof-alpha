@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor, act } from '@testing-library/react'
 import React, { useEffect } from 'react'
+import PropTypes from 'prop-types'
 import { useSSE } from '@/hooks/useSSE'
 
 function HookHarness({ url, onMessage }) {
@@ -13,6 +14,11 @@ function HookHarness({ url, onMessage }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return <div data-connected={state.isConnected} data-retries={state.retryCount} />
+}
+
+HookHarness.propTypes = {
+  url: PropTypes.string.isRequired,
+  onMessage: PropTypes.func,
 }
 
 class MockEventSource {
