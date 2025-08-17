@@ -18,6 +18,21 @@ export async function infoFiRoutes(fastify, options) {
     }
   });
 
+  // Get user prediction positions (placeholder)
+  fastify.get('/positions', async (request, reply) => {
+    try {
+      const { address } = request.query || {};
+      // Use address only to satisfy lint and future filtering
+      if (!address) {
+        // For now we accept missing address and return empty
+      }
+      return reply.send([]);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch positions' });
+    }
+  });
+
   // Get a specific InfoFi market by ID
   fastify.get('/markets/:id', async (request, reply) => {
     try {

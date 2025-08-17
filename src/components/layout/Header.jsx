@@ -15,6 +15,9 @@ const Header = () => {
             <Link to="/raffles" className="hover:text-primary transition-colors">
               Raffles
             </Link>
+            <Link to="/markets" className="hover:text-primary transition-colors">
+              Prediction Markets
+            </Link>
             <Link to="/admin" className="hover:text-primary transition-colors">
               Admin
             </Link>
