@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { keccak256, stringToHex, parseUnits, formatUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
+import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 
 // Minimal ERC20 ABI for decimals
 const ERC20_DECIMALS_ABI = [
@@ -483,6 +484,10 @@ const AdminPanel = () => {
                     <Badge variant={chainMatch ? 'secondary' : 'destructive'}>
                       {chainMatch ? `Chain OK (${chainId})` : `Wrong Chain (${chainId})`}
                     </Badge>
+                  </div>
+                  {/* Live hybrid pricing ticker for this season */}
+                  <div className="mt-2">
+                    <InfoFiPricingTicker marketId={season.id} />
                   </div>
                 </div>
                 <div className="flex gap-2 flex-col">

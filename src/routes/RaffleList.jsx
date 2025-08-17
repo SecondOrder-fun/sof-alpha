@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 
 const RaffleList = () => {
   const allSeasonsQuery = useAllSeasons();
@@ -40,6 +41,10 @@ const RaffleList = () => {
                         <span className="font-medium">{s.config?.name}</span>
                         {renderBadge(s.status)}
                       </div>
+                      {/* Live ticker for this season */}
+                      <div className="mb-2">
+                        <InfoFiPricingTicker marketId={s.id} />
+                      </div>
                       <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
                     </div>
                   ))}
@@ -69,7 +74,13 @@ const RaffleList = () => {
                   <span className="font-medium">{s.config?.name}</span>
                   {renderBadge(s.status)}
                 </div>
-                <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
+                <div className="flex items-center gap-3">
+                  {/* Compact ticker */}
+                  <div className="hidden md:block">
+                    <InfoFiPricingTicker marketId={s.id} />
+                  </div>
+                  <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
+                </div>
               </div>
             ))}
           </div>
