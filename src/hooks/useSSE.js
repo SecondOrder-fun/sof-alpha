@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { useLayoutEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * Custom hook for Server-Sent Events (SSE) integration

@@ -1228,6 +1228,53 @@ chore: update dependencies
 - [ ] Tests are written and passing
 - [ ] TypeScript/JSDoc types are accurate
 
+## Real-time Streams (SSE) Usage
+
+The app uses Server-Sent Events for live InfoFi hybrid pricing. Follow these patterns for consistent, testable real-time features.
+
+### Hooks
+
+- **`useSSE(url, onMessage, options)`** in `src/hooks/useSSE.js`
+  - Options: `withCredentials`, `maxRetries`, `retryInterval`, `heartbeatInterval`, `EventSourceClass`
+  - Supports injected `EventSourceClass` for deterministic tests
+  - Uses `useLayoutEffect` to make connection timing deterministic
+
+- **`usePricingStream(marketId)`** in `src/hooks/usePricingStream.js`
+  - Composes `useSSE` to consume backend pricing stream
+  - Normalizes all payloads to basis-points fields: `hybridPriceBps`, `raffleProbabilityBps`, `marketSentimentBps`
+  - Endpoint: `/api/pricing/stream/pricing/:marketId` (proxied by Vite)
+
+### Component
+
+- **`InfoFiPricingTicker`** in `src/components/infofi/InfoFiPricingTicker.jsx`
+  - Props:
+    - `marketId: string | number` (required)
+  - Renders live hybrid price, raffle probability, market sentiment, and connection status
+  - Example:
+
+    ```jsx
+    import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+
+    <InfoFiPricingTicker marketId={seasonId} />
+    ```
+
+### Backend Endpoints (Fastify)
+
+- `GET /api/pricing/stream/pricing/:marketId` — SSE stream (bps payload)
+- `GET /api/pricing/stream/pricing/:marketId/current` — REST snapshot
+
+Configured in `backend/fastify/routes/pricingRoutes.js`.
+
+### Dev Proxy (Vite)
+
+- `vite.config.js` proxies `/api` to Fastify (`http://localhost:3001`), so the frontend can call `/api/...` directly during development.
+
+### Testing SSE
+
+- Inject mock `EventSource` via the `EventSourceClass` option to `useSSE` for deterministic tests.
+- Prefer real timers; avoid fake timers unless necessary.
+- Wrap state-changing triggers in `act()`.
+
 ## Conclusion
 
 These guidelines ensure consistent, maintainable, and performant frontend development for SecondOrder.fun. Regular code reviews and adherence to these standards will help maintain code quality as the project scales.
