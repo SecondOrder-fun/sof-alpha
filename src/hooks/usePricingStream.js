@@ -1,5 +1,6 @@
 // src/hooks/usePricingStream.js
 import { useCallback, useMemo, useState } from 'react';
+import { isValidMarketId } from '@/lib/marketId';
 import { useSSE } from './useSSE';
 
 /**
@@ -40,13 +41,22 @@ export const usePricingStream = (marketId) => {
       msg.type === 'raffle_probability_update' ||
       msg.type === 'market_sentiment_update'
     ) {
+      // Normalize keys: support either *Bps fields or raw names
+      const hybrid = typeof msg.hybridPriceBps === 'number'
+        ? msg.hybridPriceBps
+        : (typeof msg.hybridPrice === 'number' ? msg.hybridPrice : undefined);
+      const raffle = typeof msg.raffleProbabilityBps === 'number'
+        ? msg.raffleProbabilityBps
+        : (typeof msg.raffleProbability === 'number' ? msg.raffleProbability : undefined);
+      const sentiment = typeof msg.marketSentimentBps === 'number'
+        ? msg.marketSentimentBps
+        : (typeof msg.marketSentiment === 'number' ? msg.marketSentiment : undefined);
+
       setState((prev) => ({
         marketId: msg.marketId ?? prev.marketId ?? marketId ?? null,
-        hybridPriceBps: typeof msg.hybridPriceBps === 'number' ? msg.hybridPriceBps : prev.hybridPriceBps,
-        raffleProbabilityBps:
-          typeof msg.raffleProbabilityBps === 'number' ? msg.raffleProbabilityBps : prev.raffleProbabilityBps,
-        marketSentimentBps:
-          typeof msg.marketSentimentBps === 'number' ? msg.marketSentimentBps : prev.marketSentimentBps,
+        hybridPriceBps: typeof hybrid === 'number' ? hybrid : prev.hybridPriceBps,
+        raffleProbabilityBps: typeof raffle === 'number' ? raffle : prev.raffleProbabilityBps,
+        marketSentimentBps: typeof sentiment === 'number' ? sentiment : prev.marketSentimentBps,
         lastUpdated: msg.timestamp ?? prev.lastUpdated,
       }));
     }
@@ -54,6 +64,7 @@ export const usePricingStream = (marketId) => {
 
   const url = useMemo(() => {
     if (!marketId && marketId !== 0) return null;
+    if (!isValidMarketId(String(marketId))) return null;
     return `/api/pricing/stream/pricing/${marketId}`;
   }, [marketId]);
 

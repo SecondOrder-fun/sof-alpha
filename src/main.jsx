@@ -5,7 +5,6 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { mainnet, polygon, optimism, arbitrum, base } from 'wagmi/chains'; // Keep for Farcaster AuthKit
 import { WagmiConfigProvider } from './context/WagmiConfigProvider';
 import { AuthKitProvider } from '@farcaster/auth-kit';
 import '@rainbow-me/rainbowkit/styles.css';

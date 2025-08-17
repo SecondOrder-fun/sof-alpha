@@ -146,7 +146,7 @@ export function useRaffleWrite() {
       queryClient.invalidateQueries({ queryKey: ['raffle', netKey, 'currentSeasonId'] });
       queryClient.invalidateQueries({ queryKey: ['allSeasons'] });
     },
-    onConfirmed: ({}) => {
+    onConfirmed: () => {
       queryClient.invalidateQueries({ queryKey: ['raffle'] });
       queryClient.invalidateQueries({ queryKey: ['allSeasons'] });
     },

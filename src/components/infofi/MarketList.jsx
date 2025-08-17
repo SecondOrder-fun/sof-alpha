@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
+import { formatMarketId, isValidMarketId } from '@/lib/marketId';
 
 const MarketList = () => {
   const { isConnected } = useWallet();
@@ -49,6 +50,14 @@ const MarketList = () => {
       tokenAddress: '0x...'
     }
   ]);
+
+  // Derive canonical marketIds for mock items (WINNER_PREDICTION, subject '-')
+  const marketsWithCanonicalId = useMemo(() => {
+    return markets.map((m) => ({
+      ...m,
+      canonicalId: formatMarketId({ seasonId: m.raffleId, marketType: 'WINNER_PREDICTION', subject: '-' }),
+    }));
+  }, [markets]);
   
   // Function to create a new market
   const handleCreateMarket = async (e) => {
@@ -101,6 +110,15 @@ const MarketList = () => {
     }
     
     try {
+      // Validate canonical marketId
+      if (!isValidMarketId(bet.marketId)) {
+        toast({
+          title: 'Invalid Market ID',
+          description: 'Please enter a canonical marketId like seasonId:MARKET_TYPE:subject.',
+          variant: 'destructive'
+        });
+        return;
+      }
       // TODO: Implement actual contract interaction
       // console.log('Placing bet:', bet);
       
@@ -203,10 +221,9 @@ const MarketList = () => {
                 <Label htmlFor="marketId">Market ID</Label>
                 <Input
                   id="marketId"
-                  type="number"
                   value={bet.marketId}
-                  onChange={(e) => setBet({...bet, marketId: e.target.value})}
-                  placeholder="Enter market ID"
+                  onChange={(e) => setBet({ ...bet, marketId: e.target.value })}
+                  placeholder="seasonId:MARKET_TYPE:subject (e.g., 1:WINNER_PREDICTION:-)"
                   required
                 />
               </div>
@@ -250,13 +267,13 @@ const MarketList = () => {
       
       {/* Active Markets List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {markets.map((market) => {
+        {marketsWithCanonicalId.map((market) => {
           const odds = calculateOdds(market.totalYesPool, market.totalNoPool);
           
           return (
-            <Card key={market.id} className="flex flex-col">
+            <Card key={market.canonicalId} className="flex flex-col">
               <CardHeader>
-                <CardTitle className="text-lg">Market #{market.id}</CardTitle>
+                <CardTitle className="text-lg">Market {market.canonicalId}</CardTitle>
                 <CardDescription>Raffle #{market.raffleId}</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
@@ -287,7 +304,7 @@ const MarketList = () => {
               <CardFooter>
                 <Button 
                   className="w-full"
-                  onClick={() => setBet({...bet, marketId: market.id.toString()})}
+                  onClick={() => setBet({ ...bet, marketId: market.canonicalId })}
                 >
                   Place Bet
                 </Button>
