@@ -6,8 +6,9 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 
 ## Known Issues (2025-08-17)
 
-- [ ] Tests currently failing locally; triage pending. Add a task to run unit tests across frontend, backend, and contracts, capture failures, and create follow-ups.
-- [ ] Cannot buy tickets in the active raffle (tracked below in "Discovered During Work").
+- [x] Cannot buy tickets in the active raffle (tracked below in "Discovered During Work").
+
+Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ### Development Servers & Start Scripts
 
@@ -317,6 +318,7 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
 - **UX & guards**: Disabled sell when season not active; mirrored buy flow feedback states.
 - **Lint & quality**: Removed debug logs, fixed variable shadowing, ensured unconditional hook declarations to avoid HMR hook-order errors.
 - **Docs**: Fixed Markdown list formatting (MD005/MD007, MD032) in this file.
+- **Backend (API tests)**: Added and stabilized Vitest coverage for Fastify route plugins `pricingRoutes`, `arbitrageRoutes`, `analyticsRoutes`, and `userRoutes`. Implemented Supabase client mocking, dynamic imports after mocks, route prefix alignment, and `app.ready()` awaiting. All backend API tests pass locally (40/40 total tests currently green).
 
 ## Latest Progress (2025-08-16)
 

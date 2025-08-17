@@ -1,3 +1,22 @@
+// Testable helper to normalize incoming SSE payload keys to *Bps fields
+export function normalizePricingMessage(msg) {
+  if (!msg || typeof msg !== 'object') return { hybridPriceBps: undefined, raffleProbabilityBps: undefined, marketSentimentBps: undefined };
+  const hybrid = typeof msg.hybridPriceBps === 'number'
+    ? msg.hybridPriceBps
+    : (typeof msg.hybridPrice === 'number' ? msg.hybridPrice : undefined);
+  const raffle = typeof msg.raffleProbabilityBps === 'number'
+    ? msg.raffleProbabilityBps
+    : (typeof msg.raffleProbability === 'number' ? msg.raffleProbability : undefined);
+  const sentiment = typeof msg.marketSentimentBps === 'number'
+    ? msg.marketSentimentBps
+    : (typeof msg.marketSentiment === 'number' ? msg.marketSentiment : undefined);
+  return {
+    hybridPriceBps: hybrid,
+    raffleProbabilityBps: raffle,
+    marketSentimentBps: sentiment,
+  };
+}
+
 // src/hooks/usePricingStream.js
 import { useCallback, useMemo, useState } from 'react';
 import { isValidMarketId } from '@/lib/marketId';
@@ -42,15 +61,7 @@ export const usePricingStream = (marketId) => {
       msg.type === 'market_sentiment_update'
     ) {
       // Normalize keys: support either *Bps fields or raw names
-      const hybrid = typeof msg.hybridPriceBps === 'number'
-        ? msg.hybridPriceBps
-        : (typeof msg.hybridPrice === 'number' ? msg.hybridPrice : undefined);
-      const raffle = typeof msg.raffleProbabilityBps === 'number'
-        ? msg.raffleProbabilityBps
-        : (typeof msg.raffleProbability === 'number' ? msg.raffleProbability : undefined);
-      const sentiment = typeof msg.marketSentimentBps === 'number'
-        ? msg.marketSentimentBps
-        : (typeof msg.marketSentiment === 'number' ? msg.marketSentiment : undefined);
+      const { hybridPriceBps: hybrid, raffleProbabilityBps: raffle, marketSentimentBps: sentiment } = normalizePricingMessage(msg);
 
       setState((prev) => ({
         marketId: msg.marketId ?? prev.marketId ?? marketId ?? null,
