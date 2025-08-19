@@ -97,7 +97,7 @@ contract RaffleTest is Test {
         uint256 seasonId = _createSeasonBasic("S1", nowTs + 1, nowTs + 3 days);
         (
             RaffleTypes.SeasonConfig memory config,
-            Raffle.SeasonStatus status,
+            ,
             uint256 totalParticipants,
             uint256 totalTickets,
             uint256 totalPrizePool

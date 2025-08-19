@@ -468,6 +468,19 @@
   },
   {
     "type": "function",
+    "name": "infoFiFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pauseSeason",
     "inputs": [
       {
@@ -723,6 +736,19 @@
   },
   {
     "type": "function",
+    "name": "setInfoFiFactory",
+    "inputs": [
+      {
+        "name": "_factory",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setSeasonFactory",
     "inputs": [
       {
@@ -931,6 +957,43 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      },
+      {
+        "name": "newTickets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalTickets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PositionUpdate",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "oldTickets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "newTickets",
