@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { keccak256, stringToHex, parseUnits, formatUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+import HealthStatus from '@/components/admin/HealthStatus';
 
 // Minimal ERC20 ABI for decimals
 const ERC20_DECIMALS_ABI = [
@@ -314,6 +315,15 @@ const AdminPanel = () => {
     <div>
       <h1 className="text-2xl font-bold mb-4">Admin Panel</h1>
       <div className="grid md:grid-cols-2 gap-4 mt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Platform Health</CardTitle>
+            <CardDescription>Backend connectivity status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HealthStatus />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Create New Season</CardTitle>

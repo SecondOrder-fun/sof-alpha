@@ -32,8 +32,9 @@ await app.register(import('./routes/arbitrageRoutes.js'), { prefix: '/api/arbitr
 await app.register(import('./routes/pricingRoutes.js'), { prefix: '/api/pricing' });
 await app.register(import('./routes/settlementRoutes.js'), { prefix: '/api/settlement' });
 await app.register(import('./routes/analyticsRoutes.js'), { prefix: '/api/analytics' });
+await app.register(import('./routes/healthRoutes.js'), { prefix: '/api' });
 
-// Health check endpoint
+// Basic root health (kept for backward-compatibility)
 app.get('/health', async (_request, reply) => {
   reply.send({ status: 'OK', timestamp: new Date().toISOString() });
 });
