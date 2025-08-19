@@ -173,6 +173,28 @@ export class DatabaseService {
     return data;
   }
 
+  // Positions (user bets)
+  async createInfoFiPosition(position) {
+    // position: { market_id, user_address, outcome, amount, price? }
+    const { data, error } = await this.client
+      .from('infofi_positions')
+      .insert([position])
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getPositionsByAddress(address) {
+    const { data, error } = await this.client
+      .from('infofi_positions')
+      .select('*')
+      .eq('user_address', address)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
   // Analytics operations
   async getPlayerMarketPositions(playerAddress, timeframe, limit) {
     // Use the parameters to satisfy lint requirements

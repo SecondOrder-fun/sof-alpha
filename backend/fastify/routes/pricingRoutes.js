@@ -76,14 +76,13 @@ export async function pricingRoutes(fastify, options) {
     try {
       const cached = pricingService.getCachedPricing(marketId);
       if (cached) {
-        const hybridPriceBps = Math.round((cached.yes_price ?? 0) * 10000);
         const initial = {
           type: 'initial_price',
           marketId,
-          raffleProbabilityBps: cached.raffleProbabilityBps ?? null,
-          marketSentimentBps: cached.marketSentimentBps ?? null,
-          hybridPriceBps,
-          timestamp: cached.updated_at || new Date().toISOString(),
+          raffleProbabilityBps: cached.raffle_probability_bps ?? null,
+          marketSentimentBps: cached.market_sentiment_bps ?? null,
+          hybridPriceBps: cached.hybrid_price_bps ?? null,
+          timestamp: cached.last_updated || new Date().toISOString(),
         };
         reply.raw.write(`data: ${JSON.stringify(initial)}\n\n`);
       }
@@ -94,14 +93,14 @@ export async function pricingRoutes(fastify, options) {
     // Bridge updates from legacy pricingService to bps format
     const unsubscribe = pricingService.subscribeToMarket(marketId, (priceUpdate) => {
       try {
-        const yes = priceUpdate?.yes_price ?? priceUpdate?.hybridPrice ?? 0;
+        // pricingService now emits bps-based events directly
         const evt = {
-          type: 'market_sentiment_update', // best-effort mapping
+          type: 'price_update',
           marketId,
-          raffleProbabilityBps: priceUpdate.raffleProbabilityBps ?? null,
-          marketSentimentBps: priceUpdate.marketSentimentBps ?? null,
-          hybridPriceBps: Math.round(yes * 10000),
-          timestamp: priceUpdate.timestamp || new Date().toISOString(),
+          raffleProbabilityBps: priceUpdate.raffle_probability_bps ?? null,
+          marketSentimentBps: priceUpdate.market_sentiment_bps ?? null,
+          hybridPriceBps: priceUpdate.hybrid_price_bps ?? null,
+          timestamp: priceUpdate.last_updated || new Date().toISOString(),
         };
         reply.raw.write(`data: ${JSON.stringify(evt)}\n\n`);
       } catch (error) {
@@ -139,12 +138,12 @@ export async function pricingRoutes(fastify, options) {
     }
     const res = {
       marketId,
-      raffleProbabilityBps: cached.raffleProbabilityBps ?? null,
-      marketSentimentBps: cached.marketSentimentBps ?? null,
-      hybridPriceBps: Math.round((cached.yes_price ?? 0) * 10000),
-      raffleWeightBps: cached.raffleWeightBps ?? 7000,
-      marketWeightBps: cached.marketWeightBps ?? 3000,
-      lastUpdated: cached.updated_at || new Date().toISOString(),
+      raffleProbabilityBps: cached.raffle_probability_bps ?? null,
+      marketSentimentBps: cached.market_sentiment_bps ?? null,
+      hybridPriceBps: cached.hybrid_price_bps ?? null,
+      raffleWeightBps: cached.raffle_weight_bps ?? 7000,
+      marketWeightBps: cached.market_weight_bps ?? 3000,
+      lastUpdated: cached.last_updated || new Date().toISOString(),
     };
     return reply.send(res);
   });
@@ -171,8 +170,8 @@ export async function pricingRoutes(fastify, options) {
       // pricingService caches by key; DB fetch in pricingService uses numeric IDs.
       const updated = await pricingService.updateHybridPricing(
         marketId,
-        { probability: raffleProb, volume: 0 },
-        { sentiment: sentimentVal }
+        { probabilityBps: Math.round(raffleProb * 10000) },
+        { sentimentBps: Math.round((sentimentVal + 1) / 2 * 10000) }
       );
 
       return reply.send({ success: true, market: updated });

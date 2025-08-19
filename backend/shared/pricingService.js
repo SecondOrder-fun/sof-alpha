@@ -23,45 +23,72 @@ export class PricingService extends EventEmitter {
    * @param {Object} sentimentUpdate - Sentiment update
    * @returns {Promise<Object>} Updated pricing
    */
-  async updateHybridPricing(marketId, raffleUpdate, sentimentUpdate) {
+  async updateHybridPricing(marketId, raffleUpdate = {}, sentimentUpdate = {}) {
     try {
-      // Get current market data
-      const market = await db.getInfoFiMarketById(marketId);
-      if (!market) {
-        throw new Error(`Market with ID ${marketId} not found`);
+      // Read current cache (bps-based)
+      let cache = await db.getMarketPricingCache(marketId);
+      if (!cache) {
+        // Initialize cache from market if missing
+        const market = await db.getInfoFiMarketById(marketId);
+        if (!market) throw new Error(`Market with ID ${marketId} not found`);
+        cache = await db.upsertMarketPricingCache({
+          market_id: marketId,
+          raffle_probability_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
+          market_sentiment_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
+          hybrid_price_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
+          raffle_weight_bps: 7000,
+          market_weight_bps: 3000,
+          last_updated: new Date().toISOString()
+        });
       }
-      
-      // Calculate new hybrid price (70% raffle + 30% sentiment)
-      const newHybridPrice = this._calculateHybridPrice(
-        raffleUpdate.probability || market.yes_price,
-        sentimentUpdate.sentiment || 0.5,
-        7000, // 70% raffle weight
-        3000 // 30% sentiment weight
+
+      const raffleProbBps = Number(
+        raffleUpdate.probabilityBps ?? cache.raffle_probability_bps
       );
-      
-      // Update market prices
-      const updatedMarket = await db.updateInfoFiMarket(marketId, {
-        yes_price: newHybridPrice,
-        no_price: 1 - newHybridPrice,
-        volume: market.volume + (raffleUpdate.volume || 0)
+
+      const newSentimentBps = (() => {
+        if (typeof sentimentUpdate.sentimentBps === 'number') {
+          return sentimentUpdate.sentimentBps;
+        }
+        const delta = Number(sentimentUpdate.deltaBps || 0);
+        return cache.market_sentiment_bps + delta;
+      })();
+
+      const clampedSentimentBps = Math.max(0, Math.min(10000, Math.round(newSentimentBps)));
+
+      // Calculate new hybrid price in bps
+      const hybridPriceBps = this._calculateHybridPriceBps(
+        raffleProbBps,
+        clampedSentimentBps,
+        cache.raffle_weight_bps ?? 7000,
+        cache.market_weight_bps ?? 3000
+      );
+
+      const updated = await db.upsertMarketPricingCache({
+        market_id: marketId,
+        raffle_probability_bps: raffleProbBps,
+        market_sentiment_bps: clampedSentimentBps,
+        hybrid_price_bps: hybridPriceBps,
+        raffle_weight_bps: cache.raffle_weight_bps ?? 7000,
+        market_weight_bps: cache.market_weight_bps ?? 3000,
+        last_updated: new Date().toISOString()
       });
-      
-      // Cache the updated pricing
-      this.pricingCache.set(marketId, updatedMarket);
-      
-      // Emit price update event
+
+      // Cache the updated pricing (bps)
+      this.pricingCache.set(marketId, updated);
+
+      // Emit price update event (bps)
       const evt = {
         market_id: marketId,
-        yes_price: updatedMarket.yes_price,
-        no_price: updatedMarket.no_price,
-        timestamp: new Date().toISOString()
+        raffle_probability_bps: updated.raffle_probability_bps,
+        market_sentiment_bps: updated.market_sentiment_bps,
+        hybrid_price_bps: updated.hybrid_price_bps,
+        last_updated: updated.last_updated
       };
       this.emit('priceUpdate', evt);
-
-      // Also notify SSE subscribers registered via subscribeToMarket
       this._notifySubscribers(marketId, evt);
-      
-      return updatedMarket;
+
+      return updated;
     } catch (error) {
       throw new Error(`Failed to update hybrid pricing: ${error.message}`);
     }
@@ -76,17 +103,10 @@ export class PricingService extends EventEmitter {
    * @param {number} sentimentWeight - Weight for sentiment (0-10000)
    * @returns {number} Calculated hybrid price
    */
-  _calculateHybridPrice(rafflePrice, sentiment, raffleWeight, sentimentWeight) {
-    // Normalize weights
-    const totalWeight = raffleWeight + sentimentWeight;
-    const raffleWeightNorm = raffleWeight / totalWeight;
-    const sentimentWeightNorm = sentimentWeight / totalWeight;
-    
-    // Calculate weighted average
-    // For sentiment, we map it from -1..1 to 0..1 range
-    const normalizedSentiment = (sentiment + 1) / 2;
-    
-    return (rafflePrice * raffleWeightNorm) + (normalizedSentiment * sentimentWeightNorm);
+  _calculateHybridPriceBps(raffleBps, sentimentBps, raffleWeightBps, sentimentWeightBps) {
+    const total = raffleWeightBps + sentimentWeightBps;
+    const weighted = (raffleWeightBps * raffleBps) + (sentimentWeightBps * sentimentBps);
+    return Math.round(weighted / total);
   }
   
   /**

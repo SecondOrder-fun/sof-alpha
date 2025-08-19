@@ -1,5 +1,6 @@
 import { fastifyPlugin } from 'fastify-plugin';
 import { db } from '../../shared/supabaseClient.js';
+import { pricingService } from '../../shared/pricingService.js';
 
 export async function infoFiRoutes(fastify, options) {
   // options parameter required by Fastify plugin interface
@@ -7,10 +8,13 @@ export async function infoFiRoutes(fastify, options) {
     // Intentionally empty - options parameter required by Fastify plugin interface
   }
 
-  // Get all active InfoFi markets
-  fastify.get('/markets', async (_request, reply) => {
+  // Get InfoFi markets (optionally filter by raffle/season)
+  fastify.get('/markets', async (request, reply) => {
     try {
-      const markets = await db.getActiveInfoFiMarkets();
+      const { raffleId } = request.query || {};
+      const markets = raffleId
+        ? await db.getInfoFiMarketsByRaffleId(raffleId)
+        : await db.getActiveInfoFiMarkets();
       return reply.send({ markets });
     } catch (error) {
       fastify.log.error(error);
@@ -18,15 +22,15 @@ export async function infoFiRoutes(fastify, options) {
     }
   });
 
-  // Get user prediction positions (placeholder)
+  // Get user prediction positions
   fastify.get('/positions', async (request, reply) => {
     try {
       const { address } = request.query || {};
-      // Use address only to satisfy lint and future filtering
       if (!address) {
-        // For now we accept missing address and return empty
+        return reply.status(400).send({ error: 'address is required' });
       }
-      return reply.send([]);
+      const positions = await db.getPositionsByAddress(address);
+      return reply.send({ positions });
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch positions' });
@@ -45,22 +49,39 @@ export async function infoFiRoutes(fastify, options) {
     }
   });
 
-  // Create a new InfoFi market
+  // Create a new InfoFi market (bps-based)
   fastify.post('/markets', async (request, reply) => {
     try {
-      const { raffle_id, question, description, expires_at } = request.body;
-      const marketData = {
-        raffle_id,
-        question,
-        description,
-        expires_at,
-        yes_price: 0.5,
-        no_price: 0.5,
-        volume: 0,
-        status: 'active'
-      };
-      
-      const market = await db.createInfoFiMarket(marketData);
+      const { seasonId, playerAddress, marketType, initialProbabilityBps } = request.body || {};
+      if (
+        typeof seasonId === 'undefined' ||
+        !marketType ||
+        typeof initialProbabilityBps !== 'number'
+      ) {
+        return reply.status(400).send({ error: 'seasonId, marketType, initialProbabilityBps are required' });
+      }
+
+      const market = await db.createInfoFiMarket({
+        season_id: seasonId,
+        player_address: playerAddress || null,
+        market_type: marketType,
+        initial_probability_bps: initialProbabilityBps,
+        current_probability_bps: initialProbabilityBps,
+        is_active: true,
+        is_settled: false
+      });
+
+      // Initialize pricing cache to the initial bps
+      await db.upsertMarketPricingCache({
+        market_id: market.id,
+        raffle_probability_bps: initialProbabilityBps,
+        market_sentiment_bps: initialProbabilityBps,
+        hybrid_price_bps: initialProbabilityBps,
+        raffle_weight_bps: 7000,
+        market_weight_bps: 3000,
+        last_updated: new Date().toISOString()
+      });
+
       return reply.status(201).send({ market });
     } catch (error) {
       fastify.log.error(error);
@@ -108,7 +129,7 @@ export async function infoFiRoutes(fastify, options) {
     }
   });
 
-  // Place a bet on an InfoFi market
+  // Place a bet on an InfoFi market (MVP mock)
   fastify.post('/markets/:id/bet', async (request, reply) => {
     try {
       const { id } = request.params;
@@ -117,22 +138,36 @@ export async function infoFiRoutes(fastify, options) {
         return reply.status(400).send({ error: 'Market ID is required' });
       }
       
-      const { player_address, outcome, amount } = request.body;
+      const { player_address, outcome, amount } = request.body || {};
       // Validate required parameters
       if (!player_address || !outcome || !amount) {
         return reply.status(400).send({ error: 'Player address, outcome, and amount are required' });
       }
-      
-      // TODO: Implement placeBet method in supabaseClient
-      // const result = await db.placeBet(id, player_address, outcome, amount);
-      return reply.send({ success: false });
+
+      // Record the position
+      const position = await db.createInfoFiPosition({
+        market_id: Number(id),
+        user_address: player_address,
+        outcome: String(outcome).toUpperCase(),
+        amount: String(amount)
+      });
+
+      // Update sentiment in pricing cache (simple delta: proportional to amount)
+      const deltaBps = Math.max(1, Math.min(200, Math.round(Number(amount) * 10))); // clamp [1,200]
+      const sentimentUpdate = {
+        deltaBps: position.outcome === 'YES' ? deltaBps : -deltaBps
+      };
+      // Keep raffle probability unchanged here
+      await pricingService.updateHybridPricing(Number(id), {}, sentimentUpdate);
+
+      return reply.send({ success: true, position });
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to place bet' });
     }
   });
 
-  // Get market odds
+  // Get market odds (bps-based from cache)
   fastify.get('/markets/:id/odds', async (request, reply) => {
     try {
       const { id } = request.params;
