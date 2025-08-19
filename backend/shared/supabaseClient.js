@@ -71,10 +71,11 @@ export class DatabaseService {
 
   // InfoFi market operations
   async getActiveInfoFiMarkets() {
+    // Align with schema (is_active boolean)
     const { data, error } = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('status', 'active')
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
     
     if (error) throw new Error(error.message);
@@ -92,7 +93,18 @@ export class DatabaseService {
     return data;
   }
 
+  async getInfoFiMarketsByRaffleId(raffleId) {
+    const { data, error } = await this.client
+      .from('infofi_markets')
+      .select('*')
+      .eq('season_id', raffleId)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
   async createInfoFiMarket(marketData) {
+    // Expect snake_case columns per schema
     const { data, error } = await this.client
       .from('infofi_markets')
       .insert([marketData])
@@ -128,12 +140,35 @@ export class DatabaseService {
   }
 
   async getMarketOdds(marketId) {
+    // Align odds with pricing cache (bps fields)
     const { data, error } = await this.client
-      .from('infofi_markets')
-      .select('yes_price, no_price, volume')
-      .eq('id', marketId)
+      .from('market_pricing_cache')
+      .select('raffle_probability_bps, market_sentiment_bps, hybrid_price_bps, last_updated')
+      .eq('market_id', marketId)
       .single();
-    
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  // Market pricing cache operations (bps-based)
+  async upsertMarketPricingCache(cache) {
+    // cache: { market_id, raffle_probability_bps, market_sentiment_bps, hybrid_price_bps,
+    //          raffle_weight_bps, market_weight_bps, last_updated }
+    const { data, error } = await this.client
+      .from('market_pricing_cache')
+      .upsert(cache)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getMarketPricingCache(marketId) {
+    const { data, error } = await this.client
+      .from('market_pricing_cache')
+      .select('*')
+      .eq('market_id', marketId)
+      .single();
     if (error) throw new Error(error.message);
     return data;
   }
