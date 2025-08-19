@@ -8,6 +8,16 @@ import process from 'node:process';
 // Create Fastify instance
 const app = fastify({ logger: true });
 
+// Log every route as it is registered to diagnose mounting issues
+app.addHook('onRoute', (routeOptions) => {
+  try {
+    const methods = Array.isArray(routeOptions.method) ? routeOptions.method.join(',') : routeOptions.method;
+    app.log.info({ method: methods, url: routeOptions.url, prefix: routeOptions.prefix }, 'route added');
+  } catch (e) {
+    app.log.error({ e }, 'Failed to log route');
+  }
+});
+
 // Register plugins
 await app.register(cors, {
   origin: process.env.NODE_ENV === 'production' 
@@ -23,19 +33,64 @@ await app.register(rateLimit, {
   timeWindow: '1 minute'
 });
 
-// Register routes (use default export from dynamic import)
-await app.register((await import('./routes/raffleRoutes.js')).default, { prefix: '/api/raffles' });
-await app.register((await import('./routes/infoFiRoutes.js')).default, { prefix: '/api/infofi' });
-await app.register((await import('./routes/userRoutes.js')).default, { prefix: '/api/users' });
-await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
-await app.register((await import('./routes/pricingRoutes.js')).default, { prefix: '/api/pricing' });
-await app.register((await import('./routes/settlementRoutes.js')).default, { prefix: '/api/settlement' });
-await app.register((await import('./routes/analyticsRoutes.js')).default, { prefix: '/api/analytics' });
-await app.register((await import('./routes/healthRoutes.js')).default, { prefix: '/api' });
+// Manually registered /api/health route removed; using healthRoutes plugin under prefix '/api'
 
-// Basic root healthcheck (avoid duplicating /api/health)
-app.get('/healthz', async (_request, reply) => {
-  reply.send({ status: 'OK', timestamp: new Date().toISOString() });
+// Register routes (use default export from dynamic import)
+// Always register health first so /api/health is available even if other plugins fail
+try {
+  await app.register((await import('./routes/healthRoutes.js')).default, { prefix: '/api' });
+  app.log.info('Mounted /api/health');
+} catch (err) {
+  app.log.error({ err }, 'Failed to mount /api/health');
+}
+
+// Mount remaining route plugins defensively so one failure doesn't block others
+try {
+  await app.register((await import('./routes/raffleRoutes.js')).default, { prefix: '/api/raffles' });
+  app.log.info('Mounted /api/raffles');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/raffles'); }
+
+try {
+  await app.register((await import('./routes/infoFiRoutes.js')).default, { prefix: '/api/infofi' });
+  app.log.info('Mounted /api/infofi');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/infofi'); }
+
+try {
+  await app.register((await import('./routes/userRoutes.js')).default, { prefix: '/api/users' });
+  app.log.info('Mounted /api/users');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/users'); }
+
+try {
+  await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
+  app.log.info('Mounted /api/arbitrage');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/arbitrage'); }
+
+try {
+  await app.register((await import('./routes/pricingRoutes.js')).default, { prefix: '/api/pricing' });
+  app.log.info('Mounted /api/pricing');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/pricing'); }
+
+try {
+  await app.register((await import('./routes/settlementRoutes.js')).default, { prefix: '/api/settlement' });
+  app.log.info('Mounted /api/settlement');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/settlement'); }
+
+try {
+  await app.register((await import('./routes/analyticsRoutes.js')).default, { prefix: '/api/analytics' });
+  app.log.info('Mounted /api/analytics');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/analytics'); }
+
+// Removed legacy /healthz to standardize on /api/health
+
+// Debug: print all mounted routes
+app.ready(() => {
+  try {
+    app.log.info('Route tree start');
+    app.log.info('\n' + app.printRoutes());
+    app.log.info('Route tree end');
+  } catch (e) {
+    app.log.error({ e }, 'Failed to print routes');
+  }
 });
 
 // Error handling
@@ -56,7 +111,7 @@ let wss;
 const PORT = process.env.PORT || 3000;
 
 try {
-  await app.listen({ port: Number(PORT), host: '0.0.0.0' });
+  await app.listen({ port: Number(PORT), host: '127.0.0.1' });
   // Attach WebSocket server to Fastify's underlying Node server
   wss = new WebSocketServer({ server: app.server });
 

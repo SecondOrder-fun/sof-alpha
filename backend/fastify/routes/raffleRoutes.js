@@ -1,4 +1,4 @@
-import { fastifyPlugin } from 'fastify-plugin';
+// fastify-plugin removed; export the route function directly
 
 // Mock raffle data
 const mockRaffles = [
@@ -205,5 +205,4 @@ export async function raffleRoutes(fastify, options) {
     }
   });
 }
-
-export default fastifyPlugin(raffleRoutes);
+export default raffleRoutes;

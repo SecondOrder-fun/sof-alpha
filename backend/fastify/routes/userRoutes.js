@@ -1,4 +1,4 @@
-import { fastifyPlugin } from 'fastify-plugin';
+// fastify-plugin removed; export the route function directly
 
 // Mock user data
 const mockUsers = [
@@ -222,4 +222,4 @@ export async function userRoutes(fastify, options) {
   });
 }
 
-export default fastifyPlugin(userRoutes);
+export default userRoutes;

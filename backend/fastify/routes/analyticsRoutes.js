@@ -1,4 +1,3 @@
-import { fastifyPlugin } from 'fastify-plugin';
 import { analyticsService } from '../../shared/analyticsService.js';
 
 export async function analyticsRoutes(fastify, options) {
@@ -58,4 +57,4 @@ export async function analyticsRoutes(fastify, options) {
   });
 }
 
-export default fastifyPlugin(analyticsRoutes);
+export default analyticsRoutes;

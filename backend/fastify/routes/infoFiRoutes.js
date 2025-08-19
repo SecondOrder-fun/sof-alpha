@@ -1,4 +1,3 @@
-import fp from 'fastify-plugin';
 import { db } from '../../shared/supabaseClient.js';
 import { pricingService } from '../../shared/pricingService.js';
 
@@ -7,6 +6,14 @@ export async function infoFiRoutes(fastify, options) {
   if (options) {
     // Intentionally empty - options parameter required by Fastify plugin interface
   }
+
+  // Mount log to confirm plugin registration
+  fastify.log.info('infoFiRoutes mounted');
+
+  // Namespaced ping to verify correct prefix: GET /api/infofi/__ping
+  fastify.get('/__ping', async (_request, reply) => {
+    return reply.send({ ok: true, ns: 'infofi' });
+  });
 
   // Get InfoFi markets (optionally filter by raffle/season)
   fastify.get('/markets', async (request, reply) => {
@@ -18,6 +25,11 @@ export async function infoFiRoutes(fastify, options) {
       return reply.send({ markets });
     } catch (error) {
       fastify.log.error(error);
+      const msg = String(error?.message || '');
+      // If table doesn't exist yet in Supabase, return empty list instead of 500
+      if (msg.includes('does not exist') || msg.includes('relation') || error?.code === '42P01') {
+        return reply.send({ markets: [] });
+      }
       return reply.status(500).send({ error: 'Failed to fetch InfoFi markets' });
     }
   });
@@ -185,4 +197,4 @@ export async function infoFiRoutes(fastify, options) {
   });
 }
 
-export default fp(infoFiRoutes);
+export default infoFiRoutes;

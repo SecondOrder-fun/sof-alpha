@@ -1,4 +1,3 @@
-import { fastifyPlugin } from 'fastify-plugin';
 import { settlementService } from '../../shared/settlementService.js';
 
 export async function settlementRoutes(fastify, options) {
@@ -49,4 +48,4 @@ export async function settlementRoutes(fastify, options) {
   });
 }
 
-export default fastifyPlugin(settlementRoutes);
+export default settlementRoutes;

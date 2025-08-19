@@ -1,4 +1,4 @@
-import fp from 'fastify-plugin';
+// fastify-plugin removed; export the route function directly
 import { arbitrageService } from '../../shared/arbitrageService.js';
 
 export async function arbitrageRoutes(fastify, options) {
@@ -37,4 +37,4 @@ export async function arbitrageRoutes(fastify, options) {
   });
 }
 
-export default fp(arbitrageRoutes);
+export default arbitrageRoutes;

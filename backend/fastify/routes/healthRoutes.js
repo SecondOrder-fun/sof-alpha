@@ -1,4 +1,3 @@
-import fp from 'fastify-plugin';
 import process from 'node:process';
 import { db } from '../../shared/supabaseClient.js';
 
@@ -88,4 +87,4 @@ export async function healthRoutes(fastify, options) {
   });
 }
 
-export default fp(healthRoutes);
+export default healthRoutes;
