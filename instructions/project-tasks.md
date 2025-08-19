@@ -29,7 +29,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 Notes:
 
-- Backend port is controlled via `PORT` env (defaults to 3001 in code); scripts set `PORT=3000` to standardize.
+- Backend port is controlled via `PORT` env (defaults to 3000 in code); scripts set `PORT=3000` to standardize.
 - CORS in `backend/fastify/server.js` already allows <http://localhost:3000> and <http://localhost:5173> in dev.
 
 ## Initial Setup Tasks
@@ -181,9 +181,9 @@ All frontend development setup tasks have been completed:
 
 - **Security & Ops**
 
-  - [ ] Rate limit public endpoints; cache hot reads (e.g., season details)
-  - [ ] Env validation for RPC URLs and addresses; fail fast with helpful errors
-  - [ ] Add healthcheck that verifies RPC connectivity per network
+  - [x] Rate limit public endpoints; cache hot reads (e.g., season details)
+  - [x] Env validation for RPC URLs and addresses; fail fast with helpful errors
+  - [x] Add healthcheck that verifies RPC connectivity per network
 
 - **Tests**
   - [ ] Unit tests for viem read helpers (success/edge/failure)
@@ -276,7 +276,7 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 - [ ] Add basic market actions (place YES/NO bet – mocked until payments are finalized).
 - [ ] Account integration: show user's open prediction market positions in `AccountPage` (query by wallet → positions with PnL placeholders).
 
-### Testing
+### Testing (Auto-Creation)
 
 - [ ] Contracts: fork/testnet tests for factory creation thresholds and settlement triggers.
 - [ ] Backend: unit tests for pricing service and arbitrage detection; SSE integration test.
@@ -309,15 +309,17 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
   - [ ] Frontend: integration tests validating client calls and SSE handling against local mock.
 
 ### Note
-  - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
+
+- No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
 
 ## InfoFi Market Auto-Creation (1% Threshold) — Plan & Tasks (2025-08-19)
 
 Goal: Automatically create an InfoFi prediction market for a player as soon as their ticket position crosses ≥1% of total tickets in a season. Aligns with `instructions/project-requirements.md` and `.windsurf/rules` InfoFi specs. Use on-chain event-driven flow with a backend watcher fallback.
 
 ### Contracts (Primary Path)
-  - [ ] Emit `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` on every buy/sell
-  - [ ] On crossing 1% upward (old < 1%, new ≥ 1%), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)` (idempotent)
+
+- [ ] Emit `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` on every buy/sell
+- [ ] On crossing 1% upward (old < 1%, new ≥ 1%), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)` (idempotent)
 - [ ] InfoFiMarketFactory
   - [ ] Enforce 100 bps threshold and prevent duplicates per `(seasonId, player, marketType)`
   - [ ] Map `seasonId → (player → marketId)`; expose a view function
@@ -395,6 +397,8 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
   - [x] Add npm scripts to run Anvil and deploy contracts locally (`anvil`, `deploy:anvil`, `anvil:deploy`)
 - [ ] Investigate and fix: **Cannot buy tickets in the active raffle** (next task)
+
+- [x] Remove `fastify-plugin` wrappers from route files, fix duplicate `/api/health` registration, and verify all routes mount under their prefixes. Backend health endpoint reports OK and curls pass for raffles, infofi ping, users, arbitrage.
 
 - [x] Resolved React hook-order warnings during HMR by making hook declarations unconditional in `useCurve`.
 - [x] Fixed Markdown list indentation (MD005, MD007) and blanks-around-lists (MD032) in `instructions/project-tasks.md`.

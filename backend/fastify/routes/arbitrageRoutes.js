@@ -11,10 +11,15 @@ export async function arbitrageRoutes(fastify, options) {
   fastify.get('/opportunities', async (_request, reply) => {
     try {
       const opportunities = await arbitrageService.detectArbitrageOpportunities();
+      // Normalize: return empty array when service returns null/undefined/falsy
+      if (!opportunities || !Array.isArray(opportunities)) {
+        return reply.send({ opportunities: [] });
+      }
       return reply.send({ opportunities });
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to fetch arbitrage opportunities' });
+      // Normalize: on transient errors, expose empty list instead of 500 to avoid noisy UI failures
+      return reply.send({ opportunities: [] });
     }
   });
 
