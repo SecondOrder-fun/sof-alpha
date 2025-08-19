@@ -2,7 +2,6 @@ import fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import process from 'node:process';
 
@@ -24,15 +23,15 @@ await app.register(rateLimit, {
   timeWindow: '1 minute'
 });
 
-// Register routes
-await app.register(import('./routes/raffleRoutes.js'), { prefix: '/api/raffles' });
-await app.register(import('./routes/infoFiRoutes.js'), { prefix: '/api/infofi' });
-await app.register(import('./routes/userRoutes.js'), { prefix: '/api/users' });
-await app.register(import('./routes/arbitrageRoutes.js'), { prefix: '/api/arbitrage' });
-await app.register(import('./routes/pricingRoutes.js'), { prefix: '/api/pricing' });
-await app.register(import('./routes/settlementRoutes.js'), { prefix: '/api/settlement' });
-await app.register(import('./routes/analyticsRoutes.js'), { prefix: '/api/analytics' });
-await app.register(import('./routes/healthRoutes.js'), { prefix: '/api' });
+// Register routes (use default export from dynamic import)
+await app.register((await import('./routes/raffleRoutes.js')).default, { prefix: '/api/raffles' });
+await app.register((await import('./routes/infoFiRoutes.js')).default, { prefix: '/api/infofi' });
+await app.register((await import('./routes/userRoutes.js')).default, { prefix: '/api/users' });
+await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
+await app.register((await import('./routes/pricingRoutes.js')).default, { prefix: '/api/pricing' });
+await app.register((await import('./routes/settlementRoutes.js')).default, { prefix: '/api/settlement' });
+await app.register((await import('./routes/analyticsRoutes.js')).default, { prefix: '/api/analytics' });
+await app.register((await import('./routes/healthRoutes.js')).default, { prefix: '/api' });
 
 // Basic root healthcheck (avoid duplicating /api/health)
 app.get('/healthz', async (_request, reply) => {
@@ -50,48 +49,50 @@ app.setNotFoundHandler((_request, reply) => {
   reply.status(404).send({ error: 'Not Found' });
 });
 
-// Create HTTP server
-const server = createServer(app.server);
-
-// Set up WebSocket server for real-time updates
-const wss = new WebSocketServer({ server });
-
-wss.on('connection', (ws) => {
-  app.log.info('New WebSocket connection');
-  
-  ws.on('message', (message) => {
-    app.log.info('Received message:', message.toString());
-  });
-  
-  ws.on('close', () => {
-    app.log.info('WebSocket connection closed');
-  });
-  
-  ws.on('error', (error) => {
-    app.log.error('WebSocket error:', error);
-  });
-});
+// WebSocket server (will attach after app starts and app.server exists)
+let wss;
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
-server.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
-  if (err) {
-    app.log.error(err);
-    process.exit(1);
-  }
-  app.log.info(`Server listening on port ${PORT}`);
-  app.log.info(`WebSocket server listening on port ${PORT}`);
-});
+try {
+  await app.listen({ port: Number(PORT), host: '0.0.0.0' });
+  // Attach WebSocket server to Fastify's underlying Node server
+  wss = new WebSocketServer({ server: app.server });
+
+  wss.on('connection', (ws) => {
+    app.log.info('New WebSocket connection');
+    ws.on('message', (message) => {
+      app.log.info('Received message:', message.toString());
+    });
+    ws.on('close', () => {
+      app.log.info('WebSocket connection closed');
+    });
+    ws.on('error', (error) => {
+      app.log.error('WebSocket error:', error);
+    });
+  });
+
+  app.log.info(`HTTP server listening on port ${PORT}`);
+  app.log.info(`WebSocket server bound on the same port ${PORT}`);
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
   app.log.info('Shutting down server...');
   await app.close();
-  server.close(() => {
+  try {
+    if (wss) {
+      wss.close();
+    }
+    // app.server is closed by app.close()
+  } finally {
     app.log.info('Server closed');
     process.exit(0);
-  });
+  }
 });
 
-export { app, wss };
+export { app };

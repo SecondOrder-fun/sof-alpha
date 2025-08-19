@@ -219,51 +219,43 @@ function main() {
 
   const envPath = path.join(ROOT, '.env');
   const envLocalPath = path.join(ROOT, '.env.local');
-  const envExamplePath = path.join(ROOT, '.env.example');
 
-  // Single-file mode: Write everything into .env using .env.example as the template
-  if (fs.existsSync(envExamplePath)) {
-    const exampleText = fs.readFileSync(envExamplePath, 'utf8');
-    const existingEnv = readEnvToMap(envPath);
+  // Determine suffix based on target network
+  const envSuffix = (network || '').toUpperCase() === 'TESTNET' ? '_TESTNET' : '_LOCAL';
 
-    // Merge backend and frontend updates into a single map using exact keys from example
-    // For each base like RAFFLE_ADDRESS_LOCAL, set both RAFFLE_ADDRESS_LOCAL and VITE_RAFFLE_ADDRESS_LOCAL
-    const updatesAll = {};
-    for (const [base, val] of Object.entries(backendUpdates)) {
-      updatesAll[base] = val;
-      updatesAll[`VITE_${base}`] = val;
+  // Update .env in-place (backend keys with suffix)
+  updateEnvFile(
+    envPath,
+    backendUpdates,
+    {
+      prefix: '',
+      suffix: envSuffix,
+      sanitizer: (text) => text
     }
-    // Build .env content keeping ALL keys from example (both VITE_* and non-VITE)
-    const envContent = buildFromExample(exampleText, {
-      allowPredicate: () => true,
-      updates: updatesAll,
-      existing: existingEnv,
-    });
-    fs.writeFileSync(envPath, envContent, 'utf8');
+  );
 
-    // In single-file mode we ignore .env.local. Optionally inform the user.
-    if (fs.existsSync(envLocalPath)) {
-      console.warn('.env.local detected but single-file mode is enabled. Consider deleting .env.local to avoid confusion.');
+  // Also write VITE_ keys with suffix into .env for frontend
+  updateEnvFile(
+    envPath,
+    backendUpdates,
+    {
+      prefix: 'VITE_',
+      suffix: envSuffix,
+      sanitizer: (text) => text
     }
-  } else {
-    // Fallback: update .env in-place (add both backend and VITE_ keys), ignore .env.local
-    const inPlaceUpdates = {};
-    for (const [base, val] of Object.entries(backendUpdates)) {
-      inPlaceUpdates[base] = val;
-      inPlaceUpdates[`VITE_${base}`] = val;
-    }
+  );
+
+  // If .env.local exists, mirror only VITE_ keys there (optional convenience)
+  if (fs.existsSync(envLocalPath)) {
     updateEnvFile(
-      envPath,
-      inPlaceUpdates,
+      envLocalPath,
+      backendUpdates,
       {
-        prefix: '',
-        suffix: '',
-        sanitizer: (text) => text // no-op; keep existing comments/keys
+        prefix: 'VITE_',
+        suffix: envSuffix,
+        sanitizer: (text) => text
       }
     );
-    if (fs.existsSync(envLocalPath)) {
-      console.warn('.env.local detected but single-file mode is enabled. Consider deleting .env.local to avoid confusion.');
-    }
   }
 
   // Console summary
