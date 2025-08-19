@@ -31,7 +31,7 @@ export default defineConfig({
     proxy: {
       // Proxy Fastify backend for API and SSE endpoints
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         ws: true,
       },

@@ -1,4 +1,4 @@
-import { fastifyPlugin } from 'fastify-plugin';
+import fp from 'fastify-plugin';
 import { pricingService } from '../../shared/pricingService.js';
 import { isValidMarketId } from '../../shared/marketId.js';
 
@@ -182,4 +182,4 @@ export async function pricingRoutes(fastify, options) {
   });
 }
 
-export default fastifyPlugin(pricingRoutes);
+export default fp(pricingRoutes);

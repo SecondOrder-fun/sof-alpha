@@ -34,8 +34,8 @@ await app.register(import('./routes/settlementRoutes.js'), { prefix: '/api/settl
 await app.register(import('./routes/analyticsRoutes.js'), { prefix: '/api/analytics' });
 await app.register(import('./routes/healthRoutes.js'), { prefix: '/api' });
 
-// Basic root health (kept for backward-compatibility)
-app.get('/health', async (_request, reply) => {
+// Basic root healthcheck (avoid duplicating /api/health)
+app.get('/healthz', async (_request, reply) => {
   reply.send({ status: 'OK', timestamp: new Date().toISOString() });
 });
 

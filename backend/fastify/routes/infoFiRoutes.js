@@ -1,4 +1,4 @@
-import { fastifyPlugin } from 'fastify-plugin';
+import fp from 'fastify-plugin';
 import { db } from '../../shared/supabaseClient.js';
 import { pricingService } from '../../shared/pricingService.js';
 
@@ -185,4 +185,4 @@ export async function infoFiRoutes(fastify, options) {
   });
 }
 
-export default fastifyPlugin(infoFiRoutes);
+export default fp(infoFiRoutes);
