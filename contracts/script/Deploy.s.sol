@@ -6,6 +6,8 @@ import "forge-std/console2.sol";
 import "../src/core/Raffle.sol";
 import "../src/infofi/InfoFiMarket.sol";
 import "../src/infofi/InfoFiMarketFactory.sol";
+import "../src/infofi/InfoFiPriceOracle.sol";
+import "../src/infofi/InfoFiSettlement.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
@@ -64,6 +66,19 @@ contract DeployScript is Script {
         raffle.setInfoFiFactory(address(infoFiFactory));
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
+        // Deploy InfoFiPriceOracle with default weights 70/30 and grant updater role to factory
+        console2.log("Deploying InfoFiPriceOracle (weights 70/30)...");
+        InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(msg.sender, 7000, 3000);
+        bytes32 updaterRole = infoFiOracle.PRICE_UPDATER_ROLE();
+        infoFiOracle.grantRole(updaterRole, address(infoFiFactory));
+        console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
+
+        // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
+        console2.log("Deploying InfoFiSettlement...");
+        InfoFiSettlement infoFiSettlement = new InfoFiSettlement(msg.sender, address(raffle));
+        // (constructor already grants SETTLER_ROLE to raffle if provided)
+        console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
+
         // Optional: Create a default Season 0 (disabled by default)
         // Control via env var CREATE_SEASON=true to enable.
         bool createSeason;
@@ -119,6 +134,9 @@ contract DeployScript is Script {
         console2.log("SeasonFactory contract deployed at:", address(seasonFactory));
         console2.log("Raffle contract deployed at:", address(raffle));
         console2.log("InfoFiMarket contract deployed at:", address(infoFiMarket));
+        console2.log("InfoFiMarketFactory contract deployed at:", address(infoFiFactory));
+        console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
+        console2.log("InfoFiSettlement contract deployed at:", address(infoFiSettlement));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
     }
 }
