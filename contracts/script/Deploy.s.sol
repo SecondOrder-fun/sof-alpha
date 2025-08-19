@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../src/core/Raffle.sol";
 import "../src/infofi/InfoFiMarket.sol";
+import "../src/infofi/InfoFiMarketFactory.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
@@ -56,6 +57,12 @@ contract DeployScript is Script {
         
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
+
+        // Deploy InfoFiMarketFactory and wire to Raffle for position updates
+        console2.log("Deploying InfoFiMarketFactory...");
+        InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(address(raffle), msg.sender);
+        raffle.setInfoFiFactory(address(infoFiFactory));
+        console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
         // Optional: Create a default Season 0 (disabled by default)
         // Control via env var CREATE_SEASON=true to enable.

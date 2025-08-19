@@ -6,6 +6,8 @@ import "../src/core/Raffle.sol";
 import "../src/curve/SOFBondingCurve.sol";
 import "../src/curve/IRaffleToken.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "../src/lib/RaffleTypes.sol";
+import "../src/core/SeasonFactory.sol";
 
 // Harness that exposes fulfillRandomWords and VRF state setter
 contract RaffleHarness is Raffle {
@@ -56,25 +58,27 @@ contract RaffleVRFTest is Test {
         sof.mint(player2, 10000 ether);
         address mockCoordinator = address(0xCAFE);
         raffle = new RaffleHarness(address(sof), mockCoordinator, 0, bytes32(0));
+        // Wire SeasonFactory required by Raffle.createSeason
+        SeasonFactory factory = new SeasonFactory(address(raffle));
+        raffle.setSeasonFactory(address(factory));
     }
 
-    function _steps() internal pure returns (SOFBondingCurve.BondStep[] memory s) {
-        s = new SOFBondingCurve.BondStep[](2);
-        s[0] = SOFBondingCurve.BondStep({rangeTo: uint128(1000), price: uint128(1 ether)});
-        s[1] = SOFBondingCurve.BondStep({rangeTo: uint128(5000), price: uint128(2 ether)});
+    function _steps() internal pure returns (RaffleTypes.BondStep[] memory s) {
+        s = new RaffleTypes.BondStep[](2);
+        s[0] = RaffleTypes.BondStep({rangeTo: uint128(1000), price: uint128(1 ether)});
+        s[1] = RaffleTypes.BondStep({rangeTo: uint128(5000), price: uint128(2 ether)});
     }
 
     function _createSeason() internal returns (uint256 seasonId, SOFBondingCurve curve) {
-        Raffle.SeasonConfig memory cfg;
+        RaffleTypes.SeasonConfig memory cfg;
         cfg.name = "S1";
         cfg.startTime = block.timestamp + 1;
         cfg.endTime = block.timestamp + 3 days;
-        cfg.maxParticipants = 0;
         cfg.winnerCount = 2;
         cfg.prizePercentage = 9000;
         cfg.consolationPercentage = 0;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
-        (Raffle.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
     }
 
@@ -144,16 +148,15 @@ contract RaffleVRFTest is Test {
 
     function testWinnerCountExceedsParticipantsDedup() public {
         // create season with winnerCount = 3
-        Raffle.SeasonConfig memory cfg;
+        RaffleTypes.SeasonConfig memory cfg;
         cfg.name = "S2";
         cfg.startTime = block.timestamp + 1;
         cfg.endTime = block.timestamp + 3 days;
-        cfg.maxParticipants = 0;
         cfg.winnerCount = 3;
         cfg.prizePercentage = 9000;
         cfg.consolationPercentage = 0;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
-        (Raffle.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
 
         vm.warp(block.timestamp + 1);

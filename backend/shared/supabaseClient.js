@@ -4,9 +4,30 @@ import process from 'node:process';
 // Supabase configuration
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client or a no-op stub for local dev without env
+function createStubResult(defaultData = []) {
+  // Chainable object that mimics supabase-js query builder and resolves to { data, error }
+  const result = {
+    data: Array.isArray(defaultData) ? defaultData : [],
+    error: null,
+    select: () => result,
+    insert: () => result,
+    update: () => result,
+    delete: () => result,
+    eq: () => result,
+    order: () => result,
+    single: () => ({ data: null, error: null }),
+  };
+  return result;
+}
+
+export const supabase = hasSupabase
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : {
+      from: () => createStubResult([]),
+    };
 
 // Database service class
 export class DatabaseService {

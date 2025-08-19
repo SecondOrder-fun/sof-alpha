@@ -42,6 +42,7 @@ It deploys:
 - `InfoFiMarket` (standalone for now)
 
 It also performs the following setup:
+
 - Creates and funds a VRF subscription.
 - Adds the `Raffle` contract as a VRF consumer.
 - (Optional) Creates a default season when explicitly enabled (see examples below).

@@ -50,12 +50,16 @@ export class PricingService extends EventEmitter {
       this.pricingCache.set(marketId, updatedMarket);
       
       // Emit price update event
-      this.emit('priceUpdate', {
+      const evt = {
         market_id: marketId,
         yes_price: updatedMarket.yes_price,
         no_price: updatedMarket.no_price,
         timestamp: new Date().toISOString()
-      });
+      };
+      this.emit('priceUpdate', evt);
+
+      // Also notify SSE subscribers registered via subscribeToMarket
+      this._notifySubscribers(marketId, evt);
       
       return updatedMarket;
     } catch (error) {
@@ -117,6 +121,23 @@ export class PricingService extends EventEmitter {
    */
   getCachedPricing(marketId) {
     return this.pricingCache.get(marketId) || null;
+  }
+
+  /**
+   * Internal: notify all SSE subscribers for a given market id
+   * @param {string|number} marketId
+   * @param {object} payload
+   */
+  _notifySubscribers(marketId, payload) {
+    const subs = this.subscribers.get(marketId);
+    if (!subs || subs.size === 0) return;
+    for (const cb of subs) {
+      try {
+        cb(payload);
+      } catch (_) {
+        // best-effort; ignore subscriber errors
+      }
+    }
   }
 }
 

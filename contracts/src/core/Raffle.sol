@@ -11,6 +11,7 @@ import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
 import "./RaffleStorage.sol";
 import "../lib/RaffleLogic.sol";
+import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 
@@ -31,6 +32,17 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     // Core
     IERC20 public immutable sofToken;
     ISeasonFactory public seasonFactory;
+    // InfoFi integration
+    address public infoFiFactory;
+
+    /// @dev Emitted on every position change (buy/sell) with post-change totals
+    event PositionUpdate(
+        uint256 indexed seasonId,
+        address indexed player,
+        uint256 oldTickets,
+        uint256 newTickets,
+        uint256 totalTickets
+    );
 
     constructor(
         address _sofToken,
@@ -53,6 +65,14 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(address(seasonFactory) == address(0), "Raffle: factory already set");
         require(_seasonFactoryAddress != address(0), "Raffle: factory zero");
         seasonFactory = ISeasonFactory(_seasonFactoryAddress);
+    }
+
+    /**
+     * @notice Set InfoFi factory used to react to position updates
+     */
+    function setInfoFiFactory(address _factory) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_factory != address(0), "Raffle: infofi zero");
+        infoFiFactory = _factory;
     }
 
     /**
@@ -186,6 +206,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasons[seasonId].isActive, "Raffle: season inactive");
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
+        uint256 oldTickets = pos.ticketCount;
+        uint256 newTicketsLocal = oldTickets + ticketAmount;
         if (!pos.isActive) {
             state.participants.push(participant);
             state.totalParticipants++;
@@ -195,9 +217,21 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         } else {
             emit ParticipantUpdated(seasonId, participant, pos.ticketCount + ticketAmount, state.totalTickets + ticketAmount);
         }
-        pos.ticketCount += ticketAmount;
+        pos.ticketCount = newTicketsLocal;
         pos.lastUpdateBlock = block.number;
         state.totalTickets += ticketAmount;
+
+        // Emit InfoFi position update and call factory
+        emit PositionUpdate(seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets);
+        if (infoFiFactory != address(0)) {
+            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+                seasonId,
+                participant,
+                oldTickets,
+                newTicketsLocal,
+                state.totalTickets
+            );
+        }
     }
 
     function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external onlyRole(BONDING_CURVE_ROLE) {
@@ -206,8 +240,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         ParticipantPosition storage pos = state.participantPositions[participant];
         require(pos.isActive, "Raffle: not active");
         require(pos.ticketCount >= ticketAmount, "Raffle: too much");
-
-        pos.ticketCount -= ticketAmount;
+        uint256 oldTickets = pos.ticketCount;
+        pos.ticketCount = oldTickets - ticketAmount;
         pos.lastUpdateBlock = block.number;
         state.totalTickets -= ticketAmount;
 
@@ -224,6 +258,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             }
         }
         emit ParticipantRemoved(seasonId, participant, state.totalTickets);
+
+        // Emit InfoFi position update and call factory
+        emit PositionUpdate(seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets);
+        if (infoFiFactory != address(0)) {
+            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+                seasonId,
+                participant,
+                oldTickets,
+                pos.ticketCount,
+                state.totalTickets
+            );
+        }
     }
 
     // Views

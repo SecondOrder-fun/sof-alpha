@@ -148,6 +148,39 @@ export async function pricingRoutes(fastify, options) {
     };
     return reply.send(res);
   });
+
+  // DEV-ONLY: Trigger a manual hybrid pricing update for SSE demo/testing
+  // Refuses to run in production mode.
+  fastify.post('/debug/pricing/update', async (request, reply) => {
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        return reply.status(403).send({ error: 'Forbidden in production' });
+      }
+
+      const { marketId, raffleProbability, sentiment } = request.body || {};
+      if (typeof marketId === 'undefined' || marketId === null) {
+        return reply.status(400).send({ error: 'marketId is required' });
+      }
+
+      // Coerce numeric inputs safely; default to neutral values if missing
+      const raffleProb = typeof raffleProbability === 'number' ? raffleProbability : 0.5;
+      const sentimentVal = typeof sentiment === 'number' ? sentiment : 0; // expected range [-1,1]
+
+      // Pricing service expects numeric market id (legacy path); if marketId is the
+      // composite ID (e.g. `1:WINNER_PREDICTION:0x...`), we still forward it since
+      // pricingService caches by key; DB fetch in pricingService uses numeric IDs.
+      const updated = await pricingService.updateHybridPricing(
+        marketId,
+        { probability: raffleProb, volume: 0 },
+        { sentiment: sentimentVal }
+      );
+
+      return reply.send({ success: true, market: updated });
+    } catch (err) {
+      fastify.log.error({ err }, 'Failed to trigger debug pricing update');
+      return reply.status(500).send({ error: 'Failed to update pricing' });
+    }
+  });
 }
 
 export default fastifyPlugin(pricingRoutes);

@@ -308,14 +308,65 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
   - [ ] Backend: unit tests for endpoints + SSE (initial snapshot + update event).
   - [ ] Frontend: integration tests validating client calls and SSE handling against local mock.
 
-- **Note**
+### Note
   - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
+
+## InfoFi Market Auto-Creation (1% Threshold) — Plan & Tasks (2025-08-19)
+
+Goal: Automatically create an InfoFi prediction market for a player as soon as their ticket position crosses ≥1% of total tickets in a season. Aligns with `instructions/project-requirements.md` and `.windsurf/rules` InfoFi specs. Use on-chain event-driven flow with a backend watcher fallback.
+
+### Contracts (Primary Path)
+  - [ ] Emit `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` on every buy/sell
+  - [ ] On crossing 1% upward (old < 1%, new ≥ 1%), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)` (idempotent)
+- [ ] InfoFiMarketFactory
+  - [ ] Enforce 100 bps threshold and prevent duplicates per `(seasonId, player, marketType)`
+  - [ ] Map `seasonId → (player → marketId)`; expose a view function
+  - [ ] Emit `MarketCreated(marketId, player, marketType, probabilityBps, marketContract)`
+- [ ] InfoFiPriceOracle
+  - [ ] Grant updater role to factory; default hybrid weights 70/30 (raffle/market)
+- [ ] Foundry tests
+  - [ ] Threshold crossing creates exactly one market; subsequent crossings don’t duplicate
+  - [ ] Emits proper events and updates oracle probability
+
+### Backend (Watcher + API)
+- [ ] Viem watcher service (fallback & analytics)
+  - [ ] `watchContractEvent` on PositionUpdate
+  - [ ] Compute bps = `newTickets * 10000 / totalTickets` (guard `totalTickets>0`)
+  - [ ] If `bps ≥ 100` and no market for `(raffleId/seasonId, player, WINNER_PREDICTION)`, `db.createInfoFiMarket`
+  - [ ] Debounce duplicate events and ensure idempotency
+- [ ] Routes alignment (`backend/fastify/routes/infoFiRoutes.js`)
+  - [ ] `GET /api/infofi/markets?raffleId=` → list markets for a raffle
+  - [ ] `POST /api/infofi/markets` accepts `{ raffle_id, player_address, market_type, initial_probability_bps }` for admin/backfill
+- [ ] SSE pricing bootstrap
+  - [ ] Initialize `market_pricing_cache` with raffleProbability=newProbability, marketSentiment=newProbability, `hybridPrice` per 70/30
+  - [ ] Broadcast initial snapshot on `/api/stream/pricing/:marketId`
+- [ ] Healthchecks/env
+  - [ ] Validate factory/raffle addresses; add health endpoint
+
+### Database (Supabase)
+- [ ] Apply schema: `infofi_markets`, `market_pricing_cache` (see `.windsurf/rules`)
+- [ ] Unique index `(raffle_id, market_type, player_address)` to prevent duplicates
+- [ ] Backfill task: rescan recent PositionUpdate logs to create missing markets
+
+### Frontend
+- [ ] `useInfoFiMarkets(raffleId)` → fetch `GET /api/infofi/markets?raffleId=` and handle empty-state
+- [ ] After successful buy in `src/routes/RaffleDetails.jsx`, refetch markets (or subscribe to SSE) to surface newly-created market
+- [ ] Add badge for players ≥1% with link to their market card (MVP)
+
+### Testing
+- [ ] Backend unit tests: threshold edge cases (exact 1.00%, flapping around threshold), idempotency
+- [ ] Contract tests: factory creation path, pause/guard paths
+- [ ] Frontend tests: hook states (success/empty/error); UI reflects market appearing after purchase
+
+### Ops
+- [ ] Update `.env.example` with Factory/Oracle/Settlement addresses (LOCAL/TESTNET)
+- [ ] Document runbook: auto-creation flow, reindex procedure, and troubleshooting `/api/infofi/markets` 500s
 
 ## Latest Progress (2025-08-17)
 
 - **Frontend (sell flow)**: Implemented ticket sell flow in `src/routes/RaffleDetails.jsx` with integer amount, slippage input, estimated SOF receive, and "Min after slippage" display.
 - **Hooks (curve)**: Added `sellTokens(tokenAmount, minSofAmount)` mutation in `src/hooks/useCurve.js` using Wagmi + React Query.
-- **UX & guards**: Disabled sell when season not active; mirrored buy flow feedback states.
+{{ ... }}
 - **Lint & quality**: Removed debug logs, fixed variable shadowing, ensured unconditional hook declarations to avoid HMR hook-order errors.
 - **Docs**: Fixed Markdown list formatting (MD005/MD007, MD032) in this file.
 - **Backend (API tests)**: Added and stabilized Vitest coverage for Fastify route plugins `pricingRoutes`, `arbitrageRoutes`, `analyticsRoutes`, and `userRoutes`. Implemented Supabase client mocking, dynamic imports after mocks, route prefix alignment, and `app.ready()` awaiting. All backend API tests pass locally (40/40 total tests currently green).
