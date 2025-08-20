@@ -112,6 +112,12 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Allow the curve to call participant hooks
         _grantRole(BONDING_CURVE_ROLE, curveAddr);
 
+        // If InfoFi factory is configured, wire it into the curve for threshold callbacks
+        if (infoFiFactory != address(0)) {
+            // Raffle has RAFFLE_MANAGER_ROLE on the curve (granted by SeasonFactory)
+            SOFBondingCurve(curveAddr).setInfoFiFactory(infoFiFactory);
+        }
+
         emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
     }
 

@@ -12,6 +12,7 @@ import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useCurveState } from '@/hooks/useCurveState';
 import { computeMaxWithSlippage, computeMinAfterSlippage, simBuyCurve, simSellCurve } from '@/lib/curveMath';
+import { useCurveEvents } from '@/hooks/useCurveEvents';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 
 const RaffleDetails = () => {
@@ -37,6 +38,14 @@ const RaffleDetails = () => {
   const [testBuy1, setTestBuy1] = useState(0n);
   const [testBuy10, setTestBuy10] = useState(0n);
   // helpers now imported from lib/curveMath
+
+  // Subscribe to on-chain PositionUpdate events to refresh immediately
+  useCurveEvents(bondingCurveAddress, {
+    onPositionUpdate: () => {
+      // Reason: server-side state has changed; refresh chart/supply/reserves quickly
+      debouncedRefresh(0);
+    },
+  });
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 

@@ -9,6 +9,7 @@ import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
+import {IInfoFiMarketFactory} from "../lib/IInfoFiMarketFactory.sol";
 
 /**
  * @title SOF Bonding Curve
@@ -27,6 +28,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     // Raffle callback wiring
     address public raffle;
     uint256 public raffleSeasonId;
+    // InfoFi factory (optional wiring for threshold-triggered market creation)
+    address public infoFiFactory;
 
 
 
@@ -44,12 +47,25 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     CurveConfig public curveConfig;
     RaffleTypes.BondStep[] public bondSteps;
 
+    // Player ticket tracking (mirrors mint/burn actions for fast reads)
+    mapping(address => uint256) public playerTickets;
+
     // Events
     event TokensPurchased( // total paid including fee
     address indexed buyer, uint256 sofAmount, uint256 tokensReceived, uint256 feeAmount);
 
     event TokensSold( // amount sent to seller after fee
     address indexed seller, uint256 tokenAmount, uint256 sofReceived, uint256 feeAmount);
+
+    // Emitted on every buy/sell reflecting the new position and probability basis points
+    event PositionUpdate(
+        uint256 indexed seasonId,
+        address indexed player,
+        uint256 oldTickets,
+        uint256 newTickets,
+        uint256 totalTickets,
+        uint256 probabilityBps
+    );
 
     event TradingLocked(uint256 timestamp);
     event SofExtracted(address indexed to, uint256 amount);
@@ -124,6 +140,14 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice Set InfoFi factory for threshold-triggered market creation
+     */
+    function setInfoFiFactory(address _factory) external onlyRole(RAFFLE_MANAGER_ROLE) {
+        require(_factory != address(0), "Curve: factory zero");
+        infoFiFactory = _factory;
+    }
+
+    /**
      * @notice Buy raffle tokens with $SOF
      * @param tokenAmount Amount of raffle tokens to buy
      * @param maxSofAmount Maximum $SOF willing to spend (slippage protection)
@@ -139,6 +163,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 fee = (baseCost * curveConfig.buyFee) / 10000;
         uint256 totalCost = baseCost + fee; // fee on top to keep reserves consistent with pricing
         require(totalCost <= maxSofAmount, "Curve: slippage");
+        // Track old values prior to state mutation
+        uint256 preTotal = curveConfig.totalSupply;
+        uint256 oldTickets = playerTickets[msg.sender];
 
         // Transfer $SOF from buyer (base + fee)
         sofToken.safeTransferFrom(msg.sender, address(this), totalCost);
@@ -150,13 +177,47 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         curveConfig.totalSupply += tokenAmount;
         curveConfig.sofReserves += baseCost;
 
+        // Update player position
+        uint256 newTickets = oldTickets + tokenAmount;
+        playerTickets[msg.sender] = newTickets;
+
         _updateCurrentStep();
 
         emit TokensPurchased(msg.sender, totalCost, tokenAmount, fee);
 
+        // Emit position update and notify InfoFi factory on threshold crossing upward (>= 1.00%)
+        uint256 totalTickets = curveConfig.totalSupply;
+        uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
+        uint256 oldBps = (oldTickets * 10000) / (preTotal == 0 ? 1 : preTotal);
+
+        emit PositionUpdate(
+            raffleSeasonId,
+            msg.sender,
+            oldTickets,
+            newTickets,
+            totalTickets,
+            newBps
+        );
+
         // Callback to raffle for participant tracking
         if (raffle != address(0)) {
             IRaffle(raffle).recordParticipant(raffleSeasonId, msg.sender, tokenAmount);
+        }
+
+        // Trigger InfoFi market creation when crossing 1% upward
+        if (infoFiFactory != address(0) && newBps >= 100 && oldBps < 100) {
+            // Best-effort call; do not revert the buy on external failure
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+                raffleSeasonId,
+                msg.sender,
+                oldTickets,
+                newTickets,
+                totalTickets
+            ) {
+                // no-op
+            } catch {
+                // swallow error to avoid impacting user buy
+            }
         }
     }
 
@@ -180,6 +241,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         require(payout >= minSofAmount, "Curve: slippage");
         require(curveConfig.sofReserves >= baseReturn, "Curve: reserves");
 
+        // Track old values before mutation
+        uint256 oldTickets = playerTickets[msg.sender];
         // Burn raffle tokens from seller (assumes burnFrom)
         _burnRaffleTokens(msg.sender, tokenAmount);
 
@@ -190,6 +253,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         curveConfig.totalSupply -= tokenAmount;
         curveConfig.sofReserves -= baseReturn;
 
+        // Update player position
+        uint256 newTickets = oldTickets - tokenAmount;
+        playerTickets[msg.sender] = newTickets;
+
         _updateCurrentStep();
 
         emit TokensSold(msg.sender, tokenAmount, payout, fee);
@@ -198,6 +265,18 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         if (raffle != address(0)) {
             IRaffle(raffle).removeParticipant(raffleSeasonId, msg.sender, tokenAmount);
         }
+
+        // Emit position update (no threshold check on sells for now)
+        uint256 totalTickets = curveConfig.totalSupply;
+        uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
+        emit PositionUpdate(
+            raffleSeasonId,
+            msg.sender,
+            oldTickets,
+            newTickets,
+            totalTickets,
+            newBps
+        );
     }
 
     /**

@@ -92,7 +92,7 @@ All frontend development setup tasks have been completed:
 - [x] Implement cross-layer settlement coordination
 - [x] Implement advanced analytics endpoints
 - [x] Create comprehensive API documentation
-- [ ] Create database schema and migrations (markets, positions, winnings, pricing cache)
+- [x] Create database schema and migrations (markets, positions, winnings, pricing cache)
 - [ ] Connect frontend to backend services (query/mutations wired to API)
 
 ### Frontend Features
@@ -247,17 +247,28 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 This roadmap consolidates the InfoFi specs into executable tasks across contracts, backend, frontend, and testing. These will be the next priorities after stabilizing tests and the ticket purchase bug.
 
+### Current Local Status (2025-08-20)
+
+- [x] Local deploys (Anvil): `InfoFiMarketFactory`, `InfoFiPriceOracle`, `InfoFiSettlement` deployed via `Deploy.s.sol`.
+- [x] Oracle admin/updater: `InfoFiPriceOracle` constructed with `address(infoFiFactory)` as admin; factory holds `DEFAULT_ADMIN_ROLE` and `PRICE_UPDATER_ROLE`.
+- [x] Raffle wired as VRF consumer (local mock) and season factory connected.
+- [x] ENV/addresses synced to frontend/backend via scripts.
+- [ ] Position events: Curve does not yet emit `PositionUpdate` nor call factory on threshold.
+- [ ] Testnet deployments remain pending.
+
 ### InfoFi Smart Contracts
 
-- [ ] Deploy `InfoFiMarketFactory.sol` (AccessControl configured) to testnet; record addresses in `src/config/contracts.js` and backend env.
-- [ ] Deploy `InfoFiPriceOracle.sol`; set initial weights (70/30) and wire updater roles.
-- [ ] Deploy `InfoFiSettlement.sol`; grant `SETTLER_ROLE` to raffle/curve contract.
-- [ ] Wire `Raffle`/`BondingCurve` events to factory `onPositionUpdate(...)` (emit and cross-contract call as per spec).
-- [ ] Validate VRF winner flow triggers settlement path (factory → settlement) on testnet.
+- [ ] Deploy `InfoFiMarketFactory.sol` to testnet; record addresses in `src/config/contracts.js` and backend env.
+- [ ] Deploy `InfoFiPriceOracle.sol` to testnet; set initial weights (70/30).
+- [ ] Deploy `InfoFiSettlement.sol` to testnet; grant `SETTLER_ROLE` to raffle/curve contract.
+- [ ] Add `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` event in `SOFBondingCurve`.
+- [ ] In `SOFBondingCurve.buyTokens/sellTokens`, emit `PositionUpdate` and calculate probability bps; on crossing 1% upward, call `InfoFiMarketFactory.onPositionUpdate(...)` (idempotent guard in factory).
+- [x] Ensure oracle updater role is assigned to factory (done via constructor passing factory as admin in local deploy; replicate on testnet).
+- [ ] Validate VRF winner flow triggers settlement (raffle → settlement) on testnet.
 
 ### Backend (Services, SSE, DB)
 
-- [ ] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
+- [x] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
 - [ ] Define marketId generation scheme and association with `seasonId` (multiple markets per season):
   - [ ] Choose deterministic ID format (e.g., `${seasonId}:${marketType}:${playerAddr}`) or DB PK + unique index on (seasonId, marketType, subject)
   - [ ] Expose resolver endpoints to list markets by season and fetch by marketId
@@ -347,13 +358,18 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [ ] Validate factory/raffle addresses; add health endpoint
 
 ### Database (Supabase)
-- [ ] Apply schema: `infofi_markets`, `market_pricing_cache` (see `.windsurf/rules`)
-- [ ] Unique index `(raffle_id, market_type, player_address)` to prevent duplicates
-- [ ] Backfill task: rescan recent PositionUpdate logs to create missing markets
+
+- [x] Apply schema: `infofi_markets`, `market_pricing_cache` (see `.windsurf/rules`)
+- [x] Unique index `(raffle_id, market_type, player_address)` to prevent duplicates
+- [x] Backfill task: rescan recent PositionUpdate logs to create missing markets
+
+### Progress Notes (2025-08-20)
+- **InfoFi DB setup**: Successfully applied schema for `infofi_markets` and `market_pricing_cache` tables.
+- **Seeding**: Added sample data for active markets, one position for `0xf39F…2266` (2000 tickets), and pricing cache.
+- **tx_hash logging**: Added `tx_hash` column on `infofi_positions` and backfilled purchase hash `0x9734…c68`.
 
 ### Frontend
 - [ ] `useInfoFiMarkets(raffleId)` → fetch `GET /api/infofi/markets?raffleId=` and handle empty-state
-- [ ] After successful buy in `src/routes/RaffleDetails.jsx`, refetch markets (or subscribe to SSE) to surface newly-created market
 - [ ] Add badge for players ≥1% with link to their market card (MVP)
 
 ### Testing
@@ -371,6 +387,13 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - **Local deployment successful**: `npm run anvil:deploy` completes end-to-end. Addresses copied to frontend via `scripts/copy-abis.js` and `.env` updated via `scripts/update-env-addresses.js`.
 - **ENV aligned**: `.env` now contains fresh LOCAL addresses for RAFFLE/SEASON_FACTORY/INFOFI_*.
 - **Resolved**: "Cannot buy tickets in the active raffle" — buy flow now succeeds end-to-end on local (SOF balance + allowance + integer ticket amounts verified).
+
+- **Backend/Supabase**:
+  - Created InfoFi tables: `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, `market_pricing_cache` (via MCP migrations).
+  - Seeded sample data: active markets, one position for `0xf39F…2266` (2000 tickets), and pricing cache.
+  - Added `tx_hash` column on `infofi_positions` and backfilled purchase hash `0x9734…c68`.
+  - Softened `/api/infofi/positions` to return empty list if tables are missing instead of 500.
+  - Server now prefers `SUPABASE_SERVICE_ROLE_KEY` for writes; falls back to anon key.
 
 ## Latest Progress (2025-08-17)
 

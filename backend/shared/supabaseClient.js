@@ -3,8 +3,11 @@ import process from 'node:process';
 
 // Supabase configuration
 const supabaseUrl = process.env.SUPABASE_URL || '';
+// Prefer service role key on the server; fall back to anon key
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
+const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+export const hasSupabase = Boolean(supabaseUrl && supabaseKey);
 
 // Create Supabase client or a no-op stub for local dev without env
 function createStubResult(defaultData = []) {
@@ -24,7 +27,7 @@ function createStubResult(defaultData = []) {
 }
 
 export const supabase = hasSupabase
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseKey)
   : {
       from: () => createStubResult([]),
     };

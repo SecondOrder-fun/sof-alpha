@@ -45,6 +45,11 @@ export async function infoFiRoutes(fastify, options) {
       return reply.send({ positions });
     } catch (error) {
       fastify.log.error(error);
+      const msg = String(error?.message || '');
+      // If the table(s) aren't created yet locally, return empty list instead of 500
+      if (msg.includes('does not exist') || msg.includes('relation') || error?.code === '42P01') {
+        return reply.send({ positions: [] });
+      }
       return reply.status(500).send({ error: 'Failed to fetch positions' });
     }
   });

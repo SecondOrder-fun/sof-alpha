@@ -282,7 +282,9 @@ const PredictionPositionsCard = ({ address, isConnected }) => {
         if (res.status === 404) return [];
         throw new Error(`Failed to fetch positions (${res.status})`);
       }
-      return res.json();
+      const json = await res.json();
+      // Normalize shape to array for UI
+      return Array.isArray(json) ? json : (json?.positions || []);
     },
     staleTime: 10_000,
   });
@@ -333,11 +335,8 @@ RaffleEntryRow.propTypes = {
   row: PropTypes.shape({
     token: PropTypes.string,
     decimals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    balance: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.number,
-      PropTypes.object, // some toolchains may serialize BigInt values
-    ]),
+    // Accept any type for balance to support BigInt in dev
+    balance: PropTypes.any,
     seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     name: PropTypes.string,
   }).isRequired,
