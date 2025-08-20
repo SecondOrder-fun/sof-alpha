@@ -21,6 +21,9 @@ const contractsToCopy = [
 
   // InfoFi
   { sourceFile: 'InfoFiMarket.sol/InfoFiMarket.json', destFile: 'InfoFiMarket.json' },
+  { sourceFile: 'InfoFiMarketFactory.sol/InfoFiMarketFactory.json', destFile: 'InfoFiMarketFactory.json' },
+  { sourceFile: 'InfoFiPriceOracle.sol/InfoFiPriceOracle.json', destFile: 'InfoFiPriceOracle.json' },
+  { sourceFile: 'InfoFiSettlement.sol/InfoFiSettlement.json', destFile: 'InfoFiSettlement.json' },
 ];
 
 async function copyAbis() {

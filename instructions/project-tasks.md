@@ -4,9 +4,9 @@
 
 SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency speculation into structured, fair finite games through applied game theory enhanced with InfoFi (Information Finance) integration. The platform combines transparent raffle mechanics with sophisticated prediction markets to create a multi-layer system enabling cross-layer strategies, real-time arbitrage opportunities, and information-based value creation.
 
-## Known Issues (2025-08-17)
+## Known Issues (2025-08-20)
 
-- [x] Cannot buy tickets in the active raffle (tracked below in "Discovered During Work").
+- [x] Cannot buy tickets in the active raffle (Resolved 2025-08-20; see Latest Progress).
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
@@ -202,6 +202,7 @@ All frontend development setup tasks have been completed:
 - [ ] Security audits of smart contracts
 - [x] Update `Deploy.s.sol` to premint 10,000,000 SOF to deployer (local runs)
 - [x] Resolve contract size limit by refactoring with SeasonFactory
+- [x] Fix InfoFiPriceOracle admin assignment during deploy (factory set as admin; no post-deploy grant needed)
 - [ ] Deploy InfoFiMarketFactory.sol with AccessControl (testnet)
 - [ ] Integrate VRF callbacks with InfoFiSettlement.sol (testnet validation)
 - [ ] Enhance RaffleBondingCurve.sol with InfoFi event emission (verified on testnet)
@@ -364,6 +365,13 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [ ] Update `.env.example` with Factory/Oracle/Settlement addresses (LOCAL/TESTNET)
 - [ ] Document runbook: auto-creation flow, reindex procedure, and troubleshooting `/api/infofi/markets` 500s
 
+## Latest Progress (2025-08-20)
+
+- **Contracts (AccessControl fix)**: Updated `contracts/script/Deploy.s.sol` to construct `InfoFiPriceOracle` with `address(infoFiFactory)` as admin. This removes reliance on `tx.origin`/`msg.sender` in script context and eliminates `AccessControlUnauthorizedAccount` during `grantRole`.
+- **Local deployment successful**: `npm run anvil:deploy` completes end-to-end. Addresses copied to frontend via `scripts/copy-abis.js` and `.env` updated via `scripts/update-env-addresses.js`.
+- **ENV aligned**: `.env` now contains fresh LOCAL addresses for RAFFLE/SEASON_FACTORY/INFOFI_*.
+- **Resolved**: "Cannot buy tickets in the active raffle" — buy flow now succeeds end-to-end on local (SOF balance + allowance + integer ticket amounts verified).
+
 ## Latest Progress (2025-08-17)
 
 - **Frontend (sell flow)**: Implemented ticket sell flow in `src/routes/RaffleDetails.jsx` with integer amount, slippage input, estimated SOF receive, and "Min after slippage" display.
@@ -396,7 +404,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [x] User profile endpoints (`/api/users`)
   - [x] SSE pricing stream endpoint (`/api/pricing/markets/:id/pricing-stream`)
   - [x] Add npm scripts to run Anvil and deploy contracts locally (`anvil`, `deploy:anvil`, `anvil:deploy`)
-- [ ] Investigate and fix: **Cannot buy tickets in the active raffle** (next task)
+- [x] Investigate and fix: **Cannot buy tickets in the active raffle** (resolved 2025-08-20)
 
 - [x] Remove `fastify-plugin` wrappers from route files, fix duplicate `/api/health` registration, and verify all routes mount under their prefixes. Backend health endpoint reports OK and curls pass for raffles, infofi ping, users, arbitrage.
 

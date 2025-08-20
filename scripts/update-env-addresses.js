@@ -10,9 +10,13 @@
 import fs from 'fs';
 import path from 'path';
 import process from 'node:process';
+import { fileURLToPath } from 'url';
 import { getAddress as toChecksumAddress } from 'viem';
 
-const ROOT = process.cwd();
+// Resolve repo root relative to this script location so it works from any CWD
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '..');
 const BROADCAST_DIR = path.join(ROOT, 'contracts', 'broadcast', 'Deploy.s.sol');
 
 // Map contract names in broadcast to env keys
@@ -34,22 +38,37 @@ const NAME_TO_ENV = {
  */
 function findLatestBroadcast(chainId = '31337') {
   const chainDir = path.join(BROADCAST_DIR, String(chainId));
+  const runsDir = path.join(chainDir, 'runs');
+
+  // Prefer the most recent run.json under runs/*
+  if (fs.existsSync(runsDir)) {
+    const candidates = [];
+    for (const entry of fs.readdirSync(runsDir)) {
+      const p = path.join(runsDir, entry, 'run.json');
+      if (fs.existsSync(p)) {
+        const stat = fs.statSync(p);
+        candidates.push({ p, mtime: stat.mtimeMs });
+      }
+    }
+    candidates.sort((a, b) => b.mtime - a.mtime);
+    if (candidates[0]?.p) return candidates[0].p;
+  }
+
+  // Next, pick the newest top-level run-<timestamp>.json
+  if (fs.existsSync(chainDir)) {
+    const runFiles = fs
+      .readdirSync(chainDir)
+      .filter((f) => /^run-\d+\.json$/.test(f))
+      .map((f) => path.join(chainDir, f))
+      .map((p) => ({ p, mtime: fs.statSync(p).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    if (runFiles[0]?.p) return runFiles[0].p;
+  }
+
+  // Fallback to run-latest.json
   const latestPath = path.join(chainDir, 'run-latest.json');
   if (fs.existsSync(latestPath)) return latestPath;
-
-  // Fallback: search in runs/*/run.json and select most recent
-  const runsDir = path.join(chainDir, 'runs');
-  if (!fs.existsSync(runsDir)) return null;
-  const candidates = [];
-  for (const entry of fs.readdirSync(runsDir)) {
-    const p = path.join(runsDir, entry, 'run.json');
-    if (fs.existsSync(p)) {
-      const stat = fs.statSync(p);
-      candidates.push({ p, mtime: stat.mtimeMs });
-    }
-  }
-  candidates.sort((a, b) => b.mtime - a.mtime);
-  return candidates[0]?.p || null;
+  return null;
 }
 
 /**
@@ -122,8 +141,10 @@ function parseDeployAddresses(broadcastDir) {
     throw e;
   }
 
+  console.log('Using broadcast file:', broadcastPath);
   const out = {};
   const txs = Array.isArray(json?.transactions) ? json.transactions : [];
+  const unmatched = [];
   for (const tx of txs) {
     const name = tx.contractName;
     const address = tx.contractAddress || tx.contractAddressDeployed || tx.address;
@@ -131,7 +152,13 @@ function parseDeployAddresses(broadcastDir) {
     const envKeyBase = NAME_TO_ENV[name];
     if (envKeyBase) {
       out[envKeyBase] = address;
+    } else {
+      unmatched.push({ name, address });
     }
+  }
+
+  if (unmatched.length) {
+    console.log('Unmatched contracts in broadcast (ignored):', unmatched.map(u => u.name).join(', '));
   }
 
   return out;
