@@ -1,19 +1,36 @@
 // Testable helper to normalize incoming SSE payload keys to *Bps fields
 export function normalizePricingMessage(msg) {
-  if (!msg || typeof msg !== 'object') return { hybridPriceBps: undefined, raffleProbabilityBps: undefined, marketSentimentBps: undefined };
-  const hybrid = typeof msg.hybridPriceBps === 'number'
-    ? msg.hybridPriceBps
-    : (typeof msg.hybridPrice === 'number' ? msg.hybridPrice : undefined);
-  const raffle = typeof msg.raffleProbabilityBps === 'number'
-    ? msg.raffleProbabilityBps
-    : (typeof msg.raffleProbability === 'number' ? msg.raffleProbability : undefined);
-  const sentiment = typeof msg.marketSentimentBps === 'number'
-    ? msg.marketSentimentBps
-    : (typeof msg.marketSentiment === 'number' ? msg.marketSentiment : undefined);
+  if (!msg || typeof msg !== 'object') {
+    return { hybridPriceBps: undefined, raffleProbabilityBps: undefined, marketSentimentBps: undefined, lastUpdated: undefined };
+  }
+  // Support nested payloads: { type, pricing: {...} }
+  const src = msg.pricing && typeof msg.pricing === 'object' ? msg.pricing : msg;
+
+  const hybrid =
+    typeof src.hybridPriceBps === 'number' ? src.hybridPriceBps :
+    typeof src.hybrid_price_bps === 'number' ? src.hybrid_price_bps :
+    typeof src.hybridPrice === 'number' ? src.hybridPrice :
+    undefined;
+
+  const raffle =
+    typeof src.raffleProbabilityBps === 'number' ? src.raffleProbabilityBps :
+    typeof src.raffle_probability_bps === 'number' ? src.raffle_probability_bps :
+    typeof src.raffleProbability === 'number' ? src.raffleProbability :
+    undefined;
+
+  const sentiment =
+    typeof src.marketSentimentBps === 'number' ? src.marketSentimentBps :
+    typeof src.market_sentiment_bps === 'number' ? src.market_sentiment_bps :
+    typeof src.marketSentiment === 'number' ? src.marketSentiment :
+    undefined;
+
+  const lastUpdated = src.last_updated || src.lastUpdated || msg.timestamp;
+
   return {
     hybridPriceBps: hybrid,
     raffleProbabilityBps: raffle,
     marketSentimentBps: sentiment,
+    lastUpdated,
   };
 }
 
@@ -56,19 +73,20 @@ export const usePricingStream = (marketId) => {
 
     // Accept both initial and update events
     if (
+      msg.type === 'initial' ||
+      msg.type === 'update' ||
       msg.type === 'initial_price' ||
       msg.type === 'raffle_probability_update' ||
       msg.type === 'market_sentiment_update'
     ) {
-      // Normalize keys: support either *Bps fields or raw names
-      const { hybridPriceBps: hybrid, raffleProbabilityBps: raffle, marketSentimentBps: sentiment } = normalizePricingMessage(msg);
-
+      // Normalize keys from nested/camel/snake payloads
+      const { hybridPriceBps: hybrid, raffleProbabilityBps: raffle, marketSentimentBps: sentiment, lastUpdated } = normalizePricingMessage(msg);
       setState((prev) => ({
         marketId: msg.marketId ?? prev.marketId ?? marketId ?? null,
         hybridPriceBps: typeof hybrid === 'number' ? hybrid : prev.hybridPriceBps,
         raffleProbabilityBps: typeof raffle === 'number' ? raffle : prev.raffleProbabilityBps,
         marketSentimentBps: typeof sentiment === 'number' ? sentiment : prev.marketSentimentBps,
-        lastUpdated: msg.timestamp ?? prev.lastUpdated,
+        lastUpdated: lastUpdated ?? prev.lastUpdated,
       }));
     }
   }, [marketId]);
@@ -76,7 +94,7 @@ export const usePricingStream = (marketId) => {
   const url = useMemo(() => {
     if (!marketId && marketId !== 0) return null;
     if (!isValidMarketId(String(marketId))) return null;
-    return `/api/pricing/stream/pricing/${marketId}`;
+    return `/api/infofi/markets/${marketId}/pricing-stream`;
   }, [marketId]);
 
   const { isConnected, error, reconnect } = useSSE(url, onMessage, {

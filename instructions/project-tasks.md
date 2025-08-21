@@ -394,6 +394,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - Added `tx_hash` column on `infofi_positions` and backfilled purchase hash `0x9734…c68`.
   - Softened `/api/infofi/positions` to return empty list if tables are missing instead of 500.
   - Server now prefers `SUPABASE_SERVICE_ROLE_KEY` for writes; falls back to anon key.
+  - Tightened RLS: kept public SELECT; removed public INSERT/UPDATE on `infofi_markets`, `infofi_positions`, and `market_pricing_cache` (service role writes only).
 
 ## Latest Progress (2025-08-17)
 

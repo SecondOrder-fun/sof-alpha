@@ -200,6 +200,109 @@ export async function infoFiRoutes(fastify, options) {
       return reply.status(500).send({ error: 'Failed to fetch odds' });
     }
   });
+
+  // Pricing snapshot (bps) for a market
+  fastify.get('/markets/:id/pricing', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      if (!id) {
+        return reply.status(400).send({ error: 'Market ID is required' });
+      }
+
+      const marketId = Number(id);
+      // Try in-memory cache first
+      const cached = pricingService.getCachedPricing(marketId);
+      if (cached) {
+        return reply.send({ pricing: cached });
+      }
+
+      // Fallback to DB snapshot
+      const snapshot = await db.getMarketPricingCache(marketId);
+      return reply.send({ pricing: snapshot });
+    } catch (error) {
+      fastify.log.error(error);
+      const msg = String(error?.message || '');
+      if (msg.includes('does not exist') || msg.includes('relation') || error?.code === '42P01') {
+        return reply.send({ pricing: null });
+      }
+      return reply.status(500).send({ error: 'Failed to fetch pricing snapshot' });
+    }
+  });
+
+  // Pricing SSE stream (bps) for a market
+  fastify.get('/markets/:id/pricing-stream', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      if (!id) {
+        return reply.status(400).send({ error: 'Market ID is required' });
+      }
+
+      const marketId = Number(id);
+
+      // Set SSE headers
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+
+      // Helper to push data
+      const sendEvent = (payload) => {
+        try {
+          reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+        } catch (e) {
+          // If write fails, we'll rely on close handler to clean up
+        }
+      };
+
+      // Initial snapshot
+      try {
+        const cached = pricingService.getCachedPricing(marketId);
+        if (cached) {
+          sendEvent({ type: 'initial', pricing: cached });
+        } else {
+          const snapshot = await db.getMarketPricingCache(marketId);
+          if (snapshot) sendEvent({ type: 'initial', pricing: snapshot });
+        }
+      } catch (_) {
+        // best-effort initial snapshot
+      }
+
+      // Subscribe to live updates
+      const unsubscribe = pricingService.subscribeToMarket(marketId, (evt) => {
+        // evt already in bps ({ raffle_probability_bps, market_sentiment_bps, hybrid_price_bps, last_updated })
+        sendEvent({ type: 'update', pricing: evt });
+      });
+
+      // Heartbeat to keep connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          reply.raw.write(': hb\n\n');
+        } catch (_) {
+          // ignore
+        }
+      }, 30000);
+
+      // Cleanup on client disconnect
+      request.raw.on('close', () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+        try {
+          reply.raw.end();
+        } catch (_) {
+          // ignore
+        }
+      });
+
+      // Do not let Fastify auto-send a response body
+      // We keep the connection open for SSE
+      return reply; // explicit return to satisfy control flow
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to start pricing stream' });
+    }
+  });
 }
 
 export default infoFiRoutes;

@@ -52,7 +52,10 @@ export async function healthRoutes(fastify, options) {
       const supabase = await checkSupabase();
 
       const network = (process.env.DEFAULT_NETWORK || 'LOCAL').toUpperCase();
-      const rpcUrl = network === 'TESTNET' ? process.env.RPC_URL_TESTNET : process.env.RPC_URL_LOCAL;
+      // Provide sensible default in dev/test so health doesn't degrade purely due to missing env
+      const rpcUrl = network === 'TESTNET'
+        ? (process.env.RPC_URL_TESTNET || 'http://127.0.0.1:8545')
+        : (process.env.RPC_URL_LOCAL || 'http://127.0.0.1:8545');
       const rpc = await checkRpc(rpcUrl);
 
       const status = supabase.ok && rpc.ok ? 'OK' : 'DEGRADED';

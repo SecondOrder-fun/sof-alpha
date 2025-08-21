@@ -48,4 +48,38 @@ describe('normalizePricingMessage', () => {
     expect(out.raffleProbabilityBps).toBeUndefined()
     expect(out.marketSentimentBps).toBeUndefined()
   })
+
+  it('supports nested pricing object with snake_case keys and last_updated', () => {
+    const msg = {
+      type: 'update',
+      pricing: {
+        hybrid_price_bps: 1111,
+        raffle_probability_bps: 2222,
+        market_sentiment_bps: 3333,
+        last_updated: '2025-08-20T10:00:00Z'
+      }
+    }
+    const out = normalizePricingMessage(msg)
+    expect(out.hybridPriceBps).toBe(1111)
+    expect(out.raffleProbabilityBps).toBe(2222)
+    expect(out.marketSentimentBps).toBe(3333)
+    expect(out.lastUpdated).toBe('2025-08-20T10:00:00Z')
+  })
+
+  it('falls back to msg.timestamp when lastUpdated not present', () => {
+    const msg = {
+      type: 'initial',
+      timestamp: '2025-08-20T11:00:00Z',
+      pricing: {
+        hybridPriceBps: 4000,
+        raffleProbabilityBps: 5000,
+        marketSentimentBps: 6000
+      }
+    }
+    const out = normalizePricingMessage(msg)
+    expect(out.hybridPriceBps).toBe(4000)
+    expect(out.raffleProbabilityBps).toBe(5000)
+    expect(out.marketSentimentBps).toBe(6000)
+    expect(out.lastUpdated).toBe('2025-08-20T11:00:00Z')
+  })
 })

@@ -135,14 +135,49 @@ export async function pricingRoutes(fastify, options) {
     if (!cached) {
       return reply.status(404).send({ error: 'Market pricing not found' });
     }
+    // Normalize various possible cache shapes (legacy and new)
+    const raffleProbabilityBps =
+      cached.raffle_probability_bps ??
+      cached.raffleProbabilityBps ??
+      (typeof cached.probabilityBps === 'number' ? cached.probabilityBps : null);
+
+    const marketSentimentBps =
+      cached.market_sentiment_bps ??
+      cached.marketSentimentBps ??
+      (typeof cached.sentimentBps === 'number' ? cached.sentimentBps : null);
+
+    const raffleWeightBps = cached.raffle_weight_bps ?? cached.raffleWeightBps ?? 7000;
+    const marketWeightBps = cached.market_weight_bps ?? cached.marketWeightBps ?? 3000;
+
+    // Prefer directly provided hybrid price (bps). Fallbacks:
+    // - compute from raffle+market components with weights when available
+    // - convert legacy decimal price (yes_price in [0,1]) to bps
+    let hybridPriceBps =
+      cached.hybrid_price_bps ??
+      cached.hybridPriceBps ??
+      null;
+
+    if (hybridPriceBps == null) {
+      if (typeof raffleProbabilityBps === 'number' && typeof marketSentimentBps === 'number') {
+        hybridPriceBps = Math.round(
+          (raffleWeightBps * raffleProbabilityBps + marketWeightBps * marketSentimentBps) / 10000
+        );
+      } else if (typeof cached.yes_price === 'number') {
+        // legacy float price (0..1)
+        hybridPriceBps = Math.round(cached.yes_price * 10000);
+      }
+    }
+
+    const lastUpdated = cached.last_updated || cached.updated_at || cached.lastUpdate || new Date().toISOString();
+
     const res = {
       marketId,
-      raffleProbabilityBps: cached.raffle_probability_bps ?? null,
-      marketSentimentBps: cached.market_sentiment_bps ?? null,
-      hybridPriceBps: cached.hybrid_price_bps ?? null,
-      raffleWeightBps: cached.raffle_weight_bps ?? 7000,
-      marketWeightBps: cached.market_weight_bps ?? 3000,
-      lastUpdated: cached.last_updated || new Date().toISOString(),
+      raffleProbabilityBps,
+      marketSentimentBps,
+      hybridPriceBps: typeof hybridPriceBps === 'number' ? hybridPriceBps : 0,
+      raffleWeightBps,
+      marketWeightBps,
+      lastUpdated,
     };
     return reply.send(res);
   });

@@ -9,7 +9,7 @@
     "dev:backend": "node -r dotenv/config backend/fastify/server.js",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "lint": "eslint . --max-warnings 0",
