@@ -4,6 +4,8 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { WebSocketServer } from 'ws';
 import process from 'node:process';
+import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
+import { loadChainEnv } from '../src/config/chain.js';
 
 // Create Fastify instance
 const app = fastify({ logger: true });
@@ -106,6 +108,7 @@ app.setNotFoundHandler((_request, reply) => {
 
 // WebSocket server (will attach after app starts and app.server exists)
 let wss;
+let stopListeners = [];
 
 // Start server
 const PORT = process.env.PORT || 3000;
@@ -130,6 +133,24 @@ try {
 
   app.log.info(`HTTP server listening on port ${PORT}`);
   app.log.info(`WebSocket server bound on the same port ${PORT}`);
+
+  // Start InfoFi listeners for networks that have factory configured
+  try {
+    const chains = loadChainEnv();
+    const candidates = [
+      { key: 'LOCAL', cfg: chains.LOCAL },
+      { key: 'TESTNET', cfg: chains.TESTNET },
+    ];
+    for (const c of candidates) {
+      if (c?.cfg?.infofiFactory) {
+        const stop = startInfoFiMarketListener(c.key, app.log);
+        stopListeners.push(stop);
+        app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
+      }
+    }
+  } catch (e) {
+    app.log.error({ e }, 'Failed to start InfoFi listeners');
+  }
 } catch (err) {
   app.log.error(err);
   process.exit(1);
@@ -142,6 +163,10 @@ process.on('SIGINT', async () => {
   try {
     if (wss) {
       wss.close();
+    }
+    // Stop InfoFi listeners
+    for (const stop of stopListeners) {
+      try { stop(); } catch (_) { /* ignore */ }
     }
     // app.server is closed by app.close()
   } finally {

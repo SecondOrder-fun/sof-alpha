@@ -1,5 +1,6 @@
 import { pricingService } from '../../shared/pricingService.js';
-import { isValidMarketId } from '../../shared/marketId.js';
+import { isValidMarketId, parseMarketId } from '../../shared/marketId.js';
+import { db } from '../../shared/supabaseClient.js';
 
 export async function pricingRoutes(fastify, options) {
   // options parameter required by Fastify plugin interface
@@ -73,39 +74,92 @@ export async function pricingRoutes(fastify, options) {
 
     // Send initial snapshot if available
     try {
-      const cached = pricingService.getCachedPricing(marketId);
+      // Resolve composite -> numeric market id
+      const { seasonId, marketType, subject } = parseMarketId(marketId);
+      const player = await db.getPlayerByAddress(subject);
+      const marketRow = player
+        ? await db.getInfoFiMarketByComposite(Number(seasonId), player.id, marketType)
+        : null;
+      const numericId = marketRow?.id ?? null;
+
+      const cached = numericId != null ? pricingService.getCachedPricing(numericId) : null;
       if (cached) {
         const initial = {
           type: 'initial_price',
           marketId,
-          raffleProbabilityBps: cached.raffle_probability_bps ?? null,
-          marketSentimentBps: cached.market_sentiment_bps ?? null,
-          hybridPriceBps: cached.hybrid_price_bps ?? null,
+          raffleProbabilityBps: cached.raffle_probability_bps ?? cached.raffle_probability ?? null,
+          marketSentimentBps: cached.market_sentiment_bps ?? cached.market_sentiment ?? null,
+          hybridPriceBps: cached.hybrid_price_bps ?? cached.hybrid_price ?? null,
           timestamp: cached.last_updated || new Date().toISOString(),
         };
         reply.raw.write(`data: ${JSON.stringify(initial)}\n\n`);
+      } else if (numericId != null) {
+        // Fallback: read from DB cache directly
+        try {
+          const dbCache = await db.getMarketPricingCache(numericId);
+          if (dbCache) {
+            const initial = {
+              type: 'initial_price',
+              marketId,
+              raffleProbabilityBps: dbCache.raffle_probability_bps ?? dbCache.raffle_probability ?? null,
+              marketSentimentBps: dbCache.market_sentiment_bps ?? dbCache.market_sentiment ?? null,
+              hybridPriceBps: dbCache.hybrid_price_bps ?? dbCache.hybrid_price ?? null,
+              timestamp: dbCache.last_updated || new Date().toISOString(),
+            };
+            reply.raw.write(`data: ${JSON.stringify(initial)}\n\n`);
+          }
+        } catch (e) {
+          fastify.log.warn({ err: e }, 'Failed to load DB pricing snapshot');
+        }
       }
     } catch (e) {
       fastify.log.warn({ err: e }, 'Failed to load initial pricing snapshot');
     }
 
     // Bridge updates from legacy pricingService to bps format
-    const unsubscribe = pricingService.subscribeToMarket(marketId, (priceUpdate) => {
-      try {
-        // pricingService now emits bps-based events directly
-        const evt = {
-          type: 'price_update',
-          marketId,
-          raffleProbabilityBps: priceUpdate.raffle_probability_bps ?? null,
-          marketSentimentBps: priceUpdate.market_sentiment_bps ?? null,
-          hybridPriceBps: priceUpdate.hybrid_price_bps ?? null,
-          timestamp: priceUpdate.last_updated || new Date().toISOString(),
-        };
-        reply.raw.write(`data: ${JSON.stringify(evt)}\n\n`);
-      } catch (error) {
-        fastify.log.error('Error sending SSE update:', error);
-      }
-    });
+    let unsubscribe = () => {};
+    try {
+      const { seasonId, marketType, subject } = parseMarketId(marketId);
+      const player = await db.getPlayerByAddress(subject);
+      const marketRow = player
+        ? await db.getInfoFiMarketByComposite(Number(seasonId), player.id, marketType)
+        : null;
+      const numericId = marketRow?.id ?? marketId;
+
+      unsubscribe = pricingService.subscribeToMarket(numericId, (priceUpdate) => {
+        try {
+          // pricingService now emits bps-based events directly
+          const evt = {
+            type: 'price_update',
+            marketId,
+            raffleProbabilityBps: priceUpdate.raffle_probability_bps ?? priceUpdate.raffle_probability ?? null,
+            marketSentimentBps: priceUpdate.market_sentiment_bps ?? priceUpdate.market_sentiment ?? null,
+            hybridPriceBps: priceUpdate.hybrid_price_bps ?? priceUpdate.hybrid_price ?? null,
+            timestamp: priceUpdate.last_updated || new Date().toISOString(),
+          };
+          reply.raw.write(`data: ${JSON.stringify(evt)}\n\n`);
+        } catch (error) {
+          fastify.log.error('Error sending SSE update:', error);
+        }
+      });
+    } catch (e) {
+      fastify.log.warn({ err: e }, 'Failed to subscribe with numeric market id, falling back');
+      unsubscribe = pricingService.subscribeToMarket(marketId, (priceUpdate) => {
+        try {
+          const evt = {
+            type: 'price_update',
+            marketId,
+            raffleProbabilityBps: priceUpdate.raffle_probability_bps ?? priceUpdate.raffle_probability ?? null,
+            marketSentimentBps: priceUpdate.market_sentiment_bps ?? priceUpdate.market_sentiment ?? null,
+            hybridPriceBps: priceUpdate.hybrid_price_bps ?? priceUpdate.hybrid_price ?? null,
+            timestamp: priceUpdate.last_updated || new Date().toISOString(),
+          };
+          reply.raw.write(`data: ${JSON.stringify(evt)}\n\n`);
+        } catch (error) {
+          fastify.log.error('Error sending SSE update:', error);
+        }
+      });
+    }
 
     const heartbeatInterval = setInterval(() => {
       try {
@@ -131,30 +185,56 @@ export async function pricingRoutes(fastify, options) {
     if (!isValidMarketId(marketId)) {
       return reply.status(400).send({ error: 'invalid marketId format' });
     }
-    const cached = pricingService.getCachedPricing(marketId);
-    if (!cached) {
+    // Resolve composite -> numeric ID
+    let numericId = null;
+    try {
+      const { seasonId, marketType, subject } = parseMarketId(marketId);
+      const player = await db.getPlayerByAddress(subject);
+      const marketRow = player
+        ? await db.getInfoFiMarketByComposite(Number(seasonId), player.id, marketType)
+        : null;
+      numericId = marketRow?.id ?? null;
+    } catch (e) {
+      // proceed without numeric id if resolution fails
+    }
+
+    // Try in-memory cache first (using numeric id if available)
+    const cached = pricingService.getCachedPricing(numericId ?? marketId);
+    let source = cached;
+    if (!source && numericId != null) {
+      // Fallback to DB cache
+      try {
+        source = await db.getMarketPricingCache(numericId);
+      } catch (_) {
+        // ignore
+      }
+    }
+    if (!source) {
       return reply.status(404).send({ error: 'Market pricing not found' });
     }
     // Normalize various possible cache shapes (legacy and new)
     const raffleProbabilityBps =
-      cached.raffle_probability_bps ??
-      cached.raffleProbabilityBps ??
-      (typeof cached.probabilityBps === 'number' ? cached.probabilityBps : null);
+      source.raffle_probability_bps ??
+      source.raffle_probability ??
+      source.raffleProbabilityBps ??
+      (typeof source.probabilityBps === 'number' ? source.probabilityBps : null);
 
     const marketSentimentBps =
-      cached.market_sentiment_bps ??
-      cached.marketSentimentBps ??
-      (typeof cached.sentimentBps === 'number' ? cached.sentimentBps : null);
+      source.market_sentiment_bps ??
+      source.market_sentiment ??
+      source.marketSentimentBps ??
+      (typeof source.sentimentBps === 'number' ? source.sentimentBps : null);
 
-    const raffleWeightBps = cached.raffle_weight_bps ?? cached.raffleWeightBps ?? 7000;
-    const marketWeightBps = cached.market_weight_bps ?? cached.marketWeightBps ?? 3000;
+    const raffleWeightBps = source.raffle_weight_bps ?? source.raffle_weight ?? source.raffleWeightBps ?? 7000;
+    const marketWeightBps = source.market_weight_bps ?? source.market_weight ?? source.marketWeightBps ?? 3000;
 
     // Prefer directly provided hybrid price (bps). Fallbacks:
     // - compute from raffle+market components with weights when available
     // - convert legacy decimal price (yes_price in [0,1]) to bps
     let hybridPriceBps =
-      cached.hybrid_price_bps ??
-      cached.hybridPriceBps ??
+      source.hybrid_price_bps ??
+      source.hybrid_price ??
+      source.hybridPriceBps ??
       null;
 
     if (hybridPriceBps == null) {
@@ -162,13 +242,13 @@ export async function pricingRoutes(fastify, options) {
         hybridPriceBps = Math.round(
           (raffleWeightBps * raffleProbabilityBps + marketWeightBps * marketSentimentBps) / 10000
         );
-      } else if (typeof cached.yes_price === 'number') {
+      } else if (typeof source.yes_price === 'number') {
         // legacy float price (0..1)
-        hybridPriceBps = Math.round(cached.yes_price * 10000);
+        hybridPriceBps = Math.round(source.yes_price * 10000);
       }
     }
 
-    const lastUpdated = cached.last_updated || cached.updated_at || cached.lastUpdate || new Date().toISOString();
+    const lastUpdated = source.last_updated || source.updated_at || source.lastUpdate || new Date().toISOString();
 
     const res = {
       marketId,

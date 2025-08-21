@@ -8,7 +8,22 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 
 - [x] Cannot buy tickets in the active raffle (Resolved 2025-08-20; see Latest Progress).
 
+- [ ] Cannot sell tickets to close position in raffle (Reported 2025-08-21)
+  - Symptom: Sell flow fails when attempting to close or reduce raffle ticket positions.
+  - Scope: Raffle sell path only (InfoFi market buy/sell is separate and in progress).
+  - Action: Investigate contract/UI/hook path in `src/hooks/useCurve.js` and `src/routes/RaffleDetails.jsx` after current InfoFi task is complete.
+
 Note: Backend API tests are now green locally (see Latest Progress for details).
+
+### InfoFi Trading – Next Tasks
+
+- [ ] Add threshold-sync API to create InfoFi market row when a player crosses ≥1% (MVP polling), then replace with event listener
+  - Endpoint: `POST /api/infofi/markets/sync-threshold` with `{ seasonId, playerAddress }`
+  - Reads on-chain `getParticipantPosition()` and `getSeasonDetails()` to compute bps
+  - Creates DB row in `infofi_markets` and initializes pricing cache
+
+- [ ] Implement event listener for `InfoFiMarketFactory.MarketCreated` to auto-insert `infofi_markets` rows
+  - Subscribe via viem PublicClient logs, backfill if missed during downtime
 
 ### Development Servers & Start Scripts
 
@@ -109,6 +124,7 @@ All frontend development setup tasks have been completed:
 ### Frontend Contract Integration (NEXT)
 
 - **Network & Config**
+
   - [x] Add network toggle UI (Local/Anvil default, Testnet) in a `NetworkToggle` component
   - [x] Provide network config via `src/config/networks.js` (RPC URLs, chain IDs)
   - [x] Provide contract address map via `src/config/contracts.js` (RAFFLE, SOF, BONDING_CURVE per network)
@@ -116,9 +132,11 @@ All frontend development setup tasks have been completed:
   - [x] Update Wagmi config to switch chains dynamically based on toggle
 
 - **Build & Tooling**
+
   - [x] Create script to copy contract ABIs to frontend directory
 
 - **Wagmi/Viem Hooks**
+
   - [x] `useRaffleRead()` for `currentSeasonId()`, `getSeasonDetails(seasonId)`
   - [x] `useRaffleAdmin()` for `createSeason()`, `startSeason()`, `requestSeasonEnd()` (role-gated)
   - [x] `useCurve()` for `buyTickets(amount)`, allowance and SOF approvals
@@ -137,7 +155,7 @@ All frontend development setup tasks have been completed:
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 - **ENV & Addresses**
-  
+
   - [x] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
   - [x] Add `VITE_RAFFLE_ADDRESS_LOCAL`, `VITE_SOF_ADDRESS_LOCAL`, `VITE_SEASON_FACTORY_ADDRESS_LOCAL`, `VITE_INFOFI_MARKET_ADDRESS_LOCAL`
   - [ ] Add testnet equivalents (left empty until deployment)
@@ -152,16 +170,19 @@ All frontend development setup tasks have been completed:
 ### Backend API Alignment (Onchain)
 
 - **Standards & Conventions**
+
   - [ ] Ensure backend follows `instructions/project-structure.md` and `.windsurf/rules/project-framework.md` conventions
   - [ ] Use ES Modules with ES6 imports; prefer TypeScript or JSDoc types
   - [x] Centralize RPC and addresses in `backend/src/config/chain.js` (env-driven)
 
 - **Viem Server Clients**
+
   - [x] Create `backend/src/lib/viemClient.js` with `createPublicClient(http)` per network
   - [ ] Do NOT hold private keys in backend; no signing server-side
   - [ ] Add helpers to build calldata for admin/user actions (frontend signs)
 
 - **Replace Mocked Endpoints with Onchain Reads**
+
   - [ ] GET `/api/raffles` → read current/active seasons from Raffle contract
   - [ ] GET `/api/raffles/:id` → `getSeasonDetails`, state, VRF status
   - [ ] GET `/api/raffles/:id/positions` → aggregate from contract events/state
@@ -266,6 +287,36 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 - [x] Ensure oracle updater role is assigned to factory (done via constructor passing factory as admin in local deploy; replicate on testnet).
 - [ ] Validate VRF winner flow triggers settlement (raffle → settlement) on testnet.
 
+#### Automatic On-Chain Prediction Market Plan (Now — 2025-08-21)
+
+— Execute these in order to enable automatic market creation on threshold without manual backfills.
+
+- **Contracts**
+  - [ ] Implement `PositionUpdate` event in `contracts/src/curve/SOFBondingCurve.sol`.
+  - [ ] Emit `PositionUpdate` in `buyTokens` and `sellTokens` with `{ player, oldTickets, newTickets, totalTickets }`.
+  - [ ] On upward cross to ≥1% (old < 100 bps, new ≥ 100 bps), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)`.
+  - [ ] Add factory view: `getMarketFor(address player, uint256 seasonId, bytes32 marketType)` to prevent duplicates and allow discovery.
+  - [ ] Confirm `InfoFiPriceOracle` grants updater role to factory in `contracts/script/Deploy.s.sol` (already done locally) and mirror on testnet.
+
+- **Backend**
+  - [ ] Add viem watcher: `watchContractEvent(PositionUpdate)` with debounce and idempotency checks; backfill with `getLogs` on boot.
+  - [ ] Endpoint: `POST /api/infofi/markets/sync-threshold` for manual reconciliation by `{ seasonId, playerAddress }`.
+  - [ ] SSE pricing stream live at `/stream/pricing/:marketId` using `market_pricing_cache` with initial snapshot + heartbeats.
+
+- **Frontend**
+  - [ ] Add header nav item “Prediction Markets” linking to markets index.
+  - [ ] Implement `useInfoFiMarkets(raffleId)` to list markets and positions; handle empty/error states.
+  - [ ] Wire SSE pricing to `InfoFiMarketCard` for live hybrid price updates.
+
+- **ENV & Addresses**
+  - [ ] Add LOCAL/TESTNET `VITE_INFOFI_FACTORY_ADDRESS`, `VITE_INFOFI_ORACLE_ADDRESS`, `VITE_INFOFI_SETTLEMENT_ADDRESS` to `.env.example` and `.env`.
+  - [ ] Ensure `scripts/update-env-addresses.js` writes the above keys alongside RAFFLE/SEASON/ SOF.
+
+- **Testing**
+  - [ ] Foundry: threshold crossing creates exactly one market and updates oracle; duplicates prevented.
+  - [ ] Backend: unit tests for watcher debounce/idempotency and SSE initial+update events.
+  - [ ] Frontend: Vitest for `useInfoFiMarkets` and nav visibility; render with empty/success/error.
+
 ### Backend (Services, SSE, DB)
 
 - [x] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
@@ -299,10 +350,12 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local deploy), we'll integrate by mocking the API locally and swapping the base URL.
 
 - **Env & Config**
+
   - [ ] Add `VITE_ONIT_API_BASE` (frontend) and `ONIT_API_BASE` (backend) to `.env.example`.
   - [ ] Default to `http://localhost:8787` in dev; `https://markets.onit-labs.workers.dev` in prod.
 
 - **Backend (API Mock, Hono/Fastify)**
+
   - [ ] Implement endpoints compatible with `onit-markets` client:
     - [ ] `GET /api/markets` (list)
     - [ ] `POST /api/markets` (mock create)
@@ -312,6 +365,7 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
   - [ ] Use SuperJSON-compatible serialization and zod validation (align with SDK expectations).
 
 - **Frontend (Client Wiring)**
+
   - [ ] Create `onitClient.ts` wrapper using `getClient(import.meta.env.VITE_ONIT_API_BASE)`.
   - [ ] Add hooks to consume: list markets, get market, place bet (mock), subscribe to SSE.
   - [ ] Feature-flag switch between local mock and hosted API by env.
@@ -323,6 +377,59 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
 ### Note
 
 - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
+
+## InfoFi Trading (Onit-style) — Buy/Sell Plan (2025-08-21)
+
+Enable opening/closing positions per InfoFi market using a house market‑maker (fixed‑odds, Onit‑style), with hybrid price anchoring (70% raffle / 30% sentiment). Ensure My Account shows only InfoFi positions (not raffle).
+
+### Phase 0 — Correct My Account Source
+
+- [ ] Update My Account panel to read from `infofi_positions`/`infofi_trades` only, not raffle tickets.
+- [ ] Backend route to list user InfoFi positions: `GET /api/infofi/positions?address=0x...`.
+- [ ] Tests: verify positions reflect InfoFi trades only.
+
+### Phase 1 — Trading Model & Endpoints
+
+- [ ] Implement `marketMakerService`:
+  - Quote: `quote(marketId, side, amount)` → `{ priceBps, feeBps, totalCost, slippage }`.
+  - Execute buy/sell: updates `infofi_trades`, aggregates `infofi_positions`, updates maker inventory.
+  - Use hybrid price from `pricingService` as anchor; apply spread and inventory skew.
+- [ ] API (Fastify):
+  - `GET /api/infofi/markets/:id/quote?side=yes|no&amount=...`
+  - `POST /api/infofi/markets/:id/buy` { side, amount }
+  - `POST /api/infofi/markets/:id/sell` { side, amount }
+  - `GET /api/infofi/positions?address=0x...`
+- [ ] DB additions:
+  - `infofi_trades` (market_id, user_address, side, amount, price_bps, fee_bps, created_at)
+  - `market_maker_inventory` (market_id, side, net_inventory, exposure_limit, last_updated)
+- [ ] SSE: include indicative quotes alongside pricing where useful.
+
+### Phase 2 — Settlement
+
+- [ ] On market resolution (from `InfoFiMarket.sol` or admin in local), compute PnL and write claimables into `infofi_winnings`.
+- [ ] Optionally integrate with `InfoFiSettlement.sol` for on‑chain signals.
+
+### Phase 3 — Frontend UX
+
+- [ ] Market trade panel: YES/NO toggle, amount input, live quote (price/fee/slippage), confirm.
+- [ ] Positions table: avg price, size, realized/unrealized PnL, Close button.
+- [ ] My Account shows InfoFi positions/trades only.
+
+### Anvil / Mocks
+
+- [ ] Deploy OpenZeppelin `ERC20Mock` as betting currency; faucet to dev wallet in `Deploy.s.sol`.
+- [ ] Wire token address into frontend/backend env (`contracts.js`, server config).
+
+### Tests
+
+- [ ] API tests for quote/buy/sell (+ edge cases: invalid market, paused, insufficient position).
+- [ ] Settlement tests: after resolve, winners/losers amounts in `infofi_winnings`.
+- [ ] Frontend hooks: quote/trade/positions with success/edge/failure.
+
+### Notes
+
+- Start with house maker (fixed‑odds). AMM can be added later without breaking API.
+- Hybrid price from `market_pricing_cache` remains the canonical anchor; quotes adjust with spread and inventory.
 
 ## InfoFi Market Auto-Creation (1% Threshold) — Plan & Tasks (2025-08-19)
 
@@ -343,6 +450,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [ ] Emits proper events and updates oracle probability
 
 ### Backend (Watcher + API)
+
 - [ ] Viem watcher service (fallback & analytics)
   - [ ] `watchContractEvent` on PositionUpdate
   - [ ] Compute bps = `newTickets * 10000 / totalTickets` (guard `totalTickets>0`)
@@ -364,20 +472,24 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [x] Backfill task: rescan recent PositionUpdate logs to create missing markets
 
 ### Progress Notes (2025-08-20)
+
 - **InfoFi DB setup**: Successfully applied schema for `infofi_markets` and `market_pricing_cache` tables.
 - **Seeding**: Added sample data for active markets, one position for `0xf39F…2266` (2000 tickets), and pricing cache.
 - **tx_hash logging**: Added `tx_hash` column on `infofi_positions` and backfilled purchase hash `0x9734…c68`.
 
 ### Frontend
+
 - [ ] `useInfoFiMarkets(raffleId)` → fetch `GET /api/infofi/markets?raffleId=` and handle empty-state
 - [ ] Add badge for players ≥1% with link to their market card (MVP)
 
 ### Testing
+
 - [ ] Backend unit tests: threshold edge cases (exact 1.00%, flapping around threshold), idempotency
 - [ ] Contract tests: factory creation path, pause/guard paths
 - [ ] Frontend tests: hook states (success/empty/error); UI reflects market appearing after purchase
 
 ### Ops
+
 - [ ] Update `.env.example` with Factory/Oracle/Settlement addresses (LOCAL/TESTNET)
 - [ ] Document runbook: auto-creation flow, reindex procedure, and troubleshooting `/api/infofi/markets` 500s
 
@@ -385,7 +497,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 
 - **Contracts (AccessControl fix)**: Updated `contracts/script/Deploy.s.sol` to construct `InfoFiPriceOracle` with `address(infoFiFactory)` as admin. This removes reliance on `tx.origin`/`msg.sender` in script context and eliminates `AccessControlUnauthorizedAccount` during `grantRole`.
 - **Local deployment successful**: `npm run anvil:deploy` completes end-to-end. Addresses copied to frontend via `scripts/copy-abis.js` and `.env` updated via `scripts/update-env-addresses.js`.
-- **ENV aligned**: `.env` now contains fresh LOCAL addresses for RAFFLE/SEASON_FACTORY/INFOFI_*.
+- **ENV aligned**: `.env` now contains fresh LOCAL addresses for RAFFLE/SEASON*FACTORY/INFOFI*\*.
 - **Resolved**: "Cannot buy tickets in the active raffle" — buy flow now succeeds end-to-end on local (SOF balance + allowance + integer ticket amounts verified).
 
 - **Backend/Supabase**:
@@ -400,7 +512,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 
 - **Frontend (sell flow)**: Implemented ticket sell flow in `src/routes/RaffleDetails.jsx` with integer amount, slippage input, estimated SOF receive, and "Min after slippage" display.
 - **Hooks (curve)**: Added `sellTokens(tokenAmount, minSofAmount)` mutation in `src/hooks/useCurve.js` using Wagmi + React Query.
-{{ ... }}
+  {{ ... }}
 - **Lint & quality**: Removed debug logs, fixed variable shadowing, ensured unconditional hook declarations to avoid HMR hook-order errors.
 - **Docs**: Fixed Markdown list formatting (MD005/MD007, MD032) in this file.
 - **Backend (API tests)**: Added and stabilized Vitest coverage for Fastify route plugins `pricingRoutes`, `arbitrageRoutes`, `analyticsRoutes`, and `userRoutes`. Implemented Supabase client mocking, dynamic imports after mocks, route prefix alignment, and `app.ready()` awaiting. All backend API tests pass locally (40/40 total tests currently green).
@@ -420,7 +532,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 ## Discovered During Work
 
 - [x] Fix all backend Fastify route lint errors (unused vars, undefined identifiers, unreachable code)
-- [x] Fix all backend/config lint errors (process, require, __dirname, unused vars)
+- [x] Fix all backend/config lint errors (process, require, \_\_dirname, unused vars)
 - [x] Fix all frontend unused variable/import warnings
 - [x] Design and document InfoFi market API endpoints
 - [x] Implement mock implementations for placeholder backend endpoints:

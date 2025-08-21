@@ -1,5 +1,9 @@
 import { db } from '../../shared/supabaseClient.js';
 import { pricingService } from '../../shared/pricingService.js';
+import { marketMakerService } from '../../shared/marketMakerService.js';
+import { getPublicClient } from '../../src/lib/viemClient.js';
+import RaffleAbi from '../../src/abis/RaffleAbi.js';
+import { getChainByKey } from '../../src/config/chain.js';
 
 export async function infoFiRoutes(fastify, options) {
   // options parameter required by Fastify plugin interface
@@ -13,6 +17,93 @@ export async function infoFiRoutes(fastify, options) {
   // Namespaced ping to verify correct prefix: GET /api/infofi/__ping
   fastify.get('/__ping', async (_request, reply) => {
     return reply.send({ ok: true, ns: 'infofi' });
+  });
+
+  // Quote endpoint (fixed-odds, house market‑maker)
+  fastify.get('/markets/:id/quote', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      if (!id) return reply.status(400).send({ error: 'Market ID is required' });
+
+      const { side, amount } = request.query || {};
+      if (!side || !['yes', 'no', 'YES', 'NO'].includes(String(side))) {
+        return reply.status(400).send({ error: 'side must be yes|no' });
+      }
+      const amt = Number(amount || 0);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return reply.status(400).send({ error: 'amount must be > 0' });
+      }
+
+      const quote = await marketMakerService.quote(Number(id), String(side), amt);
+      return reply.send({ quote });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to get quote' });
+    }
+  });
+
+  // Buy (enter/increase position)
+  fastify.post('/markets/:id/buy', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      if (!id) return reply.status(400).send({ error: 'Market ID is required' });
+
+      const body = request.body || {};
+      const side = body.side || body.outcome;
+      const amount = Number(body.amount || body.size || 0);
+      const user = body.user_address || body.address || body.player_address;
+
+      if (!side || !['yes', 'no', 'YES', 'NO'].includes(String(side))) {
+        return reply.status(400).send({ error: 'side must be yes|no' });
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return reply.status(400).send({ error: 'amount must be > 0' });
+      }
+      if (!user) {
+        return reply.status(400).send({ error: 'user_address is required' });
+      }
+
+      const exec = await marketMakerService.buy(Number(id), String(side), amount, String(user));
+      if (exec?.error) {
+        return reply.status(400).send({ error: exec.error });
+      }
+      return reply.send({ success: true, execution: exec });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to execute buy' });
+    }
+  });
+
+  // Sell (reduce/close position)
+  fastify.post('/markets/:id/sell', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      if (!id) return reply.status(400).send({ error: 'Market ID is required' });
+
+      const body = request.body || {};
+      const side = body.side || body.outcome;
+      const amount = Number(body.amount || body.size || 0);
+      const user = body.user_address || body.address || body.player_address;
+
+      if (!side || !['yes', 'no', 'YES', 'NO'].includes(String(side))) {
+        return reply.status(400).send({ error: 'side must be yes|no' });
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return reply.status(400).send({ error: 'amount must be > 0' });
+      }
+      if (!user) {
+        return reply.status(400).send({ error: 'user_address is required' });
+      }
+
+      const exec = await marketMakerService.sell(Number(id), String(side), amount, String(user));
+      if (exec?.error) {
+        return reply.status(400).send({ error: exec.error });
+      }
+      return reply.send({ success: true, execution: exec });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to execute sell' });
+    }
   });
 
   // Get InfoFi markets (optionally filter by raffle/season)
@@ -198,6 +289,116 @@ export async function infoFiRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch odds' });
+    }
+  });
+
+  // Threshold sync: create InfoFi market if a player crosses ≥1% win probability (100 bps)
+  fastify.post('/markets/sync-threshold', async (request, reply) => {
+    try {
+      const { seasonId, playerAddress, network } = request.body || {};
+      fastify.log.info({ seasonId, playerAddress, network }, '[sync-threshold] request received');
+      if (typeof seasonId === 'undefined' || !playerAddress) {
+        return reply.status(400).send({ error: 'seasonId and playerAddress are required' });
+      }
+
+      const chain = getChainByKey(network);
+      fastify.log.info({ chain }, '[sync-threshold] resolved chain');
+      if (!chain?.raffle) {
+        return reply.status(500).send({ error: 'Raffle address not configured for selected network' });
+      }
+
+      const client = getPublicClient(network);
+      fastify.log.info({ raffle: chain.raffle }, '[sync-threshold] reading on-chain');
+
+      let details, position;
+      try {
+        [details, position] = await Promise.all([
+          client.readContract({ address: chain.raffle, abi: RaffleAbi, functionName: 'getSeasonDetails', args: [BigInt(seasonId)] }),
+          client.readContract({ address: chain.raffle, abi: RaffleAbi, functionName: 'getParticipantPosition', args: [BigInt(seasonId), playerAddress] })
+        ]);
+      } catch (readErr) {
+        fastify.log.error({ readErr }, '[sync-threshold] on-chain read failed');
+        const debug = process.env.NODE_ENV === 'production' ? undefined : String(readErr?.message || readErr);
+        return reply.status(502).send({ error: 'On-chain read failed', debug });
+      }
+
+      const totalTickets = Number(details?.[3]); // index 3 is totalTickets
+      const ticketCount = Number((position && (position.ticketCount ?? position[0])) ?? 0);
+      fastify.log.info({ totalTickets, ticketCount }, '[sync-threshold] on-chain values');
+      if (!totalTickets || !ticketCount) {
+        return reply.send({ created: false, reason: 'No tickets/total for player or season', totalTickets, ticketCount });
+      }
+      const bps = Math.floor((ticketCount * 10000) / totalTickets);
+      fastify.log.info({ bps }, '[sync-threshold] computed probability bps');
+
+      const MARKET_TYPE = 'WINNER_PREDICTION';
+      // Resolve player_id from address (create if missing)
+      let playerId;
+      try {
+        playerId = await db.getOrCreatePlayerIdByAddress(playerAddress);
+        fastify.log.info({ playerId }, '[sync-threshold] resolved playerId');
+      } catch (playerErr) {
+        fastify.log.error({ playerErr }, '[sync-threshold] resolve/create player failed');
+        const debug = process.env.NODE_ENV === 'production' ? undefined : String(playerErr?.message || playerErr);
+        return reply.status(500).send({ error: 'Failed to resolve player', debug });
+      }
+
+      let exists = false;
+      try {
+        exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
+      } catch (dbCheckErr) {
+        fastify.log.error({ dbCheckErr }, '[sync-threshold] DB existence check failed');
+        const debug = process.env.NODE_ENV === 'production' ? undefined : String(dbCheckErr?.message || dbCheckErr);
+        return reply.status(500).send({ error: 'DB existence check failed', debug });
+      }
+      if (exists) {
+        return reply.send({ created: false, reason: 'Market already exists', probabilityBps: bps });
+      }
+
+      if (bps < 100) {
+        return reply.send({ created: false, reason: 'Below threshold', probabilityBps: bps });
+      }
+
+      let market;
+      try {
+        market = await db.createInfoFiMarket({
+          raffle_id: seasonId,
+          player_id: playerId,
+          market_type: MARKET_TYPE,
+          initial_probability: bps,
+          current_probability: bps,
+          is_active: true,
+          is_settled: false
+        });
+        fastify.log.info({ marketId: market?.id }, '[sync-threshold] market row created');
+      } catch (createErr) {
+        fastify.log.error({ createErr }, '[sync-threshold] DB create market failed');
+        const debug = process.env.NODE_ENV === 'production' ? undefined : String(createErr?.message || createErr);
+        return reply.status(500).send({ error: 'Failed to create market row', debug });
+      }
+
+      try {
+        await db.upsertMarketPricingCache({
+          market_id: market.id,
+          raffle_probability: bps,
+          market_sentiment: bps,
+          hybrid_price: bps,
+          raffle_weight: 7000,
+          market_weight: 3000,
+          last_updated: new Date().toISOString()
+        });
+        fastify.log.info({ marketId: market.id, bps }, '[sync-threshold] pricing cache initialized');
+      } catch (cacheErr) {
+        fastify.log.error({ cacheErr }, '[sync-threshold] pricing cache upsert failed');
+        const debug = process.env.NODE_ENV === 'production' ? undefined : String(cacheErr?.message || cacheErr);
+        return reply.status(500).send({ error: 'Failed to initialize pricing cache', debug });
+      }
+
+      return reply.status(201).send({ created: true, market, probabilityBps: bps });
+    } catch (error) {
+      fastify.log.error(error);
+      const debug = process.env.NODE_ENV === 'production' ? undefined : String(error?.message || error);
+      return reply.status(500).send({ error: 'Failed to sync threshold', debug });
     }
   });
 

@@ -50,6 +50,26 @@ export class DatabaseService {
     return data;
   }
 
+  async getInfoFiMarketByComposite(raffleId, playerId, marketType) {
+    const { data, error } = await this.client
+      .from('infofi_markets')
+      .select('*')
+      .eq('raffle_id', raffleId)
+      .eq('player_id', playerId)
+      .eq('market_type', marketType)
+      .limit(1)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found
+      throw new Error(error.message);
+    }
+    return data || null;
+  }
+
+  async hasInfoFiMarket(raffleId, playerId, marketType) {
+    const existing = await this.getInfoFiMarketByComposite(raffleId, playerId, marketType);
+    return Boolean(existing);
+  }
+
   async getRaffleById(id) {
     const { data, error } = await this.client
       .from('raffles')
@@ -100,7 +120,7 @@ export class DatabaseService {
     const { data, error } = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('season_id', raffleId)
+      .eq('raffle_id', raffleId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data;
@@ -146,7 +166,7 @@ export class DatabaseService {
     // Align odds with pricing cache (bps fields)
     const { data, error } = await this.client
       .from('market_pricing_cache')
-      .select('raffle_probability_bps, market_sentiment_bps, hybrid_price_bps, last_updated')
+      .select('raffle_probability, market_sentiment, hybrid_price, last_updated')
       .eq('market_id', marketId)
       .single();
     if (error) throw new Error(error.message);
@@ -155,8 +175,8 @@ export class DatabaseService {
 
   // Market pricing cache operations (bps-based)
   async upsertMarketPricingCache(cache) {
-    // cache: { market_id, raffle_probability_bps, market_sentiment_bps, hybrid_price_bps,
-    //          raffle_weight_bps, market_weight_bps, last_updated }
+    // cache: { market_id, raffle_probability, market_sentiment, hybrid_price,
+    //          raffle_weight, market_weight, last_updated }
     const { data, error } = await this.client
       .from('market_pricing_cache')
       .upsert(cache)
@@ -196,6 +216,36 @@ export class DatabaseService {
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data;
+  }
+
+  // Players helpers
+  async getPlayerByAddress(address) {
+    const addr = String(address || '').toLowerCase();
+    const { data, error } = await this.client
+      .from('players')
+      .select('*')
+      .ilike('address', addr)
+      .single();
+    if (error && error.code !== 'PGRST116') throw new Error(error.message);
+    return data || null;
+  }
+
+  async createPlayer(address) {
+    const addr = String(address || '').toLowerCase();
+    const { data, error } = await this.client
+      .from('players')
+      .insert([{ address: addr }])
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getOrCreatePlayerIdByAddress(address) {
+    const existing = await this.getPlayerByAddress(address);
+    if (existing?.id) return existing.id;
+    const created = await this.createPlayer(address);
+    return created.id;
   }
 
   // Analytics operations

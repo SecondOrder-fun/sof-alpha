@@ -25,33 +25,51 @@ export class PricingService extends EventEmitter {
    */
   async updateHybridPricing(marketId, raffleUpdate = {}, sentimentUpdate = {}) {
     try {
-      // Read current cache (bps-based)
+      // Read current cache (supports both legacy and new shapes)
       let cache = await db.getMarketPricingCache(marketId);
       if (!cache) {
         // Initialize cache from market if missing
         const market = await db.getInfoFiMarketById(marketId);
         if (!market) throw new Error(`Market with ID ${marketId} not found`);
+        // Derive initial probability in bps from available fields
+        const initProbBps = (
+          (typeof market.current_probability_bps === 'number' && market.current_probability_bps) ||
+          (typeof market.current_probability === 'number' && market.current_probability) ||
+          (typeof market.initial_probability_bps === 'number' && market.initial_probability_bps) ||
+          (typeof market.initial_probability === 'number' && market.initial_probability) ||
+          0
+        );
         cache = await db.upsertMarketPricingCache({
+          // Columns must match Supabase schema (no _bps suffix)
           market_id: marketId,
-          raffle_probability_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
-          market_sentiment_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
-          hybrid_price_bps: market.current_probability_bps ?? market.initial_probability_bps ?? 0,
-          raffle_weight_bps: 7000,
-          market_weight_bps: 3000,
+          raffle_probability: initProbBps,
+          market_sentiment: initProbBps,
+          hybrid_price: initProbBps,
+          raffle_weight: 7000,
+          market_weight: 3000,
           last_updated: new Date().toISOString()
         });
       }
 
+      // Normalize raffle probability (bps)
       const raffleProbBps = Number(
-        raffleUpdate.probabilityBps ?? cache.raffle_probability_bps
+        raffleUpdate.probabilityBps ??
+          cache.raffle_probability_bps ??
+          cache.raffle_probability ??
+          0
       );
 
+      // Normalize market sentiment (bps)
       const newSentimentBps = (() => {
         if (typeof sentimentUpdate.sentimentBps === 'number') {
           return sentimentUpdate.sentimentBps;
         }
         const delta = Number(sentimentUpdate.deltaBps || 0);
-        return cache.market_sentiment_bps + delta;
+        const base =
+          (typeof cache.market_sentiment_bps === 'number' && cache.market_sentiment_bps) ||
+          (typeof cache.market_sentiment === 'number' && cache.market_sentiment) ||
+          0;
+        return base + delta;
       })();
 
       const clampedSentimentBps = Math.max(0, Math.min(10000, Math.round(newSentimentBps)));
@@ -60,30 +78,39 @@ export class PricingService extends EventEmitter {
       const hybridPriceBps = this._calculateHybridPriceBps(
         raffleProbBps,
         clampedSentimentBps,
-        cache.raffle_weight_bps ?? 7000,
-        cache.market_weight_bps ?? 3000
+        (typeof cache.raffle_weight_bps === 'number' ? cache.raffle_weight_bps : (cache.raffle_weight ?? 7000)),
+        (typeof cache.market_weight_bps === 'number' ? cache.market_weight_bps : (cache.market_weight ?? 3000))
       );
 
+      // Persist using current DB schema column names (no _bps suffix)
       const updated = await db.upsertMarketPricingCache({
         market_id: marketId,
-        raffle_probability_bps: raffleProbBps,
-        market_sentiment_bps: clampedSentimentBps,
-        hybrid_price_bps: hybridPriceBps,
-        raffle_weight_bps: cache.raffle_weight_bps ?? 7000,
-        market_weight_bps: cache.market_weight_bps ?? 3000,
+        raffle_probability: raffleProbBps,
+        market_sentiment: clampedSentimentBps,
+        hybrid_price: hybridPriceBps,
+        raffle_weight: (typeof cache.raffle_weight_bps === 'number' ? cache.raffle_weight_bps : (cache.raffle_weight ?? 7000)),
+        market_weight: (typeof cache.market_weight_bps === 'number' ? cache.market_weight_bps : (cache.market_weight ?? 3000)),
         last_updated: new Date().toISOString()
       });
 
-      // Cache the updated pricing (bps)
-      this.pricingCache.set(marketId, updated);
+      // Cache the updated pricing (store both normalized and schema keys for compatibility)
+      const cachedPayload = {
+        ...updated,
+        raffle_probability_bps: updated.raffle_probability ?? updated.raffle_probability_bps,
+        market_sentiment_bps: updated.market_sentiment ?? updated.market_sentiment_bps,
+        hybrid_price_bps: updated.hybrid_price ?? updated.hybrid_price_bps,
+        raffle_weight_bps: updated.raffle_weight ?? updated.raffle_weight_bps,
+        market_weight_bps: updated.market_weight ?? updated.market_weight_bps,
+      };
+      this.pricingCache.set(marketId, cachedPayload);
 
       // Emit price update event (bps)
       const evt = {
         market_id: marketId,
-        raffle_probability_bps: updated.raffle_probability_bps,
-        market_sentiment_bps: updated.market_sentiment_bps,
-        hybrid_price_bps: updated.hybrid_price_bps,
-        last_updated: updated.last_updated
+        raffle_probability_bps: cachedPayload.raffle_probability_bps,
+        market_sentiment_bps: cachedPayload.market_sentiment_bps,
+        hybrid_price_bps: cachedPayload.hybrid_price_bps,
+        last_updated: cachedPayload.last_updated ?? new Date().toISOString(),
       };
       this.emit('priceUpdate', evt);
       this._notifySubscribers(marketId, evt);
