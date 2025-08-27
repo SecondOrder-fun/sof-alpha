@@ -11,6 +11,11 @@ import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
 import {IInfoFiMarketFactory} from "../lib/IInfoFiMarketFactory.sol";
 
+// Minimal interface to push updates to the on-chain position tracker
+interface IRafflePositionTracker {
+    function updatePlayerPosition(address player) external;
+}
+
 /**
  * @title SOF Bonding Curve
  * @notice Mint.club-inspired DBC bonding curve that only accepts $SOF as payment
@@ -30,6 +35,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     uint256 public raffleSeasonId;
     // InfoFi factory (optional wiring for threshold-triggered market creation)
     address public infoFiFactory;
+
+    // Optional on-chain position tracker to emit PositionSnapshot upon updates
+    address public positionTracker;
 
 
 
@@ -148,6 +156,15 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice Set the on-chain position tracker contract that mirrors positions via snapshots
+     * @dev The tracker must grant MARKET_ROLE to this curve contract separately.
+     */
+    function setPositionTracker(address _tracker) external onlyRole(RAFFLE_MANAGER_ROLE) {
+        require(_tracker != address(0), "Curve: tracker zero");
+        positionTracker = _tracker;
+    }
+
+    /**
      * @notice Buy raffle tokens with $SOF
      * @param tokenAmount Amount of raffle tokens to buy
      * @param maxSofAmount Maximum $SOF willing to spend (slippage protection)
@@ -202,6 +219,15 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Callback to raffle for participant tracking
         if (raffle != address(0)) {
             IRaffle(raffle).recordParticipant(raffleSeasonId, msg.sender, tokenAmount);
+        }
+
+        // Best-effort push to on-chain tracker so FE gets PositionSnapshot events
+        if (positionTracker != address(0)) {
+            try IRafflePositionTracker(positionTracker).updatePlayerPosition(msg.sender) {
+                // no-op
+            } catch {
+                // swallow error to avoid impacting user buy
+            }
         }
 
         // Trigger InfoFi market creation when crossing 1% upward
@@ -264,6 +290,15 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Callback to raffle for participant tracking on position reduction
         if (raffle != address(0)) {
             IRaffle(raffle).removeParticipant(raffleSeasonId, msg.sender, tokenAmount);
+        }
+
+        // Best-effort push to on-chain tracker so FE gets PositionSnapshot events
+        if (positionTracker != address(0)) {
+            try IRafflePositionTracker(positionTracker).updatePlayerPosition(msg.sender) {
+                // no-op
+            } catch {
+                // swallow error to avoid impacting user sell
+            }
         }
 
         // Emit position update (no threshold check on sells for now)

@@ -39,8 +39,10 @@ const AccountPage = () => {
 
   // Fetch all seasons (filtered for valid configs in hook)
   const allSeasonsQuery = useAllSeasons();
-  const { usePlayerSnapshot } = useRaffleTracker();
+  const { usePlayerSnapshot, usePlayerSnapshotLive } = useRaffleTracker();
   const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
+  // Live invalidation on PositionSnapshot events for this player
+  usePlayerSnapshotLive(isConnected ? address : null);
   const { currentSeasonQuery } = useRaffleRead();
 
   // SOF balance query

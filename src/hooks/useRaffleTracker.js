@@ -1,8 +1,8 @@
 // src/hooks/useRaffleTracker.js
 // Read helpers for RafflePositionTracker contract
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createPublicClient, http } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
@@ -11,6 +11,10 @@ import { getContractAddresses, RAFFLE_TRACKER_ABI } from '@/config/contracts';
 /**
  * useRaffleTracker
  * Provides helpers to read player snapshots from RafflePositionTracker.
+ */
+/**
+ * Provides helpers to read player snapshots from `RafflePositionTracker` and
+ * auto-refresh on `PositionSnapshot` events.
  */
 export function useRaffleTracker() {
   const netKey = getStoredNetworkKey();
@@ -71,5 +75,37 @@ export function useRaffleTracker() {
     });
   };
 
-  return { client, usePlayerSnapshot };
+  // Subscribe to on-chain PositionSnapshot for the specific player and invalidate cache
+  // Consumer pattern: call inside component to mount the subscription alongside the query
+  const usePlayerSnapshotLive = (playerAddr) => {
+    const key = ['raffle-tracker', netKey, 'snapshot', addr.RAFFLE_TRACKER, playerAddr];
+    const qc = useQueryClient();
+    useEffect(() => {
+      if (!addr.RAFFLE_TRACKER || !playerAddr) return () => {};
+      // watchContractEvent: viem will return an unwatch function
+      const unwatch = client.watchContractEvent({
+        address: addr.RAFFLE_TRACKER,
+        abi: RAFFLE_TRACKER_ABI,
+        eventName: 'PositionSnapshot',
+        onLogs: (logs) => {
+          try {
+            for (const log of logs || []) {
+              const evPlayer = log?.args?.player;
+              if (!evPlayer) continue;
+              if (String(evPlayer).toLowerCase() === String(playerAddr).toLowerCase()) {
+                // Invalidate to refetch latest snapshot
+                qc.invalidateQueries({ queryKey: key });
+              }
+            }
+          } catch (_) {
+            // ignore malformed
+          }
+        },
+      });
+      return () => { try { unwatch?.(); } catch { /* noop */ } };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [addr.RAFFLE_TRACKER, playerAddr, netKey]);
+  };
+
+  return { client, usePlayerSnapshot, usePlayerSnapshotLive };
 }

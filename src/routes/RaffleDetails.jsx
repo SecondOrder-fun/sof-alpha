@@ -51,8 +51,10 @@ const RaffleDetails = () => {
 
   // Tracker snapshot for the connected wallet
   const { address, isConnected } = useWallet();
-  const { usePlayerSnapshot } = useRaffleTracker();
+  const { usePlayerSnapshot, usePlayerSnapshotLive } = useRaffleTracker();
   const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
+  // Live invalidation on PositionSnapshot events for this player
+  usePlayerSnapshotLive(isConnected ? address : null);
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 

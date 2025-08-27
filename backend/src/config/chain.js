@@ -20,6 +20,8 @@ export function loadChainEnv() {
       raffle: process.env.RAFFLE_ADDRESS_LOCAL || "",
       sof: process.env.SOF_ADDRESS_LOCAL || "",
       curve: process.env.CURVE_ADDRESS_LOCAL || "",
+      // Raffle position tracker (backend usage optional but exposed for parity)
+      raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_LOCAL || "",
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_LOCAL || "",
     },
     TESTNET: {
@@ -29,6 +31,8 @@ export function loadChainEnv() {
       raffle: process.env.RAFFLE_ADDRESS_TESTNET || "",
       sof: process.env.SOF_ADDRESS_TESTNET || "",
       curve: process.env.CURVE_ADDRESS_TESTNET || "",
+      // Raffle position tracker (backend usage optional but exposed for parity)
+      raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_TESTNET || "",
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_TESTNET || "",
     },
   };
