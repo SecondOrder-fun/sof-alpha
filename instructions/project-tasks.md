@@ -17,12 +17,16 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ### InfoFi Trading – Next Tasks (On-chain shift)
 
-- [ ] Replace threshold-sync REST with direct on-chain factory call (permissionless)
+- Next Objectives (2025-08-27):
+  - [C] RafflePositionTracker Integration (Frontend): implement env + ABI + `useRaffleTracker()` and wire into UI.
+  - [B] ArbitrageOpportunityDisplay: build UI leveraging on-chain oracle after [C] completes.
+
+- [x] Replace threshold-sync REST with direct on-chain factory call (permissionless)
   - UI: call `InfoFiMarketFactory.createWinnerPredictionMarket(seasonId, player)` from frontend
   - Subscribe to `MarketCreated` to refresh view (viem WS when available)
   - Keep backend route only as optional passthrough for now, then remove
 
-- [ ] Frontend subscribe to `MarketCreated` and `ProbabilityUpdated` (no DB insertion)
+- [x] Frontend subscribe to `MarketCreated` and `PriceUpdated` (no DB insertion)
   - Use viem `watchContractEvent` when WS provided; fall back to periodic refetch
 
 ### Development Servers & Start Scripts
@@ -151,7 +155,7 @@ All frontend development setup tasks have been completed:
   - [x] Implement `AdminPanel` page to create/start/end season, role status
   - [x] Implement `AccountPage` to show user's tickets, past participation, winnings
   - [x] Header: `NetworkToggle`, wallet connect, current chain indicator
-  - [ ] Header: add "Prediction Markets" nav entry (temporary label; may shorten later) linking to markets index
+  - [x] Header: add "Prediction Markets" nav entry linking to markets index (`/markets`)
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 #### RafflePositionTracker Integration (Frontend)
@@ -164,6 +168,8 @@ All frontend development setup tasks have been completed:
 - [ ] Create `useRaffleTracker()` hook for reading player positions and ranges
 - [ ] Wire tracker reads into `RaffleDetails` (positions/odds display) and `AccountPage`
 - [ ] Vitest: 1 success, 1 edge, 1 failure test for `useRaffleTracker`
+
+> Next Objective: Complete this Tracker integration [C], then implement ArbitrageOpportunityDisplay [B].
 
 - **ENV & Addresses**
 
@@ -382,10 +388,11 @@ Derived from the new prediction market development ruleset. These items compleme
 
 ### Frontend (Hooks & Components)
 
-- [ ] Hook `useInfoFiMarkets(raffleId)` with React Query to fetch markets and user positions.
+- [x] Hook `useOnchainInfoFiMarkets(seasonId, networkKey)` to enumerate markets directly from chain and subscribe to `MarketCreated`.
+- [x] Hook `useOraclePriceLive(marketId)` to read and subscribe to `InfoFiPriceOracle.PriceUpdated` (viem WS; no backend SSE).
+- [x] Components updated: `InfoFiMarketCard` consumes on-chain market objects; `ProbabilityChart` and `InfoFiPricingTicker` use oracle hook for live values.
 - [ ] Component `ArbitrageOpportunityDisplay` rendering live opportunities and execution stub.
-- [ ] Components: `InfoFiMarketCard`, `ProbabilityChart`, `SettlementStatus`, `WinningsClaimPanel` (MVP scope).
-- [ ] Connect SSE pricing stream to UI (initial snapshot + live updates).
+- [ ] Components: `SettlementStatus`, `WinningsClaimPanel` (MVP scope).
 - [ ] Add basic market actions (place YES/NO bet – mocked until payments are finalized).
 - [ ] Account integration: show user's open prediction market positions in `AccountPage` (query by wallet → positions with PnL placeholders).
 
@@ -543,7 +550,13 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [ ] Update `.env.example` with Factory/Oracle/Settlement addresses (LOCAL/TESTNET)
 - [ ] Document runbook: auto-creation flow, reindex procedure, and troubleshooting `/api/infofi/markets` 500s
 
-## Latest Progress (2025-08-20)
+## Latest Progress (2025-08-27)
+
+- **Frontend (pure on-chain InfoFi)**: Completed migration away from DB-backed markets/pricing.
+  - Implemented `src/hooks/useOnchainInfoFiMarkets.js` to enumerate markets via factory views/events.
+  - Implemented `src/hooks/useOraclePriceLive.js` to read/subscribe to `InfoFiPriceOracle` on-chain.
+  - Refactored `src/routes/MarketsIndex.jsx` to use on-chain hooks; removed backend sync/activity UI.
+  - Documented canonical marketId derivation in `instructions/frontend-guidelines.md`.
 
 ## Latest Progress (2025-08-21)
 

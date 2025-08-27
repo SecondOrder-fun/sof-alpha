@@ -611,6 +611,52 @@ export const useUserPosition = (raffleId, userAddress) => {
 };
 ```
 
+### InfoFi Market IDs and On-Chain Enumeration
+
+The canonical InfoFi Winner Prediction marketId is computed on-chain as:
+
+```solidity
+// contracts/src/infofi/InfoFiMarketFactory.sol
+bytes32 marketId = keccak256(
+  abi.encodePacked(seasonId, player, keccak256("WINNER_PREDICTION"))
+);
+```
+
+Frontend must derive this value identically using `viem` utilities. The helper lives in `src/services/onchainInfoFi.js`:
+
+```js
+// computeWinnerMarketId({ seasonId, player }) -> 0x... bytes32
+import { keccak256, encodePacked } from 'viem'
+
+export function computeWinnerMarketId({ seasonId, player }) {
+  const tag = keccak256(encodePacked(['string'], ['WINNER_PREDICTION']))
+  return keccak256(
+    encodePacked(['uint256', 'address', 'bytes32'], [BigInt(seasonId), player, tag])
+  )
+}
+```
+
+Enumerating InfoFi markets must be done from contract state (no DB):
+
+- `getSeasonPlayers(seasonId)` → players eligible/observed for the season
+- `hasWinnerMarket(seasonId, player)` → whether a WINNER_PREDICTION market exists
+
+Use `listSeasonWinnerMarkets({ seasonId, networkKey })` from `src/services/onchainInfoFi.js`, which:
+
+- Reads `getSeasonPlayers` and filters by `hasWinnerMarket`
+- Computes canonical `marketId` per player using the derivation above
+- Returns objects consumed by UI cards and price hooks
+
+Live updates should subscribe to:
+
+- `InfoFiMarketFactory.MarketCreated` to refresh the season’s markets
+- `InfoFiPriceOracle.PriceUpdated` to update pricing in real time
+
+See hooks:
+
+- `src/hooks/useOnchainInfoFiMarkets.js` for listing + event subscription
+- `src/hooks/useOraclePriceLive.js` for oracle reads + `PriceUpdated` subscription
+
 ## Error Handling & Loading States
 
 ### Error Boundaries
