@@ -2,6 +2,19 @@
 // Exported as JS to avoid JSON import assertion issues in Node/ESM.
 // Minimal subset required for backend reads
 export default [
+  // Events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "seasonId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "player", type: "address" },
+      { indexed: false, internalType: "uint256", name: "oldTickets", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "newTickets", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalTickets", type: "uint256" }
+    ],
+    name: "PositionUpdate",
+    type: "event",
+  },
   {
     inputs: [],
     name: "currentSeasonId",

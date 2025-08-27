@@ -1,6 +1,6 @@
 // src/components/infofi/InfoFiPricingTicker.jsx
 import PropTypes from 'prop-types';
-import { usePricingStream } from '@/hooks/usePricingStream';
+import { useOraclePriceLive } from '@/hooks/useOraclePriceLive';
 import { Card } from '@/components/ui/card';
 
 /**
@@ -13,7 +13,7 @@ import { Card } from '@/components/ui/card';
  * @param {string|number} props.marketId - The InfoFi market identifier
  */
 const InfoFiPricingTicker = ({ marketId }) => {
-  const { data, isConnected } = usePricingStream(marketId);
+  const { data, isLive } = useOraclePriceLive(marketId);
 
   const formatBpsPct = (bps) => {
     if (bps === null || bps === undefined) return '—';
@@ -40,7 +40,7 @@ const InfoFiPricingTicker = ({ marketId }) => {
           <span className="text-muted-foreground">Market Sent.:</span>
           <span className="ml-2 font-mono">{formatBpsPct(data.marketSentimentBps)}</span>
         </div>
-        <div className="text-muted-foreground">{isConnected ? 'live' : 'offline'}</div>
+        <div className="text-muted-foreground">{isLive ? 'live' : 'offline'}</div>
       </div>
     </Card>
   );

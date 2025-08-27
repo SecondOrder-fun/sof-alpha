@@ -12,6 +12,8 @@ import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+import { useRaffleTracker } from '@/hooks/useRaffleTracker';
+import { useRaffleRead } from '@/hooks/useRaffleRead';
 
 const AccountPage = () => {
   const { address, isConnected } = useAccount();
@@ -37,6 +39,9 @@ const AccountPage = () => {
 
   // Fetch all seasons (filtered for valid configs in hook)
   const allSeasonsQuery = useAllSeasons();
+  const { usePlayerSnapshot } = useRaffleTracker();
+  const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
+  const { currentSeasonQuery } = useRaffleRead();
 
   // SOF balance query
   const sofBalanceQuery = useQuery({
@@ -129,6 +134,30 @@ const AccountPage = () => {
                   <p className="text-red-500">Error loading SOF balance</p>
                 ) : (
                   <p>{sofBalance} SOF</p>
+                )}
+              </div>
+              <div>
+                <p className="font-semibold">Current Raffle Snapshot</p>
+                {currentSeasonQuery.isSuccess && (
+                  <p className="text-xs text-muted-foreground mb-1">Season #{currentSeasonQuery.data}</p>
+                )}
+                {snapshotQuery.isLoading && <p className="text-muted-foreground">Loading snapshot…</p>}
+                {snapshotQuery.error && <p className="text-red-500">Error loading snapshot</p>}
+                {!snapshotQuery.isLoading && !snapshotQuery.error && (
+                  <div className="text-sm space-y-1">
+                    <div>
+                      Tickets: <span className="font-mono">{snapshotQuery.data?.ticketCount?.toString?.() ?? String(snapshotQuery.data?.ticketCount ?? 0)}</span>
+                    </div>
+                    <div>
+                      Win Probability: <span className="font-mono">{(() => { try { const bps = Number(snapshotQuery.data?.winProbabilityBps || 0); return `${(bps/100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Total Tickets (at snapshot): <span className="font-mono">{snapshotQuery.data?.totalTicketsAtTime?.toString?.() ?? String(snapshotQuery.data?.totalTicketsAtTime ?? 0)}</span>
+                    </div>
+                    {!snapshotQuery.data && (
+                      <div className="text-muted-foreground">No snapshot yet.</div>
+                    )}
+                  </div>
                 )}
               </div>
               <div>

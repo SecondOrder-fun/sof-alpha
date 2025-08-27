@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../src/core/Raffle.sol";
+import "../src/core/RafflePositionTracker.sol";
 import "../src/infofi/InfoFiMarket.sol";
 import "../src/infofi/InfoFiMarketFactory.sol";
 import "../src/infofi/InfoFiPriceOracle.sol";
@@ -15,11 +16,15 @@ import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV
 
 contract DeployScript is Script {
     function run() external {
+        address deployerAddr;
         if (vm.envExists("PRIVATE_KEY")) {
             uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+            deployerAddr = vm.addr(deployerPrivateKey);
             vm.startBroadcast(deployerPrivateKey);
         } else {
+            // When no key is provided, Foundry uses DefaultSender (0x1804...). Use that as admin.
             vm.startBroadcast();
+            deployerAddr = msg.sender;
         }
 
         // Deploy VRF Mock for local development
@@ -61,34 +66,39 @@ contract DeployScript is Script {
         bytes32 seasonCreatorRole = raffle.SEASON_CREATOR_ROLE();
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         
-        // Deploy InfoFiMarket contract
+        // Deploy InfoFiMarket contract (placeholder)
         InfoFiMarket infoFiMarket = new InfoFiMarket();
 
-        // Deploy InfoFiMarketFactory and wire to Raffle for position updates
+        // Deploy RafflePositionTracker and wire roles
+        console2.log("Deploying RafflePositionTracker...");
+        RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
+        // Grant MARKET_ROLE to raffle and seasonFactory so they can push updates if needed
+        bytes32 marketRole = tracker.MARKET_ROLE();
+        tracker.grantRole(marketRole, address(raffle));
+        tracker.grantRole(marketRole, address(seasonFactory));
+        console2.log("RafflePositionTracker deployed at:", address(tracker));
+
+        // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
+        console2.log("Deploying InfoFiPriceOracle (weights 70/30) with deployer as admin...");
+        InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(deployerAddr, 7000, 3000);
+        console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
+
+        // Deploy InfoFiMarketFactory with raffle read addr and oracle wired; admin = deployer
         console2.log("Deploying InfoFiMarketFactory...");
-        // Use msg.sender here (this path was working previously with vm.startBroadcast)
-        InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(address(raffle), msg.sender);
-        // Wire InfoFi factory to raffle (idempotent via try/catch)
-        try raffle.setInfoFiFactory(address(infoFiFactory)) {
-            console2.log("InfoFiFactory set on Raffle:", address(infoFiFactory));
-        } catch {
-            console2.log("InfoFiFactory already configured on Raffle (skipping)");
-        }
+        InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(address(raffle), address(infoFiOracle), deployerAddr);
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
-        // Deploy InfoFiPriceOracle with default weights 70/30
-        // Set the admin to the InfoFiMarketFactory so it can both update prices and manage roles
-        console2.log("Deploying InfoFiPriceOracle (weights 70/30)...");
-        InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(address(infoFiFactory), 7000, 3000);
-        bytes32 adminRole = infoFiOracle.DEFAULT_ADMIN_ROLE();
-        bool isFactoryAdmin = infoFiOracle.hasRole(adminRole, address(infoFiFactory));
-        console2.log("[Diag] Oracle admin is factory:", isFactoryAdmin);
-        console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
+        // Grant PRICE_UPDATER_ROLE on oracle to factory
+        bytes32 PRICE_UPDATER_ROLE = infoFiOracle.PRICE_UPDATER_ROLE();
+        if (!infoFiOracle.hasRole(PRICE_UPDATER_ROLE, address(infoFiFactory))) {
+            infoFiOracle.grantRole(PRICE_UPDATER_ROLE, address(infoFiFactory));
+            console2.log("Granted PRICE_UPDATER_ROLE to factory on oracle");
+        }
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
         console2.log("Deploying InfoFiSettlement...");
         // Use msg.sender here to match previous working behavior
-        InfoFiSettlement infoFiSettlement = new InfoFiSettlement(msg.sender, address(raffle));
+        InfoFiSettlement infoFiSettlement = new InfoFiSettlement(deployerAddr, address(raffle));
         // (constructor already grants SETTLER_ROLE to raffle if provided)
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
 
@@ -149,7 +159,8 @@ contract DeployScript is Script {
         console2.log("InfoFiMarket contract deployed at:", address(infoFiMarket));
         console2.log("InfoFiMarketFactory contract deployed at:", address(infoFiFactory));
         console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
-        console2.log("InfoFiSettlement contract deployed at:", address(infoFiSettlement));
+        console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
+        console2.log("RafflePositionTracker deployed at:", address(tracker));
     }
 }

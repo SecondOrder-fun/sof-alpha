@@ -2,6 +2,42 @@
 pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "../lib/RaffleTypes.sol";
+
+interface IInfoFiPriceOracleMinimal {
+    function updateRaffleProbability(bytes32 marketId, uint256 raffleProbabilityBps) external;
+}
+
+/// @dev Minimal read-only interface to Raffle for on-chain validation
+interface IRaffleRead {
+    // Mirror types from RaffleStorage
+    enum SeasonStatus { NotStarted, Active, EndRequested, VRFPending, Distributing, Completed }
+
+    struct ParticipantPosition {
+        uint256 ticketCount;
+        uint256 entryBlock;
+        uint256 lastUpdateBlock;
+        bool isActive;
+    }
+
+    // Matches: getSeasonDetails(uint256) returns (SeasonConfig, SeasonStatus, uint256, uint256, uint256)
+    function getSeasonDetails(uint256 seasonId)
+        external
+        view
+        returns (
+            RaffleTypes.SeasonConfig memory config,
+            SeasonStatus status,
+            uint256 totalParticipants,
+            uint256 totalTickets,
+            uint256 totalPrizePool
+        );
+
+    // Matches: getParticipantPosition(uint256,address) returns (ParticipantPosition)
+    function getParticipantPosition(uint256 seasonId, address participant)
+        external
+        view
+        returns (ParticipantPosition memory position);
+}
 
 /**
  * @title InfoFiMarketFactory
@@ -11,8 +47,10 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 contract InfoFiMarketFactory is AccessControl {
     bytes32 public constant ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
 
-    // Authorized raffle that calls onPositionUpdate
-    address public immutable raffle;
+    // Read-only raffle address for state reads
+    IRaffleRead private immutable iRaffle;
+    // Oracle to push hybrid price updates
+    IInfoFiPriceOracleMinimal public immutable oracle;
 
     // marketType constants (keccak256("WINNER_PREDICTION")) kept as bytes32 for gas efficiency
     bytes32 public constant WINNER_PREDICTION = keccak256("WINNER_PREDICTION");
@@ -22,6 +60,9 @@ contract InfoFiMarketFactory is AccessControl {
 
     // seasonId => player => created flag (idempotency without requiring address)
     mapping(uint256 => mapping(address => bool)) public winnerPredictionCreated;
+
+    // Simple enumeration support: seasonId => players[] that have markets
+    mapping(uint256 => address[]) private _seasonPlayers;
 
     event MarketCreated(
         uint256 indexed seasonId,
@@ -38,9 +79,11 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newProbabilityBps
     );
 
-    constructor(address _raffle, address _admin) {
-        require(_raffle != address(0), "Factory: raffle zero");
-        raffle = _raffle;
+    constructor(address _raffleRead, address _oracle, address _admin) {
+        require(_raffleRead != address(0), "Factory: raffleRead zero");
+        require(_oracle != address(0), "Factory: oracle zero");
+        iRaffle = IRaffleRead(_raffleRead);
+        oracle = IInfoFiPriceOracleMinimal(_oracle);
         _grantRole(ADMIN_ROLE, _admin == address(0) ? msg.sender : _admin);
     }
 
@@ -55,13 +98,22 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newTickets,
         uint256 totalTickets
     ) external {
-        require(msg.sender == raffle, "Factory: only raffle");
+        // Validate caller equals the active bonding curve recorded in raffle for this season
+        (RaffleTypes.SeasonConfig memory cfg, , , , ) = iRaffle.getSeasonDetails(seasonId);
+        require(cfg.bondingCurve != address(0), "Factory: no curve");
+        require(msg.sender == cfg.bondingCurve, "Factory: only curve");
         require(player != address(0), "Factory: player zero");
         require(totalTickets > 0, "Factory: total 0");
 
         uint256 oldBps = (oldTickets * 10000) / totalTickets;
         uint256 newBps = (newTickets * 10000) / totalTickets;
         emit ProbabilityUpdated(seasonId, player, oldBps, newBps);
+
+        // Push probability to oracle for the corresponding marketId (seasonId, player, type)
+        // marketId = keccak256(seasonId, player, WINNER_PREDICTION)
+        bytes32 marketId = keccak256(abi.encodePacked(seasonId, player, WINNER_PREDICTION));
+        // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
+        oracle.updateRaffleProbability(marketId, newBps);
 
         // Upward crossing of 1% threshold and not created yet
         if (newBps >= 100 && oldBps < 100 && !winnerPredictionCreated[seasonId][player]) {
@@ -70,13 +122,46 @@ contract InfoFiMarketFactory is AccessControl {
             // For MVP, we do not deploy a real market contract yet; store a sentinel non-zero address if desired
             address marketAddr = address(0);
             winnerPredictionMarkets[seasonId][player] = marketAddr;
+            _seasonPlayers[seasonId].push(player);
 
             emit MarketCreated(seasonId, player, WINNER_PREDICTION, newBps, marketAddr);
         }
     }
 
+    /**
+     * @notice Permissionless market creation for WINNER_PREDICTION when a player >= 1% bps
+     * @dev Reads totals and position from the Raffle contract to compute bps on-chain.
+     *      Reverts if below threshold or already created.
+     */
+    function createWinnerPredictionMarket(uint256 seasonId, address player) external {
+        require(player != address(0), "Factory: player zero");
+
+        // Read on-chain season totals and player position
+        (RaffleTypes.SeasonConfig memory cfg, , , uint256 totalTickets, ) = iRaffle.getSeasonDetails(seasonId);
+        IRaffleRead.ParticipantPosition memory pos = iRaffle.getParticipantPosition(seasonId, player);
+
+        require(cfg.isActive && pos.isActive, "Factory: season/player inactive");
+        require(totalTickets > 0, "Factory: total 0");
+        require(pos.ticketCount > 0, "Factory: no tickets");
+
+        uint256 bps = (pos.ticketCount * 10000) / totalTickets;
+        require(bps >= 100, "Factory: below 1% threshold");
+        require(!winnerPredictionCreated[seasonId][player], "Factory: market exists");
+
+        winnerPredictionCreated[seasonId][player] = true;
+        address marketAddr = address(0);
+        winnerPredictionMarkets[seasonId][player] = marketAddr;
+        _seasonPlayers[seasonId].push(player);
+
+        emit MarketCreated(seasonId, player, WINNER_PREDICTION, bps, marketAddr);
+    }
+
     // Views
     function hasWinnerMarket(uint256 seasonId, address player) external view returns (bool) {
         return winnerPredictionCreated[seasonId][player];
+    }
+
+    function getSeasonPlayers(uint256 seasonId) external view returns (address[] memory) {
+        return _seasonPlayers[seasonId];
     }
 }

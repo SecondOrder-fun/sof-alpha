@@ -15,15 +15,15 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
-### InfoFi Trading – Next Tasks
+### InfoFi Trading – Next Tasks (On-chain shift)
 
-- [ ] Add threshold-sync API to create InfoFi market row when a player crosses ≥1% (MVP polling), then replace with event listener
-  - Endpoint: `POST /api/infofi/markets/sync-threshold` with `{ seasonId, playerAddress }`
-  - Reads on-chain `getParticipantPosition()` and `getSeasonDetails()` to compute bps
-  - Creates DB row in `infofi_markets` and initializes pricing cache
+- [ ] Replace threshold-sync REST with direct on-chain factory call (permissionless)
+  - UI: call `InfoFiMarketFactory.createWinnerPredictionMarket(seasonId, player)` from frontend
+  - Subscribe to `MarketCreated` to refresh view (viem WS when available)
+  - Keep backend route only as optional passthrough for now, then remove
 
-- [ ] Implement event listener for `InfoFiMarketFactory.MarketCreated` to auto-insert `infofi_markets` rows
-  - Subscribe via viem PublicClient logs, backfill if missed during downtime
+- [ ] Frontend subscribe to `MarketCreated` and `ProbabilityUpdated` (no DB insertion)
+  - Use viem `watchContractEvent` when WS provided; fall back to periodic refetch
 
 ### Development Servers & Start Scripts
 
@@ -154,6 +154,17 @@ All frontend development setup tasks have been completed:
   - [ ] Header: add "Prediction Markets" nav entry (temporary label; may shorten later) linking to markets index
   - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
+#### RafflePositionTracker Integration (Frontend)
+
+- [ ] Add tracker env keys to `.env.example` and `.env`
+  - Frontend: `VITE_RAFFLE_TRACKER_ADDRESS_LOCAL`, `VITE_RAFFLE_TRACKER_ADDRESS_TESTNET`
+  - Backend (optional reads): `RAFFLE_TRACKER_ADDRESS_LOCAL`, `RAFFLE_TRACKER_ADDRESS_TESTNET`
+- [ ] Copy Tracker ABI to frontend: `src/contracts/abis/RafflePositionTracker.json` (extend `scripts/copy-abis.js` if needed)
+- [ ] Extend `src/config/contracts.js` to expose `RAFFLE_TRACKER` per network
+- [ ] Create `useRaffleTracker()` hook for reading player positions and ranges
+- [ ] Wire tracker reads into `RaffleDetails` (positions/odds display) and `AccountPage`
+- [ ] Vitest: 1 success, 1 edge, 1 failure test for `useRaffleTracker`
+
 - **ENV & Addresses**
 
   - [x] Add `.env` support for Vite: `VITE_RPC_URL_LOCAL`, `VITE_RPC_URL_TESTNET`
@@ -161,6 +172,8 @@ All frontend development setup tasks have been completed:
   - [ ] Add testnet equivalents (left empty until deployment)
   - [ ] Update frontend README with network toggle and env examples
   - [x] Add `.env.example` template with all required frontend/backend variables
+  - [ ] Add tracker addresses: `VITE_RAFFLE_TRACKER_ADDRESS_LOCAL/TESTNET` and backend `RAFFLE_TRACKER_ADDRESS_LOCAL/TESTNET`
+  - [ ] Update `scripts/update-env-addresses.js` to map `RafflePositionTracker -> RAFFLE_TRACKER`
 
 - **Testing**
   - [ ] Vitest tests for hooks (1 success, 1 edge, 1 failure per hook)
@@ -268,12 +281,13 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 This roadmap consolidates the InfoFi specs into executable tasks across contracts, backend, frontend, and testing. These will be the next priorities after stabilizing tests and the ticket purchase bug.
 
-### Current Local Status (2025-08-20)
+### Current Local Status (2025-08-21)
 
 - [x] Local deploys (Anvil): `InfoFiMarketFactory`, `InfoFiPriceOracle`, `InfoFiSettlement` deployed via `Deploy.s.sol`.
 - [x] Oracle admin/updater: `InfoFiPriceOracle` constructed with `address(infoFiFactory)` as admin; factory holds `DEFAULT_ADMIN_ROLE` and `PRICE_UPDATER_ROLE`.
 - [x] Raffle wired as VRF consumer (local mock) and season factory connected.
 - [x] ENV/addresses synced to frontend/backend via scripts.
+- [x] Frontend: added on-chain service `src/services/onchainInfoFi.js` and UI in `src/routes/MarketsIndex.jsx` to list season players and call `createWinnerPredictionMarket` permissionlessly.
 - [ ] Position events: Curve does not yet emit `PositionUpdate` nor call factory on threshold.
 - [ ] Testnet deployments remain pending.
 
@@ -305,8 +319,9 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 
 - **Frontend**
   - [ ] Add header nav item “Prediction Markets” linking to markets index.
-  - [ ] Implement `useInfoFiMarkets(raffleId)` to list markets and positions; handle empty/error states.
-  - [ ] Wire SSE pricing to `InfoFiMarketCard` for live hybrid price updates.
+  - [x] Add minimal on-chain UI in `MarketsIndex.jsx` to list season players and create markets via factory (permissionless call).
+  - [ ] Implement `useInfoFiMarkets(raffleId)` to list markets and positions from chain (no DB); handle empty/error states.
+  - [ ] Wire Oracle reads/subscriptions: `InfoFiPriceOracle.getMarketPrice(marketId)` and `PriceUpdated` event.
 
 - **ENV & Addresses**
   - [ ] Add LOCAL/TESTNET `VITE_INFOFI_FACTORY_ADDRESS`, `VITE_INFOFI_ORACLE_ADDRESS`, `VITE_INFOFI_SETTLEMENT_ADDRESS` to `.env.example` and `.env`.
@@ -317,9 +332,44 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
   - [ ] Backend: unit tests for watcher debounce/idempotency and SSE initial+update events.
   - [ ] Frontend: Vitest for `useInfoFiMarkets` and nav visibility; render with empty/success/error.
 
+#### Plan Update (2025-08-23) — Align with `instructions/sof-prediction-market-dev-plan.md`
+
+Derived from the new prediction market development ruleset. These items complement existing tasks.
+
+- **Smart Contracts**
+  - [ ] Ensure raffle exposes or adapt to `IRaffleContract` interface: `getCurrentSeason()`, `isSeasonActive()`, `getTotalTickets()`, `getPlayerPosition()`, `getPlayerList()`, `getNumberRange()`, `getSeasonWinner()`, `getFinalPlayerPosition()`.
+  - [ ] Implement `RafflePositionTracker` with snapshots and `MARKET_ROLE`; push updates to markets on position changes.
+  - [ ] Implement market contracts (MVP per ruleset):
+    - [ ] `RaffleBinaryMarket` (YES/NO) with 70/30 hybrid pricing and USDC collateral; 2% winnings fee; `resolveMarket` role-gated.
+    - [ ] `RaffleScalarMarket` (above/below threshold) with live position updates; resolve at season end.
+    - [ ] `RaffleCategoricalMarket` (2–6 outcomes) with AMM share re-pricing.
+  - [ ] Add `FeeManager` (2% platform fee on winnings) and fee collector wiring.
+  - [ ] Add MEV protections: per-block action guard and commit–reveal for large trades (>$1k USDC).
+  - [ ] Base chain optimizations: packed storage structs; batch update/resolve.
+
+- **Backend (Realtime + Pricing)**
+  - [ ] Implement Hybrid Pricing Engine (mirror on-chain formula) persisting to `market_pricing_cache`.
+  - [ ] WebSocket gateway emitting: `MARKET_UPDATE`, `RAFFLE_UPDATE`, `MARKET_RESOLVED`, `NEW_MARKET_CREATED` (keep SSE fallback). Types per ruleset.
+  - [ ] Event bridge to consume raffle `PositionUpdate`/market events → update pricing cache + broadcast.
+
+- **Frontend**
+  - [ ] WS client with reconnection/heartbeat; fallback to SSE.
+  - [ ] Types/hooks for `MarketUpdate` and `RaffleUpdate`.
+  - [ ] Build/complete: `InfoFiMarketCard`, `ProbabilityChart`, `ArbitrageOpportunityDisplay`, `SettlementStatus`, `WinningsClaimPanel` wired to live pricing.
+
+- **Testing**
+  - [ ] Foundry invariants: shares ≈ liquidity; categorical sum = 100%; hybrid pricing deviation bounds.
+  - [ ] Integration: full season E2E — season start → threshold auto-create → trades → season end → resolve → claim.
+  - [ ] Backend WS/SSE tests: snapshot + updates + resolution.
+  - [ ] Frontend Vitest: hooks/components success/edge/failure.
+
+- **Deployment & Ops**
+  - [ ] Pre-deploy: interfaces satisfied; roles configured; emergency pause tested; fee collector set; WS operational.
+  - [ ] Post-deploy: alerts for position tracking; monitor hybrid pricing accuracy, gas usage, MEV attempts, and auto-creation health.
+
 ### Backend (Services, SSE, DB)
 
-- [x] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`).
+- [x] Create DB schema/migrations in Supabase per `infofi_markets`, `infofi_positions`, `infofi_winnings`, `arbitrage_opportunities`, and `market_pricing_cache` (see schema in `.windsurf/rules`)
 - [ ] Define marketId generation scheme and association with `seasonId` (multiple markets per season):
   - [ ] Choose deterministic ID format (e.g., `${seasonId}:${marketType}:${playerAddr}`) or DB PK + unique index on (seasonId, marketType, subject)
   - [ ] Expose resolver endpoints to list markets by season and fetch by marketId
@@ -494,6 +544,17 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [ ] Document runbook: auto-creation flow, reindex procedure, and troubleshooting `/api/infofi/markets` 500s
 
 ## Latest Progress (2025-08-20)
+
+## Latest Progress (2025-08-21)
+
+- **Frontend (on-chain registry UI)**: Added `src/services/onchainInfoFi.js` with viem helpers and updated `src/routes/MarketsIndex.jsx` to:
+  - Load on-chain season players via `InfoFiMarketFactory.getSeasonPlayers(seasonId)`
+  - Submit permissionless tx `createWinnerPredictionMarket(seasonId, player)`
+  - Prepare for event subscriptions (MarketCreated)
+
+- **ABIs**: Ran `scripts/copy-abis.js` to sync `InfoFiMarketFactory.json` and `InfoFiPriceOracle.json` into `src/contracts/abis/`.
+
+- **Next**: Add Oracle read/subscription helpers and replace the threshold sync REST path with direct factory tx from the UI.
 
 - **Contracts (AccessControl fix)**: Updated `contracts/script/Deploy.s.sol` to construct `InfoFiPriceOracle` with `address(infoFiFactory)` as admin. This removes reliance on `tx.origin`/`msg.sender` in script context and eliminates `AccessControlUnauthorizedAccount` during `grantRole`.
 - **Local deployment successful**: `npm run anvil:deploy` completes end-to-end. Addresses copied to frontend via `scripts/copy-abis.js` and `.env` updated via `scripts/update-env-addresses.js`.

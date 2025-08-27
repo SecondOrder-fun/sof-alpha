@@ -1,70 +1,144 @@
 // src/routes/MarketsIndex.jsx
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
+// Arbitrage UI removed for on-chain-only refactor
+import { useOnchainInfoFiMarkets } from '@/hooks/useOnchainInfoFiMarkets';
+import { getSeasonPlayersOnchain, createWinnerPredictionMarketTx } from '@/services/onchainInfoFi';
 
 const MarketsIndex = () => {
-  const [markets, setMarkets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activity, setActivity] = useState({ items: [], loading: true, error: null });
+  const [onchainForm, setOnchainForm] = useState({ seasonId: '0', network: 'LOCAL' });
+  const { markets, isLoading, error } = useOnchainInfoFiMarkets(onchainForm.seasonId, onchainForm.network);
+  // Removed backend-driven activity and sync state for on-chain-only refactor
+  const [onchainPlayers, setOnchainPlayers] = useState([]);
+  const [onchainLoading, setOnchainLoading] = useState(false);
+  const [txStatus, setTxStatus] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch('/api/infofi/markets');
-        if (!res.ok) throw new Error(`Failed to fetch markets (${res.status})`);
-        const data = await res.json();
-        if (mounted) setMarkets(data?.markets || []);
-      } catch (e) {
-        if (mounted) setError(e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  // Markets loaded via React Query (useInfoFiMarkets)
 
-  // Activity feed (arbitrage opportunities placeholder)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch('/api/arbitrage/opportunities');
-        if (!res.ok) throw new Error(`Failed to fetch opportunities (${res.status})`);
-        const data = await res.json();
-        if (mounted) setActivity({ items: data?.opportunities || [], loading: false, error: null });
-      } catch (e) {
-        if (mounted) setActivity({ items: [], loading: false, error: e });
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  // Removed backend-driven activity feed for on-chain-only refactor
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Prediction Markets</h1>
+      {/* Removed DB-backed sync form. We operate purely on-chain below. */}
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>On-chain: List/Create Winner Markets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setOnchainPlayers([]);
+              setOnchainLoading(true);
+              try {
+                const players = await getSeasonPlayersOnchain({
+                  seasonId: Number(onchainForm.seasonId),
+                  networkKey: onchainForm.network.toUpperCase(),
+                });
+                setOnchainPlayers(players || []);
+              } catch (err) {
+                setOnchainPlayers([]);
+              } finally {
+                setOnchainLoading(false);
+              }
+            }}
+          >
+            <div>
+              <label className="block text-sm mb-1">Season ID</label>
+              <input
+                className="w-full border rounded px-2 py-1"
+                type="number"
+                value={onchainForm.seasonId}
+                onChange={(e) => setOnchainForm({ ...onchainForm, seasonId: e.target.value })}
+                placeholder="0"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Network</label>
+              <select
+                className="w-full border rounded px-2 py-1"
+                value={onchainForm.network}
+                onChange={(e) => setOnchainForm({ ...onchainForm, network: e.target.value })}
+              >
+                <option value="LOCAL">LOCAL</option>
+                <option value="TESTNET">TESTNET</option>
+              </select>
+            </div>
+            <div>
+              <button type="submit" className="px-3 py-2 rounded bg-primary text-primary-foreground w-full">
+                Load Season Players (On-chain)
+              </button>
+            </div>
+          </form>
+
+          {onchainLoading && <p className="mt-3 text-muted-foreground">Loading on-chain players...</p>}
+          {!onchainLoading && onchainPlayers.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {onchainPlayers.map((addr) => (
+                <div key={addr} className="border rounded p-2 flex items-center justify-between">
+                  <div className="text-sm font-mono">{addr}</div>
+                  <button
+                    className="px-3 py-1 text-sm rounded bg-secondary text-secondary-foreground"
+                    onClick={async () => {
+                      setTxStatus({ addr, status: 'pending' });
+                      try {
+                        const hash = await createWinnerPredictionMarketTx({
+                          seasonId: Number(onchainForm.seasonId),
+                          player: addr,
+                          networkKey: onchainForm.network.toUpperCase(),
+                        });
+                        setTxStatus({ addr, status: 'submitted', hash });
+                      } catch (err) {
+                        setTxStatus({ addr, status: 'error', error: err?.message });
+                      }
+                    }}
+                  >
+                    Create Winner Market
+                  </button>
+                </div>
+              ))}
+              {txStatus && (
+                <div className="text-xs text-muted-foreground">
+                  {txStatus.status === 'pending' && `Submitting tx for ${txStatus.addr}...`}
+                  {txStatus.status === 'submitted' && (
+                    <span>
+                      Tx submitted: <span className="font-mono">{txStatus.hash}</span>
+                    </span>
+                  )}
+                  {txStatus.status === 'error' && (
+                    <span className="text-red-600">Error: {txStatus.error}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Active Markets</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading && <p className="text-muted-foreground">Loading...</p>}
+          {isLoading && <p className="text-muted-foreground">Loading markets from chain...</p>}
           {error && <p className="text-red-500">Failed to load markets</p>}
-          {!loading && !error && (
+          {!isLoading && !error && (
             <div className="space-y-2">
               {markets.length === 0 && (
-                <p className="text-muted-foreground">No markets available yet.</p>
+                <p className="text-muted-foreground">No on-chain markets found for this season.</p>
               )}
               {markets.map((m) => (
-                <div key={m.id} className="border rounded p-2 flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{m.question || m.market_type || 'Market'}</div>
-                    <div className="text-xs text-muted-foreground">{m.id}</div>
-                  </div>
+                <div key={m.id} className="relative">
+                  <InfoFiMarketCard market={m} />
                   {m.raffle_id && (
-                    <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
+                    <div className="absolute top-2 right-3 text-xs">
+                      <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
+                    </div>
                   )}
                 </div>
               ))}
@@ -73,38 +147,7 @@ const MarketsIndex = () => {
         </CardContent>
       </Card>
 
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Markets Activity Feed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activity.loading && <p className="text-muted-foreground">Loading...</p>}
-            {activity.error && <p className="text-red-500">Failed to load activity</p>}
-            {!activity.loading && !activity.error && (
-              <div className="space-y-2">
-                {activity.items.length === 0 && (
-                  <p className="text-muted-foreground">No recent activity.</p>
-                )}
-                {activity.items.map((it) => (
-                  <div key={`${it.market_id}-${it.created_at}`} className="border rounded p-2">
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="text-sm">Opportunity</div>
-                        <div className="text-xs text-muted-foreground">Market: {it.market_id}</div>
-                      </div>
-                      <div className="text-right text-sm">
-                        <div className="font-medium">{Number(it.profitability || 0).toFixed(2)}%</div>
-                        <div className="text-xs text-muted-foreground">{new Date(it.created_at).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* On-chain-only: activity/arbitrage UI removed */}
     </div>
   );
 };

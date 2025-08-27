@@ -5,6 +5,8 @@ import rateLimit from '@fastify/rate-limit';
 import { WebSocketServer } from 'ws';
 import process from 'node:process';
 import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
+import { startRaffleListener } from '../src/services/raffleListener.js';
+import { pricingService } from '../shared/pricingService.js';
 import { loadChainEnv } from '../src/config/chain.js';
 
 // Create Fastify instance
@@ -110,6 +112,21 @@ app.setNotFoundHandler((_request, reply) => {
 let wss;
 let stopListeners = [];
 
+// Broadcast helper (fan-out to all clients)
+function wsBroadcast(obj) {
+  if (!wss) return;
+  const msg = JSON.stringify(obj);
+  wss.clients.forEach((client) => {
+    try {
+      if (client.readyState === 1) {
+        client.send(msg);
+      }
+    } catch (_) {
+      // ignore individual client errors
+    }
+  });
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 
@@ -147,9 +164,25 @@ try {
         stopListeners.push(stop);
         app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
       }
+      // Start raffle PositionUpdate listener if raffle is configured
+      if (c?.cfg?.raffle) {
+        const stopRaffle = startRaffleListener(c.key, wsBroadcast, app.log);
+        stopListeners.push(stopRaffle);
+        app.log.info({ network: c.key, raffle: c.cfg.raffle }, 'Raffle listener started');
+      }
     }
   } catch (e) {
     app.log.error({ e }, 'Failed to start InfoFi listeners');
+  }
+
+  // Forward pricingService price updates to WS as MARKET_UPDATE
+  try {
+    pricingService.on('priceUpdate', (evt) => {
+      wsBroadcast({ type: 'MARKET_UPDATE', payload: evt });
+    });
+    app.log.info('PricingService -> WS MARKET_UPDATE bridge ready');
+  } catch (e) {
+    app.log.error({ e }, 'Failed to connect pricingService to WS');
   }
 } catch (err) {
   app.log.error(err);

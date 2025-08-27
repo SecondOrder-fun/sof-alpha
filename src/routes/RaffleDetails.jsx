@@ -14,6 +14,8 @@ import { useCurveState } from '@/hooks/useCurveState';
 import { computeMaxWithSlippage, computeMinAfterSlippage, simBuyCurve, simSellCurve } from '@/lib/curveMath';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+import { useRaffleTracker } from '@/hooks/useRaffleTracker';
+import { useWallet } from '@/hooks/useWallet';
 
 const RaffleDetails = () => {
   const { seasonId } = useParams();
@@ -46,6 +48,11 @@ const RaffleDetails = () => {
       debouncedRefresh(0);
     },
   });
+
+  // Tracker snapshot for the connected wallet
+  const { address, isConnected } = useWallet();
+  const { usePlayerSnapshot } = useRaffleTracker();
+  const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
@@ -300,6 +307,44 @@ const RaffleDetails = () => {
               <CardContent>
             {/* Live Hybrid Pricing (InfoFi) via reusable component */}
             <InfoFiPricingTicker marketId={seasonId} />
+            {/* Player snapshot (from RafflePositionTracker) */}
+            <div className="mt-3 p-3 border rounded-md bg-muted/20">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">Your Current Position</div>
+                {!isConnected && (
+                  <Badge variant="secondary">Connect wallet to view</Badge>
+                )}
+              </div>
+              {isConnected && (
+                <div className="mt-2 text-sm">
+                  {snapshotQuery.isLoading && <span className="text-muted-foreground">Loading snapshot…</span>}
+                  {snapshotQuery.error && (
+                    <span className="text-red-600">Error: {snapshotQuery.error.message}</span>
+                  )}
+                  {snapshotQuery.data && (
+                    <div className="space-y-1">
+                      <div>
+                        Tickets: <span className="font-mono">{snapshotQuery.data.ticketCount?.toString?.() ?? String(snapshotQuery.data.ticketCount ?? 0)}</span>
+                      </div>
+                      <div>
+                        Win Probability: <span className="font-mono">{(() => {
+                          try {
+                            const bps = Number(snapshotQuery.data.winProbabilityBps || 0);
+                            return `${(bps / 100).toFixed(2)}%`;
+                          } catch { return '0.00%'; }
+                        })()}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Total Tickets (at snapshot): <span className="font-mono">{snapshotQuery.data.totalTicketsAtTime?.toString?.() ?? String(snapshotQuery.data.totalTicketsAtTime ?? 0)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (
+                    <span className="text-muted-foreground">No snapshot yet.</span>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex space-x-2 my-2">
               {(() => {
                 const st = seasonDetailsQuery.data.status;

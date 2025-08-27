@@ -9,18 +9,21 @@ export function normalizePricingMessage(msg) {
   const hybrid =
     typeof src.hybridPriceBps === 'number' ? src.hybridPriceBps :
     typeof src.hybrid_price_bps === 'number' ? src.hybrid_price_bps :
+    typeof src.hybrid_price === 'number' ? src.hybrid_price :
     typeof src.hybridPrice === 'number' ? src.hybridPrice :
     undefined;
 
   const raffle =
     typeof src.raffleProbabilityBps === 'number' ? src.raffleProbabilityBps :
     typeof src.raffle_probability_bps === 'number' ? src.raffle_probability_bps :
+    typeof src.raffle_probability === 'number' ? src.raffle_probability :
     typeof src.raffleProbability === 'number' ? src.raffleProbability :
     undefined;
 
   const sentiment =
     typeof src.marketSentimentBps === 'number' ? src.marketSentimentBps :
     typeof src.market_sentiment_bps === 'number' ? src.market_sentiment_bps :
+    typeof src.market_sentiment === 'number' ? src.market_sentiment :
     typeof src.marketSentiment === 'number' ? src.marketSentiment :
     undefined;
 
@@ -93,8 +96,11 @@ export const usePricingStream = (marketId) => {
 
   const url = useMemo(() => {
     if (!marketId && marketId !== 0) return null;
-    if (!isValidMarketId(String(marketId))) return null;
-    return `/api/infofi/markets/${marketId}/pricing-stream`;
+    const idStr = String(marketId);
+    // Accept either canonical marketId (e.g. "0:WINNER_PREDICTION:-") OR a numeric DB id (e.g. "5")
+    const isNumericId = /^\d+$/.test(idStr);
+    if (!isNumericId && !isValidMarketId(idStr)) return null;
+    return `/api/infofi/markets/${idStr}/pricing-stream`;
   }, [marketId]);
 
   const { isConnected, error, reconnect } = useSSE(url, onMessage, {

@@ -3,17 +3,12 @@
     "type": "constructor",
     "inputs": [
       {
-        "name": "_raffleRead",
+        "name": "raffleAddress",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_oracle",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_admin",
+        "name": "initialAdmin",
         "type": "address",
         "internalType": "address"
       }
@@ -48,7 +43,7 @@
   },
   {
     "type": "function",
-    "name": "WINNER_PREDICTION",
+    "name": "MARKET_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -61,21 +56,101 @@
   },
   {
     "type": "function",
-    "name": "createWinnerPredictionMarket",
+    "name": "batchUpdatePositions",
     "inputs": [
       {
-        "name": "seasonId",
+        "name": "players",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "currentPositions",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ticketCount",
         "type": "uint256",
         "internalType": "uint256"
       },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalTicketsAtTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "winProbabilityBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentSnapshot",
+    "inputs": [
       {
         "name": "player",
         "type": "address",
         "internalType": "address"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct RafflePositionTracker.PlayerSnapshot",
+        "components": [
+          {
+            "name": "ticketCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalTicketsAtTime",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "winProbabilityBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -98,10 +173,15 @@
   },
   {
     "type": "function",
-    "name": "getSeasonPlayers",
+    "name": "getSnapshotAt",
     "inputs": [
       {
-        "name": "seasonId",
+        "name": "player",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "index",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -109,8 +189,35 @@
     "outputs": [
       {
         "name": "",
-        "type": "address[]",
-        "internalType": "address[]"
+        "type": "tuple",
+        "internalType": "struct RafflePositionTracker.PlayerSnapshot",
+        "components": [
+          {
+            "name": "ticketCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalTicketsAtTime",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "winProbabilityBps",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -159,70 +266,57 @@
   },
   {
     "type": "function",
-    "name": "hasWinnerMarket",
+    "name": "playerHistory",
     "inputs": [
       {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "player",
+        "name": "",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
+        "name": "ticketCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalTicketsAtTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "winProbabilityBps",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "onPositionUpdate",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "player",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "oldTickets",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "newTickets",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "totalTickets",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "oracle",
+    "name": "raffle",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract IInfoFiPriceOracleMinimal"
+        "internalType": "contract IRaffleContract"
       }
     ],
     "stateMutability": "view"
@@ -265,6 +359,25 @@
   },
   {
     "type": "function",
+    "name": "seasonLastUpdateBlock",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -284,99 +397,46 @@
   },
   {
     "type": "function",
-    "name": "winnerPredictionCreated",
+    "name": "updatePlayerPosition",
     "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "winnerPredictionMarkets",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "event",
-    "name": "MarketCreated",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
       {
         "name": "player",
         "type": "address",
-        "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "BatchPositionsUpdated",
+    "inputs": [
+      {
+        "name": "players",
+        "type": "address[]",
+        "indexed": false,
+        "internalType": "address[]"
       },
       {
-        "name": "marketType",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
+        "name": "newPositions",
+        "type": "uint256[]",
+        "indexed": false,
+        "internalType": "uint256[]"
       },
       {
-        "name": "probabilityBps",
+        "name": "seasonId",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "marketAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "ProbabilityUpdated",
+    "name": "PositionSnapshot",
     "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
       {
         "name": "player",
         "type": "address",
@@ -384,13 +444,25 @@
         "internalType": "address"
       },
       {
-        "name": "oldProbabilityBps",
+        "name": "ticketCount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "newProbabilityBps",
+        "name": "totalTickets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "winProbabilityBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seasonId",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
