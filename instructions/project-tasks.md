@@ -125,6 +125,25 @@ All frontend development setup tasks have been completed:
 - [ ] User experience refinement (copy, flows, accessibility)
 - [x] Implement Admin page authorization (default to deployer `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, allow adding more admins)
 
+### Testing Utilities (NEW)
+
+- [ ] $SOF Test Faucet — Anvil/Sepolia Only (Pending Plan Approval 2025-09-04)
+  - Scope: Provide a small amount of $SOF to a wallet for local Anvil and Sepolia testnet only, strictly one claim per address, with rate limiting and per-claim cap.
+  - Decision Needed: Choose between on-chain faucet contract vs. backend-signer faucet vs. frontend-only (requires mint role). Default recommendation: on-chain faucet contract funded during deploy, with chainId gating (31337, 11155111) and one-claim-per-address.
+  - Subtasks:
+    - [ ] Finalize design choice and parameters (claim amount, cooldown, caps)
+    - [ ] Contracts (if chosen): implement `SOFFaucet.sol` with `claim()` once-per-address mapping, `require(chainid in {31337, 11155111})`, pausable, owner-configurable per-claim amount and cooldown; fund faucet from deploy script
+    - [ ] Frontend: add `SofFaucet` component gated by network (Anvil/Sepolia), display remaining claims, and call `claim()`; add basic abuse copy and UX
+    - [ ] Backend (optional): add rate-limit middleware for any supporting endpoints; no server-side signing of transactions
+    - [ ] Env/Docs: add faucet address per network to `.env.example`, update `contracts.js` and README/runbook
+    - [ ] Tests: Foundry unit tests (success, cooldown/duplicate claim, wrong chain); Vitest UI tests (success, wrong-network, already-claimed)
+  - Acceptance Criteria:
+    - Works only on chainId 31337 (Anvil) and 11155111 (Sepolia)
+    - One successful claim per wallet address; subsequent attempts revert or are disabled in UI
+    - Per-claim amount and optional cooldown are configurable by owner
+    - No backend private key custody; no mainnet exposure
+    - Documented runbook and addresses; included in dev startup flow as needed
+
 ### Frontend Contract Integration (NEXT)
 
 - **Network & Config**
@@ -268,7 +287,7 @@ All frontend development setup tasks have been completed:
 - [x] Trading lock enforcement after `requestSeasonEnd()`
 - [x] Prize pool accounting from curve reserves at end-of-season
 - [x] Access control checks for season lifecycle and emergency paths
-- [ ] End-to-end testing of VRF → InfoFi settlement flow
+  - [x] End-to-end testing of VRF → InfoFi settlement flow (via `contracts/script/EndToEndResolveAndClaim.s.sol`)
 
 Note: Trading lock was validated at the curve level via `lockTrading()`; add a follow-up test to exercise `Raffle.requestSeasonEnd()` path and broader role-gated lifecycle actions.
 

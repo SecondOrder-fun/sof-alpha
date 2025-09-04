@@ -350,8 +350,58 @@ Notes:
 - If you see allowance/transfer failures, verify SOF balances and approvals for both the curve and the InfoFi market.
 - This script focuses on the buy/bet path. Resolution and payouts are planned as a follow-up script.
 
-## Notes
+## 10) End-to-End Resolution + Payout Claim Script (Local Anvil)
 
+The helper script `contracts/script/EndToEndResolveAndClaim.s.sol` automates the latter half of the lifecycle:
+
+- Warp to season end and call `Raffle.requestSeasonEnd(seasonId)`
+- Parse the `SeasonEndRequested` event to get `vrfRequestId`
+- Fulfill VRF with the local mock, which selects winners and completes the season
+- Resolve the InfoFi market for the tracked player based on winners
+- Claim payout for the correct bettor (YES if the player is a winner, otherwise NO)
+
+Prerequisites:
+
+- Run the buy/bet helper first (`EndToEndBuyBet.s.sol`) to create a market and place YES/NO bets
+- Make sure you have the same env variables exported
+
+Required environment variables:
+
+```bash
+export RPC_URL=http://127.0.0.1:8545
+export PRIVATE_KEY=0x<deployer_pk>
+export RAFFLE_ADDRESS=0x<raffle_address_from_deploy>
+export SOF_ADDRESS=0x<sof_token_address_from_deploy>
+export INFOFI_MARKET_ADDRESS=0x<infofi_market_address_from_deploy>
+export VRF_COORDINATOR_ADDRESS=0x<vrf_mock_from_deploy>
+export ACCOUNT1_PRIVATE_KEY=0x<anvil_account1_pk>
+export ACCOUNT2_PRIVATE_KEY=0x<anvil_account2_pk>
+
+# Optional: force a given season id (otherwise the script infers one heuristically)
+# export SEASON_ID=1
+```
+
+Run the script from `contracts/`:
+
+```bash
+forge script script/EndToEndResolveAndClaim.s.sol \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast -vvvv
+```
+
+What you should see in the logs:
+
+- Target season id and VRF `requestId`
+- "VRF fulfilled" confirmation
+- Winners count and the chosen outcome for the tracked player
+- Payout claimed by the correct account with the SOF delta
+
+Notes:
+- The script assumes the most recent market id (`nextMarketId - 1`) is the one created in the buy/bet script.
+- If you used a different flow, pass `SEASON_ID` to make sure the end-of-season warp is correct.
+
+## Notes
 - All numbers in steps/prices are raw integer units; adapt to your chosen decimals for SOF (demo token may use 18 decimals).
 - Timestamps must be consistent with your local anvil clock (real-time seconds since epoch).
 - For structured calls with tuples on `cast`, the provided examples show tuple encodings via `cast abi-encode` and passing them into the function call.
