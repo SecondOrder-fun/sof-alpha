@@ -6,16 +6,38 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 
+/// @dev Oracle surface for pushing sentiment and reading hybrid pricing for a given marketId
+interface IInfoFiPriceOracle {
+    function updateMarketSentiment(bytes32 marketId, uint256 marketSentimentBps) external;
+    /// Returns (raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active)
+    function getPrice(bytes32 marketId)
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            bool
+        );
+}
+
 contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     // Role definitions
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+
+    // Constants
+    uint256 public constant MIN_BET_AMOUNT = 1000000000000000; // 0.001 tokens
+    uint256 public constant MAX_BET_AMOUNT = 1000000000000000000000; // 1000 tokens
+    bytes32 public constant WINNER_PREDICTION = keccak256("WINNER_PREDICTION");
 
     // Events
     event MarketCreated(uint256 indexed marketId, uint256 raffleId, string question);
     event BetPlaced(address indexed better, uint256 indexed marketId, bool prediction, uint256 amount);
     event MarketResolved(uint256 indexed marketId, bool outcome, uint256 totalYesPool, uint256 totalNoPool);
     event PayoutClaimed(address indexed better, uint256 amount);
+    event OracleUpdated(bytes32 indexed marketKey, uint256 sentimentBps);
 
     // Structs
     struct MarketInfo {
@@ -30,6 +52,8 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         bool resolved;
         bool outcome;
         address tokenAddress;
+        address player;      // for per-player markets
+        bytes32 marketKey;   // keccak256(raffleId, player, WINNER_PREDICTION)
     }
 
     struct BetInfo {
@@ -45,9 +69,8 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     mapping(uint256 => mapping(address => BetInfo)) public bets;
     mapping(address => uint256[]) public betterMarkets;
 
-    // Constants
-    uint256 public constant MIN_BET_AMOUNT = 1000000000000000; // 0.001 tokens
-    uint256 public constant MAX_BET_AMOUNT = 1000000000000000000000; // 1000 tokens
+    // Optional oracle (set by admin). When set, we will push sentiment to oracle on bets and read hybrid price
+    IInfoFiPriceOracle public oracle;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -58,18 +81,22 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Create a new InfoFi market
      * @param raffleId ID of the associated raffle
+     * @param player The primary player this market tracks (per-player market)
      * @param question The yes/no question for the market
      * @param tokenAddress Address of the ERC20 token used for betting
      */
     function createMarket(
         uint256 raffleId,
+        address player,
         string memory question,
         address tokenAddress
     ) external onlyRole(OPERATOR_ROLE) whenNotPaused {
         require(bytes(question).length > 0, "InfoFiMarket: question cannot be empty");
         require(tokenAddress != address(0), "InfoFiMarket: invalid token address");
+        require(player != address(0), "InfoFiMarket: player zero");
 
         uint256 marketId = nextMarketId++;
+        bytes32 marketKey = keccak256(abi.encodePacked(raffleId, player, WINNER_PREDICTION));
         
         markets[marketId] = MarketInfo({
             id: marketId,
@@ -82,7 +109,9 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
             totalPool: 0,
             resolved: false,
             outcome: false,
-            tokenAddress: tokenAddress
+            tokenAddress: tokenAddress,
+            player: player,
+            marketKey: marketKey
         });
 
         emit MarketCreated(marketId, raffleId, question);
@@ -127,6 +156,9 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         bet.amount += amount;
 
         emit BetPlaced(msg.sender, marketId, prediction, amount);
+
+        // Push on-chain sentiment to oracle (if configured)
+        _updateOracle(marketId);
     }
 
     /**
@@ -168,6 +200,89 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
         
         emit PayoutClaimed(msg.sender, payout);
+    }
+
+    /**
+     * @dev Admin-only: set or update the oracle address used to publish sentiment
+     */
+    function setOracle(address oracleAddr) external onlyRole(ADMIN_ROLE) {
+        oracle = IInfoFiPriceOracle(oracleAddr);
+    }
+
+    /**
+     * @dev Compute and return market sentiment in basis points: yesPool / totalPool * 10000
+     */
+    function sentimentBps(uint256 marketId) public view returns (uint256) {
+        MarketInfo storage market = markets[marketId];
+        if (market.totalPool == 0) return 0;
+        return (market.totalYesPool * 10000) / market.totalPool;
+    }
+
+    /**
+     * @dev View: return the current YES price in bps as the oracle's hybrid price for this market.
+     * Falls back to local sentiment if oracle is unset.
+     */
+    function getYesPriceBps(uint256 marketId) public view returns (uint256) {
+        MarketInfo storage market = markets[marketId];
+        if (address(oracle) == address(0)) {
+            // Fallback to current sentiment ratio if oracle not configured
+            return sentimentBps(marketId);
+        }
+        ( , , uint256 hybridPriceBps, , bool active) = oracle.getPrice(market.marketKey);
+        // If oracle hasn't marked this market active yet, expose 0 to signal unavailable
+        return active ? hybridPriceBps : 0;
+    }
+
+    /**
+     * @dev View: reference real on-chain data (oracle + local pools) for a quote-like snapshot.
+     * No simulation or pricing math here.
+     */
+    function quote(uint256 marketId)
+        external
+        view
+        returns (
+            uint256 yesPriceBps,
+            uint256 raffleProbabilityBps,
+            uint256 marketSentimentOracleBps,
+            uint256 lastUpdate,
+            uint256 totalYesPool,
+            uint256 totalNoPool,
+            uint256 totalPool,
+            bool active
+        )
+    {
+        MarketInfo storage market = markets[marketId];
+        uint256 raffleBps;
+        uint256 oracleSentimentBps;
+        uint256 hybridBps;
+        uint256 ts;
+        bool isActive;
+
+        if (address(oracle) != address(0)) {
+            (raffleBps, oracleSentimentBps, hybridBps, ts, isActive) = oracle.getPrice(market.marketKey);
+        }
+
+        return (
+            isActive ? hybridBps : 0,
+            raffleBps,
+            oracleSentimentBps,
+            ts,
+            market.totalYesPool,
+            market.totalNoPool,
+            market.totalPool,
+            isActive
+        );
+    }
+
+    /**
+     * @dev Internal helper to push latest sentiment to oracle for this market
+     */
+    function _updateOracle(uint256 marketId) internal {
+        if (address(oracle) == address(0)) return; // optional wiring
+        MarketInfo storage market = markets[marketId];
+        uint256 sBps = sentimentBps(marketId);
+        oracle.updateMarketSentiment(market.marketKey, sBps);
+        emit OracleUpdated(market.marketKey, sBps);
     }
 
     /**

@@ -15,6 +15,11 @@ import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 
+// Minimal ACL interface for granting MARKET_ROLE on the tracker
+interface ITrackerACL {
+    function grantRole(bytes32 role, address account) external;
+}
+
 /**
  * @title Raffle Contract
  * @notice Manages seasons, deploys per-season RaffleToken and SOFBondingCurve, integrates VRF v2.
@@ -34,6 +39,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     ISeasonFactory public seasonFactory;
     // InfoFi integration
     address public infoFiFactory;
+
+    // Role hash used by RafflePositionTracker for updater permissions
+    bytes32 private constant TRACKER_MARKET_ROLE = keccak256("MARKET_ROLE");
 
     /// @dev Emitted on every position change (buy/sell) with post-change totals
     event PositionUpdate(
@@ -74,6 +82,26 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(_factory != address(0), "Raffle: infofi zero");
         infoFiFactory = _factory;
     }
+
+    /**
+     * @notice Wire the on-chain position tracker for a season and authorize the curve as updater
+     * @dev Calls curve.setPositionTracker(tracker) and tracker.grantRole(MARKET_ROLE, curve)
+     */
+    function setPositionTrackerForSeason(uint256 seasonId, address tracker) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(tracker != address(0), "Raffle: tracker zero");
+        address curveAddr = seasons[seasonId].bondingCurve;
+        require(curveAddr != address(0), "Raffle: curve not set");
+
+        // Set tracker on curve (Raffle has RAFFLE_MANAGER_ROLE on curve via SeasonFactory)
+        SOFBondingCurve(curveAddr).setPositionTracker(tracker);
+        // Grant MARKET_ROLE on tracker to the curve so it can push snapshots
+        ITrackerACL(tracker).grantRole(TRACKER_MARKET_ROLE, curveAddr);
+
+        emit PositionTrackerWired(seasonId, tracker, curveAddr);
+    }
+
+    event PositionTrackerWired(uint256 indexed seasonId, address indexed tracker, address indexed curve);
 
     /**
      * @notice Create a new season: deploy RaffleToken and SOFBondingCurve, grant roles, init curve.

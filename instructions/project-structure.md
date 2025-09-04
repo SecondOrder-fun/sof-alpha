@@ -23,9 +23,9 @@ SecondOrder.fun is a full-stack Web3 application that transforms cryptocurrency 
 - **Architecture**: Hybrid deployment with clear separation between raffle and InfoFi concerns
 - **Language**: JavaScript (ES Modules) with TypeScript support for complex InfoFi calculations
 - **Database**: Supabase (PostgreSQL) with real-time pub/sub enhanced for InfoFi market coordination
-- **Real-time**: Server-Sent Events (SSE) for efficient InfoFi pricing streams and arbitrage alerts
+- **Real-time**: Server-Sent Events (SSE) transport for streaming on-chain oracle values and arbitrage alerts
 - **Authentication**: JWT + Farcaster integration with InfoFi market permissions
-- **InfoFi Services**: Hybrid pricing calculation, arbitrage detection, settlement coordination
+- **InfoFi Services**: Oracle streaming of on-chain hybrid price, arbitrage detection, settlement coordination
 
 ### Smart Contracts Enhanced with InfoFi Integration
 
@@ -264,13 +264,13 @@ src/
 │   │   │   └── WinningsClaimForm.jsx # Winnings claim interface
 │   │   ├── hooks/            # InfoFi market hooks
 │   │   │   ├── useInfoFiMarkets.js    # Market data fetching and caching
-│   │   │   ├── useHybridPricing.js    # Real-time pricing calculations
+│   │   │   ├── useHybridPricing.js    # Real-time oracle reads + SSE streaming of hybrid price
 │   │   │   ├── useMarketTrading.js    # Trading operations and validation
 │   │   │   ├── useSettlement.js       # Settlement tracking and claims
 │   │   │   └── useMarketAnalytics.js  # Market performance analytics
 │   │   ├── services/         # InfoFi market business logic
 │   │   │   ├── infoFiMarketService.js  # CRUD operations for markets
-│   │   │   ├── hybridPricingService.js # Pricing calculation service
+│   │   │   ├── hybridPricingService.js # NEW: Oracle reader + SSE publisher for on-chain hybrid price
 │   │   │   ├── settlementService.js    # Settlement coordination service
 │   │   │   └── analyticsService.js     # Market analytics and reporting
 │   │   └── types.js          # InfoFi market type definitions
@@ -335,7 +335,7 @@ src/
 │   ├── useInfoFiMarkets.js   # NEW: InfoFi market data management
 │   ├── useArbitrageDetection.js # NEW: Real-time arbitrage opportunity detection
 │   ├── useCrossLayerStrategy.js # NEW: Multi-layer strategy coordination
-│   ├── useHybridPricing.js   # NEW: Real-time hybrid pricing calculations
+│   ├── useHybridPricing.js   # NEW: Real-time oracle reads + SSE streaming of hybrid price
 │   ├── useRealTimeData.js    # NEW: SSE connection management for live updates
 │   ├── useSettlement.js      # NEW: VRF-coordinated settlement tracking
 │   ├── useLocalStorage.js    # Enhanced local storage with InfoFi preferences
@@ -382,7 +382,7 @@ src/
 │   ├── infoFiMarketService.js # NEW: InfoFi market CRUD operations
 │   ├── arbitrageService.js   # NEW: Arbitrage detection and execution service
 │   ├── crossLayerService.js  # NEW: Cross-layer strategy coordination service
-│   ├── hybridPricingService.js # NEW: Real-time pricing calculation service
+│   ├── hybridPricingService.js # NEW: Oracle reader + SSE publisher for on-chain hybrid price
 │   ├── settlementService.js  # NEW: VRF-coordinated settlement service
 │   ├── realTimeService.js    # NEW: SSE connection and data streaming service
 │   ├── userService.js        # Enhanced user operations with InfoFi preferences
@@ -510,9 +510,9 @@ backend/
 │   │   │   ├── infoFiMarketService.js # NEW: InfoFi market business logic
 │   │   │   ├── arbitrageDetectionService.js # NEW: Real-time arbitrage detection
 │   │   │   ├── crossLayerCoordinationService.js # NEW: Multi-layer strategy coordination
-│   │   │   ├── hybridPricingService.js # NEW: 70%/30% pricing calculations
+│   │   │   ├── hybridPricingService.js # NEW: Oracle reader + SSE publisher for on-chain hybrid price
 │   │   │   ├── settlementCoordinationService.js # NEW: VRF-triggered settlement
-│   │   │   ├── realTimePricingService.js # NEW: SSE pricing stream management
+│   │   │   ├── realTimePricingService.js # NEW: SSE transport streaming on-chain oracle values
 │   │   │   ├── userService.js      # Enhanced user logic with InfoFi preferences
 │   │   │   ├── contractService.js  # Enhanced contract interactions for multi-contract
 │   │   │   ├── blockchainEventService.js # NEW: Cross-contract event coordination

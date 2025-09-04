@@ -73,12 +73,13 @@ Transform memecoins into finite games with InfoFi integration providing four key
 - **Behavioral Markets**: "Will Player X exit before season end?" predicting player psychology
 - **Cross-Layer Arbitrage Markets**: Price discrepancies between raffle positions and InfoFi valuations
 
-**Hybrid Pricing Model (70% Raffle Data + 30% Market Sentiment):**
+**Hybrid Pricing Model (70% Raffle Data + 30% Market Sentiment) — On-chain:**
 
-- Real-time raffle position data provides 70% of market pricing through transparent algorithms
-- Market trading activity and sentiment analysis contributes 30% through AMM dynamics
-- Automatic arbitrage detection when pricing discrepancies exceed 2% profitability threshold
-- Live price updates via Server-Sent Events (SSE) with sub-second latency for optimal user experience
+- Raffle position probability is computed on-chain from `Raffle` totals (tickets/totalTickets)
+- Market sentiment is computed on-chain from `InfoFiPlayerMarket` YES/NO pools (`sentimentBps()`)
+- An on-chain `InfoFiPriceOracle` combines both into a hybrid price in basis points with configurable weights
+- Automatic arbitrage detection runs off-chain but uses only on-chain oracle values
+- Live updates are streamed via Server-Sent Events (SSE) as a transport layer for oracle outputs (no off-chain math)
 
 **Automated Market Creation & Management:**
 
@@ -155,13 +156,13 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 ```
 
-**Hybrid Pricing Implementation:**
+**Hybrid Pricing Implementation (On-chain Oracle):**
 
-- **70% Raffle Data**: Direct integration with raffle contracts for real-time position probability calculations
-- **30% Market Sentiment**: AMM-style price discovery based on InfoFi trading activity and volume analysis
-- **Chainlink Compatibility**: Implements AggregatorV3Interface for standardized price feed integration
-- **Sub-Second Updates**: Server-Sent Events coordination for live price streaming to frontend clients
-- **Arbitrage Detection**: Automatic identification of pricing discrepancies above configurable profit thresholds
+- **70% Raffle Data**: Oracle reads `Raffle.getSeasonDetails` and `getParticipantPosition` to compute probability
+- **30% Market Sentiment**: Oracle reads `InfoFiPlayerMarket.sentimentBps()` derived from on-chain YES/NO pools
+- **Chainlink Compatibility**: Optional AggregatorV3Interface surface for standardized price feed consumption
+- **Updates**: Oracle is pure view; SSE streams oracle values for sub-second UX without client-side polling
+- **Arbitrage Detection**: Detects discrepancies using oracle outputs; no off-chain price components
 
 #### 4. **InfoFiSettlement.sol** (New)
 
@@ -190,9 +191,9 @@ import "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 
 #### Phase 2: **Real-Time Data Coordination (Weeks 3-4)**
 
-- Server-Sent Events (SSE) infrastructure for live price updates and arbitrage opportunity detection
-- Event-driven architecture connecting blockchain events to frontend real-time displays
-- Database schema implementation supporting InfoFi markets, positions, arbitrage opportunities, and settlement tracking
+- Server-Sent Events (SSE) infrastructure streams on-chain oracle values to the frontend (transport only)
+- Event-driven architecture connects blockchain events (trades/positions) to refresh oracle reads
+- Database schema supports InfoFi markets, positions, arbitrage opportunities, and settlement tracking
 - Performance optimization for concurrent seasons with multiple InfoFi markets per raffle
 
 #### Phase 3: **Cross-Layer Strategy Tools (Weeks 5-6)**
@@ -339,9 +340,9 @@ const useCrossLayerStrategy = (raffleId) => {
 
 #### Enhanced Fastify (Main Application Server) Services
 
-- **InfoFi Market Management**: Complete CRUD operations for prediction markets with real-time price coordination
-- **Real-Time Pricing Service**: Hybrid pricing calculations (70% raffle + 30% sentiment) with SSE streaming
-- **Arbitrage Detection Engine**: Algorithmic identification of cross-layer profit opportunities with execution support
+- **InfoFi Market Management**: CRUD operations and indexing for on-chain prediction markets
+- **Oracle Streaming Service**: Reads on-chain `InfoFiPriceOracle` and streams values via SSE
+- **Arbitrage Detection Engine**: Identifies cross-layer profit opportunities using on-chain oracle values
 - **Cross-Layer Settlement Coordination**: VRF-triggered settlement management across raffle and InfoFi systems
 - **Advanced Analytics**: Strategy performance tracking, arbitrage history, and user behavior analysis
 

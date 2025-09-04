@@ -23,6 +23,8 @@ export function loadChainEnv() {
       // Raffle position tracker (backend usage optional but exposed for parity)
       raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_LOCAL || "",
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_LOCAL || "",
+      // InfoFi on-chain hybrid price oracle (required for SSE transport)
+      infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_LOCAL || "",
     },
     TESTNET: {
       id: Number(process.env.TESTNET_CHAIN_ID || 84532),
@@ -34,6 +36,8 @@ export function loadChainEnv() {
       // Raffle position tracker (backend usage optional but exposed for parity)
       raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_TESTNET || "",
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_TESTNET || "",
+      // InfoFi on-chain hybrid price oracle (required for SSE transport)
+      infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_TESTNET || "",
     },
   };
 

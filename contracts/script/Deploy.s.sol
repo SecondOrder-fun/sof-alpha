@@ -24,6 +24,7 @@ contract DeployScript is Script {
         } else {
             // When no key is provided, Foundry uses DefaultSender (0x1804...). Use that as admin.
             vm.startBroadcast();
+            // Align admin with the script sender in this branch
             deployerAddr = msg.sender;
         }
 
@@ -66,7 +67,7 @@ contract DeployScript is Script {
         bytes32 seasonCreatorRole = raffle.SEASON_CREATOR_ROLE();
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         
-        // Deploy InfoFiMarket contract (placeholder)
+        // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
 
         // Deploy RafflePositionTracker and wire roles
@@ -74,8 +75,17 @@ contract DeployScript is Script {
         RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
         // Grant MARKET_ROLE to raffle and seasonFactory so they can push updates if needed
         bytes32 marketRole = tracker.MARKET_ROLE();
-        tracker.grantRole(marketRole, address(raffle));
-        tracker.grantRole(marketRole, address(seasonFactory));
+        // These may fail if the deployer is not the admin; don't block deployment.
+        try tracker.grantRole(marketRole, address(raffle)) {
+            console2.log("Granted MARKET_ROLE to Raffle on Tracker");
+        } catch {
+            console2.log("Skipping grantRole to Raffle on Tracker (not admin)");
+        }
+        try tracker.grantRole(marketRole, address(seasonFactory)) {
+            console2.log("Granted MARKET_ROLE to SeasonFactory on Tracker");
+        } catch {
+            console2.log("Skipping grantRole to SeasonFactory on Tracker (not admin)");
+        }
         console2.log("RafflePositionTracker deployed at:", address(tracker));
 
         // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
@@ -83,16 +93,49 @@ contract DeployScript is Script {
         InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(deployerAddr, 7000, 3000);
         console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
 
-        // Deploy InfoFiMarketFactory with raffle read addr and oracle wired; admin = deployer
+        // Wire market to oracle and grant updater role so market can push sentiment
+        try infoFiMarket.setOracle(address(infoFiOracle)) {
+            console2.log("InfoFiMarket oracle set:", address(infoFiOracle));
+        } catch {
+            console2.log("InfoFiMarket oracle was already set or method failed (skipping)");
+        }
+        // Grant oracle PRICE_UPDATER_ROLE to InfoFiMarket so placeBet can update sentiment
+        try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiMarket)) {
+            console2.log("Granted PRICE_UPDATER_ROLE to InfoFiMarket on InfoFiPriceOracle");
+        } catch {
+            console2.log("Skipping PRICE_UPDATER_ROLE grant to InfoFiMarket (not admin or already granted)");
+        }
+
+        // Deploy InfoFiMarketFactory with raffle read addr, oracle, shared market, and SOF bet token; admin = deployer
         console2.log("Deploying InfoFiMarketFactory...");
-        InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(address(raffle), address(infoFiOracle), deployerAddr);
+        InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
+            address(raffle),
+            address(infoFiOracle),
+            address(infoFiMarket),
+            address(sof),
+            deployerAddr
+        );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
-        // Grant PRICE_UPDATER_ROLE on oracle to factory
-        bytes32 PRICE_UPDATER_ROLE = infoFiOracle.PRICE_UPDATER_ROLE();
-        if (!infoFiOracle.hasRole(PRICE_UPDATER_ROLE, address(infoFiFactory))) {
-            infoFiOracle.grantRole(PRICE_UPDATER_ROLE, address(infoFiFactory));
-            console2.log("Granted PRICE_UPDATER_ROLE to factory on oracle");
+        // Grant OPERATOR_ROLE on InfoFiMarket to the factory so it can create markets
+        try infoFiMarket.grantRole(infoFiMarket.OPERATOR_ROLE(), address(infoFiFactory)) {
+            console2.log("Granted OPERATOR_ROLE to factory on InfoFiMarket");
+        } catch {
+            console2.log("Skipping OPERATOR_ROLE grant (not admin or already granted)");
+        }
+
+        // Grant PRICE_UPDATER_ROLE on oracle to factory so it can push probability updates
+        try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiFactory)) {
+            console2.log("Granted PRICE_UPDATER_ROLE to factory on InfoFiPriceOracle");
+        } catch {
+            console2.log("Skipping PRICE_UPDATER_ROLE grant (not admin or already granted)");
+        }
+
+        // Wire factory into Raffle so curve callbacks can reach factory
+        try raffle.setInfoFiFactory(address(infoFiFactory)) {
+            console2.log("Raffle setInfoFiFactory:", address(infoFiFactory));
+        } catch {
+            console2.log("Raffle.setInfoFiFactory failed or already set (skipping)");
         }
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)

@@ -297,6 +297,59 @@ cast send $CURVE "grantRole(bytes32,address)" $(cast keccak "RAFFLE_MANAGER_ROLE
 - `Raffle.requestSeasonEnd(seasonId)`
 - Views: `Raffle.getSeasonDetails`, `Raffle.getParticipants`, `Raffle.getParticipantPosition`, `Raffle.getParticipantNumberRange`, `SOFBondingCurve.getSofReserves`
 
+## 9) End-to-End InfoFi Market Buy/Bet Script (Local Anvil)
+
+The helper script `contracts/script/EndToEndBuyBet.s.sol` automates the full local flow:
+
+- Create a season
+- Start the season (time-warp locally)
+- Fund two user accounts with SOF
+- Approve and buy raffle tickets for both users on the bonding curve
+- Create an InfoFi market for one player
+- Approve SOF and place YES/NO bets from both users
+
+Prerequisites:
+
+- Run the deployment script first and note the deployed addresses (RAFFLE, SOF, INFOFI_MARKET)
+- Ensure the deployer holds a large SOF balance (preminted by `Deploy.s.sol`)
+
+Required environment variables (all addresses/PKs are local-only for Anvil):
+
+```bash
+export RPC_URL=http://127.0.0.1:8545
+export PRIVATE_KEY=0x<deployer_pk>
+export RAFFLE_ADDRESS=0x<raffle_address_from_deploy>
+export SOF_ADDRESS=0x<sof_token_address_from_deploy>
+export INFOFI_MARKET_ADDRESS=0x<infofi_market_address_from_deploy>
+
+# Two additional funded accounts for user flows
+export ACCOUNT1_PRIVATE_KEY=0x<anvil_account1_pk>
+export ACCOUNT2_PRIVATE_KEY=0x<anvil_account2_pk>
+```
+
+Run the script from `contracts/`:
+
+```bash
+forge script script/EndToEndBuyBet.s.sol \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast -vvvv
+```
+
+The script logs:
+
+- Season creation and start
+- Curve and token addresses
+- Buy transactions for both users
+- Created InfoFi market ID
+- Bet submissions and final market pools
+
+Notes:
+
+- The script assumes `Deploy.s.sol` already granted the oracle updater role to the InfoFi market (so `placeBet` can publish sentiment). This is handled by our updated deployment wiring.
+- If you see allowance/transfer failures, verify SOF balances and approvals for both the curve and the InfoFi market.
+- This script focuses on the buy/bet path. Resolution and payouts are planned as a follow-up script.
+
 ## Notes
 
 - All numbers in steps/prices are raw integer units; adapt to your chosen decimals for SOF (demo token may use 18 decimals).

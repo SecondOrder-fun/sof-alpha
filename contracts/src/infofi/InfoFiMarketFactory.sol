@@ -8,6 +8,12 @@ interface IInfoFiPriceOracleMinimal {
     function updateRaffleProbability(bytes32 marketId, uint256 raffleProbabilityBps) external;
 }
 
+/// @dev Minimal interface to the InfoFiMarket for creating markets and reading roles
+interface IInfoFiMarketOps {
+    function OPERATOR_ROLE() external view returns (bytes32);
+    function createMarket(uint256 raffleId, address player, string calldata question, address tokenAddress) external;
+}
+
 /// @dev Minimal read-only interface to Raffle for on-chain validation
 interface IRaffleRead {
     // Mirror types from RaffleStorage
@@ -52,6 +58,12 @@ contract InfoFiMarketFactory is AccessControl {
     // Oracle to push hybrid price updates
     IInfoFiPriceOracleMinimal public immutable oracle;
 
+    // Deployed InfoFiMarket used to host per-player markets
+    IInfoFiMarketOps public immutable infoFiMarket;
+
+    // ERC20 token used for wagering in markets (SOF in our MVP)
+    address public immutable betToken;
+
     // marketType constants (keccak256("WINNER_PREDICTION")) kept as bytes32 for gas efficiency
     bytes32 public constant WINNER_PREDICTION = keccak256("WINNER_PREDICTION");
 
@@ -79,11 +91,15 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newProbabilityBps
     );
 
-    constructor(address _raffleRead, address _oracle, address _admin) {
+    constructor(address _raffleRead, address _oracle, address _infoFiMarket, address _betToken, address _admin) {
         require(_raffleRead != address(0), "Factory: raffleRead zero");
         require(_oracle != address(0), "Factory: oracle zero");
+        require(_infoFiMarket != address(0), "Factory: market zero");
+        require(_betToken != address(0), "Factory: token zero");
         iRaffle = IRaffleRead(_raffleRead);
         oracle = IInfoFiPriceOracleMinimal(_oracle);
+        infoFiMarket = IInfoFiMarketOps(_infoFiMarket);
+        betToken = _betToken;
         _grantRole(ADMIN_ROLE, _admin == address(0) ? msg.sender : _admin);
     }
 
@@ -101,7 +117,12 @@ contract InfoFiMarketFactory is AccessControl {
         // Validate caller equals the active bonding curve recorded in raffle for this season
         (RaffleTypes.SeasonConfig memory cfg, , , , ) = iRaffle.getSeasonDetails(seasonId);
         require(cfg.bondingCurve != address(0), "Factory: no curve");
-        require(msg.sender == cfg.bondingCurve, "Factory: only curve");
+        // Accept updates from either the season's bonding curve (direct threshold callback)
+        // or the Raffle contract (forwarded participant updates)
+        require(
+            msg.sender == cfg.bondingCurve || msg.sender == address(iRaffle),
+            "Factory: only curve or raffle"
+        );
         require(player != address(0), "Factory: player zero");
         require(totalTickets > 0, "Factory: total 0");
 
@@ -119,9 +140,17 @@ contract InfoFiMarketFactory is AccessControl {
         if (newBps >= 100 && oldBps < 100 && !winnerPredictionCreated[seasonId][player]) {
             winnerPredictionCreated[seasonId][player] = true;
 
-            // For MVP, we do not deploy a real market contract yet; store a sentinel non-zero address if desired
-            address marketAddr = address(0);
-            winnerPredictionMarkets[seasonId][player] = marketAddr;
+            // Create a per-player prediction market on the shared InfoFiMarket
+            // Requires OPERATOR_ROLE to be granted to this factory
+            string memory q = "Will this player win the raffle season?";
+            address marketAddr = address(infoFiMarket);
+            try infoFiMarket.createMarket(seasonId, player, q, betToken) {
+                // store reference to the shared market host (not a unique market per player address)
+                winnerPredictionMarkets[seasonId][player] = marketAddr;
+            } catch {
+                // If creation fails, still mark as created to avoid spamming, but leave address zero
+                winnerPredictionMarkets[seasonId][player] = address(0);
+            }
             _seasonPlayers[seasonId].push(player);
 
             emit MarketCreated(seasonId, player, WINNER_PREDICTION, newBps, marketAddr);

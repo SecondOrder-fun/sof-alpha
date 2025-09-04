@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/infofi/InfoFiMarket.sol";
+import "../src/infofi/InfoFiPriceOracle.sol";
 
 contract InfoFiMarketTest is Test {
     InfoFiMarket public market;
@@ -29,12 +30,51 @@ contract InfoFiMarketTest is Test {
         market.grantRole(market.ADMIN_ROLE(), admin);
         market.grantRole(market.OPERATOR_ROLE(), operator);
     }
+
+    function testPlaceBetRequiresOracleRoleWhenOracleSet() public {
+        // Create market first by operator
+        vm.startPrank(operator);
+        market.createMarket(
+            1, // raffleId
+            better1, // player
+            "Winner prediction market",
+            address(token)
+        );
+        vm.stopPrank();
+
+        // Deploy oracle and set on market (test contract is admin of market)
+        InfoFiPriceOracle oracle = new InfoFiPriceOracle(address(this), 7000, 3000);
+        market.setOracle(address(oracle));
+
+        // better1 approves tokens
+        uint256 betAmount = 100 * 10**18;
+        vm.startPrank(better1);
+        token.approve(address(market), betAmount);
+        vm.expectRevert(); // Missing PRICE_UPDATER_ROLE on oracle should revert from _updateOracle
+        market.placeBet(0, true, betAmount);
+        vm.stopPrank();
+
+        // Grant PRICE_UPDATER_ROLE to InfoFiMarket on oracle
+        oracle.grantRole(oracle.PRICE_UPDATER_ROLE(), address(market));
+
+        // Try again: should succeed now
+        vm.startPrank(better1);
+        token.approve(address(market), betAmount);
+        market.placeBet(0, true, betAmount);
+        vm.stopPrank();
+
+        // Verify pools updated
+        InfoFiMarket.MarketInfo memory info = market.getMarket(0);
+        assertEq(info.totalYesPool, betAmount);
+        assertEq(info.totalPool, betAmount);
+    }
     
     function testCreateMarket() public {
         vm.startPrank(operator);
         
         market.createMarket(
             1, // raffleId
+            better1, // player
             "Will the price of ETH be above $3000 at the end of the month?",
             address(token)
         );
@@ -54,6 +94,7 @@ contract InfoFiMarketTest is Test {
         vm.startPrank(operator);
         market.createMarket(
             1, // raffleId
+            better1, // player
             "Will the price of ETH be above $3000 at the end of the month?",
             address(token)
         );
@@ -85,6 +126,7 @@ contract InfoFiMarketTest is Test {
         vm.startPrank(operator);
         market.createMarket(
             1, // raffleId
+            better1, // player
             "Will the price of ETH be above $3000 at the end of the month?",
             address(token)
         );
@@ -138,6 +180,7 @@ contract InfoFiMarketTest is Test {
         vm.startPrank(operator);
         market.createMarket(
             1, // raffleId
+            better1, // player
             "Will the price of ETH be above $3000 at the end of the month?",
             address(token)
         );

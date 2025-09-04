@@ -413,6 +413,19 @@
   },
   {
     "type": "function",
+    "name": "positionTracker",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "raffle",
     "inputs": [],
     "outputs": [
@@ -510,6 +523,19 @@
     "inputs": [
       {
         "name": "_factory",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPositionTracker",
+    "inputs": [
+      {
+        "name": "_tracker",
         "type": "address",
         "internalType": "address"
       }

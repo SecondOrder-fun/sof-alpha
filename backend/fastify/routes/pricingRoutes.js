@@ -262,6 +262,114 @@ export async function pricingRoutes(fastify, options) {
     return reply.send(res);
   });
 
+  // DEV-ONLY: SSE stream by oracleKey (bytes32 hex) – bypasses DB completely
+  // Mount path: /api/pricing/stream/pricing-by-key/:oracleKey
+  fastify.get('/stream/pricing-by-key/:oracleKey', async (request, reply) => {
+    const { oracleKey } = request.params;
+    if (!oracleKey) {
+      return reply.status(400).send({ error: 'oracleKey is required' });
+    }
+
+    reply.header('Content-Type', 'text/event-stream');
+    reply.header('Cache-Control', 'no-cache');
+    reply.header('Connection', 'keep-alive');
+    reply.header('Access-Control-Allow-Origin', '*');
+
+    // Send initial cached value if any
+    const cached = pricingService.getCachedPricing(oracleKey);
+    if (cached) {
+      const initial = {
+        type: 'initial_price',
+        marketKey: oracleKey,
+        raffleProbabilityBps: cached.raffle_probability_bps ?? null,
+        marketSentimentBps: cached.market_sentiment_bps ?? null,
+        hybridPriceBps: cached.hybrid_price_bps ?? null,
+        timestamp: cached.last_updated || new Date().toISOString(),
+      };
+      reply.raw.write(`data: ${JSON.stringify(initial)}\n\n`);
+    }
+
+    // Subscribe to key directly
+    const unsubscribe = pricingService.subscribeToMarket(oracleKey, (priceUpdate) => {
+      try {
+        const evt = {
+          type: 'price_update',
+          marketKey: oracleKey,
+          raffleProbabilityBps: priceUpdate.raffle_probability_bps ?? null,
+          marketSentimentBps: priceUpdate.market_sentiment_bps ?? null,
+          hybridPriceBps: priceUpdate.hybrid_price_bps ?? null,
+          timestamp: priceUpdate.last_updated || new Date().toISOString(),
+        };
+        reply.raw.write(`data: ${JSON.stringify(evt)}\n\n`);
+      } catch (error) {
+        fastify.log.error('Error sending SSE update:', error);
+      }
+    });
+
+    // Heartbeat
+    const heartbeatInterval = setInterval(() => {
+      try {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: Date.now() })}\n\n`);
+      } catch (error) {
+        fastify.log.error('Error sending SSE heartbeat:', error);
+        clearInterval(heartbeatInterval);
+      }
+    }, 30000);
+
+    request.socket.on('close', () => {
+      clearInterval(heartbeatInterval);
+      unsubscribe();
+    });
+  });
+
+  // DEV-ONLY: Current snapshot by oracleKey (no DB)
+  fastify.get('/stream/pricing-by-key/:oracleKey/current', async (request, reply) => {
+    const { oracleKey } = request.params;
+    if (!oracleKey) {
+      return reply.status(400).send({ error: 'oracleKey is required' });
+    }
+    const cached = pricingService.getCachedPricing(oracleKey);
+    if (!cached) {
+      return reply.status(404).send({ error: 'Pricing not found for oracleKey' });
+    }
+    return reply.send({
+      marketKey: oracleKey,
+      raffleProbabilityBps: cached.raffle_probability_bps ?? null,
+      marketSentimentBps: cached.market_sentiment_bps ?? null,
+      hybridPriceBps: cached.hybrid_price_bps ?? null,
+      lastUpdated: cached.last_updated || new Date().toISOString(),
+    });
+  });
+
+  // DEV-ONLY: Set pricing by oracleKey (disabled in production)
+  fastify.post('/debug/pricing/update-by-key', async (request, reply) => {
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        return reply.status(403).send({ error: 'Forbidden in production' });
+      }
+      const { oracleKey, raffleProbabilityBps, marketSentimentBps, hybridPriceBps } = request.body || {};
+      if (!oracleKey) {
+        return reply.status(400).send({ error: 'oracleKey is required' });
+      }
+
+      const payload = {
+        raffle_probability_bps: typeof raffleProbabilityBps === 'number' ? raffleProbabilityBps : undefined,
+        market_sentiment_bps: typeof marketSentimentBps === 'number' ? marketSentimentBps : undefined,
+        hybrid_price_bps: typeof hybridPriceBps === 'number' ? hybridPriceBps : undefined,
+      };
+      // If hybrid not provided, compute from raffle/sentiment with default weights in client
+      if (payload.hybrid_price_bps == null && typeof payload.raffle_probability_bps === 'number' && typeof payload.market_sentiment_bps === 'number') {
+        payload.hybrid_price_bps = Math.round((7000 * payload.raffle_probability_bps + 3000 * payload.market_sentiment_bps) / 10000);
+      }
+
+      const updated = pricingService.setPricingForKey(oracleKey, payload);
+      return reply.send({ success: true, marketKey: oracleKey, pricing: updated });
+    } catch (err) {
+      fastify.log.error({ err }, 'Failed to update pricing by key');
+      return reply.status(500).send({ error: 'Failed to update pricing by key' });
+    }
+  });
+
   // DEV-ONLY: Trigger a manual hybrid pricing update for SSE demo/testing
   // Refuses to run in production mode.
   fastify.post('/debug/pricing/update', async (request, reply) => {

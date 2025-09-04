@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import { WebSocketServer } from 'ws';
 import process from 'node:process';
 import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
+import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
 import { pricingService } from '../shared/pricingService.js';
 import { loadChainEnv } from '../src/config/chain.js';
@@ -163,6 +164,12 @@ try {
         const stop = startInfoFiMarketListener(c.key, app.log);
         stopListeners.push(stop);
         app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
+      }
+      // Start oracle listener if oracle configured (feeds pricingService from on-chain)
+      if (c?.cfg?.infofiOracle) {
+        const stopOracle = startOracleListener(c.key, app.log);
+        stopListeners.push(stopOracle);
+        app.log.info({ network: c.key, oracle: c.cfg.infofiOracle }, 'Oracle listener started');
       }
       // Start raffle PositionUpdate listener if raffle is configured
       if (c?.cfg?.raffle) {

@@ -171,6 +171,40 @@ export class PricingService extends EventEmitter {
   }
 
   /**
+   * Dev-only: directly set pricing payload by arbitrary key (e.g., oracle marketKey)
+   * without any DB interaction. Useful for local SSE smoke tests when DB is absent.
+   *
+   * @param {string|number} key
+   * @param {{
+   *   raffle_probability_bps?: number,
+   *   market_sentiment_bps?: number,
+   *   hybrid_price_bps?: number,
+   *   last_updated?: string
+   * }} payload
+   */
+  setPricingForKey(key, payload) {
+    const nowIso = new Date().toISOString();
+    const cachedPayload = {
+      raffle_probability_bps: typeof payload.raffle_probability_bps === 'number' ? payload.raffle_probability_bps : 0,
+      market_sentiment_bps: typeof payload.market_sentiment_bps === 'number' ? payload.market_sentiment_bps : 0,
+      hybrid_price_bps: typeof payload.hybrid_price_bps === 'number' ? payload.hybrid_price_bps : 0,
+      last_updated: payload.last_updated || nowIso
+    };
+    this.pricingCache.set(key, cachedPayload);
+
+    const evt = {
+      market_id: key,
+      raffle_probability_bps: cachedPayload.raffle_probability_bps,
+      market_sentiment_bps: cachedPayload.market_sentiment_bps,
+      hybrid_price_bps: cachedPayload.hybrid_price_bps,
+      last_updated: cachedPayload.last_updated,
+    };
+    this.emit('priceUpdate', evt);
+    this._notifySubscribers(key, evt);
+    return cachedPayload;
+  }
+
+  /**
    * Internal: notify all SSE subscribers for a given market id
    * @param {string|number} marketId
    * @param {object} payload
