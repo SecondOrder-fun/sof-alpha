@@ -20,8 +20,13 @@ contract StartSeasonScript is Script {
         ) = raffle.getSeasonDetails(seasonId);
 
         vm.startBroadcast(pk);
-        if (block.timestamp < cfg.startTime + 1) {
-            vm.warp(cfg.startTime + 1);
+        console2.log("Current timestamp:", block.timestamp);
+        console2.log("Season start time:", cfg.startTime);
+        if (block.timestamp < cfg.startTime) {
+            uint256 targetTime = cfg.startTime + 1;
+            console2.log("Warping time to:", targetTime);
+            vm.warp(targetTime);
+            console2.log("New timestamp:", block.timestamp);
         }
         raffle.startSeason(seasonId);
         vm.stopBroadcast();

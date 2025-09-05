@@ -9,7 +9,7 @@ import {RaffleTypes} from "../src/lib/RaffleTypes.sol";
 /**
  * @title CreateSeasonScript
  * @notice Creates a season with 100 steps (rangeTo +1000 per step) up to 100,000 tickets.
- *         Start price = 1 SOF, increment = 0.1 SOF per step. Starts ~60s in the future, lasts ~1 day.
+ *         Start price = 1 SOF, increment = 0.1 SOF per step. Starts ~15s in the future, lasts ~3 minutes.
  */
 contract CreateSeasonScript is Script {
     function run() external {
@@ -24,9 +24,9 @@ contract CreateSeasonScript is Script {
 
         // Season config
         // IMPORTANT: Raffle.createSeason requires startTime > block.timestamp
-        // We set startTime 60s in the future and will start the season in a separate tx after time passes
-        uint256 startTs = block.timestamp + 60; // start 1 min in the future
-        uint256 endTs = startTs + 1 days;
+        // We set startTime ~15s in the future and recommend starting the season after that; it ends ~3 minutes later
+        uint256 startTs = block.timestamp + 15; // start ~15s in the future
+        uint256 endTs = startTs + 3 minutes;
 
         RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
             name: "Season-100k-1000steps",
@@ -74,7 +74,7 @@ contract CreateSeasonScript is Script {
         console2.log("Token:", cfg.raffleToken);
         console2.log("StartTime:", cfg.startTime);
         console2.log("EndTime:", cfg.endTime);
-        console2.log("NOTE:", "Call startSeason(seasonId) in a separate tx after startTime (or wait ~60s)");
+        console2.log("NOTE:", "Call startSeason(seasonId) after ~15s; season ends ~3 minutes later");
         console2.log("Admin/Sender:", sender);
 
         vm.stopBroadcast();

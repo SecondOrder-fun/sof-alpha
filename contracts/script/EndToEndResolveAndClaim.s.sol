@@ -88,14 +88,42 @@ contract EndToEndResolveAndClaim is Script {
         uint256 totalPrizePool;
         (cfg, status, totalParticipants, totalTickets, totalPrizePool) = raffle.getSeasonDetails(seasonId);
 
-        // 1) If not completed, warp to endTime + 1, request season end, and fulfill VRF
-        if (uint256(status) != 3) { // 3 = Completed (per RaffleStorage.SeasonStatus enum in this repo)
+        // 1) If not completed, request season end (or emergency end) and fulfill VRF
+        if (status != RaffleStorage.SeasonStatus.Completed) {
             vm.startBroadcast(adminPk);
+            // Best-effort: advance time to endTime if needed. This may be a no-op on some RPCs.
             if (block.timestamp < cfg.endTime) {
                 vm.warp(cfg.endTime + 1);
             }
+
             vm.recordLogs();
-            raffle.requestSeasonEnd(seasonId);
+            // Try normal end first; if it reverts (e.g., not ended), fall back to emergency end path
+            bool endRequested = false;
+            try raffle.requestSeasonEnd(seasonId) {
+                endRequested = true;
+            } catch {
+                // Grant EMERGENCY_ROLE to admin and try early end
+                bytes32 emergencyRole = raffle.EMERGENCY_ROLE();
+                raffle.grantRole(emergencyRole, vm.addr(adminPk));
+                raffle.requestSeasonEndEarly(seasonId);
+                endRequested = true;
+            }
+
+            // Lock InfoFi markets for this raffle after we've successfully requested end
+            if (endRequested) {
+                // Use low-level calls to avoid reverting the entire script if lock fails in this environment.
+                (bool ok1, ) = address(infoFi).call(abi.encodeWithSignature("lockMarketsForRaffle(uint256)", seasonId));
+                if (!ok1) {
+                    (bool ok2, ) = address(infoFi).call(abi.encodeWithSignature("emergencyLockAll(uint256)", seasonId));
+                    if (!ok2) {
+                        console2.log("[E2E-Resolve] Market lock best-effort failed (continuing)");
+                    } else {
+                        console2.log("[E2E-Resolve] Markets locked via emergency fallback");
+                    }
+                } else {
+                    console2.log("[E2E-Resolve] Markets locked via index");
+                }
+            }
             vm.stopBroadcast();
 
             // Parse logs to get requestId from SeasonEndRequested
@@ -109,6 +137,10 @@ contract EndToEndResolveAndClaim is Script {
             vrf.fulfillRandomWords(requestId, address(raffle));
             vm.stopBroadcast();
             console2.log("[E2E-Resolve] VRF fulfilled");
+        
+            // Confirm season has transitioned to Completed
+            (, status, , , ) = raffle.getSeasonDetails(seasonId);
+            require(status == RaffleStorage.SeasonStatus.Completed, "Season not completed after VRF");
         } else {
             console2.log("[E2E-Resolve] Season already completed; skipping VRF step");
         }
@@ -131,14 +163,14 @@ contract EndToEndResolveAndClaim is Script {
         if (b1.amount > 0 && b1.prediction == user1IsWinner) {
             vm.startBroadcast(user1Pk);
             uint256 balBefore = sof.balanceOf(user1);
-            infoFi.claimPayout(marketId);
+            infoFi.claimPayout(marketId, b1.prediction);
             uint256 balAfter = sof.balanceOf(user1);
             vm.stopBroadcast();
             console2.log("[E2E-Resolve] User1 claimed. +SOF:", balAfter - balBefore);
         } else if (b2.amount > 0 && b2.prediction == user1IsWinner) {
             vm.startBroadcast(user2Pk);
             uint256 balBefore2 = sof.balanceOf(user2);
-            infoFi.claimPayout(marketId);
+            infoFi.claimPayout(marketId, b2.prediction);
             uint256 balAfter2 = sof.balanceOf(user2);
             vm.stopBroadcast();
             console2.log("[E2E-Resolve] User2 claimed. +SOF:", balAfter2 - balBefore2);

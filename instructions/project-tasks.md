@@ -349,7 +349,7 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
   - [ ] Wire Oracle reads/subscriptions: `InfoFiPriceOracle.getMarketPrice(marketId)` and `PriceUpdated` event.
 
 - **ENV & Addresses**
-  - [ ] Add LOCAL/TESTNET `VITE_INFOFI_FACTORY_ADDRESS`, `VITE_INFOFI_ORACLE_ADDRESS`, `VITE_INFOFI_SETTLEMENT_ADDRESS` to `.env.example` and `.env`.
+  - [ ] Add `VITE_INFOFI_FACTORY_ADDRESS`, `VITE_INFOFI_ORACLE_ADDRESS`, `VITE_INFOFI_SETTLEMENT_ADDRESS` to `.env.example` and `.env`.
   - [ ] Ensure `scripts/update-env-addresses.js` writes the above keys alongside RAFFLE/SEASON/ SOF.
 
 - **Testing**
@@ -490,6 +490,12 @@ Enable opening/closing positions per InfoFi market using a house market‑maker 
 - [ ] Market trade panel: YES/NO toggle, amount input, live quote (price/fee/slippage), confirm.
 - [ ] Positions table: avg price, size, realized/unrealized PnL, Close button.
 - [ ] My Account shows InfoFi positions/trades only.
+
+#### NEW (2025-09-04): Enable users to sell raffle tokens back into the bonding curve
+
+- [ ] Frontend: Extend `useCurve()` and `RaffleDetails` to support `sellTickets(amount, minSofAmount)` with quote via `calculateSellPrice(amount)`; add allowance/balance checks and a confirmation modal.
+- [ ] Docs: Update `contracts/README.md` and frontend README with a sell runbook (approve → quote → sell) and examples using `cast`.
+- [ ] Tests: Vitest hook tests (success/edge/failure) for sell path; E2E script addition to sell after buy; Foundry test verifying curve callbacks update positions and fees.
 
 ### Anvil / Mocks
 

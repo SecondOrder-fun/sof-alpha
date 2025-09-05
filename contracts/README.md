@@ -29,6 +29,34 @@ export RPC_URL=http://127.0.0.1:8545
 
 The deployment script `contracts/script/Deploy.s.sol` only expects `PRIVATE_KEY` for local Anvil deployment. The VRF mock and its configuration are now handled automatically by the script.
 
+### Inline environment variables (required for local E2E runs)
+
+When running Foundry scripts and `cast` commands against local Anvil, set all required environment variables inline on the same command invocation. Do not rely on prior shell exports. This prevents subtle issues when terminals are restarted or `.env` files are out of date.
+
+Examples:
+
+```bash
+# Deploy (inline vars)
+RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0x<anvil_account0_private_key> \
+forge script script/Deploy.s.sol:DeployScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvvv
+
+# Start season (inline vars)
+RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0x<anvil_account0_private_key> \
+RAFFLE_ADDRESS=0x<from_deploy_logs> \
+cast send $RAFFLE_ADDRESS "startSeason(uint256)" 1 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+
+# Run E2E resolve script (inline vars)
+RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0x<anvil_account0_private_key> \
+RAFFLE_ADDRESS=0x<from_deploy_logs> \
+SOF_ADDRESS=0x<from_deploy_logs> \
+INFOFI_MARKET_ADDRESS=0x<from_deploy_logs> \
+VRF_COORDINATOR_ADDRESS=0x<from_deploy_logs> \
+forge script script/EndToEndResolveAndClaim.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvvv
+```
+
 ## 3) Deploy contracts with Foundry script
 
 The script now automatically handles VRF mock deployment. By default, it does NOT create a season on deploy.
@@ -398,10 +426,35 @@ What you should see in the logs:
 - Payout claimed by the correct account with the SOF delta
 
 Notes:
+
 - The script assumes the most recent market id (`nextMarketId - 1`) is the one created in the buy/bet script.
 - If you used a different flow, pass `SEASON_ID` to make sure the end-of-season warp is correct.
 
+### Market lock and emergency fallback
+
+During resolution, all InfoFi markets for the target season are locked before settlement. The script first attempts `lockMarketsForRaffle(seasonId)`; if that function is unavailable or reverts on the deployed bytecode, it falls back to `emergencyLockAll(seasonId)` which scans and locks any markets for the season. Both calls are wrapped as best‑effort so the script won’t abort if locking isn’t available (you will see console logs indicating which path was taken).
+
+The fallback `emergencyLockAll(uint256 raffleId)` is admin‑only and emits `MarketLocked(marketId)` for each market locked.
+
+### Verify post‑lock bets revert
+
+After the market is locked, any attempt to place a new bet must revert. You can quickly verify this on Anvil by attempting a post‑lock bet (expecting a revert):
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0x<anvil_account0_private_key> \
+INFOFI_MARKET_ADDRESS=0x<from_deploy_logs> \
+SOF_ADDRESS=0x<from_deploy_logs> \
+MID=$(($(cast call $INFOFI_MARKET_ADDRESS "nextMarketId()" --rpc-url $RPC_URL) - 1)) \
+cast send $SOF_ADDRESS "approve(address,uint256)" $INFOFI_MARKET_ADDRESS 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --rpc-url $RPC_URL --private-key $PRIVATE_KEY && \
+cast send $INFOFI_MARKET_ADDRESS "placeBet(uint256,bool,uint256)" $MID true 1000000000000000000 \
+  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```
+
+If markets are correctly locked, the final `placeBet` call should revert with the contract’s lock error.
+
 ## Notes
+
 - All numbers in steps/prices are raw integer units; adapt to your chosen decimals for SOF (demo token may use 18 decimals).
 - Timestamps must be consistent with your local anvil clock (real-time seconds since epoch).
 - For structured calls with tuples on `cast`, the provided examples show tuple encodings via `cast abi-encode` and passing them into the function call.

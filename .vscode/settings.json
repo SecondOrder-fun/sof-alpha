@@ -1,0 +1,9 @@
+{
+  "git.autoRepositoryDetection": "openEditors",
+  "git.ignoredRepositories": [
+    "/Users/psd/Documents/PROJECTS/SOf/sof-alpha/contracts/lib/forge-std",
+    "/Users/psd/Documents/PROJECTS/SOf/sof-alpha/contracts/lib/openzeppelin-contracts",
+    "/Users/psd/Documents/PROJECTS/SOf/sof-alpha/contracts/lib/chainlink-brownie-contracts",
+    "/Users/psd/Documents/PROJECTS/SOf/sof-alpha/contracts/lib/chainlink"
+  ]
+}

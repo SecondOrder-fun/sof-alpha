@@ -11,24 +11,23 @@ import {SOFBondingCurve} from "../src/curve/SOFBondingCurve.sol";
 import {InfoFiMarket} from "../src/infofi/InfoFiMarket.sol";
 
 /**
- * End-to-end helper script to automate:
- * 1) Create a season
- * 2) Start season (time-warp locally)
- * 3) Transfer SOF to two user accounts
- * 4) Buy raffle tickets from both accounts on the curve
- * 5) Create an InfoFi market (operator)
- * 6) Approve SOF and place YES/NO bets from two accounts
+ * End-to-end helper script to automate against an EXISTING, STARTED season:
+ * 1) Transfer SOF to two user accounts
+ * 2) Buy raffle tickets from both accounts on the curve
+ * 3) Create an InfoFi market (operator)
+ * 4) Approve SOF and place YES/NO bets from two accounts
  *
  * Required env vars:
  * - PRIVATE_KEY                (deployer/admin; has SOF balance)
  * - RAFFLE_ADDRESS             (deployed Raffle)
  * - SOF_ADDRESS                (deployed SOF token)
  * - INFOFI_MARKET_ADDRESS      (deployed InfoFiMarket)
+ * - SEASON_ID                  (existing, active season ID)
  * - ACCOUNT1_PRIVATE_KEY       (first user)
  * - ACCOUNT2_PRIVATE_KEY       (second user)
  *
  * Usage (example against Anvil):
- * forge script script/EndToEndBuyBet.s.sol \
+ * SEASON_ID=1 forge script script/EndToEndBuyBet.s.sol \
  *   --rpc-url http://127.0.0.1:8545 \
  *   --broadcast -vvvv
  */
@@ -39,6 +38,8 @@ contract EndToEndBuyBet is Script {
         address raffleAddr = vm.envAddress("RAFFLE_ADDRESS");
         address sofAddr = vm.envAddress("SOF_ADDRESS");
         address infoFiMarketAddr = vm.envAddress("INFOFI_MARKET_ADDRESS");
+        // Require an existing started season
+        uint256 seasonId = vm.envUint("SEASON_ID");
 
         uint256 user1Pk = vm.envUint("ACCOUNT1_PRIVATE_KEY");
         uint256 user2Pk = vm.envUint("ACCOUNT2_PRIVATE_KEY");
@@ -53,55 +54,19 @@ contract EndToEndBuyBet is Script {
         IERC20 sof = IERC20(sofAddr);
         InfoFiMarket infoFi = InfoFiMarket(infoFiMarketAddr);
 
-        // 1) Create a season (admin)
-        vm.startBroadcast(adminPk);
-        uint256 startTs = block.timestamp + 30; // start 30s in the future
-        uint256 endTs = startTs + 1 days;
-
-        RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
-            name: "E2E-Season",
-            startTime: startTs,
-            endTime: endTs,
-            winnerCount: 3,
-            prizePercentage: 5000, // 50%
-            consolationPercentage: 4000, // 40%
-            raffleToken: address(0),
-            bondingCurve: address(0),
-            isActive: false,
-            isCompleted: false
-        });
-
-        // Build a small curve: 10 steps x 1,000
-        uint256 STEPS = 10;
-        RaffleTypes.BondStep[] memory steps = new RaffleTypes.BondStep[](STEPS);
-        uint128 basePrice = 1e18; // 1 SOF
-        uint128 increment = 1e17; // +0.1 SOF/step
-        for (uint256 i = 0; i < STEPS; i++) {
-            uint32 rangeTo = uint32((i + 1) * 1000);
-            uint128 price = basePrice + uint128(i) * increment;
-            steps[i] = RaffleTypes.BondStep({rangeTo: rangeTo, price: price});
-        }
-
-        uint16 buyFeeBps = 10;  // 0.1%
-        uint16 sellFeeBps = 70; // 0.7%
-
-        uint256 seasonId = raffle.createSeason(config, steps, buyFeeBps, sellFeeBps);
-        console2.log("[E2E] Season created:", seasonId);
-
-        // Read curve + token addresses
+        // Season handling: fetch existing season details and assert active
+        RaffleTypes.SeasonConfig memory cfg;
         (
-            RaffleTypes.SeasonConfig memory cfg,
+            cfg,
             , , ,
         ) = raffle.getSeasonDetails(seasonId);
+        console2.log("[E2E] Using existing season:", seasonId);
+        require(cfg.isActive, "Existing season is not active; start it first");
         console2.log("[E2E] Curve:", cfg.bondingCurve);
         console2.log("[E2E] Token:", cfg.raffleToken);
 
-        // 2) Warp and start season
-        vm.warp(startTs + 1);
-        raffle.startSeason(seasonId);
-        console2.log("[E2E] Season started");
-
-        // 3) Fund two users with SOF
+        // Fund two users with SOF
+        vm.startBroadcast(adminPk);
         uint256 fundAmt = 10_000 ether;
         require(sof.transfer(user1, fundAmt), "SOF transfer to user1 failed");
         require(sof.transfer(user2, fundAmt), "SOF transfer to user2 failed");

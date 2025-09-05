@@ -36,7 +36,8 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     event MarketCreated(uint256 indexed marketId, uint256 raffleId, string question);
     event BetPlaced(address indexed better, uint256 indexed marketId, bool prediction, uint256 amount);
     event MarketResolved(uint256 indexed marketId, bool outcome, uint256 totalYesPool, uint256 totalNoPool);
-    event PayoutClaimed(address indexed better, uint256 amount);
+    event MarketLocked(uint256 indexed marketId, uint256 indexed raffleId);
+    event PayoutClaimed(address indexed better, uint256 indexed marketId, bool prediction, uint256 amount);
     event OracleUpdated(bytes32 indexed marketKey, uint256 sentimentBps);
 
     // Structs
@@ -46,12 +47,13 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         string question;
         uint256 createdAt;
         uint256 resolvedAt;
+        bool locked; // when true, no further bets can be placed
         uint256 totalYesPool;
         uint256 totalNoPool;
         uint256 totalPool;
         bool resolved;
-        bool outcome;
-        address tokenAddress;
+        bool outcome; // true = YES wins, false = NO wins
+        address tokenAddress; // ERC20 used for betting
         address player;      // for per-player markets
         bytes32 marketKey;   // keccak256(raffleId, player, WINNER_PREDICTION)
     }
@@ -66,7 +68,10 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     // State variables
     uint256 public nextMarketId;
     mapping(uint256 => MarketInfo) public markets;
-    mapping(uint256 => mapping(address => BetInfo)) public bets;
+    // Index markets by raffle for bulk locking at season end
+    mapping(uint256 => uint256[]) public marketsByRaffle;
+    // Allow hedging: a bettor can hold independent YES and NO positions per market
+    mapping(uint256 => mapping(address => mapping(bool => BetInfo))) public bets;
     mapping(address => uint256[]) public betterMarkets;
 
     // Optional oracle (set by admin). When set, we will push sentiment to oracle on bets and read hybrid price
@@ -83,19 +88,19 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param raffleId ID of the associated raffle
      * @param player The primary player this market tracks (per-player market)
      * @param question The yes/no question for the market
-     * @param tokenAddress Address of the ERC20 token used for betting
+     * @param token Address of the ERC20 token used for betting
      */
     function createMarket(
         uint256 raffleId,
         address player,
-        string memory question,
-        address tokenAddress
-    ) external onlyRole(OPERATOR_ROLE) whenNotPaused {
+        string calldata question,
+        address token
+    ) external onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 marketId) {
         require(bytes(question).length > 0, "InfoFiMarket: question cannot be empty");
-        require(tokenAddress != address(0), "InfoFiMarket: invalid token address");
+        require(token != address(0), "InfoFiMarket: invalid token address");
         require(player != address(0), "InfoFiMarket: player zero");
 
-        uint256 marketId = nextMarketId++;
+        marketId = nextMarketId++;
         bytes32 marketKey = keccak256(abi.encodePacked(raffleId, player, WINNER_PREDICTION));
         
         markets[marketId] = MarketInfo({
@@ -104,15 +109,18 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
             question: question,
             createdAt: block.timestamp,
             resolvedAt: 0,
+            locked: false,
             totalYesPool: 0,
             totalNoPool: 0,
             totalPool: 0,
             resolved: false,
             outcome: false,
-            tokenAddress: tokenAddress,
+            tokenAddress: token,
             player: player,
             marketKey: marketKey
         });
+
+        marketsByRaffle[raffleId].push(marketId);
 
         emit MarketCreated(marketId, raffleId, question);
     }
@@ -129,7 +137,8 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         uint256 amount
     ) external nonReentrant whenNotPaused {
         MarketInfo storage market = markets[marketId];
-        require(!market.resolved, "InfoFiMarket: market already resolved");
+        require(!market.resolved, "InfoFiMarket: market resolved");
+        require(!market.locked, "InfoFiMarket: market locked");
         require(amount >= MIN_BET_AMOUNT && amount <= MAX_BET_AMOUNT, "InfoFiMarket: invalid bet amount");
 
         IERC20 token = IERC20(market.tokenAddress);
@@ -145,11 +154,14 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         }
         market.totalPool += amount;
 
-        // Update bet info
-        BetInfo storage bet = bets[marketId][msg.sender];
+        // Update bet info per outcome (hedging supported)
+        BetInfo storage bet = bets[marketId][msg.sender][prediction];
         if (bet.amount == 0) {
-            // New bet
-            betterMarkets[msg.sender].push(marketId);
+            // Only push marketId once per bettor (first-ever position across both outcomes)
+            BetInfo storage other = bets[marketId][msg.sender][!prediction];
+            if (other.amount == 0) {
+                betterMarkets[msg.sender].push(marketId);
+            }
         }
         
         bet.prediction = prediction;
@@ -168,8 +180,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      */
     function resolveMarket(uint256 marketId, bool outcome) external onlyRole(OPERATOR_ROLE) whenNotPaused {
         MarketInfo storage market = markets[marketId];
-        require(!market.resolved, "InfoFiMarket: market already resolved");
-
+        require(!market.resolved, "InfoFiMarket: already resolved");
         market.resolved = true;
         market.outcome = outcome;
         market.resolvedAt = block.timestamp;
@@ -178,12 +189,42 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Lock all markets for a raffle (season end). Prevents new bets while allowing claims post-resolution.
+     */
+    function lockMarketsForRaffle(uint256 raffleId) external onlyRole(OPERATOR_ROLE) whenNotPaused {
+        uint256[] storage ids = marketsByRaffle[raffleId];
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 mid = ids[i];
+            MarketInfo storage m = markets[mid];
+            if (!m.locked) {
+                m.locked = true;
+                emit MarketLocked(mid, raffleId);
+            }
+        }
+    }
+
+    /**
+     * @dev Emergency fallback to lock all markets for a raffle by scanning all created markets.
+     * Use this if marketsByRaffle indexing is unavailable in a given environment.
+     */
+    function emergencyLockAll(uint256 raffleId) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        uint256 maxId = nextMarketId;
+        for (uint256 mid = 0; mid < maxId; mid++) {
+            MarketInfo storage m = markets[mid];
+            if (m.raffleId == raffleId && !m.locked) {
+                m.locked = true;
+                emit MarketLocked(mid, raffleId);
+            }
+        }
+    }
+
+    /**
      * @dev Claim payout for a winning bet
      * @param marketId ID of the market
      */
-    function claimPayout(uint256 marketId) external nonReentrant whenNotPaused {
+    function claimPayout(uint256 marketId, bool prediction) external nonReentrant whenNotPaused {
         MarketInfo storage market = markets[marketId];
-        BetInfo storage bet = bets[marketId][msg.sender];
+        BetInfo storage bet = bets[marketId][msg.sender][prediction];
         
         require(market.resolved, "InfoFiMarket: market not resolved");
         require(bet.amount > 0, "InfoFiMarket: no bet placed");
@@ -199,7 +240,30 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         IERC20 token = IERC20(market.tokenAddress);
         require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
         
-        emit PayoutClaimed(msg.sender, payout);
+        emit PayoutClaimed(msg.sender, marketId, prediction, payout);
+    }
+
+    /**
+     * @dev Backward-compatible wrapper: claims winning-side payout if bettor participated on that side
+     */
+    function claimPayout(uint256 marketId) external nonReentrant whenNotPaused {
+        MarketInfo storage market = markets[marketId];
+        require(market.resolved, "InfoFiMarket: market not resolved");
+        bool winning = market.outcome;
+        BetInfo storage bet = bets[marketId][msg.sender][winning];
+        require(bet.amount > 0, "InfoFiMarket: no winning-side bet");
+        require(!bet.claimed, "InfoFiMarket: payout already claimed");
+        
+        // Calculate payout
+        uint256 winningPool = winning ? market.totalYesPool : market.totalNoPool;
+        uint256 payout = (bet.amount * market.totalPool) / winningPool;
+        bet.payout = payout;
+        bet.claimed = true;
+        
+        IERC20 token = IERC20(market.tokenAddress);
+        require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
+        
+        emit PayoutClaimed(msg.sender, marketId, winning, payout);
     }
 
     /**
@@ -314,8 +378,24 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param better Address of the better
      * @return BetInfo
      */
+    // Backward compatible aggregate view: returns the winning-side bet if market is resolved,
+    // otherwise returns the YES-side bet (or NO-side if YES empty). Prefer using the 3-arg getter.
     function getBet(uint256 marketId, address better) external view returns (BetInfo memory) {
-        return bets[marketId][better];
+        MarketInfo storage market = markets[marketId];
+        BetInfo storage yesBet = bets[marketId][better][true];
+        BetInfo storage noBet = bets[marketId][better][false];
+        if (market.resolved) {
+            return market.outcome ? yesBet : noBet;
+        }
+        return yesBet.amount > 0 ? yesBet : noBet;
+    }
+
+    function getBet(
+        uint256 marketId,
+        address better,
+        bool prediction
+    ) external view returns (BetInfo memory) {
+        return bets[marketId][better][prediction];
     }
 
     /**

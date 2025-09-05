@@ -32,6 +32,8 @@ const NAME_TO_ENV = {
   InfoFiSettlement: 'INFOFI_SETTLEMENT',
   // Legacy placeholder
   InfoFiMarket: 'INFOFI_MARKET',
+  // VRF mock (needed for local resolve flows)
+  VRFCoordinatorV2Mock: 'VRF_COORDINATOR',
 };
 
 /**
