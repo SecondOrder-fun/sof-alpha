@@ -5,10 +5,10 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {Raffle} from "../src/core/Raffle.sol";
-import {RaffleTypes} from "../src/lib/RaffleTypes.sol";
-import {SOFBondingCurve} from "../src/curve/SOFBondingCurve.sol";
-import {InfoFiMarket} from "../src/infofi/InfoFiMarket.sol";
+import {Raffle} from "../../src/core/Raffle.sol";
+import {RaffleTypes} from "../../src/lib/RaffleTypes.sol";
+import {SOFBondingCurve} from "../../src/curve/SOFBondingCurve.sol";
+import {InfoFiMarket} from "../../src/infofi/InfoFiMarket.sol";
 
 /**
  * End-to-end helper script to automate against an EXISTING, STARTED season:
