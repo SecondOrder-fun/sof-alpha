@@ -67,7 +67,7 @@ const UserProfile = () => {
           if ((bal ?? 0n) > 0n) {
             results.push({ seasonId: s.id, name: s?.config?.name, token: raffleTokenAddr, balance: bal, decimals });
           }
-        } catch (_) {}
+        } catch (e) { /* ignore read failure per season */ }
       }
       return results;
     },
@@ -75,6 +75,19 @@ const UserProfile = () => {
   });
 
   const sofBalance = useMemo(() => fmt(sofBalanceQuery.data, 18), [sofBalanceQuery.data]);
+  const totalTicketsAcrossSeasons = useMemo(() => {
+    try {
+      const rows = seasonBalancesQuery.data || [];
+      return rows.reduce((acc, row) => {
+        const d = Number(row.decimals || 0);
+        const base = 10n ** BigInt(d);
+        const t = (row.balance ?? 0n) / base;
+        return acc + Number(t);
+      }, 0);
+    } catch {
+      return 0;
+    }
+  }, [seasonBalancesQuery.data]);
 
   return (
     <div>
@@ -100,7 +113,12 @@ const UserProfile = () => {
       <Card className="mb-4">
         <CardHeader>
           <CardTitle>Raffle Holdings</CardTitle>
-          <CardDescription>Tickets held by this user across seasons.</CardDescription>
+          <CardDescription>
+            Tickets held by this user across seasons.
+            {seasonBalancesQuery.isSuccess && (
+              <span className="ml-2">Total: <span className="font-semibold">{totalTicketsAcrossSeasons}</span></span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {seasonBalancesQuery.isLoading && <p className="text-muted-foreground">Loading...</p>}
@@ -111,16 +129,7 @@ const UserProfile = () => {
                 <p className="text-muted-foreground">No ticket balances found.</p>
               )}
               {(seasonBalancesQuery.data || []).map((row) => (
-                <div key={row.seasonId} className="border rounded p-2">
-                  <div className="flex justify-between">
-                    <span>Season #{row.seasonId}{row.name ? ` — ${row.name}` : ''}</span>
-                    <Link to={`/raffles/${row.seasonId}`} className="text-primary hover:underline">View</Link>
-                  </div>
-                  <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
-                  <div className="mt-2">
-                    <InfoFiPricingTicker marketId={row.seasonId} />
-                  </div>
-                </div>
+                <RaffleHoldingRow key={row.seasonId} row={row} address={address} client={client} />
               ))}
             </div>
           )}
@@ -133,6 +142,118 @@ const UserProfile = () => {
 };
 
 export default UserProfile;
+
+// Subcomponent: One raffle holding row with expandable buy/sell history
+const RaffleHoldingRow = ({ row, address, client }) => {
+  const [open, setOpen] = useState(false);
+
+  const inQuery = useQuery({
+    queryKey: ['raffleTransfersIn_profile', row.token, address],
+    enabled: open && !!client && !!row?.token && !!address,
+    queryFn: async () => client.getLogs({
+      address: row.token,
+      event: { type: 'event', name: 'Transfer', inputs: [
+        { indexed: true, name: 'from', type: 'address' },
+        { indexed: true, name: 'to', type: 'address' },
+        { indexed: false, name: 'value', type: 'uint256' },
+      ] },
+      args: { to: address },
+      fromBlock: 'earliest', toBlock: 'latest',
+    }),
+  });
+
+  const outQuery = useQuery({
+    queryKey: ['raffleTransfersOut_profile', row.token, address],
+    enabled: open && !!client && !!row?.token && !!address,
+    queryFn: async () => client.getLogs({
+      address: row.token,
+      event: { type: 'event', name: 'Transfer', inputs: [
+        { indexed: true, name: 'from', type: 'address' },
+        { indexed: true, name: 'to', type: 'address' },
+        { indexed: false, name: 'value', type: 'uint256' },
+      ] },
+      args: { from: address },
+      fromBlock: 'earliest', toBlock: 'latest',
+    }),
+  });
+
+  const decimals = Number(row.decimals || 0);
+  const base = 10n ** BigInt(decimals);
+  const tickets = (row.balance ?? 0n) / base;
+
+  const merged = useMemo(() => {
+    const ins = (inQuery.data || []).map((l) => ({
+      dir: 'IN', value: l.args?.value ?? 0n, blockNumber: l.blockNumber,
+      txHash: l.transactionHash, from: l.args?.from, to: l.args?.to,
+    }));
+    const outs = (outQuery.data || []).map((l) => ({
+      dir: 'OUT', value: l.args?.value ?? 0n, blockNumber: l.blockNumber,
+      txHash: l.transactionHash, from: l.args?.from, to: l.args?.to,
+    }));
+    return [...ins, ...outs].sort((a, b) => Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n)));
+  }, [inQuery.data, outQuery.data]);
+
+  return (
+    <div className="border rounded p-2">
+      <button className="w-full text-left" onClick={() => setOpen((v) => !v)}>
+        <div className="flex justify-between items-center">
+          <div>
+            <span>Season #{row.seasonId}{row.name ? ` — ${row.name}` : ''}</span>
+            <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-mono">{tickets.toString()} Tickets</span>
+            <Link to={`/raffles/${row.seasonId}`} className="text-primary hover:underline">View</Link>
+          </div>
+        </div>
+      </button>
+      {/* Compact live hybrid pricing for this season */}
+      <div className="mt-2">
+        <InfoFiPricingTicker marketId={row.seasonId} />
+      </div>
+      {open && (
+        <div className="mt-2 border-t pt-2">
+          <p className="font-semibold mb-2">Buy/Sell History</p>
+          {(inQuery.isLoading || outQuery.isLoading) && (
+            <p className="text-muted-foreground">Loading...</p>
+          )}
+          {(inQuery.error || outQuery.error) && (
+            <p className="text-red-500">Error loading transfers</p>
+          )}
+          {!inQuery.isLoading && !outQuery.isLoading && (
+            <div className="space-y-1">
+              {merged.length === 0 && (
+                <p className="text-muted-foreground">No transfers found.</p>
+              )}
+              {merged.map((t) => (
+                <div key={t.txHash + String(t.blockNumber)} className="text-sm flex justify-between">
+                  <span className={t.dir === 'IN' ? 'text-green-600' : 'text-red-600'}>
+                    {t.dir === 'IN' ? '+' : '-'}{((t.value ?? 0n) / base).toString()} tickets
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[60%]">{t.txHash}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+RaffleHoldingRow.propTypes = {
+  row: PropTypes.shape({
+    token: PropTypes.string,
+    decimals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    balance: PropTypes.any,
+    seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    name: PropTypes.string,
+  }).isRequired,
+  address: PropTypes.string,
+  client: PropTypes.shape({
+    getLogs: PropTypes.func,
+  }),
+};
 
 // Prediction positions reuse backend placeholder
 const PredictionPositionsCard = ({ address }) => {
