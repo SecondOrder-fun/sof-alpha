@@ -46,6 +46,8 @@ const RaffleDetails = lazy(() => import('./routes/RaffleDetails'));
 const AdminPanel = lazy(() => import('./routes/AdminPanel'));
 const AccountPage = lazy(() => import('./routes/AccountPage'));
 const MarketsIndex = lazy(() => import('./routes/MarketsIndex'));
+const UsersIndex = lazy(() => import('./routes/UsersIndex'));
+const UserProfile = lazy(() => import('./routes/UserProfile'));
 
 // Create router
 const router = createBrowserRouter([
@@ -95,6 +97,26 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={<div>Loading...</div>}>
             <RaffleDetails />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'users',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <ClientOnly>
+              <UsersIndex />
+            </ClientOnly>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'users/:address',
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <ClientOnly>
+              <UserProfile />
+            </ClientOnly>
           </Suspense>
         ),
       },

@@ -1,9 +1,33 @@
 // React import not needed with Vite JSX transform
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import NetworkToggle from '@/components/common/NetworkToggle';
+import { useAccessControl } from '@/hooks/useAccessControl';
 
 const Header = () => {
+  const { address, isConnected } = useAccount();
+  const { hasRole } = useAccessControl();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      // DEFAULT_ADMIN_ROLE in OZ is 0x00...00
+      const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      if (!isConnected || !address) { setIsAdmin(false); return; }
+      try {
+        const ok = await hasRole(DEFAULT_ADMIN_ROLE, address);
+        if (!cancelled) setIsAdmin(Boolean(ok));
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, [address, isConnected, hasRole]);
+
   return (
     <header className="border-b bg-card text-card-foreground">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -18,10 +42,15 @@ const Header = () => {
             <Link to="/markets" className="hover:text-primary transition-colors">
               Prediction Markets
             </Link>
-            <Link to="/admin" className="hover:text-primary transition-colors">
-              Admin
+            <Link to="/users" className="hover:text-primary transition-colors">
+              Users
             </Link>
-            <Link to="/account" className="hover:text-primary transition-colors">
+            {isAdmin && (
+              <Link to="/admin" className="hover:text-primary transition-colors">
+                Admin
+              </Link>
+            )}
+            <Link to={isConnected && address ? `/users/${address}` : "/account"} className="hover:text-primary transition-colors">
               My Account
             </Link>
           </nav>
