@@ -184,6 +184,12 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 preTotal = curveConfig.totalSupply;
         uint256 oldTickets = playerTickets[msg.sender];
 
+        // Do not allow supply to exceed the final bond step's cap
+        if (bondSteps.length > 0) {
+            uint256 lastCap = uint256(bondSteps[bondSteps.length - 1].rangeTo);
+            require(preTotal + tokenAmount <= lastCap, "Curve: exceeds max supply");
+        }
+
         // Transfer $SOF from buyer (base + fee)
         sofToken.safeTransferFrom(msg.sender, address(this), totalCost);
 
