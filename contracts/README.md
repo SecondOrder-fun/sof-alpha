@@ -134,14 +134,13 @@ struct SeasonConfig {
   string name;
   uint256 startTime;
   uint256 endTime;
-  uint32 maxParticipants;
   uint16 winnerCount;
   uint16 prizePercentage;       // bps
   uint16 consolationPercentage; // bps
-  bool isActive;
-  bool isCompleted;
   address raffleToken;  // filled by createSeason
   address bondingCurve; // filled by createSeason
+  bool isActive;
+  bool isCompleted;
 }
 ```
 
@@ -154,33 +153,31 @@ struct BondStep {
 }
 ```
 
-### Example: create a new season via `cast`
+### Example: create a new season (recommended: use the script)
 
-The deployment script automatically creates **Season 1**. The following example shows how to create a subsequent season (which will be Season 2).
-
-Pick a start/end time in the future and steps:
+The easiest and least error‑prone way to create a 100k/100‑step season is to use the helper script which builds all steps and sets sensible times:
 
 ```bash
-# Example times
-START=$(($(date +%s)+60))    # starts in 1 minute
-END=$(($(date +%s)+86400))   # ends in 1 day
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE_ADDRESS=0x<raffle_address> \
+PRIVATE_KEY=0x<deployer_pk> \
+forge script script/CreateSeason.s.sol:CreateSeasonScript \
+  --rpc-url $RPC_URL --broadcast -vvvv
+```
 
-# Encode SeasonConfig (tuple) for cast; booleans/isActive/isCompleted must be false at creation
-# We will pass empty addresses for raffleToken/bondingCurve since contract fills them.
+If you prefer a minimal pure‑cast example for a tiny 2‑step curve, the `SeasonConfig` tuple order must match the struct shown above and you should pass zero addresses for `raffleToken` and `bondingCurve` (the contract fills them):
 
-CONFIG_TUPLE="(\"Season 1\",$START,$END,10000,3,4000,6000,false,false,0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000)"
-
-
-# Bond steps: two steps (first 10k tokens at 10 SOF, next 10k at 11 SOF)
-STEPS_ARRAY="[(10000,10),(20000,11)]"
-
-# Set the buy and sell transaction fees
-BUY_FEE=10    # 0.1%
-SELL_FEE=70   # 0.7%
-
-# Call createSeason
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE_ADDRESS=0x<raffle_address> \
+PRIVATE_KEY=0x<deployer_pk> \
+START=$(($(date +%s)+60)) \
+END=$(($(date +%s)+3600)) \
+CONFIG_TUPLE="(\"Season-cast\",$START,$END,3,5000,4000,0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000,false,false)" \
+STEPS_ARRAY="[(1000,1000000000000000000),(2000,1100000000000000000)]" \
+BUY_FEE=10 SELL_FEE=70 \
 cast send $RAFFLE_ADDRESS \
-  'createSeason((string,uint256,uint256,uint32,uint16,uint16,uint16,bool,bool,address,address),(uint128,uint128)[],uint16,uint16)' \
+  'createSeason((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),(uint128,uint128)[],uint16,uint16)' \
   "$CONFIG_TUPLE" "$STEPS_ARRAY" $BUY_FEE $SELL_FEE \
   --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
@@ -460,3 +457,214 @@ If markets are correctly locked, the final `placeBet` call should revert with th
 - For structured calls with tuples on `cast`, the provided examples show tuple encodings via `cast abi-encode` and passing them into the function call.
 - If you only want to smoke test buy/sell without VRF, avoid `requestSeasonEnd`.
 - VRF v2 subscription id is `uint64`. Ensure you export and pass it accordingly.
+
+---
+
+## 11) End-to-End VRF Resolution via cast (no forge scripts)
+
+The following commands run the second half of the lifecycle using only `cast` against a local Anvil with the Chainlink VRF v2 mock.
+
+Prereqs:
+
+- Deployed contracts with known addresses from Deploy.s.sol logs
+- Anvil at `http://127.0.0.1:8545`
+- Use inline env vars on every command
+
+### 11.1 Update VRF callback gas limit (recommended)
+
+The raffle’s VRF callback performs winner selection and distribution setup. Increase the callback gas limit to prevent out-of-gas failures when the mock calls back.
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+SUB=$(cast call $RAFFLE "vrfSubscriptionId()(uint64)" --rpc-url $RPC_URL) && \
+KEYHASH=$(cast call $RAFFLE "vrfKeyHash()(bytes32)" --rpc-url $RPC_URL) && \
+cast send $RAFFLE "updateVRFConfig(uint64,bytes32,uint32)" $SUB $KEYHASH 2000000 \
+  --rpc-url $RPC_URL --private-key $ADMIN_PK
+```
+
+If needed, fund the mock subscription:
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+VRF=0x<vrf_coordinator_mock_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+cast send $VRF "fundSubscription(uint64,uint96)" 1 100000000000000000000 \
+  --rpc-url $RPC_URL --private-key $ADMIN_PK
+```
+
+### 11.2 Create a short season via cast
+
+This creates a new season with a near-term start and end, using a tiny 2-step curve. Prices are raw integers for demo purposes.
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+START=$(($(date +%s)+15)) && \
+END=$(($(date +%s)+120)) && \
+CONFIG_TUPLE="(\"Season-cast\",$START,$END,3,5000,4000,0x0000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000,false,false)" && \
+STEPS_ARRAY="[(1000,1000000000000000000),(2000,1100000000000000000)]" && \
+BUY_FEE=10 && SELL_FEE=70 && \
+cast send $RAFFLE \
+  'createSeason((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),(uint128,uint128)[],uint16,uint16)' \
+  "$CONFIG_TUPLE" "$STEPS_ARRAY" $BUY_FEE $SELL_FEE \
+  --rpc-url $RPC_URL --private-key $ADMIN_PK
+```
+
+Get the new `seasonId` and details:
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+SID=$(cast call $RAFFLE "currentSeasonId()(uint256)" --rpc-url $RPC_URL) && echo "seasonId=$SID" && \
+cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL
+```
+
+### 11.3 Start the season
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+SID=<season_id_from_above> \
+cast send $RAFFLE "startSeason(uint256)" $SID --rpc-url $RPC_URL --private-key $ADMIN_PK
+```
+
+Optional: buy a few tickets on the curve before ending. (Skip for pure state progression; winner list can be empty.)
+
+### 11.4 End season (emergency) and trigger VRF
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+SID=<season_id_from_above> \
+cast send $RAFFLE "requestSeasonEndEarly(uint256)" $SID --rpc-url $RPC_URL --private-key $ADMIN_PK
+```
+
+Map the new VRF request id to the season:
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+for i in 1 2 3 4 5 6 7 8 9; do echo -n "$i -> "; cast call $RAFFLE "vrfRequestToSeason(uint256)(uint256)" $i --rpc-url $RPC_URL; done
+```
+
+Pick the request id that maps to your `SID`.
+
+### 11.5 Fulfill VRF on the mock and verify completion
+
+```bash
+RPC_URL=http://127.0.0.1:8545 \
+VRF=0x<vrf_coordinator_mock_address> \
+RAFFLE=0x<raffle_address> \
+ADMIN_PK=0x<anvil_account0_private_key> \
+REQ=<request_id_mapped_to_SID> \
+cast send $VRF "fulfillRandomWords(uint256,address)" $REQ $RAFFLE --rpc-url $RPC_URL --private-key $ADMIN_PK
+
+# Verify status and winners
+RPC_URL=http://127.0.0.1:8545 \
+RAFFLE=0x<raffle_address> \
+SID=<season_id_from_above> \
+cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL && \
+cast call $RAFFLE "getWinners(uint256)(address[])" $SID --rpc-url $RPC_URL
+```
+
+If the season is `Completed` (status 5), `getWinners` will return the selected addresses. If no tickets were sold, the winners array will be empty but the season status will still be `Completed`.
+
+## 12) One‑pass command sequence (Local Anvil – latest E2E)
+
+These are the exact patterns we used in the latest local E2E. Replace placeholders as needed. Important: to avoid occasional "ENS resolver buffer overrun" issues on some environments, prefer calling `cast send <RAW_ADDRESS> ...` instead of `cast send $ALIAS ...` where noted.
+
+```bash
+# Prereqs
+RPC_URL=http://127.0.0.1:8545
+VRF_COORDINATOR=0x<vrf_mock>
+SOF=0x<sof_token>
+RAFFLE=0x<raffle>
+INFOFI=0x<infofi_market>
+
+# Keys (Anvil defaults)
+PK_DEP=0x<anvil_account0_pk>   # deployer/admin
+PK_U1=0x<anvil_account1_pk>    # player 1
+PK_U2=0x<anvil_account2_pk>    # player 2
+ADDR_U1=$(cast wallet address --private-key $PK_U1)
+ADDR_U2=$(cast wallet address --private-key $PK_U2)
+
+# 1) Create 100k/100‑step season via script (sets start ~15s in future, end ~3m after)
+RAFFLE_ADDRESS=$RAFFLE \
+PRIVATE_KEY=$PK_DEP \
+forge script script/CreateSeason.s.sol:CreateSeasonScript \
+  --rpc-url $RPC_URL --broadcast -vvvv
+
+# 2) Determine latest seasonId and details (here we expect SID=2 after running the script twice)
+SID=$(cast call $RAFFLE "currentSeasonId()(uint256)" --rpc-url $RPC_URL)
+cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL
+
+# 3) Start the season (must be >= startTime)
+cast send $RAFFLE "startSeason(uint256)" $SID --rpc-url $RPC_URL --private-key $PK_DEP
+
+# 4) Fund both players with SOF (1,000,000 SOF each)
+# Use raw token address in cast send to avoid ENS resolver bug
+cast send $SOF "transfer(address,uint256)" $ADDR_U1 1000000000000000000000000 --rpc-url $RPC_URL --private-key $PK_DEP
+cast send $SOF "transfer(address,uint256)" $ADDR_U2 1000000000000000000000000 --rpc-url $RPC_URL --private-key $PK_DEP
+
+# 5) Read the bonding curve address from season config (position 8 in the tuple)
+CFG=$(cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL)
+# Example: parse bondingCurve off-chain; here assume you copy the address into CURVE
+CURVE=0x<bonding_curve_from_above>
+
+# 6) Approve and buy tickets
+# Account 1: approve SOF to curve, then buy 5000 tickets with large max cap
+cast send $SOF "approve(address,uint256)" $CURVE 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U1
+cast send $CURVE "buyTokens(uint256,uint256)" 5000 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U1
+
+# Account 2: approve SOF to curve, then buy 3000 tickets
+cast send $SOF "approve(address,uint256)" $CURVE 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U2
+cast send $CURVE "buyTokens(uint256,uint256)" 3000 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U2
+
+# 7) Create an InfoFi market for player 1 (operator is deployer; OPERATOR_ROLE is set in Deploy.s.sol)
+cast send $INFOFI "createMarket(uint256,address,string,address)" $SID $ADDR_U1 "Will $ADDR_U1 win this raffle?" $SOF \
+  --rpc-url $RPC_URL --private-key $PK_DEP
+
+# 8) Place hedged bets (example: U1 bets NO on self, U2 bets YES on U1). Adjust amounts as desired
+MID=$(($(cast call $INFOFI "nextMarketId()(uint256)" --rpc-url $RPC_URL) - 1))
+cast send $SOF "approve(address,uint256)" $INFOFI 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U1
+cast send $SOF "approve(address,uint256)" $INFOFI 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PK_U2
+cast send $INFOFI "placeBet(uint256,bool,uint256)" $MID false 1000000000000000000 --rpc-url $RPC_URL --private-key $PK_U1  # NO 1.0
+cast send $INFOFI "placeBet(uint256,bool,uint256)" $MID true  1500000000000000000 --rpc-url $RPC_URL --private-key $PK_U2  # YES 1.5
+
+# 9) End season and settle via helper script (locks markets, triggers VRF, resolves, and claims payout)
+RAFFLE_ADDRESS=$RAFFLE \
+INFOFI_MARKET_ADDRESS=$INFOFI \
+VRF_COORDINATOR_ADDRESS=$VRF_COORDINATOR \
+SOF_ADDRESS=$SOF \
+PRIVATE_KEY=$PK_DEP \
+ACCOUNT1_PRIVATE_KEY=$PK_U1 \
+ACCOUNT2_PRIVATE_KEY=$PK_U2 \
+SEASON_ID=$SID \
+forge script script/EndToEndResolveAndClaim.s.sol \
+  --rpc-url $RPC_URL --broadcast -vvvv
+```
+
+Notes:
+
+- Use raw addresses in `cast send <RAW_ADDRESS> ...` when you see any ENS resolver errors.
+- If the normal `requestSeasonEnd` reverts due to `endTime`, the resolve script falls back to granting `EMERGENCY_ROLE` and calling `requestSeasonEndEarly`.
+- The InfoFi market resolution in the script assumes the most recent market (id = `nextMarketId - 1`) tracks user1. Adjust if you created multiple markets.
