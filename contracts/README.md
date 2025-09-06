@@ -576,6 +576,65 @@ cast call $RAFFLE \
 cast call $RAFFLE "getWinners(uint256)(address[])" $SID --rpc-url $RPC_URL
 ```
 
+### 13.4 Multi-address manual playbook (buy/remove/re-add with order checks)
+
+This mirrors the multi-address tests and helps you verify participant list behavior manually.
+
+```bash
+# Prereqs
+RPC_URL=http://127.0.0.1:8545
+RAFFLE=0x<raffle>
+CURVE=0x<curve>
+SOF=0x<sof_token>
+SID=<season_id>
+
+# Prepare 10 users (examples below assume you have their PKs or will impersonate via Anvil)
+U1=0x<pk1>; U2=0x<pk2>; U3=0x<pk3>; U4=0x<pk4>; U5=0x<pk5>
+U6=0x<pk6>; U7=0x<pk7>; U8=0x<pk8>; U9=0x<pk9>; U10=0x<pk10>
+ADDR1=$(cast wallet address --private-key $U1)
+ADDR2=$(cast wallet address --private-key $U2)
+ADDR3=$(cast wallet address --private-key $U3)
+ADDR4=$(cast wallet address --private-key $U4)
+ADDR5=$(cast wallet address --private-key $U5)
+ADDR6=$(cast wallet address --private-key $U6)
+ADDR7=$(cast wallet address --private-key $U7)
+ADDR8=$(cast wallet address --private-key $U8)
+ADDR9=$(cast wallet address --private-key $U9)
+ADDR10=$(cast wallet address --private-key $U10)
+
+# Each user approves and buys 10 tickets (repeat for U1..U10)
+for PK in $U1 $U2 $U3 $U4 $U5 $U6 $U7 $U8 $U9 $U10; do \
+  cast send $SOF "approve(address,uint256)" $CURVE 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --rpc-url $RPC_URL --private-key $PK && \
+  QUOTE=$(cast call $CURVE "calculateBuyPrice(uint256)(uint256)" 10 --rpc-url $RPC_URL) && \
+  HEADROOM=$(python3 - << 'PY' <<< "print(int($QUOTE)*105//100)") && \
+  cast send $CURVE "buyTokens(uint256,uint256)" 10 $HEADROOM --rpc-url $RPC_URL --private-key $PK; \
+done
+
+# Verify participants order matches [ADDR1..ADDR10]
+cast call $RAFFLE "getParticipants(uint256)(address[])" $SID --rpc-url $RPC_URL
+
+# Remove one participant by selling all (e.g., ADDR4)
+cast send $CURVE "sellTokens(uint256,uint256)" 10 0 --rpc-url $RPC_URL --private-key $U4
+
+# Verify ADDR4 is no longer in the list
+cast call $RAFFLE "getParticipants(uint256)(address[])" $SID --rpc-url $RPC_URL
+
+# Re-add ADDR4 and verify it appends to the end
+QUOTE=$(cast call $CURVE "calculateBuyPrice(uint256)(uint256)" 5 --rpc-url $RPC_URL)
+HEADROOM=$(python3 - << 'PY' <<< "print(int($QUOTE)*105//100)")
+cast send $CURVE "buyTokens(uint256,uint256)" 5 $HEADROOM --rpc-url $RPC_URL --private-key $U4
+cast call $RAFFLE "getParticipants(uint256)(address[])" $SID --rpc-url $RPC_URL
+
+# Number ranges per address (optional spot check)
+cast call $RAFFLE "getParticipantNumberRange(uint256,address)(uint256,uint256)" $SID $ADDR1 --rpc-url $RPC_URL
+cast call $RAFFLE "getParticipantNumberRange(uint256,address)(uint256,uint256)" $SID $ADDR2 --rpc-url $RPC_URL
+```
+
+Notes:
+
+- The participant list uses swap-and-pop on full exit, so removal does not preserve internal ordering beyond the removed index. A re-added address will always be appended to the end.
+- When building shell loops, ensure commands are on a single line to avoid argument parsing issues (e.g., with `cast call` signatures).
+
 If the season is `Completed` (status 5), `getWinners` will return the selected addresses. If no tickets were sold, the winners array will be empty but the season status will still be `Completed`.
 
 ## 12) One‑pass command sequence (Local Anvil – latest E2E)
@@ -668,3 +727,64 @@ Notes:
 - Use raw addresses in `cast send <RAW_ADDRESS> ...` when you see any ENS resolver errors.
 - If the normal `requestSeasonEnd` reverts due to `endTime`, the resolve script falls back to granting `EMERGENCY_ROLE` and calling `requestSeasonEndEarly`.
 - The InfoFi market resolution in the script assumes the most recent market (id = `nextMarketId - 1`) tracks user1. Adjust if you created multiple markets.
+
+## 13) Verification commands (no ambiguity, no ENS, no wrapping)
+
+Use these when you want to confirm end state on-chain precisely (e.g., after selling all tickets).
+
+Important:
+
+- Keep the entire command on one line. Line-wrapped arguments can cause `encode length mismatch`.
+- Avoid `awk '{print $8}'` on complex tuples; use regex to extract 0x‑addresses reliably.
+
+```bash
+# Shared session variables
+RPC_URL=http://127.0.0.1:8545
+RAFFLE=0x<raffle>
+SID=<season_id>
+DEP=0x<deployer_or_player_address>
+
+# 13.1 Read participant position (explicit return signature avoids decoding issues)
+cast call $RAFFLE "getParticipantPosition(uint256,address)((uint256,uint256,uint256,bool))" $SID $DEP --rpc-url $RPC_URL
+
+# Example expected output after full sell: (0, 0, 0, false)
+
+# 13.2 Extract raffleToken and bondingCurve addresses robustly (regex), then check balances
+OUT=$(cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL)
+# First 0x40… is raffleToken, second is bondingCurve
+RTOKEN=$(echo "$OUT" | grep -Eo '0x[0-9a-fA-F]{40}' | sed -n '1p')
+CURVE=$(echo  "$OUT" | grep -Eo '0x[0-9a-fA-F]{40}' | sed -n '2p')
+echo RaffleToken=$RTOKEN
+echo Curve=$CURVE
+
+# Check raffle-token balance for DEP (should be 0 after full sell)
+cast call $RTOKEN "balanceOf(address)(uint256)" $DEP --rpc-url $RPC_URL
+
+# Optional: list participants
+cast call $RAFFLE "getParticipants(uint256)(address[])" $SID --rpc-url $RPC_URL
+
+### 13.3 Supplementary quick reference (common reads)
+
+```bash
+# Season details (full tuple)
+cast call $RAFFLE \
+  "getSeasonDetails(uint256)((string,uint256,uint256,uint16,uint16,uint16,address,address,bool,bool),uint8,uint256,uint256,uint256)" \
+  $SID --rpc-url $RPC_URL
+
+# Participants array
+cast call $RAFFLE "getParticipants(uint256)(address[])" $SID --rpc-url $RPC_URL
+
+# Single participant number range
+cast call $RAFFLE "getParticipantNumberRange(uint256,address)(uint256,uint256)" $SID $DEP --rpc-url $RPC_URL
+
+# Price quotes on curve (replace with your curve address)
+cast call $CURVE "calculateBuyPrice(uint256)(uint256)" 100 --rpc-url $RPC_URL
+cast call $CURVE "calculateSellPrice(uint256)(uint256)" 100 --rpc-url $RPC_URL
+
+# Curve reserves (SOF locked)
+cast call $CURVE "getSofReserves()(uint256)" --rpc-url $RPC_URL
+
+# Winners (only after season Completed)
+cast call $RAFFLE "getWinners(uint256)(address[])" $SID --rpc-url $RPC_URL
