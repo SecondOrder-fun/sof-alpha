@@ -18,7 +18,7 @@ function useFormatSOF() {
   };
 }
 
-const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
+const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
   const formatSOF = useFormatSOF();
   const [activeTab, setActiveTab] = useState('buy');
@@ -114,8 +114,11 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
       const maxUint = (1n << 255n) - 1n;
       await approve.mutateAsync({ amount: maxUint });
       const cap = applyMaxSlippage(buyEst);
-      await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
+      const tx = await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
       onTxSuccess && onTxSuccess();
+      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: 'Purchase complete', hash }); } catch {
+        /* no-op */
+      }
       setBuyAmount('');
     } catch { /* surfaced by mutate */ }
   };
@@ -125,8 +128,11 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
     if (!sellAmount || !bondingCurveAddress) return;
     try {
       const floor = applyMinSlippage(sellEst);
-      await sellTokens.mutateAsync({ tokenAmount: BigInt(sellAmount), minSofAmount: floor });
+      const tx = await sellTokens.mutateAsync({ tokenAmount: BigInt(sellAmount), minSofAmount: floor });
       onTxSuccess && onTxSuccess();
+      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: 'Sell complete', hash }); } catch {
+        /* no-op */
+      }
       setSellAmount('');
     } catch { /* surfaced by mutate */ }
   };
@@ -142,33 +148,6 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
       /* no-op */
     }
   };
-  // Approximate binary search for max buyable tickets given SOF balance
-  const onMaxBuy = async (ownerAddress) => {
-    try {
-      if (!client || !ownerAddress || !addrs?.SOF) return;
-      const sofBal = await client.readContract({ address: addrs.SOF, abi: erc20Abi, functionName: 'balanceOf', args: [ownerAddress] });
-      // quick guard
-      if ((sofBal ?? 0n) === 0n) { setBuyAmount(''); return; }
-      // exponential find upper bound
-      let low = 0n, high = 1n;
-      const cost = async (amt) => loadEstimate('calculateBuyPrice', amt.toString());
-      while (high < 100000n) { // cap to avoid too many RPC calls
-        const c = await cost(high);
-        if (c > sofBal) break;
-        low = high;
-        high = high * 2n;
-      }
-      // binary search between low..high
-      while (low < high) {
-        const mid = (low + high + 1n) >> 1n;
-        const c = await cost(mid);
-        if (c <= sofBal) low = mid; else high = mid - 1n;
-      }
-      setBuyAmount(low.toString());
-    } catch {
-      /* no-op */
-    }
-  };
 
   const rpcMissing = !net?.rpcUrl;
   const disabledTip = rpcMissing ? 'Testnet RPC not configured. Set VITE_RPC_URL_TESTNET in .env and restart dev servers.' : undefined;
@@ -176,11 +155,11 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="relative w-full mb-3">
+        <div className="relative w-full mb-3 mt-2">
           <div className="w-full flex justify-center">
             <TabsList className="flex gap-3">
-              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-3 text-lg">Buy</TabsTrigger>
-              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-3 text-lg">Sell</TabsTrigger>
+              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-4 text-lg">Buy</TabsTrigger>
+              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-4 text-lg">Sell</TabsTrigger>
             </TabsList>
           </div>
           <button type="button" className="absolute right-0 top-0 text-xl px-2 py-1 rounded hover:bg-muted" onClick={() => setShowSettings((s) => !s)} title="Slippage settings">⚙︎</button>
@@ -237,6 +216,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
 BuySellWidget.propTypes = {
   bondingCurveAddress: PropTypes.string,
   onTxSuccess: PropTypes.func,
+  onNotify: PropTypes.func,
 };
 
 export default BuySellWidget;

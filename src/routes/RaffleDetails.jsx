@@ -46,6 +46,119 @@ const RaffleDetails = () => {
   // Live invalidation on PositionSnapshot events for this player
   usePlayerSnapshotLive(isConnected ? address : null);
 
+  // Local immediate position override after tx (until server snapshot catches up)
+  const [localPosition, setLocalPosition] = useState(null);
+  const refreshPositionNow = async () => {
+    try {
+      if (!isConnected || !address || !bondingCurveAddress) return;
+      const netKey = getStoredNetworkKey();
+      const net = getNetworkByKey(netKey);
+      if (!net?.rpcUrl) return;
+      const client = createPublicClient({
+        chain: {
+          id: net.id,
+          name: net.name,
+          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          rpcUrls: { default: { http: [net.rpcUrl] } },
+        },
+        transport: http(net.rpcUrl),
+      });
+      // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
+      const curveAbi = [
+        { type: 'function', name: 'playerTickets', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+        { type: 'function', name: 'curveConfig', stateMutability: 'view', inputs: [], outputs: [
+          { name: 'totalSupply', type: 'uint256' },
+          { name: 'sofReserves', type: 'uint256' },
+          { name: 'currentStep', type: 'uint256' },
+          { name: 'buyFee', type: 'uint16' },
+          { name: 'sellFee', type: 'uint16' },
+          { name: 'tradingLocked', type: 'bool' },
+          { name: 'initialized', type: 'bool' },
+        ] },
+      ];
+      try {
+        const [pt, cfg] = await Promise.all([
+          client.readContract({ address: bondingCurveAddress, abi: curveAbi, functionName: 'playerTickets', args: [address] }),
+          client.readContract({ address: bondingCurveAddress, abi: curveAbi, functionName: 'curveConfig', args: [] }),
+        ]);
+        const tickets = BigInt(pt ?? 0n);
+        const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
+        const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+        setLocalPosition({ tickets, probBps, total });
+        return;
+      } catch (_) {
+        // fallback to ERC20 path below
+      }
+
+      // 2) Fallback: discover ERC20 tickets token from the curve if the curve is not the token itself
+      const detectTokenAbi = [
+        { type: 'function', name: 'token', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+        { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+        { type: 'function', name: 'ticketToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+        { type: 'function', name: 'tickets', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+        { type: 'function', name: 'asset', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+      ];
+      // Prefer explicit token from season details if available
+      let tokenAddress = (
+        seasonDetailsQuery?.data?.ticketToken ||
+        seasonDetailsQuery?.data?.config?.ticketToken ||
+        seasonDetailsQuery?.data?.config?.token ||
+        bondingCurveAddress
+      );
+      for (const fn of ['token', 'raffleToken', 'ticketToken', 'tickets', 'asset']) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const addr = await client.readContract({ address: bondingCurveAddress, abi: detectTokenAbi, functionName: fn, args: [] });
+          if (typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr) && addr !== '0x0000000000000000000000000000000000000000') {
+            tokenAddress = addr;
+            break;
+          }
+        } catch (_) {
+          // continue trying other function names
+        }
+      }
+
+      const erc20Abi = [
+        { type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+        { type: 'function', name: 'totalSupply', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+      ];
+      const [bal, supply] = await Promise.all([
+        client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
+        client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'totalSupply', args: [] }),
+      ]);
+      const tickets = BigInt(bal ?? 0n);
+      const total = BigInt(supply ?? 0n);
+      const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+      setLocalPosition({ tickets, probBps, total });
+    } catch (_err) {
+      // ignore
+    }
+  };
+
+  // Toasts state for tx updates (component scope)
+  const [toasts, setToasts] = useState([]);
+  const netKeyOuter = getStoredNetworkKey();
+  const netOuter = getNetworkByKey(netKeyOuter);
+  const addToast = ({ type = 'success', message, hash }) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const url = hash && netOuter?.explorer ? `${netOuter.explorer.replace(/\/$/, '')}/tx/${hash}` : undefined;
+    setToasts((t) => [{ id, type, message, hash, url }, ...t]);
+    setTimeout(() => {
+      setToasts((t) => t.filter((x) => x.id !== id));
+    }, 120000); // 2 minutes
+  };
+  const copyHash = async (hash) => {
+    try { await navigator.clipboard.writeText(hash); } catch (_) { /* no-op */ }
+  };
+
+  // Clear local override when server snapshot has caught up
+  useEffect(() => {
+    if (snapshotQuery?.data) {
+      setLocalPosition(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotQuery?.data?.ticketCount, snapshotQuery?.data?.winProbabilityBps, snapshotQuery?.data?.totalTicketsAtTime]);
+
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
   // removed old inline SOF formatter; TokenInfoTab handles formatting where needed
@@ -157,7 +270,25 @@ const RaffleDetails = () => {
                   </Card>
                   <Card>
                     <CardContent>
-                      <BuySellWidget bondingCurveAddress={bc} onTxSuccess={() => debouncedRefresh(500)} />
+                      <BuySellWidget
+                        bondingCurveAddress={bc}
+                        onTxSuccess={() => {
+                          debouncedRefresh(250);
+                          refreshPositionNow();
+                          snapshotQuery.refetch?.();
+                          // schedule a couple of follow-ups in case indexers are lagging
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 4000);
+                        }}
+                        onNotify={(evt) => {
+                          addToast(evt);
+                          debouncedRefresh(0);
+                          refreshPositionNow();
+                          snapshotQuery.refetch?.();
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 4000);
+                        }}
+                      />
                       {/* Player snapshot (from RafflePositionTracker) */}
                       <div className="mt-3 p-3 border rounded-md bg-muted/20">
                         <div className="flex items-center justify-between">
@@ -168,17 +299,36 @@ const RaffleDetails = () => {
                           <div className="mt-2 text-sm">
                             {snapshotQuery.isLoading && <span className="text-muted-foreground">Loading snapshot…</span>}
                             {snapshotQuery.error && (<span className="text-red-600">Error: {snapshotQuery.error.message}</span>)}
-                            {snapshotQuery.data && (
+                            {(snapshotQuery.data || localPosition) && (
                               <div className="space-y-1">
-                                <div>Tickets: <span className="font-mono">{snapshotQuery.data.ticketCount?.toString?.() ?? String(snapshotQuery.data.ticketCount ?? 0)}</span></div>
-                                <div>Win Probability: <span className="font-mono">{(() => { try { const bps = Number(snapshotQuery.data.winProbabilityBps || 0); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
-                                <div className="text-xs text-muted-foreground">Total Tickets (at snapshot): <span className="font-mono">{snapshotQuery.data.totalTicketsAtTime?.toString?.() ?? String(snapshotQuery.data.totalTicketsAtTime ?? 0)}</span></div>
+                                <div>Tickets: <span className="font-mono">{(localPosition?.tickets ?? snapshotQuery.data?.ticketCount ?? 0n).toString()}</span></div>
+                                <div>Win Probability: <span className="font-mono">{(() => { try { const base = (localPosition?.probBps ?? (snapshotQuery.data?.winProbabilityBps ?? 0)); const bps = Number(base); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
+                                <div className="text-xs text-muted-foreground">Total Tickets (at snapshot): <span className="font-mono">{(localPosition?.total ?? snapshotQuery.data?.totalTicketsAtTime ?? 0n).toString()}</span></div>
                               </div>
                             )}
                             {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (<span className="text-muted-foreground">No snapshot yet.</span>)}
                           </div>
                         )}
                       </div>
+                      {/* Toasts container (inline under position) */}
+                      {toasts.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {toasts.map((t) => (
+                            <div key={t.id} className="p-3 rounded-md border bg-card shadow">
+                              <div className="text-sm font-medium mb-1">{t.message}</div>
+                              {t.hash && (
+                                <div className="text-xs flex items-center gap-2">
+                                  <span className="font-mono break-all">{t.hash}</span>
+                                  <button className="underline text-muted-foreground" onClick={() => copyHash(t.hash)}>Copy</button>
+                                  {t.url && (
+                                    <a className="underline text-muted-foreground" href={t.url} target="_blank" rel="noreferrer">View</a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
