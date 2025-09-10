@@ -60,6 +60,50 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
     try { return curveStep?.price ?? 0n; } catch { return 0n; }
   }, [curveStep]);
 
+  // Build chart data from steps: x=cumulative supply, y=price (SOF)
+  const chartData = useMemo(() => {
+    try {
+      const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+      if (steps.length === 0) return { points: [], maxX: 0, maxY: 0 };
+      let prevX = 0n;
+      const pts = [];
+      for (const s of steps) {
+        const x2 = BigInt(s?.rangeTo ?? 0);
+        const price = s?.price ?? 0n;
+        // horizontal segment from prevX -> x2 at current step price
+        pts.push({ x: Number(prevX), y: Number(formatUnits(price, sofDecimals)) });
+        pts.push({ x: Number(x2), y: Number(formatUnits(price, sofDecimals)) });
+        prevX = x2;
+      }
+      const maxX = Number(steps[steps.length - 1]?.rangeTo ?? 0n);
+      const maxY = pts.reduce((m, p) => Math.max(m, p.y), 0);
+      return { points: pts, maxX, maxY };
+    } catch {
+      return { points: [], maxX: 0, maxY: 0 };
+    }
+  }, [allBondSteps, sofDecimals]);
+
+  // SVG dimensions and scales
+  const width = 640; // will scale via viewBox
+  const height = 220;
+  const margin = { top: 10, right: 16, bottom: 24, left: 48 };
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+  const maxX = chartData.maxX || 1;
+  const maxY = chartData.maxY || Number(formatUnits(currentPrice || 0n, sofDecimals)) || 1;
+  const xScale = (x) => margin.left + (innerW * (x / maxX));
+  const yScale = (y) => margin.top + innerH - (innerH * (y / maxY));
+
+  // Build path string for stepped line
+  const buildPath = () => {
+    const pts = chartData.points;
+    if (!pts || pts.length === 0) return '';
+    const to = (p) => `${xScale(p.x)},${yScale(p.y)}`;
+    let d = `M ${to(pts[0])}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${to(pts[i])}`;
+    return d;
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -73,6 +117,66 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
         <div className="mt-1 text-xs text-muted-foreground">
           Supply: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
         </div>
+      </div>
+
+      {/* SVG Stepped Curve Visualization */}
+      <div className="w-full overflow-hidden border rounded p-2 bg-background">
+        {chartData.points.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No bonding curve data available.</div>
+        ) : (
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56">
+            {/* Axes */}
+            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#e5e7eb" />
+            <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#e5e7eb" />
+
+            {/* Y ticks */}
+            {Array.from({ length: 5 }).map((_, i) => {
+              const yVal = (maxY * i) / 4;
+              const y = yScale(yVal);
+              return (
+                <g key={`y-${i}`}>
+                  <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#f3f4f6" />
+                  <text x={margin.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#6b7280">{yVal.toFixed(2)}</text>
+                </g>
+              );
+            })}
+
+            {/* X ticks */}
+            {Array.from({ length: 5 }).map((_, i) => {
+              const xVal = Math.floor((maxX * i) / 4);
+              const x = xScale(xVal);
+              return (
+                <g key={`x-${i}`}>
+                  <line x1={x} y1={height - margin.bottom} x2={x} y2={margin.top} stroke="#f9fafb" />
+                  <text x={x} y={height - margin.bottom + 14} textAnchor="middle" fontSize="10" fill="#6b7280">{xVal}</text>
+                </g>
+              );
+            })}
+
+            {/* Stepped curve path */}
+            <path d={buildPath()} fill="none" stroke="#2563eb" strokeWidth="2" />
+
+            {/* Current supply marker (at currentPrice horizontally) */}
+            {(() => {
+              try {
+                const cs = Number(curveSupply ?? 0n);
+                const lastPrice = Number(formatUnits(currentPrice ?? 0n, sofDecimals));
+                const cx = xScale(Math.min(cs, maxX));
+                const cy = yScale(lastPrice);
+                return (
+                  <g>
+                    <circle cx={cx} cy={cy} r={3} fill="#ef4444" />
+                    <text x={cx + 6} y={cy - 6} fontSize="10" fill="#ef4444">Current</text>
+                  </g>
+                );
+              } catch { return null; }
+            })()}
+
+            {/* Axis labels */}
+            <text x={width / 2} y={height - 4} textAnchor="middle" fontSize="11" fill="#6b7280">Supply (tickets)</text>
+            <text x={12} y={height / 2} textAnchor="middle" fontSize="11" fill="#6b7280" transform={`rotate(-90 12 ${height / 2})`}>Price (SOF)</text>
+          </svg>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm">

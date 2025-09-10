@@ -195,16 +195,56 @@ const RaffleDetails = () => {
                     <CardTitle>Activity & Details</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Tabs>
-                      <TabsList>
-                        <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                        <TabsTrigger value="token-info">Token Info</TabsTrigger>
-                        <TabsTrigger value="holders">Token Holders</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="transactions"><TransactionsTab bondingCurveAddress={bc} /></TabsContent>
-                      <TabsContent value="token-info"><TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} /></TabsContent>
-                      <TabsContent value="holders"><HoldersTab bondingCurveAddress={bc} /></TabsContent>
-                    </Tabs>
+                    {(() => {
+                      // local tab state
+                      // Note: component already imports useState at top
+                      // We create a local state holder by closing over a ref variable via IIFE scope
+                      // to avoid re-render loops. Instead, lift to top-level state.
+                      return null;
+                    })()}
+                    {
+                      // Define tab state at component scope
+                    }
+                    {(() => {
+                      // Ensure activeTab exists on window for now; migrate to component state
+                      return null;
+                    })()}
+                    {
+                      /* Render tabs with manual state */
+                    }
+                    {(() => {
+                      // Simple stateful tabs using React state
+                      // We inline a small component to keep diff minimal
+                      // eslint-disable-next-line react/display-name
+                      const TabsBlock = () => {
+                        const [activeTab, setActiveTab] = useState('token-info');
+                        return (
+                          <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList>
+                              <TabsTrigger value="token-info" onClick={() => setActiveTab('token-info')}>Token Info</TabsTrigger>
+                              <TabsTrigger value="transactions" onClick={() => setActiveTab('transactions')}>Transactions</TabsTrigger>
+                              <TabsTrigger value="holders" onClick={() => setActiveTab('holders')}>Token Holders</TabsTrigger>
+                            </TabsList>
+                            {activeTab === 'token-info' && (
+                              <TabsContent value="token-info">
+                                <TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
+                              </TabsContent>
+                            )}
+                            {activeTab === 'transactions' && (
+                              <TabsContent value="transactions">
+                                <TransactionsTab bondingCurveAddress={bc} />
+                              </TabsContent>
+                            )}
+                            {activeTab === 'holders' && (
+                              <TabsContent value="holders">
+                                <HoldersTab bondingCurveAddress={bc} />
+                              </TabsContent>
+                            )}
+                          </Tabs>
+                        );
+                      };
+                      return <TabsBlock />;
+                    })()}
                   </CardContent>
                 </Card>
               </CardContent>

@@ -15,19 +15,19 @@ export function useAccessControl() {
   const net = getNetworkByKey(netKey);
   const addr = getContractAddresses(netKey);
 
-  const client = useMemo(
-    () =>
-      createPublicClient({
-        chain: {
-          id: net.id,
-          name: net.name,
-          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-          rpcUrls: { default: { http: [net.rpcUrl] } },
-        },
-        transport: http(net.rpcUrl),
-      }),
-    [net.id, net.name, net.rpcUrl]
-  );
+  const client = useMemo(() => {
+    // Guard: when TESTNET RPC is not configured, avoid constructing a viem client
+    if (!net?.rpcUrl) return null;
+    return createPublicClient({
+      chain: {
+        id: net.id,
+        name: net.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [net.rpcUrl] } },
+      },
+      transport: http(net.rpcUrl),
+    });
+  }, [net.id, net.name, net.rpcUrl]);
 
   /**
    * Check if `account` has `role` on the raffle contract.
@@ -35,6 +35,8 @@ export function useAccessControl() {
    */
   async function hasRole(roleHex, account) {
     try {
+      // If no RPC client (e.g., TESTNET rpc unset), default to false to keep UI stable
+      if (!client) return false;
       if (!addr.RAFFLE) return false;
       const normalized = getAddress(account);
       const has = await client.readContract({

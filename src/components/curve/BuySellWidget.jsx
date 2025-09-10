@@ -27,18 +27,22 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const client = useMemo(() => createPublicClient({
-    chain: {
-      id: net.id,
-      name: net.name,
-      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-      rpcUrls: { default: { http: [net.rpcUrl] } },
-    },
-    transport: http(net.rpcUrl),
-  }), [net.id, net.name, net.rpcUrl]);
+  const client = useMemo(() => {
+    if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
+    return createPublicClient({
+      chain: {
+        id: net.id,
+        name: net.name,
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: { default: { http: [net.rpcUrl] } },
+      },
+      transport: http(net.rpcUrl),
+    });
+  }, [net.id, net.name, net.rpcUrl]);
 
   const loadEstimate = useCallback(async (fnName, amount) => {
     try {
+      if (!client) return 0n;
       const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
       const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
       return await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: fnName, args: [BigInt(amount || '0')] });

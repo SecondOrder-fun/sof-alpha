@@ -1,5 +1,9 @@
 // React import not needed with Vite JSX transform
 import { Link } from 'react-router-dom';
+import { useMemo } from "react";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getNetworkByKey } from "@/config/networks";
+import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -56,6 +60,20 @@ const Header = () => {
           </nav>
         </div>
         <div className="flex items-center space-x-4">
+          {(() => {
+            const netKey = getStoredNetworkKey();
+            const net = getNetworkByKey(netKey);
+            const show = String(netKey).toUpperCase() === 'TESTNET' && !net?.rpcUrl;
+            if (!show) return null;
+            return (
+              <Badge variant="secondary" title="Set VITE_RPC_URL_TESTNET and related VITE_*_ADDRESS_TESTNET in .env, then restart dev servers">
+                Testnet RPC not configured
+              </Badge>
+            );
+          })()}
+          <div className="flex items-center gap-2">
+            {/* Wallet toolbar lives here (RainbowKit) */}
+          </div>
           <NetworkToggle />
           <ConnectButton
             showBalance={false}

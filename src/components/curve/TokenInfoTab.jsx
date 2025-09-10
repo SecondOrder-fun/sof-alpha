@@ -14,14 +14,6 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
     } catch { return 0n; }
   }, [allBondSteps]);
 
-  const progressPct = useMemo(() => {
-    try {
-      if (!maxSupply || maxSupply === 0n) return 0;
-      const pct = Number((curveSupply * 10000n) / maxSupply) / 100;
-      return Math.min(100, Math.max(0, pct));
-    } catch { return 0; }
-  }, [curveSupply, maxSupply]);
-
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -42,15 +34,7 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
           <div className="font-mono">{maxSupply?.toString?.() ?? '0'}</div>
         </div>
       </div>
-      <div>
-        <div className="flex justify-between text-sm text-muted-foreground mb-1">
-          <span>Bonding Curve Progress</span>
-          <span>{progressPct.toFixed(2)}%</span>
-        </div>
-        <div className="w-full h-2 bg-muted rounded">
-          <div className="h-2 bg-primary rounded" style={{ width: `${progressPct}%` }} />
-        </div>
-      </div>
+      {/* Progress meter removed to avoid duplication; the graph above already shows progress */}
     </div>
   );
 };

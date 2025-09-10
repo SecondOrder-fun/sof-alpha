@@ -19,7 +19,7 @@ export function useSofDecimals() {
         const netKey = getStoredNetworkKey();
         const net = getNetworkByKey(netKey);
         const { SOF } = getContractAddresses(netKey);
-        if (!SOF) return;
+        if (!SOF || !net?.rpcUrl) return; // Guard: no token or missing RPC
         const client = createPublicClient({
           chain: { id: net.id, name: net.name, nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [net.rpcUrl] } } },
           transport: http(net.rpcUrl),
