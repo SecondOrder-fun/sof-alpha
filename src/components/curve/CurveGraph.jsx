@@ -125,13 +125,11 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
     try {
       const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
       if (steps.length === 0) return 0;
-      let prevTo = 0n;
       for (const s of steps) {
         const to = BigInt(s.rangeTo ?? 0);
         if (BigInt(Math.floor(supply)) <= to) {
           return Number(formatUnits(s.price ?? 0n, sofDecimals));
         }
-        prevTo = to;
       }
       return Number(formatUnits(steps[steps.length - 1].price ?? 0n, sofDecimals));
     } catch { return 0; }
