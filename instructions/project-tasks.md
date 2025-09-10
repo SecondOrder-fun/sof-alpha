@@ -15,6 +15,25 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
+## Latest Progress (2025-09-10)
+
+- [x] RaffleDetails: "Your Current Position" live update
+  - Implemented immediate on-chain refresh after Buy/Sell using authoritative sources:
+    - Prefer `SOFBondingCurve.playerTickets(address)` and `curveConfig.totalSupply`.
+    - Fallback to ticket ERC-20 `balanceOf/totalSupply` (auto-detected via `raffleToken/token/ticketToken/tickets/asset`).
+  - Added resilient follow-up refreshes to withstand RPC/indexer lag and clear local override when server snapshot returns.
+
+- [x] Buy/Sell widget header and UX refinements
+  - Centered, enlarged Buy/Sell tabs as the widget header; larger slippage gear.
+  - Labels updated to "Amount to Buy" / "Amount to Sell"; removed Buy MAX.
+  - Added transaction toasts (copy hash, explorer link, auto-expire 2 minutes) rendered under the position widget.
+
+- [x] Bonding Curve graph polish
+  - Y-axis domain anchored to first/last step prices; increased chart height.
+  - Progress bar moved below graph; custom tooltips for step dots with price and step number; flicker fixes.
+
+No changes to open Known Issues at this time.
+
 ### InfoFi Trading – Next Tasks (On-chain shift)
 
 - Next Objectives (2025-08-27):
@@ -135,14 +154,14 @@ Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdr
   - [ ] Shared header shows token symbol, network, and season context
 
 - [ ] Bonding Curve Graph
-  - [ ] Hook to read live curve state (current step, current price, minted supply, max supply)
-  - [ ] Visualize stepped linear curve progress and price ladder
-  - [ ] Show current price, average price, and step index badges
+  - [x] Hook to read live curve state (current step, current price, minted supply, max supply)
+  - [x] Visualize stepped linear curve progress and price ladder
+  - [x] Show current price and step index badges (average price pending)
 
 - [ ] Buy/Sell Widget
-  - [ ] Extend `useCurve()` to support quotes via `calculateBuyPrice(uint256)` and `calculateSellPrice(uint256)`
-  - [ ] SOF allowance flow: detect + prompt `approve(spender, amount)` before buy/sell
-  - [ ] Execute `buyTokens(amount, maxCost)` and `sellTokens(amount, minProceeds)` with tx status toasts
+  - [x] Extend `useCurve()` to support quotes via `calculateBuyPrice(uint256)` and `calculateSellPrice(uint256)`
+  - [x] SOF allowance flow: detect + prompt `approve(spender, amount)` before buy/sell
+  - [x] Execute `buyTokens(amount, maxCost)` and `sellTokens(amount, minProceeds)` with tx status toasts (added copy + explorer link)
   - [ ] Basic validation (positive amounts, sufficient SOF/ticket balance)
 
 - [ ] Transactions Tab
@@ -165,8 +184,10 @@ Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdr
   - [ ] SSE/WebSocket not required for v1; periodic polling is acceptable
 
 - [ ] Tests (Vitest)
-  - [ ] Buy/Sell widget: success, edge (insufficient allowance), failure (revert)
-  - [ ] Graph data hook: success (valid numbers), edge (zero supply), failure (RPC error)
+  - [x] Buy/Sell widget: success UI path (labels/header) — baseline
+  - [ ] Buy/Sell widget: edge (insufficient allowance), failure (revert)
+  - [x] Graph domain: Y-axis first/last step prices
+  - [ ] Graph data hook: edge (zero supply), failure (RPC error)
 
 - [ ] Documentation
   - [ ] Update `instructions/frontend-guidelines.md` with page structure and hooks
