@@ -7,11 +7,11 @@ import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 
 /**
- * CurveGraph
+ * BondingCurvePanel
  * Visualizes stepped linear curve progress and current price using simple bars.
  * MVP: progress, current step, current price, recent steps.
  */
-const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
+const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
   const [sofDecimals, setSofDecimals] = useState(18);
 
   // Read SOF decimals from configured token
@@ -76,23 +76,27 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
         prevX = x2;
       }
       const maxX = Number(steps[steps.length - 1]?.rangeTo ?? 0n);
-      const maxY = pts.reduce((m, p) => Math.max(m, p.y), 0);
-      return { points: pts, maxX, maxY };
+      const prices = steps.map((s) => Number(formatUnits(s?.price ?? 0n, sofDecimals)));
+      const minY = Math.min(...prices);
+      const maxY = Math.max(...prices);
+      return { points: pts, maxX, minY, maxY };
     } catch {
-      return { points: [], maxX: 0, maxY: 0 };
+      return { points: [], maxX: 0, minY: 0, maxY: 0 };
     }
   }, [allBondSteps, sofDecimals]);
 
   // SVG dimensions and scales
   const width = 640; // will scale via viewBox
-  const height = 220;
+  const height = 320;
   const margin = { top: 10, right: 16, bottom: 24, left: 48 };
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const maxX = chartData.maxX || 1;
-  const maxY = chartData.maxY || Number(formatUnits(currentPrice || 0n, sofDecimals)) || 1;
+  const minY = chartData.minY ?? 0;
+  const maxY = chartData.maxY ?? 1;
+  const yRange = Math.max(1e-9, maxY - minY);
   const xScale = (x) => margin.left + (innerW * (x / maxX));
-  const yScale = (y) => margin.top + innerH - (innerH * (y / maxY));
+  const yScale = (y) => margin.top + innerH - (innerH * ((y - minY) / yRange));
 
   // Build path string for stepped line
   const buildPath = () => {
@@ -108,7 +112,7 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
   const buildArea = () => {
     const pts = chartData.points;
     if (!pts || pts.length === 0) return '';
-    const baselineY = height - margin.bottom;
+    const baselineY = yScale(minY);
     const to = (p) => `${xScale(p.x)},${yScale(p.y)}`;
     let d = `M ${to(pts[0])}`;
     for (let i = 1; i < pts.length; i++) d += ` L ${to(pts[i])}`;
@@ -156,34 +160,27 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
 
   const onMouseLeave = () => setHover(null);
 
+  // Progress bar tooltip (when hovering a step dot)
+  const [progressTip, setProgressTip] = useState(null); // {leftPct, price, step}
+  const onStepEnter = (leftPct, price, step) => setProgressTip({ leftPct, price, step });
+  const onProgressLeave = () => setProgressTip(null);
+
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex justify-between text-sm text-muted-foreground mb-1">
-          <span>Bonding Curve Progress</span>
-          <span>{progressPct.toFixed(2)}%</span>
-        </div>
-        <div className="w-full h-3 bg-muted rounded">
-          <div className="h-3 bg-primary rounded" style={{ width: `${progressPct}%` }} />
-        </div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Supply: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
-        </div>
-      </div>
 
       {/* SVG Stepped Curve Visualization */}
       <div className="w-full overflow-hidden border rounded p-2 bg-background">
         {chartData.points.length === 0 ? (
           <div className="text-sm text-muted-foreground">No bonding curve data available.</div>
         ) : (
-          <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-56" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
+          <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-80" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
             {/* Axes */}
             <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#e5e7eb" />
             <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#e5e7eb" />
 
             {/* Y ticks */}
             {Array.from({ length: 5 }).map((_, i) => {
-              const yVal = (maxY * i) / 4;
+              const yVal = minY + (yRange * i) / 4;
               const y = yScale(yVal);
               return (
                 <g key={`y-${i}`}>
@@ -268,28 +265,70 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
         </div>
       </div>
 
+      {/* Progress bar moved below the graph */}
       <div>
-        <div className="text-sm text-muted-foreground mb-1">Recent Steps</div>
-        <div className="flex gap-1 overflow-x-auto">
-          {(allBondSteps || []).slice(-12).map((s, idx) => (
-            <div key={idx} className="min-w-[72px] p-1 border rounded text-center">
-              <div className="text-xs text-muted-foreground">#{s?.step?.toString?.() ?? String(s?.step ?? '')}</div>
-              <div className="font-mono text-xs">{formatSOF(s?.price ?? 0n)}</div>
-            </div>
-          ))}
-          {(!allBondSteps || allBondSteps.length === 0) && (
-            <div className="text-sm text-muted-foreground">No step preview</div>
-          )}
+        <div className="flex justify-between text-sm text-muted-foreground mb-1">
+          <span>Bonding Curve Progress</span>
+          <span>{progressPct.toFixed(2)}%</span>
+        </div>
+        <div className="w-full" onMouseLeave={onProgressLeave}>
+          <div className="relative h-3 bg-muted rounded">
+            <div className="h-3 bg-primary rounded" style={{ width: `${progressPct}%` }} />
+            {/* Step dots with custom tooltip */}
+            {(() => {
+              const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+              if (steps.length === 0 || !maxSupply || maxSupply === 0n) return null;
+              const count = steps.length;
+              const stride = count > 40 ? Math.ceil(count / 40) : 1;
+              return (
+                <>
+                  {steps.map((s, idx) => {
+                    if (idx % stride !== 0 && idx !== count - 1) return null;
+                    const leftPct = Math.min(100, Math.max(0, Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100));
+                    const price = Number(formatUnits(s.price ?? 0n, sofDecimals)).toFixed(4);
+                    const stepNum = s?.step ?? (idx + 1);
+                    return (
+                      <div
+                        key={`dot-${idx}`}
+                        className="absolute -top-1 translate-x-[-50%] w-2 h-2 rounded-full bg-primary border border-white shadow cursor-help"
+                        style={{ left: `${leftPct}%` }}
+                        onMouseEnter={() => onStepEnter(leftPct, price, String(stepNum))}
+                        aria-label={`Step ${String(stepNum)} price ${price} SOF`}
+                      />
+                    );
+                  })}
+                  {progressTip && (
+                    <div
+                      className="absolute -top-10 translate-x-[-50%] px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs border shadow"
+                      style={{ left: `${progressTip.leftPct}%` }}
+                      role="tooltip"
+                      aria-label={`Step ${progressTip.step} price ${progressTip.price} SOF`}
+                      // Prevent tooltip from capturing the mouse and causing flicker
+                      onMouseEnter={(e) => e.stopPropagation()}
+                      onMouseMove={(e) => e.stopPropagation()}
+                      onMouseLeave={(e) => e.stopPropagation()}
+                    >
+                      <div className="font-mono">{progressTip.price} SOF</div>
+                      <div className="text-[10px] text-muted-foreground">Step #{progressTip.step}</div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Supply: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
         </div>
       </div>
     </div>
   );
 };
 
-CurveGraph.propTypes = {
+BondingCurvePanel.propTypes = {
   curveSupply: PropTypes.oneOfType([PropTypes.object, PropTypes.string, PropTypes.number]),
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
 };
 
-export default CurveGraph;
+export default BondingCurvePanel;

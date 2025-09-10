@@ -175,43 +175,37 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
 
   return (
     <div className="space-y-4">
-      {/* Settings gear */}
-      <div className="flex items-center justify-between">
-        <div className="font-medium text-sm text-muted-foreground">Trade</div>
-        <button type="button" className="text-sm px-2 py-1 rounded hover:bg-muted" onClick={() => setShowSettings((s) => !s)} title="Slippage settings">⚙︎</button>
-      </div>
-      {showSettings && (
-        <div className="relative">
-          <div className="absolute right-0 z-10 w-64 border rounded-md bg-card p-3 shadow">
-            <div className="text-sm font-medium mb-2">Slippage tolerance</div>
-            <div className="text-xs text-muted-foreground mb-2">This is maximum percentage you are willing to lose due to unfavorable price changes.</div>
-            <div className="flex gap-2 mb-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('0')}>0.0%</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('1')}>1.0%</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('2')}>2.0%</Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input type="number" value={slippagePct} onChange={(e) => setSlippagePct(e.target.value)} className="w-24" />
-              <Button type="button" size="sm" onClick={() => setShowSettings(false)}>Save</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="buy" onClick={() => setActiveTab('buy')}>Buy</TabsTrigger>
-          <TabsTrigger value="sell" onClick={() => setActiveTab('sell')}>Sell</TabsTrigger>
-        </TabsList>
+        <div className="relative w-full mb-3">
+          <div className="w-full flex justify-center">
+            <TabsList className="flex gap-3">
+              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-3 text-lg">Buy</TabsTrigger>
+              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-3 text-lg">Sell</TabsTrigger>
+            </TabsList>
+          </div>
+          <button type="button" className="absolute right-0 top-0 text-xl px-2 py-1 rounded hover:bg-muted" onClick={() => setShowSettings((s) => !s)} title="Slippage settings">⚙︎</button>
+          {showSettings && (
+            <div className="absolute right-0 top-8 z-10 w-64 border rounded-md bg-card p-3 shadow">
+              <div className="text-sm font-medium mb-2">Slippage tolerance</div>
+              <div className="text-xs text-muted-foreground mb-2">This is maximum percentage you are willing to lose due to unfavorable price changes.</div>
+              <div className="flex gap-2 mb-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('0')}>0.0%</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('1')}>1.0%</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('2')}>2.0%</Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input type="number" value={slippagePct} onChange={(e) => setSlippagePct(e.target.value)} className="w-24" />
+                <Button type="button" size="sm" onClick={() => setShowSettings(false)}>Save</Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {activeTab === 'buy' && (
           <TabsContent value="buy">
             <form className="space-y-2" onSubmit={onBuy}>
-              <div className="font-medium">Buy Tickets</div>
-              <div className="flex gap-2">
-                <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="Amount" />
-                <Button type="button" variant="outline" onClick={() => onMaxBuy(addrs?.ACCOUNT0 || addrs?.RAFFLE /* fallback if address book provides known dev account */)} title="Max you can buy with SOF balance">MAX</Button>
-              </div>
+              <div className="font-medium">Amount to Buy</div>
+              <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="Amount" />
               <div className="text-xs text-muted-foreground">Estimated cost: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
               <Button type="submit" disabled={rpcMissing || !buyAmount || buyTokens.isPending} className="w-full" title={disabledTip}>
                 {buyTokens.isPending ? 'Buying…' : 'Buy'}
@@ -223,7 +217,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
         {activeTab === 'sell' && (
           <TabsContent value="sell">
             <form className="space-y-2" onSubmit={onSell}>
-              <div className="font-medium">Sell Tickets</div>
+              <div className="font-medium">Amount to Sell</div>
               <div className="flex gap-2">
                 <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder="Amount" />
                 <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title="Max you can sell">MAX</Button>
