@@ -12,9 +12,13 @@ import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
+import { useAccount } from 'wagmi';
+import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
+import { Button } from '@/components/ui/button';
 
 const UserProfile = () => {
   const { address } = useParams();
+  const { address: myAddress } = useAccount();
 
   // Build viem public client for current network
   const [client, setClient] = useState(null);
@@ -137,11 +141,109 @@ const UserProfile = () => {
       </Card>
 
       <PredictionPositionsCard address={address} />
+
+      {/* Claims Panel (only visible for logged-in user viewing own profile) */}
+      {myAddress && myAddress.toLowerCase() === String(address).toLowerCase() && (
+        <ClaimsPanel profileAddress={address} seasons={seasons} netKey={netKey} />
+      )}
     </div>
   );
 };
 
 export default UserProfile;
+
+// Claims panel: lists claimable InfoFi winnings and provides Claim All
+const ClaimsPanel = ({ profileAddress, seasons, netKey }) => {
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const claims = [];
+        for (const s of seasons || []) {
+          try {
+            const markets = await listSeasonWinnerMarkets({ seasonId: s.id, networkKey: netKey.toUpperCase() });
+            for (const m of markets) {
+              try {
+                const yes = await readBet({ marketId: m.id, account: profileAddress, prediction: true, networkKey: netKey.toUpperCase() });
+                const no = await readBet({ marketId: m.id, account: profileAddress, prediction: false, networkKey: netKey.toUpperCase() });
+                // Bets struct: [prediction, amount, claimed, payout]
+                const normalize = (b) => ({ amount: b?.amount ?? 0n, claimed: Boolean(b?.claimed), payout: b?.payout ?? 0n });
+                const y = normalize(yes);
+                const n = normalize(no);
+                if (y.amount > 0n && !y.claimed && y.payout > 0n) {
+                  claims.push({ marketId: m.id, seasonId: m.seasonId, type: 'InfoFi', side: 'YES', payout: y.payout });
+                }
+                if (n.amount > 0n && !n.claimed && n.payout > 0n) {
+                  claims.push({ marketId: m.id, seasonId: m.seasonId, type: 'InfoFi', side: 'NO', payout: n.payout });
+                }
+              } catch (_) { /* ignore market read failure */ }
+            }
+          } catch (_) { /* ignore season enumeration failure */ }
+        }
+        if (!cancelled) setItems(claims);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [profileAddress, seasons, netKey]);
+
+  async function claimAll() {
+    for (const it of items) {
+      if (it.type === 'InfoFi') {
+        await claimPayoutTx({ marketId: it.marketId, prediction: it.side === 'YES', networkKey: netKey.toUpperCase() });
+      }
+      // Raffle prize claims can be added here when ABI exposes claim
+    }
+  }
+
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>Claims</CardTitle>
+        <CardDescription>Claimable raffle prizes and InfoFi market winnings.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading && <p className="text-muted-foreground">Scanning for claims…</p>}
+        {!loading && items.length === 0 && (
+          <p className="text-muted-foreground">No claimable items found right now.</p>
+        )}
+        {!loading && items.length > 0 && (
+          <>
+            <div className="flex justify-end mb-2">
+              <Button onClick={claimAll}>Claim All</Button>
+            </div>
+            <div className="divide-y rounded border">
+              {items.map((it) => (
+                <div key={`${String(it.marketId)}-${it.side}`} className="flex items-center justify-between px-3 py-2">
+                  <div className="text-sm">
+                    <div className="font-medium">{it.type} — Season #{it.seasonId} — {it.side}</div>
+                    <div className="text-xs text-muted-foreground">Market: <span className="font-mono">{String(it.marketId)}</span></div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-muted-foreground">Payout: <span className="font-mono">{String(it.payout)}</span></div>
+                    <Button variant="outline" onClick={() => claimPayoutTx({ marketId: it.marketId, prediction: it.side === 'YES', networkKey: netKey.toUpperCase() })}>Claim</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+ClaimsPanel.propTypes = {
+  profileAddress: PropTypes.string.isRequired,
+  seasons: PropTypes.array,
+  netKey: PropTypes.string.isRequired,
+};
 
 // Subcomponent: One raffle holding row with expandable buy/sell history
 const RaffleHoldingRow = ({ row, address, client }) => {

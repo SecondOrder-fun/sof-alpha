@@ -1,9 +1,11 @@
 // src/services/onchainInfoFi.js
 // Lightweight viem helpers to read/write InfoFi on-chain state without relying on DB.
 
-import { createPublicClient, createWalletClient, getAddress, http, webSocket, custom, keccak256, encodePacked } from 'viem';
+import { createPublicClient, createWalletClient, getAddress, http, webSocket, custom, keccak256, encodePacked, parseUnits } from 'viem';
 import InfoFiMarketFactoryABI from '@/contracts/abis/InfoFiMarketFactory.json';
 import InfoFiPriceOracleABI from '@/contracts/abis/InfoFiPriceOracle.json';
+import InfoFiMarketABI from '@/contracts/abis/InfoFiMarket.json';
+import ERC20Abi from '@/contracts/abis/ERC20.json';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 
@@ -31,6 +33,14 @@ function getContracts(networkKey) {
     oracle: {
       address: addrs.INFOFI_ORACLE,
       abi: InfoFiPriceOracleABI,
+    },
+    market: {
+      address: addrs.INFOFI_MARKET,
+      abi: InfoFiMarketABI,
+    },
+    sof: {
+      address: addrs.SOF,
+      abi: ERC20Abi,
     },
   };
 }
@@ -165,4 +175,75 @@ export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }
     }
   }
   return list;
+}
+
+// Read a user's bet position for a given marketId and side
+export async function readBet({ marketId, account, prediction, networkKey = 'LOCAL' }) {
+  const { publicClient } = buildClients(networkKey);
+  const { market } = getContracts(networkKey);
+  if (!market.address) throw new Error('INFOFI_MARKET address missing');
+  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
+  return publicClient.readContract({
+    address: market.address,
+    abi: market.abi,
+    functionName: 'bets',
+    args: [mid, getAddress(account), Boolean(prediction)],
+  });
+}
+
+// Place a bet (buy position). Amount is SOF (18 decimals) as human string/number.
+export async function placeBetTx({ marketId, prediction, amount, networkKey = 'LOCAL' }) {
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
+  const chain = getNetworkByKey(networkKey);
+  const walletClient = createWalletClient({ chain: { id: chain.id }, transport: custom(window.ethereum) });
+  const publicClient = createPublicClient({ chain: { id: chain.id }, transport: http(chain.rpcUrl) });
+  const [from] = await walletClient.getAddresses();
+  if (!from) throw new Error('Connect wallet first');
+  const { market, sof } = getContracts(networkKey);
+  if (!market.address) throw new Error('INFOFI_MARKET address missing');
+  if (!sof.address) throw new Error('SOF address missing');
+
+  const parsed = typeof amount === 'bigint' ? amount : parseUnits(String(amount ?? '0'), 18);
+
+  // Ensure allowance
+  const allowance = await publicClient.readContract({
+    address: sof.address,
+    abi: sof.abi.abi,
+    functionName: 'allowance',
+    args: [from, market.address],
+  });
+  if ((allowance ?? 0n) < parsed) {
+    await walletClient.writeContract({
+      address: sof.address,
+      abi: sof.abi.abi,
+      functionName: 'approve',
+      args: [market.address, parsed],
+      account: from,
+    });
+  }
+
+  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
+  return walletClient.writeContract({
+    address: market.address,
+    abi: market.abi,
+    functionName: 'placeBet',
+    args: [mid, Boolean(prediction), parsed],
+    account: from,
+  });
+}
+
+// Claim payout for a market. If prediction is provided, use the two-arg overload.
+export async function claimPayoutTx({ marketId, prediction, networkKey = 'LOCAL' }) {
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
+  const chain = getNetworkByKey(networkKey);
+  const walletClient = createWalletClient({ chain: { id: chain.id }, transport: custom(window.ethereum) });
+  const [from] = await walletClient.getAddresses();
+  if (!from) throw new Error('Connect wallet first');
+  const { market } = getContracts(networkKey);
+  if (!market.address) throw new Error('INFOFI_MARKET address missing');
+  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
+  if (typeof prediction === 'boolean') {
+    return walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [mid, prediction], account: from });
+  }
+  return walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [mid], account: from });
 }
