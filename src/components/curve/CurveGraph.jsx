@@ -1,6 +1,6 @@
 // src/components/curve/CurveGraph.jsx
 import PropTypes from 'prop-types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPublicClient, formatUnits, http } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
@@ -104,6 +104,60 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
     return d;
   };
 
+  // Area under the stepped curve
+  const buildArea = () => {
+    const pts = chartData.points;
+    if (!pts || pts.length === 0) return '';
+    const baselineY = height - margin.bottom;
+    const to = (p) => `${xScale(p.x)},${yScale(p.y)}`;
+    let d = `M ${to(pts[0])}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${to(pts[i])}`;
+    // close to baseline
+    const last = pts[pts.length - 1];
+    const first = pts[0];
+    d += ` L ${xScale(last.x)},${baselineY}`;
+    d += ` L ${xScale(first.x)},${baselineY} Z`;
+    return d;
+  };
+
+  // Helper to get price at a specific supply using steps (SOF units)
+  const getPriceAtSupply = (supply) => {
+    try {
+      const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+      if (steps.length === 0) return 0;
+      let prevTo = 0n;
+      for (const s of steps) {
+        const to = BigInt(s.rangeTo ?? 0);
+        if (BigInt(Math.floor(supply)) <= to) {
+          return Number(formatUnits(s.price ?? 0n, sofDecimals));
+        }
+        prevTo = to;
+      }
+      return Number(formatUnits(steps[steps.length - 1].price ?? 0n, sofDecimals));
+    } catch { return 0; }
+  };
+
+  // Hover interaction state
+  const svgRef = useRef(null);
+  const [hover, setHover] = useState(null); // {xSupply, yPrice, cx, cy}
+
+  const onMouseMove = (e) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    // invert xScale → supply
+    const clamped = Math.max(margin.left, Math.min(width - margin.right, mx));
+    const ratio = (clamped - margin.left) / innerW;
+    const xSupply = Math.max(0, Math.min(maxX, ratio * maxX));
+    const yPrice = getPriceAtSupply(xSupply);
+    const cx = xScale(xSupply);
+    const cy = yScale(yPrice);
+    setHover({ xSupply, yPrice, cx, cy, mx: clamped, my });
+  };
+
+  const onMouseLeave = () => setHover(null);
+
   return (
     <div className="space-y-4">
       <div>
@@ -124,7 +178,7 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
         {chartData.points.length === 0 ? (
           <div className="text-sm text-muted-foreground">No bonding curve data available.</div>
         ) : (
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56">
+          <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-56" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
             {/* Axes */}
             <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#e5e7eb" />
             <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#e5e7eb" />
@@ -153,6 +207,8 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
               );
             })}
 
+            {/* Shaded area under curve */}
+            <path d={buildArea()} fill="#93c5fd" fillOpacity="0.25" />
             {/* Stepped curve path */}
             <path d={buildPath()} fill="none" stroke="#2563eb" strokeWidth="2" />
 
@@ -165,12 +221,36 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
                 const cy = yScale(lastPrice);
                 return (
                   <g>
+                    {/* Vertical guideline */}
+                    <line x1={cx} y1={margin.top} x2={cx} y2={height - margin.bottom} stroke="#f97316" strokeDasharray="4 3" />
                     <circle cx={cx} cy={cy} r={3} fill="#ef4444" />
                     <text x={cx + 6} y={cy - 6} fontSize="10" fill="#ef4444">Current</text>
                   </g>
                 );
               } catch { return null; }
             })()}
+
+            {/* Hover vertical and tooltip */}
+            {hover && (
+              <g>
+                <line x1={hover.cx} y1={margin.top} x2={hover.cx} y2={height - margin.bottom} stroke="#9ca3af" strokeDasharray="3 3" />
+                <circle cx={hover.cx} cy={hover.cy} r={3} fill="#111827" />
+                {/* Tooltip background */}
+                {(() => {
+                  const boxW = 120; const boxH = 44; const pad = 8;
+                  let tx = hover.cx + 10; let ty = hover.cy - (boxH + 6);
+                  if (tx + boxW > width - margin.right) tx = hover.cx - boxW - 10;
+                  if (ty < margin.top) ty = hover.cy + 10;
+                  return (
+                    <g>
+                      <rect x={tx} y={ty} width={boxW} height={boxH} rx={6} ry={6} fill="#111827" opacity="0.9" />
+                      <text x={tx + pad} y={ty + 16} fontSize="11" fill="#e5e7eb">Supply: {Math.round(hover.xSupply)}</text>
+                      <text x={tx + pad} y={ty + 32} fontSize="11" fill="#e5e7eb">Price: {hover.yPrice.toFixed(4)} SOF</text>
+                    </g>
+                  );
+                })()}
+              </g>
+            )}
 
             {/* Axis labels */}
             <text x={width / 2} y={height - 4} textAnchor="middle" fontSize="11" fill="#6b7280">Supply (tickets)</text>
