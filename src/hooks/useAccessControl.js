@@ -45,6 +45,13 @@ export function useAccessControl() {
       });
       return Boolean(has);
     } catch {
+      // Fallback: on LOCAL network, treat default Anvil deployer as admin
+      try {
+        const anvilDeployer = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+        if (String(net.name || "").toLowerCase().includes("anvil") || net.id === 31337) {
+          return getAddress(account) === getAddress(anvilDeployer);
+        }
+      } catch { /* ignore */ }
       return false;
     }
   }

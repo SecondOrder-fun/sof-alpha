@@ -125,6 +125,53 @@ All frontend development setup tasks have been completed:
 - [ ] User experience refinement (copy, flows, accessibility)
 - [x] Implement Admin page authorization (default to deployer `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, allow adding more admins)
 
+#### Raffle Ticket Bonding Curve UI (GLICO-style) — Plan (2025-09-10)
+
+Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdrops, and Child Tokens. Focus on Graph, Buy/Sell, Transactions, and Token Information + Token Holders tab.
+
+- [ ] Page scaffold and routing
+  - [ ] Create route `src/routes/Curve.jsx` linked from header nav ("Bonding Curve")
+  - [ ] Layout sections: `Graph`, `Buy/Sell`, `Tabs: Transactions | Token Info | Token Holders`
+  - [ ] Shared header shows token symbol, network, and season context
+
+- [ ] Bonding Curve Graph
+  - [ ] Hook to read live curve state (current step, current price, minted supply, max supply)
+  - [ ] Visualize stepped linear curve progress and price ladder
+  - [ ] Show current price, average price, and step index badges
+
+- [ ] Buy/Sell Widget
+  - [ ] Extend `useCurve()` to support quotes via `calculateBuyPrice(uint256)` and `calculateSellPrice(uint256)`
+  - [ ] SOF allowance flow: detect + prompt `approve(spender, amount)` before buy/sell
+  - [ ] Execute `buyTokens(amount, maxCost)` and `sellTokens(amount, minProceeds)` with tx status toasts
+  - [ ] Basic validation (positive amounts, sufficient SOF/ticket balance)
+
+- [ ] Transactions Tab
+  - [ ] Read recent on-chain events (buys/sells) via viem `getLogs` for the curve
+  - [ ] Paginate and show: time, wallet (shortened), side (Buy/Sell), amount, price paid/received
+  - [ ] Empty and loading states; auto-refresh on interval
+
+- [ ] Token Information Tab
+  - [ ] Fields: Contract Address, Current / Max Supply, Total Value Locked in $SOF, Bonding Curve Progress
+  - [ ] Derive TVL from curve reserves; compute progress = currentSupply / maxSupply
+  - [ ] Copy-to-clipboard for addresses
+
+- [ ] Token Holders Tab
+  - [ ] MVP: top holders and holder count via on-chain reads (iterate holders from events; cache in memory)
+  - [ ] Placeholder message if indexer not ready; link to future indexer task
+
+- [ ] Hooks & Wiring
+  - [ ] `useCurveRead()` (prices, supply, tvl) and `useCurveWrite()` (approve, buy, sell)
+  - [ ] Reuse network + contracts from `src/config/networks.js` and `src/config/contracts.js`
+  - [ ] SSE/WebSocket not required for v1; periodic polling is acceptable
+
+- [ ] Tests (Vitest)
+  - [ ] Buy/Sell widget: success, edge (insufficient allowance), failure (revert)
+  - [ ] Graph data hook: success (valid numbers), edge (zero supply), failure (RPC error)
+
+- [ ] Documentation
+  - [ ] Update `instructions/frontend-guidelines.md` with page structure and hooks
+  - [ ] Update `README.md` with how to use Buy/Sell locally (Anvil runbook)
+
 ### Testing Utilities (NEW)
 
 - [ ] $SOF Test Faucet — Anvil/Sepolia Only (Pending Plan Approval 2025-09-04)

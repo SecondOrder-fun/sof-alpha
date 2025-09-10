@@ -2,16 +2,19 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useRaffleState } from '@/hooks/useRaffleState';
-import { useCurve } from '@/hooks/useCurve';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// removed inline buy/sell form controls
 import { createPublicClient, http } from 'viem';
 import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useCurveState } from '@/hooks/useCurveState';
-import { computeMaxWithSlippage, computeMinAfterSlippage, simBuyCurve, simSellCurve } from '@/lib/curveMath';
+import CurveGraph from '@/components/curve/CurveGraph';
+import BuySellWidget from '@/components/curve/BuySellWidget';
+import TransactionsTab from '@/components/curve/TransactionsTab';
+import TokenInfoTab from '@/components/curve/TokenInfoTab';
+import HoldersTab from '@/components/curve/HoldersTab';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
@@ -21,24 +24,12 @@ const RaffleDetails = () => {
   const { seasonId } = useParams();
   const { seasonDetailsQuery } = useRaffleState(seasonId);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
-  const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
-  const [buyAmount, setBuyAmount] = useState('');
-  const [sellAmount, setSellAmount] = useState('');
   const [chainNow, setChainNow] = useState(null);
-  const [buySlippagePct, setBuySlippagePct] = useState('1'); // default 1%
-  const [sellSlippagePct, setSellSlippagePct] = useState('1'); // default 1%
-  const [sellEstimate, setSellEstimate] = useState(0n);
-  const [sellEstError, setSellEstError] = useState('');
-  const [buyEstimate, setBuyEstimate] = useState(0n);
-  const [buyEstError, setBuyEstError] = useState('');
-  const { curveSupply, curveReserves, curveStep, bondStepsPreview, allBondSteps, debouncedRefresh } = useCurveState(
+  const { curveSupply, curveReserves, curveStep, /* bondStepsPreview, */ allBondSteps, debouncedRefresh } = useCurveState(
     bondingCurveAddress,
     { isActive: seasonDetailsQuery?.data?.status === 1, pollMs: 12000 }
   );
-  const [testSell1, setTestSell1] = useState(0n);
-  const [testSell10, setTestSell10] = useState(0n);
-  const [testBuy1, setTestBuy1] = useState(0n);
-  const [testBuy10, setTestBuy10] = useState(0n);
+  // removed inline estimator state used by old form
   // helpers now imported from lib/curveMath
 
   // Subscribe to on-chain PositionUpdate events to refresh immediately
@@ -58,22 +49,7 @@ const RaffleDetails = () => {
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
-  // Format SOF (18 decimals) to a string with floor(4) decimals
-  const formatSof4 = (amountWeiLike) => {
-    try {
-      const DECIMALS = 18n;
-      const SHOW = 4n;
-      // We want to floor to 4 decimals: divide by 10^(18-4) first
-      const factor = 10n ** (DECIMALS - SHOW); // 1e14
-      const scaled = amountWeiLike / factor; // integer with 4 implied decimals
-      const denom = 10n ** SHOW; // 1e4
-      const whole = scaled / denom;
-      const frac = scaled % denom;
-      return `${whole.toString()}.${frac.toString().padStart(Number(SHOW), '0')}`;
-    } catch (_e) {
-      return '0.0000';
-    }
-  };
+  // removed old inline SOF formatter; TokenInfoTab handles formatting where needed
 
   // Fetch on-chain time for accurate window checks
   useEffect(() => {
@@ -108,169 +84,15 @@ const RaffleDetails = () => {
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  const handleBuyTickets = async (e) => {
-    e.preventDefault();
-    if (!buyAmount) return;
-    if (!bondingCurveAddress) return;
-    // Reason: contracts typically require spender allowance and a non-zero max spend cap
-    try {
-      // Approve a large SOF allowance once (user can manage allowance off-app)
-      const maxUint = (1n << 255n) - 1n; // sufficiently large cap
-      await approve.mutateAsync({ amount: maxUint });
+  // removed old inline buy/sell handlers (now in BuySellWidget)
 
-      // Set a reasonable cap for this purchase from on-chain estimate plus slippage buffer
-      const est = buyEstimate > 0n ? buyEstimate : 0n;
-      const maxSpendCap = computeMaxWithSlippage(est, buySlippagePct);
-      // Tickets are non-fractional (decimals = 0). Use whole-unit amount directly.
-      const tokenAmountUnits = BigInt(buyAmount);
-      // Then execute buy with non-zero maxSofAmount
-      buyTokens.mutate({ tokenAmount: tokenAmountUnits, maxSofAmount: maxSpendCap });
-    } catch (_) {
-      // no-op: mutation will surface errors
-    }
-  };
+  // Removed old sell estimate effect; BuySellWidget handles quoting and submission.
 
-  const handleSellTickets = async (e) => {
-    e.preventDefault();
-    if (!sellAmount) return;
-    if (!bondingCurveAddress) return;
-    try {
-      const tokenAmountUnits = BigInt(sellAmount);
-      // Build a client for reads
-      const netKey = getStoredNetworkKey();
-      const net = getNetworkByKey(netKey);
-      const client = createPublicClient({
-        chain: {
-          id: net.id,
-          name: net.name,
-          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-          rpcUrls: { default: { http: [net.rpcUrl] } },
-        },
-        transport: http(net.rpcUrl),
-      });
-      const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-      const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-      // Estimate base SOF to receive (before fee already handled in contract's view)
-      const estimate = await client.readContract({
-        address: bondingCurveAddress,
-        abi: SOFBondingCurveAbi,
-        functionName: 'calculateSellPrice',
-        args: [tokenAmountUnits],
-      });
-      // Apply slippage buffer from decimal string percent to basis points safely
-      const minSofAmount = computeMinAfterSlippage(estimate, sellSlippagePct);
-      sellTokens.mutate({ tokenAmount: tokenAmountUnits, minSofAmount });
-    } catch (_) {
-      // no-op: mutation surfaces errors
-    }
-  };
+  // debouncedRefresh is triggered by BuySellWidget via onTxSuccess
 
-  // Update estimated SOF received when amount/slippage changes
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setSellEstError('');
-        if (!bondingCurveAddress) return;
-        const netKey = getStoredNetworkKey();
-        const net = getNetworkByKey(netKey);
-        const client = createPublicClient({
-          chain: {
-            id: net.id,
-            name: net.name,
-            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-            rpcUrls: { default: { http: [net.rpcUrl] } },
-          },
-          transport: http(net.rpcUrl),
-        });
-        const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-        const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-        if (!sellAmount) { if (!cancelled) setSellEstimate(0n); return; }
-        const est = await client.readContract({
-          address: bondingCurveAddress,
-          abi: SOFBondingCurveAbi,
-          functionName: 'calculateSellPrice',
-          args: [BigInt(sellAmount)],
-        });
-        // quick probes for 1 and 10
-        let probe1 = 0n;
-        let probe10 = 0n;
-        try { probe1 = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'calculateSellPrice', args: [1n] }); } catch (e) { void e; }
-        try { probe10 = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'calculateSellPrice', args: [10n] }); } catch (e) { void e; }
-        if (!cancelled) {
-          setSellEstimate(est);
-          setTestSell1(probe1);
-          setTestSell10(probe10);
-        }
-      } catch (_) {
-        if (!cancelled) {
-          setSellEstimate(0n);
-          setSellEstError(String(_?.shortMessage || _?.message || _));
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [sellAmount, bondingCurveAddress]);
+  // removed estimator side-effects for old form
 
-  // Debounced refresh when transactions succeed (buy/sell)
-  useEffect(() => {
-    if (buyTokens.isSuccess || sellTokens.isSuccess) {
-      debouncedRefresh(600);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buyTokens.isSuccess, sellTokens.isSuccess, bondingCurveAddress]);
-
-  // Update estimated SOF cost for buy when amount changes
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setBuyEstError('');
-        if (!bondingCurveAddress) return;
-        const netKey = getStoredNetworkKey();
-        const net = getNetworkByKey(netKey);
-        const client = createPublicClient({
-          chain: {
-            id: net.id,
-            name: net.name,
-            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-            rpcUrls: { default: { http: [net.rpcUrl] } },
-          },
-          transport: http(net.rpcUrl),
-        });
-        const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-        const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-        if (!buyAmount) { if (!cancelled) setBuyEstimate(0n); return; }
-        const est = await client.readContract({
-          address: bondingCurveAddress,
-          abi: SOFBondingCurveAbi,
-          functionName: 'calculateBuyPrice',
-          args: [BigInt(buyAmount)],
-        });
-        let probe1 = 0n;
-        let probe10 = 0n;
-        try { probe1 = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'calculateBuyPrice', args: [1n] }); } catch (e) { void e; }
-        try { probe10 = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'calculateBuyPrice', args: [10n] }); } catch (e) { void e; }
-        if (!cancelled) {
-          setBuyEstimate(est);
-          setTestBuy1(probe1);
-          setTestBuy10(probe10);
-        }
-      } catch (_) {
-        if (!cancelled) {
-          setBuyEstimate(0n);
-          setBuyEstError(String(_?.shortMessage || _?.message || _));
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [buyAmount, bondingCurveAddress]);
-
-  // Client-side simulator for buy
-  const simBuy = (amount) => simBuyCurve(BigInt(amount || '0'), curveSupply, allBondSteps);
-
-  // Client-side simulator as fallback when estimate is 0
-  const simSell = (amount) => simSellCurve(BigInt(amount || '0'), curveSupply, allBondSteps);
+  // simulators now unused
 
   return (
     <div>
@@ -304,191 +126,95 @@ const RaffleDetails = () => {
             <Card>
               <CardHeader>
                 <CardTitle>{cfg.name} - Season #{seasonId}</CardTitle>
-                <CardDescription>Detailed view of the raffle season.</CardDescription>
+                <CardDescription>Bonding curve and trading for this season.</CardDescription>
               </CardHeader>
               <CardContent>
-            {/* Live Hybrid Pricing (InfoFi) via reusable component */}
-            <InfoFiPricingTicker marketId={seasonId} />
-            {/* Player snapshot (from RafflePositionTracker) */}
-            <div className="mt-3 p-3 border rounded-md bg-muted/20">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">Your Current Position</div>
-                {!isConnected && (
-                  <Badge variant="secondary">Connect wallet to view</Badge>
-                )}
-              </div>
-              {isConnected && (
-                <div className="mt-2 text-sm">
-                  {snapshotQuery.isLoading && <span className="text-muted-foreground">Loading snapshot…</span>}
-                  {snapshotQuery.error && (
-                    <span className="text-red-600">Error: {snapshotQuery.error.message}</span>
-                  )}
-                  {snapshotQuery.data && (
-                    <div className="space-y-1">
-                      <div>
-                        Tickets: <span className="font-mono">{snapshotQuery.data.ticketCount?.toString?.() ?? String(snapshotQuery.data.ticketCount ?? 0)}</span>
-                      </div>
-                      <div>
-                        Win Probability: <span className="font-mono">{(() => {
-                          try {
-                            const bps = Number(snapshotQuery.data.winProbabilityBps || 0);
-                            return `${(bps / 100).toFixed(2)}%`;
-                          } catch { return '0.00%'; }
-                        })()}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Total Tickets (at snapshot): <span className="font-mono">{snapshotQuery.data.totalTicketsAtTime?.toString?.() ?? String(snapshotQuery.data.totalTicketsAtTime ?? 0)}</span>
-                      </div>
-                    </div>
-                  )}
-                  {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (
-                    <span className="text-muted-foreground">No snapshot yet.</span>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex space-x-2 my-2">
-              {(() => {
-                const st = seasonDetailsQuery.data.status;
-                const label = st === 1 ? 'Active' : st === 0 ? 'NotStarted' : 'Completed';
-                const variant = st === 1 ? 'default' : st === 0 ? 'secondary' : 'destructive';
-                return <Badge variant={variant}>{label}</Badge>;
-              })()}
-            </div>
-            {(() => {
-              const st = seasonDetailsQuery.data.status;
-              const start = Number(cfg.startTime);
-              const end = Number(cfg.endTime);
-              if (chainNow && st === 0) {
-                if (chainNow >= start && chainNow < end) {
-                  return (
-                    <p className="text-sm text-muted-foreground">
-                      Window open on-chain, awaiting admin Start.
-                    </p>
-                  );
-                }
-                if (chainNow >= end) {
-                  return (
-                    <p className="text-sm text-muted-foreground">
-                      Window ended on-chain, awaiting admin End.
-                    </p>
-                  );
-                }
-              }
-              return null;
-            })()}
-            <p>Start Time: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</p>
-            <p>End Time: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</p>
+                {/* Live Hybrid Pricing (InfoFi) */}
+                <InfoFiPricingTicker marketId={seasonId} />
 
-            <form onSubmit={handleBuyTickets} className="mt-4 space-y-2">
-              <Input 
-                type="number"
-                value={buyAmount}
-                onChange={(e) => setBuyAmount(e.target.value)}
-                placeholder="Ticket token amount to buy"
-              />
-              <div className="text-sm text-muted-foreground">
-                Estimated cost: <span className="font-mono">{formatSof4(buyEstimate)}</span> SOF
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Debug est (wei): <span className="font-mono">{buyEstimate.toString()}</span>
-              </div>
-              {buyEstimate === 0n && buyAmount && (
-                <div className="text-sm text-muted-foreground">
-                  Simulated cost: <span className="font-mono">{formatSof4(simBuy(buyAmount))}</span> SOF
-                </div>
-              )}
-              <div className="text-sm text-muted-foreground">
-                Max with slippage: <span className="font-mono">{formatSof4(computeMaxWithSlippage(buyEstimate, buySlippagePct))}</span> SOF
-              </div>
-              {buyEstError && (
-                <div className="text-xs text-amber-600">Estimate warning: {buyEstError}</div>
-              )}
-              <div className="text-xs text-muted-foreground">
-                Test quotes: 1 → <span className="font-mono">{formatSof4(testBuy1)}</span> SOF, 10 → <span className="font-mono">{formatSof4(testBuy10)}</span> SOF
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="buySlip" className="text-sm">Buy Slippage %</label>
-                <Input id="buySlip" type="number" min="0" max="100" step="0.1" value={buySlippagePct} onChange={(e) => setBuySlippagePct(e.target.value)} className="w-24" />
-              </div>
-              <Button
-                type="submit"
-                disabled={approve.isPending || buyTokens.isPending || seasonDetailsQuery.data.status !== 1}
-              >
-                {approve.isPending || buyTokens.isPending ? 'Processing...' : 'Buy Tickets'}
-              </Button>
-            </form>
-            {(approve.isError || buyTokens.isError) && (
-              <p className="text-red-500">Error: {(approve.error?.message || buyTokens.error?.message)}</p>
-            )}
-            {buyTokens.isSuccess && <p className="text-green-500">Purchase successful!</p>}
-
-            <form onSubmit={handleSellTickets} className="mt-6 space-y-2">
-              <Input
-                type="number"
-                value={sellAmount}
-                onChange={(e) => setSellAmount(e.target.value)}
-                placeholder="Ticket token amount to sell"
-              />
-              <div className="text-sm text-muted-foreground">
-                Estimated receive: <span className="font-mono">{formatSof4(sellEstimate)}</span> SOF
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Debug est (wei): <span className="font-mono">{sellEstimate.toString()}</span>
-              </div>
-              {sellEstimate === 0n && sellAmount && (
-                <div className="text-sm text-muted-foreground">
-                  Simulated receive: <span className="font-mono">{formatSof4(simSell(sellAmount))}</span> SOF
-                </div>
-              )}
-              <div className="text-sm text-muted-foreground">
-                Min after slippage: <span className="font-mono">{formatSof4(computeMinAfterSlippage(sellEstimate, sellSlippagePct))}</span> SOF
-              </div>
-              {(curveSupply > 0n || curveReserves > 0n) && (
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div>Curve total supply: <span className="font-mono">{curveSupply.toString()} tickets</span></div>
-                  <div>Curve SOF reserves: <span className="font-mono">{formatSof4(curveReserves)}</span> SOF</div>
-                  {curveStep && (
-                    <div>
-                      Current step: <span className="font-mono">#{curveStep.step.toString()}</span> · Price <span className="font-mono">{formatSof4(curveStep.price)}</span> SOF (<span className="font-mono">{curveStep.price.toString()}</span> wei) · RangeTo <span className="font-mono">{curveStep.rangeTo.toString()}</span>
-                    </div>
-                  )}
-                  {bondStepsPreview?.length > 0 && (
-                    <div>
-                      Steps tail: {bondStepsPreview.map((s, idx) => (
-                        <span key={idx} className="font-mono mr-2">[{formatSof4(s.price)} SOF → {s.rangeTo.toString()}]</span>
-                      ))}
-                    </div>
-                  )}
-                  {curveStep && sellAmount && (
-                    <div>
-                      Approx base (step*amount): <span className="font-mono">{formatSof4(curveStep.price * BigInt(sellAmount))}</span> SOF
-                    </div>
-                  )}
-                  <div>
-                    Test quotes: 1 → <span className="font-mono">{formatSof4(testSell1)}</span> SOF, 10 → <span className="font-mono">{formatSof4(testSell10)}</span> SOF
+                {/* Player snapshot (from RafflePositionTracker) */}
+                <div className="mt-3 p-3 border rounded-md bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Your Current Position</div>
+                    {!isConnected && (<Badge variant="secondary">Connect wallet to view</Badge>)}
                   </div>
+                  {isConnected && (
+                    <div className="mt-2 text-sm">
+                      {snapshotQuery.isLoading && <span className="text-muted-foreground">Loading snapshot…</span>}
+                      {snapshotQuery.error && (<span className="text-red-600">Error: {snapshotQuery.error.message}</span>)}
+                      {snapshotQuery.data && (
+                        <div className="space-y-1">
+                          <div>Tickets: <span className="font-mono">{snapshotQuery.data.ticketCount?.toString?.() ?? String(snapshotQuery.data.ticketCount ?? 0)}</span></div>
+                          <div>Win Probability: <span className="font-mono">{(() => { try { const bps = Number(snapshotQuery.data.winProbabilityBps || 0); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
+                          <div className="text-xs text-muted-foreground">Total Tickets (at snapshot): <span className="font-mono">{snapshotQuery.data.totalTicketsAtTime?.toString?.() ?? String(snapshotQuery.data.totalTicketsAtTime ?? 0)}</span></div>
+                        </div>
+                      )}
+                      {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (<span className="text-muted-foreground">No snapshot yet.</span>)}
+                    </div>
+                  )}
                 </div>
-              )}
-              {sellEstError && (
-                <div className="text-xs text-amber-600">Estimate warning: {sellEstError}</div>
-              )}
-              <div className="flex items-center gap-2">
-                <label htmlFor="slip" className="text-sm">Slippage %</label>
-                <Input id="slip" type="number" min="0" max="100" step="0.1" value={sellSlippagePct} onChange={(e) => setSellSlippagePct(e.target.value)} className="w-24" />
-              </div>
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={sellTokens.isPending || seasonDetailsQuery.data.status !== 1}
-              >
-                {sellTokens.isPending ? 'Processing...' : 'Sell Tickets'}
-              </Button>
-            </form>
-            {sellTokens.isError && (
-              <p className="text-red-500">Error: {sellTokens.error?.message}</p>
-            )}
-            {sellTokens.isSuccess && <p className="text-green-500">Sell successful!</p>}
+
+                {/* Status and timing */}
+                <div className="flex space-x-2 my-2">
+                  {(() => {
+                    const st = seasonDetailsQuery.data.status;
+                    const label = st === 1 ? 'Active' : st === 0 ? 'NotStarted' : 'Completed';
+                    const variant = st === 1 ? 'default' : st === 0 ? 'secondary' : 'destructive';
+                    return <Badge variant={variant}>{label}</Badge>;
+                  })()}
+                </div>
+                {(() => {
+                  const st = seasonDetailsQuery.data.status;
+                  const start = Number(cfg.startTime);
+                  const end = Number(cfg.endTime);
+                  if (chainNow && st === 0) {
+                    if (chainNow >= start && chainNow < end) return (<p className="text-sm text-muted-foreground">Window open on-chain, awaiting admin Start.</p>);
+                    if (chainNow >= end) return (<p className="text-sm text-muted-foreground">Window ended on-chain, awaiting admin End.</p>);
+                  }
+                  return null;
+                })()}
+                <p>Start Time: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</p>
+                <p>End Time: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</p>
+
+                {/* Bonding Curve UI */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+                  <Card className="lg:col-span-2">
+                    <CardHeader>
+                      <CardTitle>Bonding Curve Graph</CardTitle>
+                      <CardDescription>Step progress, current price and supply</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <CurveGraph curveSupply={curveSupply} curveStep={curveStep} allBondSteps={allBondSteps} />
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Buy / Sell</CardTitle>
+                      <CardDescription>Purchase or sell raffle tickets</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <BuySellWidget bondingCurveAddress={bc} onTxSuccess={() => debouncedRefresh(500)} />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle>Activity & Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs>
+                      <TabsList>
+                        <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                        <TabsTrigger value="token-info">Token Info</TabsTrigger>
+                        <TabsTrigger value="holders">Token Holders</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="transactions"><TransactionsTab bondingCurveAddress={bc} /></TabsContent>
+                      <TabsContent value="token-info"><TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} /></TabsContent>
+                      <TabsContent value="holders"><HoldersTab bondingCurveAddress={bc} /></TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           );

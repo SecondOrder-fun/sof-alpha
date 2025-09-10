@@ -46,7 +46,14 @@ const UserProfile = () => {
   const sofBalanceQuery = useQuery({
     queryKey: ['sofBalanceProfile', netKey, contracts.SOF, address],
     enabled: !!client && !!contracts.SOF && !!address,
-    queryFn: async () => client.readContract({ address: contracts.SOF, abi: ERC20Abi.abi, functionName: 'balanceOf', args: [address] }),
+    queryFn: async () => {
+      // Read decimals first; then balance, so we can format correctly and detect ABI/address issues early.
+      const [decimals, bal] = await Promise.all([
+        client.readContract({ address: contracts.SOF, abi: ERC20Abi.abi, functionName: 'decimals', args: [] }),
+        client.readContract({ address: contracts.SOF, abi: ERC20Abi.abi, functionName: 'balanceOf', args: [address] }),
+      ]);
+      return { decimals: Number(decimals || 18), balance: bal ?? 0n };
+    },
     staleTime: 15_000,
   });
 
@@ -78,7 +85,6 @@ const UserProfile = () => {
     staleTime: 15_000,
   });
 
-  const sofBalance = useMemo(() => fmt(sofBalanceQuery.data, 18), [sofBalanceQuery.data]);
   const totalTicketsAcrossSeasons = useMemo(() => {
     try {
       const rows = seasonBalancesQuery.data || [];
@@ -107,9 +113,16 @@ const UserProfile = () => {
           {sofBalanceQuery.isLoading ? (
             <p className="text-muted-foreground">Loading...</p>
           ) : sofBalanceQuery.error ? (
-            <p className="text-red-500">Error loading SOF balance</p>
+            <div>
+              <p className="text-red-500">Error loading SOF balance</p>
+              <p className="text-xs text-muted-foreground">Token: <span className="font-mono">{contracts.SOF || '—'}</span></p>
+            </div>
           ) : (
-            <p className="text-lg">{sofBalance} SOF</p>
+            (() => {
+              const d = Number(sofBalanceQuery.data?.decimals || 18);
+              const b = sofBalanceQuery.data?.balance ?? 0n;
+              return <p className="text-lg">{fmt(b, d)} SOF</p>;
+            })()
           )}
         </CardContent>
       </Card>
