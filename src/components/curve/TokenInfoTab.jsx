@@ -1,20 +1,12 @@
 // src/components/curve/TokenInfoTab.jsx
 import PropTypes from 'prop-types';
 import { useMemo } from 'react';
-
-const DECIMALS = 18n;
-
-function formatSOF(amountWei) {
-  try {
-    const whole = amountWei / (10n ** DECIMALS);
-    const frac = (amountWei % (10n ** DECIMALS)) / (10n ** (DECIMALS - 4n));
-    return `${whole.toString()}.${frac.toString().padStart(4, '0')}`;
-  } catch {
-    return '0.0000';
-  }
-}
+import { formatUnits } from 'viem';
+import { useSofDecimals } from '@/hooks/useSofDecimals';
 
 const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveReserves }) => {
+  const sofDecimals = useSofDecimals();
+  const formatSOF = (v) => { try { return Number(formatUnits(v ?? 0n, sofDecimals)).toFixed(4); } catch { return '0.0000'; } };
   const maxSupply = useMemo(() => {
     try {
       const last = Array.isArray(allBondSteps) && allBondSteps.length > 0 ? allBondSteps[allBondSteps.length - 1] : null;

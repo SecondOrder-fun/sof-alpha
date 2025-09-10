@@ -1,27 +1,24 @@
 // src/components/curve/BuySellWidget.jsx
 import PropTypes from 'prop-types';
-import { useEffect, useMemo, useState } from 'react';
-import { createPublicClient, http } from 'viem';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPublicClient, formatUnits, http } from 'viem';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useCurve } from '@/hooks/useCurve';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
+import { useSofDecimals } from '@/hooks/useSofDecimals';
 
-const DECIMALS = 18n;
-
-function formatSOF(amountWei) {
-  try {
-    const whole = amountWei / (10n ** DECIMALS);
-    const frac = (amountWei % (10n ** DECIMALS)) / (10n ** (DECIMALS - 4n));
-    return `${whole.toString()}.${frac.toString().padStart(4, '0')}`;
-  } catch {
-    return '0.0000';
-  }
+function useFormatSOF() {
+  const decimals = useSofDecimals();
+  return (amountWei) => {
+    try { return Number(formatUnits(amountWei ?? 0n, decimals)).toFixed(4); } catch { return '0.0000'; }
+  };
 }
 
 const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
+  const formatSOF = useFormatSOF();
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [buyEst, setBuyEst] = useState(0n);
@@ -40,7 +37,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
     transport: http(net.rpcUrl),
   }), [net.id, net.name, net.rpcUrl]);
 
-  const loadEstimate = async (fnName, amount) => {
+  const loadEstimate = useCallback(async (fnName, amount) => {
     try {
       const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
       const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
@@ -48,7 +45,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
     } catch {
       return 0n;
     }
-  };
+  }, [client, bondingCurveAddress]);
 
   useEffect(() => {
     let stop = false;
@@ -58,7 +55,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
       if (!stop) setBuyEst(est);
     })();
     return () => { stop = true; };
-  }, [bondingCurveAddress, buyAmount]);
+  }, [bondingCurveAddress, buyAmount, loadEstimate]);
 
   useEffect(() => {
     let stop = false;
@@ -68,7 +65,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess }) => {
       if (!stop) setSellEst(est);
     })();
     return () => { stop = true; };
-  }, [bondingCurveAddress, sellAmount]);
+  }, [bondingCurveAddress, sellAmount, loadEstimate]);
 
   const applyMaxSlippage = (amountWei) => {
     try {

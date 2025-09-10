@@ -16,7 +16,6 @@ import TokenInfoTab from '@/components/curve/TokenInfoTab';
 import HoldersTab from '@/components/curve/HoldersTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
-import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useWallet } from '@/hooks/useWallet';
 
@@ -127,10 +126,12 @@ const RaffleDetails = () => {
               <CardHeader>
                 <CardTitle>{cfg.name} - Season #{seasonId}</CardTitle>
                 <CardDescription>Bonding curve and trading for this season.</CardDescription>
+                <div className="text-sm text-muted-foreground mt-1">
+                  <span className="mr-4">Start: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</span>
+                  <span>End: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</span>
+                </div>
               </CardHeader>
               <CardContent>
-                {/* Live Hybrid Pricing (InfoFi) */}
-                <InfoFiPricingTicker marketId={seasonId} />
 
                 {/* Player snapshot (from RafflePositionTracker) */}
                 <div className="mt-3 p-3 border rounded-md bg-muted/20">
@@ -154,15 +155,7 @@ const RaffleDetails = () => {
                   )}
                 </div>
 
-                {/* Status and timing */}
-                <div className="flex space-x-2 my-2">
-                  {(() => {
-                    const st = seasonDetailsQuery.data.status;
-                    const label = st === 1 ? 'Active' : st === 0 ? 'NotStarted' : 'Completed';
-                    const variant = st === 1 ? 'default' : st === 0 ? 'secondary' : 'destructive';
-                    return <Badge variant={variant}>{label}</Badge>;
-                  })()}
-                </div>
+                {/* Status badge intentionally removed */}
                 {(() => {
                   const st = seasonDetailsQuery.data.status;
                   const start = Number(cfg.startTime);
@@ -173,8 +166,7 @@ const RaffleDetails = () => {
                   }
                   return null;
                 })()}
-                <p>Start Time: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</p>
-                <p>End Time: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</p>
+                {/* Start/End times shown in header */}
 
                 {/* Bonding Curve UI */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">

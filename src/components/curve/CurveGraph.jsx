@@ -1,6 +1,10 @@
 // src/components/curve/CurveGraph.jsx
 import PropTypes from 'prop-types';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPublicClient, formatUnits, http } from 'viem';
+import { getStoredNetworkKey } from '@/lib/wagmi';
+import { getNetworkByKey } from '@/config/networks';
+import { getContractAddresses } from '@/config/contracts';
 
 /**
  * CurveGraph
@@ -8,6 +12,35 @@ import { useMemo } from 'react';
  * MVP: progress, current step, current price, recent steps.
  */
 const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
+  const [sofDecimals, setSofDecimals] = useState(18);
+
+  // Read SOF decimals from configured token
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const netKey = getStoredNetworkKey();
+        const net = getNetworkByKey(netKey);
+        const { SOF } = getContractAddresses(netKey);
+        if (!SOF) return;
+        const client = createPublicClient({
+          chain: { id: net.id, name: net.name, nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [net.rpcUrl] } } },
+          transport: http(net.rpcUrl),
+        });
+        // Minimal ERC20 decimals() ABI fragment
+        const erc20DecimalsAbi = [{ type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint8' }] }];
+        const dec = await client.readContract({ address: SOF, abi: erc20DecimalsAbi, functionName: 'decimals', args: [] });
+        if (!cancelled) setSofDecimals(Number(dec || 18));
+      } catch (_) {
+        // fallback to 18
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const formatSOF = (weiLike) => {
+    try { return Number(formatUnits(weiLike ?? 0n, sofDecimals)).toFixed(4); } catch { return '0.0000'; }
+  };
   const maxSupply = useMemo(() => {
     try {
       const last = Array.isArray(allBondSteps) && allBondSteps.length > 0 ? allBondSteps[allBondSteps.length - 1] : null;
@@ -48,8 +81,8 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
           <div className="font-mono text-lg">{curveStep?.step?.toString?.() ?? '0'}</div>
         </div>
         <div className="p-2 border rounded">
-          <div className="text-muted-foreground">Current Price (SOF wei)</div>
-          <div className="font-mono text-lg">{currentPrice?.toString?.() ?? '0'}</div>
+          <div className="text-muted-foreground">Current Price (SOF)</div>
+          <div className="font-mono text-lg">{formatSOF(currentPrice)}</div>
         </div>
       </div>
 
@@ -59,7 +92,7 @@ const CurveGraph = ({ curveSupply, curveStep, allBondSteps }) => {
           {(allBondSteps || []).slice(-12).map((s, idx) => (
             <div key={idx} className="min-w-[72px] p-1 border rounded text-center">
               <div className="text-xs text-muted-foreground">#{s?.step?.toString?.() ?? String(s?.step ?? '')}</div>
-              <div className="font-mono text-xs">{s?.price?.toString?.() ?? String(s?.price ?? '')}</div>
+              <div className="font-mono text-xs">{formatSOF(s?.price ?? 0n)}</div>
             </div>
           ))}
           {(!allBondSteps || allBondSteps.length === 0) && (
