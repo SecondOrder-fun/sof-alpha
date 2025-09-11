@@ -11,6 +11,7 @@ import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+import PositionsPanel from '@/components/infofi/PositionsPanel';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { useAccount } from 'wagmi';
 import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
@@ -153,7 +154,7 @@ const UserProfile = () => {
         </CardContent>
       </Card>
 
-      <PredictionPositionsCard address={address} />
+      <PositionsPanel address={address} seasons={seasons} />
 
       {/* Claims Panel (only visible for logged-in user viewing own profile) */}
       {myAddress && myAddress.toLowerCase() === String(address).toLowerCase() && (
@@ -370,46 +371,61 @@ RaffleHoldingRow.propTypes = {
   }),
 };
 
-// Prediction positions reuse backend placeholder
+// Prediction positions — on-chain aggregation across all seasons
 const PredictionPositionsCard = ({ address }) => {
+  const netKey = getStoredNetworkKey();
+  const seasonsQry = useAllSeasons();
+  const seasons = seasonsQry.data || [];
+
   const positionsQuery = useQuery({
-    queryKey: ['infofiPositionsProfile', address],
-    enabled: !!address,
+    queryKey: ['infofiPositionsProfileOnchainAll', address, seasons.map(s => s.id).join(','), netKey],
+    enabled: !!address && seasons.length > 0,
     queryFn: async () => {
-      const res = await fetch(`/api/infofi/positions?address=${address}`);
-      if (!res.ok) {
-        if (res.status === 404) return [];
-        throw new Error(`Failed to fetch positions (${res.status})`);
+      const out = [];
+      for (const s of seasons) {
+        const seasonId = s.id;
+        // eslint-disable-next-line no-await-in-loop
+        const markets = await listSeasonWinnerMarkets({ seasonId, networkKey: netKey });
+        for (const m of markets) {
+          // eslint-disable-next-line no-await-in-loop
+          const yes = await readBet({ marketId: m.id, account: address, prediction: true, networkKey: netKey });
+          // eslint-disable-next-line no-await-in-loop
+          const no = await readBet({ marketId: m.id, account: address, prediction: false, networkKey: netKey });
+          const yesAmt = yes?.amount ?? 0n;
+          const noAmt = no?.amount ?? 0n;
+          if (yesAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'YES', amount: formatUnits(yesAmt, 18) + ' SOF', player: m.player });
+          if (noAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'NO', amount: formatUnits(noAmt, 18) + ' SOF', player: m.player });
+        }
       }
-      const json = await res.json();
-      return Array.isArray(json) ? json : (json?.positions || []);
+      return out;
     },
-    staleTime: 10_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
   });
 
   return (
     <Card className="mb-4">
       <CardHeader>
         <CardTitle>Prediction Market Positions</CardTitle>
-        <CardDescription>Open positions for this user.</CardDescription>
+        <CardDescription>Open positions across InfoFi markets.</CardDescription>
       </CardHeader>
       <CardContent>
         {positionsQuery.isLoading && <p className="text-muted-foreground">Loading positions...</p>}
-        {positionsQuery.error && <p className="text-muted-foreground">Prediction markets backend not available yet.</p>}
+        {positionsQuery.error && (
+          <p className="text-red-500">Error loading positions: {String(positionsQuery.error?.message || positionsQuery.error)}</p>
+        )}
         {!positionsQuery.isLoading && !positionsQuery.error && (
           <div className="space-y-2">
             {(positionsQuery.data || []).length === 0 && (
               <p className="text-muted-foreground">No open positions found.</p>
             )}
-            {(positionsQuery.data || []).map((pos) => (
-              <div key={`${pos.marketId}-${pos.id || pos.txHash || Math.random()}`} className="border rounded p-2 text-sm">
+            {(positionsQuery.data || []).map((p) => (
+              <div key={`${p.seasonId}-${p.marketId}-${p.outcome}`} className="border rounded p-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="font-medium">{pos.marketType || 'Market'}</span>
-                  <span className="text-xs text-muted-foreground">{pos.marketId}</span>
+                  <span className="font-medium">{p.marketType || 'Market'}</span>
+                  <span className="text-xs text-muted-foreground">S#{p.seasonId} • ID: {p.marketId}</span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Outcome: {pos.outcome || '—'} • Amount: {pos.amount || '—'}
-                </div>
+                <div className="text-xs text-muted-foreground">Outcome: {p.outcome || '—'} • Amount: {p.amount || '—'} {p.player ? `• Player: ${p.player}` : ''}</div>
               </div>
             ))}
           </div>

@@ -12,8 +12,10 @@ import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
+import PositionsPanel from '@/components/infofi/PositionsPanel';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
+// onchainInfoFi is now used by the shared PositionsPanel component
 
 const AccountPage = () => {
   const { address, isConnected } = useAccount();
@@ -187,7 +189,7 @@ const AccountPage = () => {
         </CardContent>
       </Card>
       {/* Prediction Market Positions */}
-      <PredictionPositionsCard address={address} isConnected={isConnected} />
+      <PositionsPanel address={address} seasons={(allSeasonsQuery.data || [])} />
     </div>
   );
 };
@@ -301,66 +303,6 @@ const RaffleEntryRow = ({ row, address, client }) => {
 
 export default AccountPage;
 
-// Subcomponent: Prediction market positions (placeholder wiring)
-const PredictionPositionsCard = ({ address, isConnected }) => {
-  const positionsQuery = useQuery({
-    queryKey: ['infofiPositions', address],
-    enabled: isConnected && !!address,
-    queryFn: async () => {
-      const res = await fetch(`/api/infofi/positions?address=${address}`);
-      if (!res.ok) {
-        // Gracefully surface as empty when backend not ready
-        if (res.status === 404) return [];
-        throw new Error(`Failed to fetch positions (${res.status})`);
-      }
-      const json = await res.json();
-      // Normalize shape to array for UI
-      return Array.isArray(json) ? json : (json?.positions || []);
-    },
-    staleTime: 10_000,
-  });
-
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle>Prediction Market Positions</CardTitle>
-        <CardDescription>Open positions across InfoFi markets.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {!isConnected && <p>Please connect your wallet to view positions.</p>}
-        {isConnected && (
-          <div className="space-y-2">
-            {positionsQuery.isLoading && (
-              <p className="text-muted-foreground">Loading positions...</p>
-            )}
-            {positionsQuery.error && (
-              <p className="text-muted-foreground">Prediction markets backend not available yet.</p>
-            )}
-            {!positionsQuery.isLoading && !positionsQuery.error && (
-              <div className="space-y-2">
-                {(positionsQuery.data || []).length === 0 && (
-                  <p className="text-muted-foreground">No open positions found.</p>
-                )}
-                {(positionsQuery.data || []).map((pos) => (
-                  <div key={`${pos.marketId}-${pos.id || pos.txHash || Math.random()}`} className="border rounded p-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{pos.marketType || 'Market'}</span>
-                      <span className="text-xs text-muted-foreground">{pos.marketId}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Outcome: {pos.outcome || '—'} • Amount: {pos.amount || '—'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
 // PropTypes appended at end of file to satisfy ESLint prop validation
 RaffleEntryRow.propTypes = {
   row: PropTypes.shape({
@@ -375,9 +317,4 @@ RaffleEntryRow.propTypes = {
   client: PropTypes.shape({
     getLogs: PropTypes.func,
   }),
-};
-
-PredictionPositionsCard.propTypes = {
-  address: PropTypes.string,
-  isConnected: PropTypes.bool,
 };

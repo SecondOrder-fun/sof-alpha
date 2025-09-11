@@ -66,5 +66,33 @@ export function useOraclePriceLive(marketId, networkKey = 'LOCAL') {
     return () => { setLive(false); unsub?.() }
   }, [id, networkKey])
 
+  // Polling fallback (refresh every 5s) — useful if WS is unavailable or roles aren't wired yet
+  useEffect(() => {
+    if (!id) return () => {}
+    let cancelled = false
+    const interval = setInterval(async () => {
+      try {
+        const p = await readOraclePrice({ marketId: id, networkKey })
+        if (cancelled) return
+        // Only update if values actually changed to avoid flicker
+        const changed = (
+          Number(p.hybridPriceBps) !== Number(state.hybridPriceBps) ||
+          Number(p.raffleProbabilityBps) !== Number(state.raffleProbabilityBps) ||
+          Number(p.marketSentimentBps) !== Number(state.marketSentimentBps)
+        )
+        if (changed) {
+          setState({
+            hybridPriceBps: p.hybridPriceBps,
+            raffleProbabilityBps: p.raffleProbabilityBps,
+            marketSentimentBps: p.marketSentimentBps,
+            lastUpdated: Number(p.lastUpdate || Date.now()),
+            active: Boolean(p.active),
+          })
+        }
+      } catch (_) { /* ignore polling errors */ }
+    }, 5000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [id, networkKey, state.hybridPriceBps, state.raffleProbabilityBps, state.marketSentimentBps])
+
   return { data: state, isLive: live }
 }

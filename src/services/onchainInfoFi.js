@@ -23,6 +23,65 @@ function buildClients(networkKey) {
   return { publicClient, wsClient };
 }
 
+// Enumerate all markets directly from the InfoFiMarket contract as a fallback when
+// factory events or season player lists are unavailable.
+export async function enumerateAllMarkets({ networkKey = 'LOCAL' }) {
+  const { publicClient } = buildClients(networkKey);
+  const { market } = getContracts(networkKey);
+  if (!market.address) throw new Error('INFOFI_MARKET address missing');
+  // Minimal ABI for nextMarketId and getMarket
+  const abiMini = [
+    { type: 'function', name: 'nextMarketId', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+    { type: 'function', name: 'getMarket', stateMutability: 'view', inputs: [{ name: 'marketId', type: 'uint256' }], outputs: [{
+      name: '', type: 'tuple', components: [
+        { name: 'id', type: 'uint256' },
+        { name: 'raffleId', type: 'uint256' },
+        { name: 'question', type: 'string' },
+        { name: 'createdAt', type: 'uint256' },
+        { name: 'resolvedAt', type: 'uint256' },
+        { name: 'locked', type: 'bool' },
+        { name: 'totalYesPool', type: 'uint256' },
+        { name: 'totalNoPool', type: 'uint256' },
+      ]
+    }] }
+  ];
+  const nextId = await publicClient.readContract({ address: market.address, abi: abiMini, functionName: 'nextMarketId', args: [] });
+  const count = typeof nextId === 'bigint' ? Number(nextId) : Number(nextId || 0);
+  const out = [];
+  for (let i = 0; i < count; i += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const info = await publicClient.readContract({ address: market.address, abi: abiMini, functionName: 'getMarket', args: [BigInt(i)] });
+      const raffleId = Number(info?.raffleId ?? (Array.isArray(info) ? info[1] : 0));
+      out.push({ id: String(i), seasonId: raffleId, raffle_id: raffleId });
+    } catch (_) { /* skip */ }
+  }
+  return out;
+}
+
+// Helpers to normalize marketId into both candidate shapes
+function toUint256Id(marketId) {
+  try {
+    if (typeof marketId === 'bigint') return marketId;
+    if (typeof marketId === 'number') return BigInt(marketId);
+    if (typeof marketId === 'string') {
+      if (marketId.startsWith('0x')) return BigInt(marketId); // allow hex -> bigint
+      return BigInt(marketId);
+    }
+  } catch (_) { /* fallthrough */ }
+  return 0n;
+}
+
+function toBytes32Id(marketId) {
+  try {
+    if (typeof marketId === 'string' && marketId.startsWith('0x') && marketId.length === 66) return marketId;
+    const bn = toUint256Id(marketId);
+    return `0x${bn.toString(16).padStart(64, '0')}`;
+  } catch (_) {
+    return '0x'.padEnd(66, '0');
+  }
+}
+
 function getContracts(networkKey) {
   const addrs = getContractAddresses(networkKey);
   return {
@@ -114,16 +173,56 @@ export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
   const { publicClient } = buildClients(networkKey);
   const { oracle } = getContracts(networkKey);
   if (!oracle.address) throw new Error('INFOFI_ORACLE address missing');
-  // marketId must be 0x-prefixed 32-byte value
-  const id = typeof marketId === 'string' ? marketId : `0x${marketId.toString(16).padStart(64, '0')}`;
-  const price = await publicClient.readContract({
-    address: oracle.address,
-    abi: oracle.abi,
-    functionName: 'getPrice',
-    args: [id],
-  });
-  // Returns struct PriceData { raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active }
-  return price;
+  // Try both id shapes
+  const idB32 = toBytes32Id(marketId);
+  const idU256 = toUint256Id(marketId);
+  // Try primary getter first
+  try {
+    const price = await publicClient.readContract({
+      address: oracle.address,
+      abi: oracle.abi,
+      functionName: 'getPrice',
+      args: [idB32],
+    });
+    // Expect struct PriceData { raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active }
+    return price;
+  } catch (_) {
+    // Fallback: some oracles expose only getMarketPrice(bytes32) returning hybrid price
+    try {
+      const hybrid = await publicClient.readContract({
+        address: oracle.address,
+        abi: oracle.abi,
+        functionName: 'getMarketPrice',
+        args: [idB32],
+      });
+      return {
+        raffleProbabilityBps: null,
+        marketSentimentBps: null,
+        hybridPriceBps: Number(hybrid),
+        lastUpdate: 0,
+        active: true,
+      };
+    } catch (e2) {
+      // Last try: some implementations might index by uint256
+      try {
+        const price = await publicClient.readContract({
+          address: oracle.address,
+          abi: oracle.abi,
+          functionName: 'getPriceU256', // optional alternative
+          args: [idU256],
+        });
+        return price;
+      } catch (_) { /* no-op */ }
+      // Last resort: return an inactive struct
+      return {
+        raffleProbabilityBps: null,
+        marketSentimentBps: null,
+        hybridPriceBps: null,
+        lastUpdate: 0,
+        active: false,
+      };
+    }
+  }
 }
 
 // Oracle: subscribe to PriceUpdated
@@ -155,26 +254,65 @@ export function computeWinnerMarketId({ seasonId, player }) {
 
 // Enumerate season winner markets purely from chain
 export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }) {
+  // Prefer real market ids from MarketCreated events (uint256), fallback to synthetic if needed
+  const byEvents = await listSeasonWinnerMarketsByEvents({ seasonId, networkKey });
+  if (byEvents.length > 0) return byEvents;
+  // Fallback: derive from players (synthetic bytes32 ids)
   const players = await getSeasonPlayersOnchain({ seasonId, networkKey });
-  const list = [];
-  for (const p of players) {
-    let created = false;
-    try {
-      created = await hasWinnerMarketOnchain({ seasonId, player: p, networkKey });
-    } catch (_) {
-      created = false;
-    }
-    if (created) {
-      list.push({
-        id: computeWinnerMarketId({ seasonId, player: p }),
-        seasonId: Number(seasonId),
-        raffle_id: Number(seasonId),
-        player: getAddress(p),
-        market_type: 'WINNER_PREDICTION',
-      });
-    }
+  return players.map((p) => ({
+    id: computeWinnerMarketId({ seasonId, player: p }),
+    seasonId: Number(seasonId),
+    raffle_id: Number(seasonId),
+    player: getAddress(p),
+    market_type: 'WINNER_PREDICTION',
+  }));
+}
+
+// Retrieve winner markets via factory events (real uint256 ids)
+export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = 'LOCAL' }) {
+  const { publicClient } = buildClients(networkKey);
+  const { factory } = getContracts(networkKey);
+  if (!factory.address) throw new Error('INFOFI_FACTORY address missing');
+
+  // Build a filter for MarketCreated events; rely on ABI signature
+  const logs = await publicClient.getLogs({
+    address: factory.address,
+    event: {
+      // Minimal ABI fragment for MarketCreated(seasonId,uint256 or bytes32 marketId,address player,string marketType,...)
+      // Use the compiled ABI instead to ensure correct types
+      name: 'MarketCreated',
+      type: 'event',
+      inputs: InfoFiMarketFactoryABI.find((e) => e.type === 'event' && e.name === 'MarketCreated').inputs,
+    },
+    fromBlock: 'earliest',
+    // toBlock: 'latest' (default)
+  });
+
+  const out = [];
+  for (const log of logs) {
+    const args = log.args || {};
+    // Some ABIs name it `seasonId`; guard both cases
+    const sid = Number(args.seasonId ?? args._seasonId ?? 0);
+    if (sid !== Number(seasonId)) continue;
+    // Market type filter (we only list winner prediction here)
+    const mtype = String(args.marketType || args._marketType || 'WINNER_PREDICTION');
+    if (mtype !== 'WINNER_PREDICTION') continue;
+    const player = args.player || args._player || '0x0000000000000000000000000000000000000000';
+    const marketId = args.marketId ?? args._marketId;
+    // Normalize id to a plain decimal string when bigint, otherwise hex string
+    let idNorm;
+    if (typeof marketId === 'bigint') idNorm = marketId.toString();
+    else if (typeof marketId === 'string') idNorm = marketId;
+    else idNorm = String(marketId);
+    out.push({
+      id: idNorm,
+      seasonId: sid,
+      raffle_id: sid,
+      player: getAddress(player),
+      market_type: 'WINNER_PREDICTION',
+    });
   }
-  return list;
+  return out;
 }
 
 // Read a user's bet position for a given marketId and side
@@ -182,13 +320,135 @@ export async function readBet({ marketId, account, prediction, networkKey = 'LOC
   const { publicClient } = buildClients(networkKey);
   const { market } = getContracts(networkKey);
   if (!market.address) throw new Error('INFOFI_MARKET address missing');
-  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
-  return publicClient.readContract({
-    address: market.address,
-    abi: market.abi,
-    functionName: 'bets',
-    args: [mid, getAddress(account), Boolean(prediction)],
-  });
+  const idB32 = toBytes32Id(marketId);
+  const idU256 = toUint256Id(marketId);
+  // Minimal ABI exactly matching cast: bets(uint256,address,bool) -> (bool exists, uint256 amount, ...)
+  const BetsMiniAbiU256 = [
+    {
+      type: 'function',
+      name: 'bets',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'marketId', type: 'uint256', internalType: 'uint256' },
+        { name: 'user', type: 'address', internalType: 'address' },
+        { name: 'isYes', type: 'bool', internalType: 'bool' }
+      ],
+      outputs: [
+        { name: 'exists', type: 'bool', internalType: 'bool' },
+        { name: 'amount', type: 'uint256', internalType: 'uint256' }
+      ]
+    }
+  ];
+  const BetsMiniAbiB32 = [
+    {
+      type: 'function',
+      name: 'bets',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'marketId', type: 'bytes32', internalType: 'bytes32' },
+        { name: 'user', type: 'address', internalType: 'address' },
+        { name: 'isYes', type: 'bool', internalType: 'bool' }
+      ],
+      outputs: [
+        { name: 'exists', type: 'bool', internalType: 'bool' },
+        { name: 'amount', type: 'uint256', internalType: 'uint256' }
+      ]
+    }
+  ];
+  // Primary mapping name
+  try {
+    const out = await publicClient.readContract({ address: market.address, abi: BetsMiniAbiU256, functionName: 'bets', args: [idU256, getAddress(account), Boolean(prediction)] });
+    // Normalize return
+    if (typeof out === 'bigint') return { amount: out };
+    if (out && typeof out === 'object') {
+      if (typeof out.amount === 'bigint') return { amount: out.amount };
+      if (Array.isArray(out)) {
+        // Shapes:
+        // [exists(bool), amount(uint256)] OR [exists(0/1 bigint), amount(uint256)]
+        const a0 = out[0];
+        const a1 = out[1];
+        if (typeof a0 === 'boolean' && typeof a1 === 'bigint') return { amount: a1 };
+        if (typeof a0 === 'bigint' && (a0 === 0n || a0 === 1n) && typeof a1 === 'bigint') return { amount: a1 };
+        if (typeof out[0] === 'bigint') return { amount: out[0] };
+      }
+      if (typeof out['0'] === 'boolean' && typeof out['1'] === 'bigint') return { amount: out['1'] };
+      if (typeof out['0'] === 'bigint' && typeof out['1'] === 'bigint' && (out['0'] === 0n || out['0'] === 1n)) return { amount: out['1'] };
+      if (typeof out['0'] === 'bigint') return { amount: out['0'] };
+    }
+    return { amount: 0n };
+  } catch (_) {
+    // Fallback mapping name variants
+    const altNames = ['positions', 'userBets'];
+    for (const fn of altNames) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: fn, args: [idU256, getAddress(account), Boolean(prediction)] });
+        if (typeof res === 'bigint') return { amount: res };
+        if (res && typeof res === 'object') {
+          if (typeof res.amount === 'bigint') return { amount: res.amount };
+          if (Array.isArray(res)) {
+            const a0 = res[0];
+            const a1 = res[1];
+            if (typeof a0 === 'boolean' && typeof a1 === 'bigint') return { amount: a1 };
+            if (typeof a0 === 'bigint' && (a0 === 0n || a0 === 1n) && typeof a1 === 'bigint') return { amount: a1 };
+            if (typeof res[0] === 'bigint') return { amount: res[0] };
+          }
+          if (typeof res['0'] === 'boolean' && typeof res['1'] === 'bigint') return { amount: res['1'] };
+          if (typeof res['0'] === 'bigint' && typeof res['1'] === 'bigint' && (res['0'] === 0n || res['0'] === 1n)) return { amount: res['1'] };
+          if (typeof res['0'] === 'bigint') return { amount: res['0'] };
+        }
+        return { amount: 0n };
+      } catch (_) { /* try next */ }
+    }
+    // Try bytes32 id variants
+    try {
+      const res = await publicClient.readContract({ address: market.address, abi: BetsMiniAbiB32, functionName: 'bets', args: [idB32, getAddress(account), Boolean(prediction)] });
+      if (typeof res === 'bigint') return { amount: res };
+      if (res && typeof res === 'object') {
+        if (typeof res.amount === 'bigint') return { amount: res.amount };
+        if (Array.isArray(res)) {
+          const a0 = res[0];
+          const a1 = res[1];
+          if (typeof a0 === 'boolean' && typeof a1 === 'bigint') return { amount: a1 };
+          if (typeof a0 === 'bigint' && (a0 === 0n || a0 === 1n) && typeof a1 === 'bigint') return { amount: a1 };
+          if (typeof res[0] === 'bigint') return { amount: res[0] };
+        }
+        if (typeof res['0'] === 'boolean' && typeof res['1'] === 'bigint') return { amount: res['1'] };
+        if (typeof res['0'] === 'bigint' && typeof res['1'] === 'bigint' && (res['0'] === 0n || res['0'] === 1n)) return { amount: res['1'] };
+        if (typeof res['0'] === 'bigint') return { amount: res['0'] };
+      }
+      return { amount: 0n };
+    } catch (_) {
+      for (const fn of ['positions', 'userBets']) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await publicClient.readContract({
+            address: market.address,
+            abi: market.abi,
+            functionName: fn,
+            args: [idB32, getAddress(account), Boolean(prediction)],
+          });
+          if (typeof res === 'bigint') return { amount: res };
+          if (res && typeof res === 'object') {
+            if (typeof res.amount === 'bigint') return { amount: res.amount };
+            if (Array.isArray(res)) {
+              const a0 = res[0];
+              const a1 = res[1];
+              if (typeof a0 === 'boolean' && typeof a1 === 'bigint') return { amount: a1 };
+              if (typeof a0 === 'bigint' && (a0 === 0n || a0 === 1n) && typeof a1 === 'bigint') return { amount: a1 };
+              if (typeof res[0] === 'bigint') return { amount: res[0] };
+            }
+            if (typeof res['0'] === 'boolean' && typeof res['1'] === 'bigint') return { amount: res['1'] };
+            if (typeof res['0'] === 'bigint' && typeof res['1'] === 'bigint' && (res['0'] === 0n || res['0'] === 1n)) return { amount: res['1'] };
+            if (typeof res['0'] === 'bigint') return { amount: res['0'] };
+          }
+          return { amount: 0n };
+        } catch (_) { /* try next */ }
+      }
+    }
+    // If unreadable, return zero amount shape compatible with UI
+    return { amount: 0n };
+  }
 }
 
 // Place a bet (buy position). Amount is SOF (18 decimals) as human string/number.
@@ -213,23 +473,49 @@ export async function placeBetTx({ marketId, prediction, amount, networkKey = 'L
     args: [from, market.address],
   });
   if ((allowance ?? 0n) < parsed) {
-    await walletClient.writeContract({
+    const approveHash = await walletClient.writeContract({
       address: sof.address,
       abi: sof.abi.abi,
       functionName: 'approve',
       args: [market.address, parsed],
       account: from,
     });
+    // Wait for approval to be mined to avoid race with transferFrom in placeBet
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
   }
 
-  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
-  return walletClient.writeContract({
-    address: market.address,
-    abi: market.abi,
-    functionName: 'placeBet',
-    args: [mid, Boolean(prediction), parsed],
-    account: from,
-  });
+  const idU256 = toUint256Id(marketId);
+  const idB32 = toBytes32Id(marketId);
+
+  // Candidate arg sets to try via simulation in order
+  const candidates = [
+    [idU256, Boolean(prediction), parsed],
+    [idB32,  Boolean(prediction), parsed],
+  ];
+
+  // Also try last created id (nextMarketId - 1) as a rescue if above fail and marketId looks like bytes32 hash
+  try {
+    const nextId = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'nextMarketId' });
+    const lastId = (typeof nextId === 'bigint' && nextId > 0n) ? (nextId - 1n) : 0n;
+    candidates.push([lastId, Boolean(prediction), parsed]);
+  } catch (_) { /* optional view; ignore if missing */ }
+
+  // Simulate each candidate and execute the first that succeeds
+  for (const args of candidates) {
+    try {
+      const sim = await publicClient.simulateContract({
+        address: market.address,
+        abi: market.abi,
+        functionName: 'placeBet',
+        args,
+        account: from,
+      });
+      const txHash = await walletClient.writeContract(sim.request);
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      return txHash;
+    } catch (_) { /* try next candidate */ }
+  }
+  throw new Error('placeBet simulation failed for all marketId candidates');
 }
 
 // Claim payout for a market. If prediction is provided, use the two-arg overload.
@@ -237,13 +523,31 @@ export async function claimPayoutTx({ marketId, prediction, networkKey = 'LOCAL'
   if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
   const chain = getNetworkByKey(networkKey);
   const walletClient = createWalletClient({ chain: { id: chain.id }, transport: custom(window.ethereum) });
+  const publicClient = createPublicClient({ chain: { id: chain.id }, transport: http(chain.rpcUrl) });
   const [from] = await walletClient.getAddresses();
   if (!from) throw new Error('Connect wallet first');
   const { market } = getContracts(networkKey);
   if (!market.address) throw new Error('INFOFI_MARKET address missing');
-  const mid = typeof marketId === 'string' && marketId.startsWith('0x') ? BigInt(marketId) : BigInt(marketId);
+  const idU256 = toUint256Id(marketId);
+  const idB32 = toBytes32Id(marketId);
   if (typeof prediction === 'boolean') {
-    return walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [mid, prediction], account: from });
+    try {
+      const h = await walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [idU256, prediction], account: from });
+      await publicClient.waitForTransactionReceipt({ hash: h });
+      return h;
+    } catch (_) {
+      const h2 = await walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [idB32, prediction], account: from });
+      await publicClient.waitForTransactionReceipt({ hash: h2 });
+      return h2;
+    }
   }
-  return walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [mid], account: from });
+  try {
+    const h = await walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [idU256], account: from });
+    await publicClient.waitForTransactionReceipt({ hash: h });
+    return h;
+  } catch (_) {
+    const h2 = await walletClient.writeContract({ address: market.address, abi: market.abi, functionName: 'claimPayout', args: [idB32], account: from });
+    await publicClient.waitForTransactionReceipt({ hash: h2 });
+    return h2;
+  }
 }

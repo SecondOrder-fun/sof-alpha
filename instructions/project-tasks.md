@@ -520,7 +520,136 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
 
 ### Note
 
+## InfoFi Markets UI Plan (Polymarket‑inspired) — 2025-09-10
+
+This plan adapts proven UX patterns from Polymarket to SecondOrder.fun’s InfoFi layer. It focuses on clear price communication (probability as percent), low‑friction discovery, and fast trade placement with real‑time updates.
+
+### Phase 1 — Markets Index (MVP)
+Goals: Discoverability, fast scan, basic trade entry (redirect to detail)
+
+- [ ] Markets Index Page `src/routes/MarketsIndex.jsx`
+  - [ ] Sections: Trending, New, Ending Soon
+  - [ ] Filters: Category (Politics/Tech/Sports/Charity), Time (ending window), Liquidity (min volume), Resolution state
+  - [ ] Sort: Popularity (24h volume), Highest change (24h), Ending soonest
+  - [ ] Search: fuzzy string across title/description
+  - [ ] Responsive grid (1–4 columns)
+  - [ ] Empty/error/loading states
+- [ ] `InfoFiMarketCard.jsx` (list item)
+  - [ ] Title + short description
+  - [ ] Implied probability (YES) as percent, small delta chip (+/– 24h)
+  - [ ] Secondary: volume (24h/total), liquidity badge, time left (tooltip with timestamp)
+  - [ ] Quick action: View button (no inline trading in MVP)
+  - [ ] Visual trend sparkline (last 24h hybrid price)
+- [ ] Data Sources
+  - [ ] Read on‑chain via `useOnchainInfoFiMarkets(seasonId)` for list + metadata
+  - [ ] Prices via `useOraclePriceLive(marketId)` with SSE/WS fallback if unavailable
+  - [ ] Volume/liquidity (Phase 1): derive from on‑chain events (approx) or placeholder until backend analytics endpoint ready
+- [ ] Acceptance Criteria
+  - [ ] Index renders ≥50 markets in <300ms after data arrives; scroll ~60fps
+  - [ ] Filters and search combine and update without full reload
+  - [ ] Each card shows percent, delta, volume, and time left with accessible labels
+
+### Phase 2 — Market Detail (YES/NO) + Positions (Portfolio)
+Goals: Polymarket‑style clarity; fast trade placement; positions visibility
+
+- [ ] Route `src/routes/MarketDetail.jsx`
+  - [ ] Header: Title, Category, Resolver (entity), End time, Rules link
+  - [ ] Price Panel: Current YES probability %, 24h change, 7d chart (hybrid)
+  - [ ] Depth/Order Book (Optional for MVP‑2): YES/NO ladders (top 5 bids/asks)
+  - [ ] Trade Box
+    - [ ] Tabs: Buy YES / Buy NO
+    - [ ] Input: Stake (ETH/SOF per token spec), shows est. shares and avg price
+    - [ ] Buttons: Review → Confirm; slippage menu; disable on invalid
+    - [ ] Status toasts (pending/success/error) with tx hash + explorer link
+  - [ ] Info: Liquidity, 24h/total volume, Open Interest (if available)
+  - [ ] Rules/Resolution summary component
+- [ ] Portfolio Sidebar or Page `src/routes/Portfolio.jsx`
+  - [ ] Open positions table: Market, Side, Size, Avg Price, Est. PnL
+  - [ ] Closed positions (history) – later
+  - [ ] Claimables: list settled markets with claim CTA
+- [ ] Data Sources
+  - [ ] Prices via `InfoFiPriceOracle` (on‑chain) and local SSE cache
+  - [ ] Orders/Depth (if implemented) via backend snapshot or on‑chain AMM state
+  - [ ] Positions via on‑chain reads or backend index (phase 2 decision)
+- [ ] Acceptance Criteria
+  - [ ] One‑click switch YES/NO; input validation and slippage applied
+  - [ ] Chart updates live; price + delta accurate to oracle events
+  - [ ] Portfolio shows new position <5s after trade confirmation
+
+### Phase 3 — Advanced Trading (Order Book) & Categories
+Goals: Power‑user features approximating Polymarket depth and discovery polish
+
+- [ ] Order Book
+  - [ ] Toggle depth view (YES/NO top 10)
+  - [ ] Limit orders UI; cancel/replace; partial fill indicators
+  - [ ] Last trades feed (time & size)
+- [ ] Discovery Enhancements
+  - [ ] Category landing pages with curated groups and metrics
+  - [ ] Movers & News: top gainers/losers; large trades in last hour
+  - [ ] Infinite scroll + virtualized grid for performance
+- [ ] Social/Explainability
+  - [ ] Market rules section with sources and neutral phrasing (credibly neutral)
+  - [ ] Shareable deep links; preview images
+  - [ ] Watchlist (local first)
+- [ ] Acceptance Criteria
+  - [ ] Order placement round‑trip <3s on Anvil/local; responsive up to 100 updates/min
+  - [ ] Grid maintains >55fps with 200+ markets
+
+### Cross‑cutting UX (All Phases)
+
+- [ ] Percent‑first pricing (YES implied probability) with small decimal precision; tooltips show underlying BPS
+- [ ] “Ends in …” time chips; hover shows ISO date
+- [ ] Keyboard navigation, aria labels, and focus ring on all primary controls
+- [ ] Mobile breakpoints:
+  - [ ] Index: 1‑column cards; condensed meta row under title
+  - [ ] Detail: stacked layout, trade box collapsible
+- [ ] Error handling: soft toasts for transient issues; sticky banners for degraded mode
+
+### Tech & Hooks
+
+- [ ] `useInfoFiMarkets(raffleId)` – list + refetch; integrates oracle for price
+- [ ] `useOraclePriceLive(marketId)` – WS → SSE → poll fallback
+- [ ] `useOrderBook(marketId)` – optional; returns top N bids/asks and recent trades
+- [ ] `usePortfolio(address)` – returns positions, claimables, PnL (phase 2)
+
+### Instrumentation
+
+- [ ] Analytics events: view_market, filter_change, trade_initiated, trade_submitted, trade_confirmed
+- [ ] Basic A/B hooks (copy/placement) – lightweight flags for wording and chip layout
+
+### Milestone Checklists
+
+- **MVP (Index)**
+  - [ ] MarketsIndex + MarketCard with live prices and filters
+  - [ ] Unit tests for filtering/sorting; render performance budget
+- **Detail + Portfolio**
+  - [ ] MarketDetail trade flow wired; Portfolio shows new positions
+  - [ ] Tests for trade box validation + chart live updates
+- **Advanced**
+  - [ ] Optional order book; virtualized grid; watchlist
+  - [ ] Tests for order rendering and event throughput
+
+### Dependencies / Open Questions
+
+- [ ] Confirm whether trading is AMM‑style or order‑book (affects Detail UI). Initial assumption: AMM/hybrid probability; we can simulate depth until order book is live.
+- [ ] Determine canonical marketId and season linkage for navigation
+- [ ] Finalize categories taxonomy and mapping from on‑chain metadata
+
+
 - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
+
+## InfoFi Markets TODOs (2025-09-10)
+
+- [x] MarketsIndex uses existing components only (no new components introduced)
+- [x] Group Active Markets by SOF plan types (`WINNER_PREDICTION`, `POSITION_SIZE`, `BEHAVIORAL`, Other)
+- [x] Keep on-chain season player tooling and winner-market creation form intact
+- [x] Remove generic Polymarket-style filters; align with SOF market types
+- [x] Add Vitest coverage for RaffleDetails position refresh, graph domain, Buy/Sell UI, toasts, ERC-20 fallback
+- [ ] Add counters per section (e.g., Winner Prediction (N))
+- [ ] Market Detail route scaffold with price panel + trade box (YES/NO) — gated behind a feature flag until oracle events verified
+- [ ] Portfolio (open positions) minimal route; list after a trade; link from MarketsIndex header
+- [ ] Optional: basic “Ending Soon” sort within each group using `endTime` if present
+- [ ] Documentation: update `frontend-guidelines.md` with MarketsIndex structure and InfoFi hooks usage
 
 ## InfoFi Trading (Onit-style) — Buy/Sell Plan (2025-08-21)
 
