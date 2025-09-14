@@ -74,10 +74,7 @@ contract EndToEndResolveAndClaim is Script {
             vm.startBroadcast(adminPk);
 
 
-            // Advance time to the season's end before requesting it
-            if (block.timestamp < cfg.endTime) {
-                vm.warp(cfg.endTime + 1);
-            }
+
 
             vm.recordLogs();
             raffle.requestSeasonEnd(seasonId);

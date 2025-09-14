@@ -16,7 +16,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { createPublicClient, http, keccak256, encodePacked, toBytes } from 'viem';
+import { createPublicClient, http, keccak256, encodePacked, toBytes, getAddress } from 'viem';
 
 // Minimal ABIs
 const RaffleAbi = [
@@ -111,8 +111,8 @@ function buildProof(layers, index) {
 
 async function main() {
   const RPC_URL = requireEnv('RPC_URL');
-  const RAFFLE_ADDRESS = requireEnv('RAFFLE_ADDRESS');
-  const PRIZE_DISTRIBUTOR_ADDRESS = requireEnv('PRIZE_DISTRIBUTOR_ADDRESS');
+  const RAFFLE_ADDRESS = getAddress(requireEnv('RAFFLE_ADDRESS'));
+  const PRIZE_DISTRIBUTOR_ADDRESS = getAddress(requireEnv('PRIZE_DISTRIBUTOR_ADDRESS'));
   const SEASON_ID = BigInt(requireEnv('SEASON_ID'));
 
   const client = buildClient(RPC_URL);

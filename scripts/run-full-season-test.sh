@@ -53,6 +53,8 @@ SEASON_ID=1 RAFFLE_ADDRESS=$RAFFLE_ADDRESS SOF_ADDRESS=$SOF_ADDRESS forge script
 cd ..
 
 # 7. End Season and Determine Winner
+echo "Advancing time by 14 days to end season..."
+curl -X POST --data '{"jsonrpc":"2.0","method":"anvil_mine","params":[1, 1209601],"id":1}' -H "Content-Type: application/json" http://127.0.0.1:8545 > /dev/null
 echo "Ending season and resolving winner..."
 cd contracts
 SEASON_ID=1 PRIVATE_KEY=$DEPLOYER_PK RAFFLE_ADDRESS=$RAFFLE_ADDRESS INFOFI_MARKET_ADDRESS=$INFOFI_MARKET_ADDRESS SOF_ADDRESS=$SOF_ADDRESS VRF_COORDINATOR_ADDRESS=$VRF_COORDINATOR_ADDRESS ACCOUNT1_PRIVATE_KEY=$ACCOUNT1_PRIVATE_KEY ACCOUNT2_PRIVATE_KEY=$ACCOUNT2_PRIVATE_KEY PRIZE_DISTRIBUTOR_ADDRESS=$PRIZE_DISTRIBUTOR_ADDRESS forge script script/EndToEndResolveAndClaim.s.sol --rpc-url http://127.0.0.1:8545 --private-key $DEPLOYER_PK --broadcast -vvvv

@@ -1,11 +1,12 @@
-const { createWalletClient, http, publicActions } = require('viem');
-const { privateKeyToAccount } = require('viem/accounts');
-const { anvil } = require('viem/chains');
-const fs = require('fs');
-const path = require('path');
+import { createWalletClient, http, publicActions, getAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { anvil } from 'viem/chains';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const raffleAbi = require('../src/contracts/abis/Raffle.json');
-const prizeDistributorAbi = require('../src/contracts/abis/RafflePrizeDistributor.json');
+import raffleAbi from '../src/contracts/abis/Raffle.json' assert { type: 'json' };
+import prizeDistributorAbi from '../src/contracts/abis/RafflePrizeDistributor.json' assert { type: 'json' };
 
 const ANVIL_RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
 const RAFFLE_ADDRESS = process.env.RAFFLE_ADDRESS;
@@ -48,7 +49,9 @@ async function main() {
     const grandWinner = winners[0];
     console.log(`Grand winner for Season ${SEASON_ID} is: ${grandWinner}`);
 
-    const merklePath = path.join(__dirname, `../public/merkle/season-${SEASON_ID}.json`);
+    const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const merklePath = path.join(__dirname, `../public/merkle/season-${SEASON_ID}.json`);
     const merkleData = JSON.parse(fs.readFileSync(merklePath, 'utf8'));
 
     for (const account of accounts) {

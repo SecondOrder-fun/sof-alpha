@@ -466,11 +466,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         }
 
         // Merkle root will be set later off-chain via setSeasonMerkleRoot
-        try IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool) {
-            // Funding successful
-        } catch {
-            // If funding fails, log the error but continue with the process
-        }
+        // Funding is now handled by a separate manual call to fundPrizeDistributor
 
         // Mark complete - this is the most important step to ensure the season can be completed
         cfg.isCompleted = true;
@@ -484,5 +480,12 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function setSeasonMerkleRoot(uint256 seasonId, bytes32 merkleRoot) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(prizeDistributor != address(0), "Raffle: distributor not set");
         IRafflePrizeDistributor(prizeDistributor).setMerkleRoot(seasonId, merkleRoot);
+    }
+
+    function fundPrizeDistributor(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(prizeDistributor != address(0), "Raffle: distributor not set");
+        SeasonState storage state = seasonStates[seasonId];
+        uint256 totalPrizePool = state.totalPrizePool;
+        IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool);
     }
 }
