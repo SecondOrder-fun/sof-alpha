@@ -57,27 +57,7 @@ contract EndToEndResolveAndClaim is Script {
         VRFCoordinatorV2Mock vrf = VRFCoordinatorV2Mock(vrfMockAddr);
 
         // Determine season id
-        uint256 seasonId;
-        if (vm.envOr("SEASON_ID", uint256(0)) != 0) {
-            seasonId = vm.envUint("SEASON_ID");
-        } else {
-            // Use latest season
-            // getSeasonDetails requires a season id; grab currentSeasonId via staticcall to known storage layout
-            // The Raffle exposes currentSeasonId as a public state via inherited storage? If not, infer from details loop.
-            // Safer: try descending from an upper bound; but we keep it simple and assume last = currentSeasonId via a small trick:
-            // We attempt to read increasing ids until status returns zero values. To avoid complexity, fallback to 1.
-            // Prefer: expose currentSeasonId in Raffle in future.
-            seasonId = 1;
-            // Best-effort: try seasonId 1..5 and pick the last valid
-            for (uint256 i = 1; i <= 5; i++) {
-                ( , RaffleStorage.SeasonStatus sstatus, , , ) = raffle.getSeasonDetails(i);
-                if (uint256(sstatus) != 0) {
-                    seasonId = i;
-                } else {
-                    break;
-                }
-            }
-        }
+        uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
 
         console2.log("[E2E-Resolve] Target season:", seasonId);
 
@@ -92,39 +72,18 @@ contract EndToEndResolveAndClaim is Script {
         // 1) If not completed, request season end (or emergency end) and fulfill VRF
         if (status != RaffleStorage.SeasonStatus.Completed) {
             vm.startBroadcast(adminPk);
-            // Best-effort: advance time to endTime if needed. This may be a no-op on some RPCs.
+
+
+            // Advance time to the season's end before requesting it
             if (block.timestamp < cfg.endTime) {
                 vm.warp(cfg.endTime + 1);
             }
 
             vm.recordLogs();
-            // Try normal end first; if it reverts (e.g., not ended), fall back to emergency end path
-            bool endRequested = false;
-            try raffle.requestSeasonEnd(seasonId) {
-                endRequested = true;
-            } catch {
-                // Grant EMERGENCY_ROLE to admin and try early end
-                bytes32 emergencyRole = raffle.EMERGENCY_ROLE();
-                raffle.grantRole(emergencyRole, vm.addr(adminPk));
-                raffle.requestSeasonEndEarly(seasonId);
-                endRequested = true;
-            }
+            raffle.requestSeasonEnd(seasonId);
 
             // Lock InfoFi markets for this raffle after we've successfully requested end
-            if (endRequested) {
-                // Use low-level calls to avoid reverting the entire script if lock fails in this environment.
-                (bool ok1, ) = address(infoFi).call(abi.encodeWithSignature("lockMarketsForRaffle(uint256)", seasonId));
-                if (!ok1) {
-                    (bool ok2, ) = address(infoFi).call(abi.encodeWithSignature("emergencyLockAll(uint256)", seasonId));
-                    if (!ok2) {
-                        console2.log("[E2E-Resolve] Market lock best-effort failed (continuing)");
-                    } else {
-                        console2.log("[E2E-Resolve] Markets locked via emergency fallback");
-                    }
-                } else {
-                    console2.log("[E2E-Resolve] Markets locked via index");
-                }
-            }
+            infoFi.lockMarketsForRaffle(seasonId);
             vm.stopBroadcast();
 
             // Parse logs to get requestId from SeasonEndRequested
@@ -152,7 +111,7 @@ contract EndToEndResolveAndClaim is Script {
 
         // 3) Resolve InfoFi market based on whether user1 is in winners (market created for user1 in prior script)
         vm.startBroadcast(adminPk);
-        uint256 marketId = infoFi.nextMarketId() - 1; // assumes we just created in prior script
+        uint256 marketId = 0; // The first market created for the user
         bool user1IsWinner = _isWinner(winners, user1);
         infoFi.resolveMarket(marketId, user1IsWinner);
         console2.log("[E2E-Resolve] Resolved market:", marketId, " outcome (user1 YES):", user1IsWinner);

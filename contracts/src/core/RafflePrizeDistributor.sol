@@ -72,7 +72,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         require(grandAmount > 0, "Distributor: grand 0");
         require(totalTicketsSnapshot > 0, "Distributor: snapshot 0");
         Season storage s = _seasons[seasonId];
-        require(!s.funded, "Distributor: funded"); // freeze after funding
+        // require(!s.funded, "Distributor: funded"); // Allow root to be set after funding // freeze after funding
 
         s.token = token;
         s.grandWinner = grandWinner;
@@ -95,7 +95,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
 
     function setMerkleRoot(uint256 seasonId, bytes32 merkleRoot) external override onlyRole(RAFFLE_ROLE) {
         Season storage s = _seasons[seasonId];
-        require(!s.funded, "Distributor: funded");
+        // require(!s.funded, "Distributor: funded"); // Allow setting root after funding
         s.merkleRoot = merkleRoot;
         emit MerkleRootUpdated(seasonId, merkleRoot);
     }

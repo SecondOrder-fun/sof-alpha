@@ -39,7 +39,7 @@ contract DeployScript is Script {
         console2.log("VRF Subscription created with ID:", subscriptionId);
         
         // Deploy SOF token with a 10,000,000 SOF premint to the deployer (18 decimals)
-        uint256 initialSupply = 10_000_000 ether; // 10,000,000 * 1e18
+        uint256 initialSupply = 100_000_000 ether; // 100,000,000 * 1e18
         SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, msg.sender);
         console2.log("SOF initial supply minted to deployer:", initialSupply);
 
@@ -64,9 +64,12 @@ contract DeployScript is Script {
         bytes32 raffleAdminRole = seasonFactory.RAFFLE_ADMIN_ROLE();
         seasonFactory.grantRole(raffleAdminRole, address(raffle));
 
-        // Grant the SEASON_CREATOR_ROLE on the Raffle contract to the SeasonFactory
+        // Grant the SEASON_CREATOR_ROLE on the Raffle contract to the SeasonFactory and the deployer
         bytes32 seasonCreatorRole = raffle.SEASON_CREATOR_ROLE();
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
+        raffle.grantRole(seasonCreatorRole, deployerAddr);
+
+
         
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
@@ -170,15 +173,7 @@ contract DeployScript is Script {
         }
 
         if (createSeason) {
-            // For local/dev testing, allow immediate start via FAST_START env (defaults true)
-            bool fastStart;
-            try vm.envBool("FAST_START") returns (bool v) {
-                fastStart = v;
-            } catch {
-                fastStart = true; // default to fast start when not set
-            }
-
-            uint256 startTs = fastStart ? block.timestamp - 1 hours : block.timestamp + 1 days;
+            uint256 startTs = block.timestamp + 1 days;
             uint256 endTs = startTs + 14 days;
 
             RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
@@ -195,10 +190,17 @@ contract DeployScript is Script {
                 isCompleted: false
             });
 
-            RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](3);
-            bondSteps[0] = RaffleTypes.BondStep({rangeTo: 1000, price: 10 ether});
-            bondSteps[1] = RaffleTypes.BondStep({rangeTo: 5000, price: 20 ether});
-            bondSteps[2] = RaffleTypes.BondStep({rangeTo: 10000, price: 30 ether});
+            RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](10);
+            bondSteps[0] = RaffleTypes.BondStep({rangeTo: 100_000, price: 0.1 ether});
+            bondSteps[1] = RaffleTypes.BondStep({rangeTo: 200_000, price: 0.2 ether});
+            bondSteps[2] = RaffleTypes.BondStep({rangeTo: 300_000, price: 0.3 ether});
+            bondSteps[3] = RaffleTypes.BondStep({rangeTo: 400_000, price: 0.4 ether});
+            bondSteps[4] = RaffleTypes.BondStep({rangeTo: 500_000, price: 0.5 ether});
+            bondSteps[5] = RaffleTypes.BondStep({rangeTo: 600_000, price: 0.6 ether});
+            bondSteps[6] = RaffleTypes.BondStep({rangeTo: 700_000, price: 0.7 ether});
+            bondSteps[7] = RaffleTypes.BondStep({rangeTo: 800_000, price: 0.8 ether});
+            bondSteps[8] = RaffleTypes.BondStep({rangeTo: 900_000, price: 0.9 ether});
+            bondSteps[9] = RaffleTypes.BondStep({rangeTo: 1_000_000, price: 1.0 ether});
 
             uint16 buyFeeBps = 10; // 0.1%
             uint16 sellFeeBps = 70; // 0.7%
