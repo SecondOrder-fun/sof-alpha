@@ -9,24 +9,19 @@ optimizer = true
 optimizer_runs = 10000
 bytecode_hash = "none"
 cbor_metadata = false
-remappings = [
-  'forge-std/=lib/forge-std/src/'
-  , 'openzeppelin-contracts/=lib/openzeppelin-contracts/'
-  , 'chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/'
-]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 [fmt]
 line_length = 120
 
-[rpc_endpoints]
-anvil = "http://127.0.0.1:8545"
-base = "https://mainnet.base.org"
-polygon = "https://polygon-rpc.com"
-arbitrum = "https://arb1.arbitrum.io/rpc"
-optimism = "https://mainnet.optimism.io"
-ethereum = "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
+# [rpc_endpoints]
+# anvil = "http://127.0.0.1:8545"
+# base = "https://mainnet.base.org"
+# polygon = "https://polygon-rpc.com"
+# arbitrum = "https://arb1.arbitrum.io/rpc"
+# optimism = "https://mainnet.optimism.io"
+# ethereum = "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 
 # [etherscan]
 # base = { key = "${ETHERSCAN_API_KEY}" }
