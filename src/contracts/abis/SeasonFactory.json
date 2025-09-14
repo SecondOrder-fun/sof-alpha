@@ -81,6 +81,11 @@
             "internalType": "uint16"
           },
           {
+            "name": "grandPrizeBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "raffleToken",
             "type": "address",
             "internalType": "address"

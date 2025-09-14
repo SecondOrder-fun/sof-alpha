@@ -92,6 +92,19 @@
   },
   {
     "type": "function",
+    "name": "completeSeasonManually",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createSeason",
     "inputs": [
       {
@@ -126,6 +139,11 @@
           },
           {
             "name": "consolationPercentage",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "grandPrizeBps",
             "type": "uint16",
             "internalType": "uint16"
           },
@@ -197,6 +215,19 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "defaultGrandPrizeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -361,6 +392,11 @@
             "internalType": "uint16"
           },
           {
+            "name": "grandPrizeBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "raffleToken",
             "type": "address",
             "internalType": "address"
@@ -491,6 +527,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "prizeDistributor",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -712,6 +761,11 @@
         "internalType": "uint16"
       },
       {
+        "name": "grandPrizeBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
         "name": "raffleToken",
         "type": "address",
         "internalType": "address"
@@ -733,6 +787,19 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setDefaultGrandPrizeBps",
+    "inputs": [
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -767,12 +834,56 @@
   },
   {
     "type": "function",
+    "name": "setPrizeDistributor",
+    "inputs": [
+      {
+        "name": "distributor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setSeasonFactory",
     "inputs": [
       {
         "name": "_seasonFactoryAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSeasonMerkleRoot",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "merkleRoot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setupPrizeDistributionManually",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1055,6 +1166,25 @@
   },
   {
     "type": "event",
+    "name": "PrizeDistributionFailed",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PrizeDistributionSetup",
     "inputs": [
       {
@@ -1143,6 +1273,19 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SeasonCompleted",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

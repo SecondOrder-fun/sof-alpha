@@ -11,6 +11,7 @@ import {RaffleTypes} from "../src/lib/RaffleTypes.sol";
 import {RaffleStorage} from "../src/core/RaffleStorage.sol";
 import {InfoFiMarket} from "../src/infofi/InfoFiMarket.sol";
 import {VRFCoordinatorV2Mock} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
+import {RafflePrizeDistributor} from "../src/core/RafflePrizeDistributor.sol";
 
 /**
  * End-to-end helper script to automate season end + market resolution + payout claiming:
@@ -176,6 +177,17 @@ contract EndToEndResolveAndClaim is Script {
             console2.log("[E2E-Resolve] User2 claimed. +SOF:", balAfter2 - balBefore2);
         } else {
             console2.log("[E2E-Resolve] No matching winning bet found to claim.");
+        }
+
+        // 5) Claim grand prize from the raffle
+        if (user1IsWinner) {
+            vm.startBroadcast(user1Pk);
+            RafflePrizeDistributor distributor = RafflePrizeDistributor(vm.envAddress("PRIZE_DISTRIBUTOR_ADDRESS"));
+            uint256 balBeforeGrand = sof.balanceOf(user1);
+            distributor.claimGrand(seasonId);
+            uint256 balAfterGrand = sof.balanceOf(user1);
+            vm.stopBroadcast();
+            console2.log("[E2E-Resolve] User1 claimed grand prize. +SOF:", balAfterGrand - balBeforeGrand);
         }
 
         console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, market resolved, payout claimed.");

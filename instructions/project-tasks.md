@@ -34,6 +34,21 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 No changes to open Known Issues at this time.
 
+## Latest Progress (2025-09-11)
+
+- [x] Consolidated InfoFi positions UI across routes
+  - Created shared `PositionsPanel` component at `src/components/infofi/PositionsPanel.jsx` used by both `AccountPage` and `UserProfile` to eliminate route divergence.
+  - Implemented robust discovery fallback: factory events → enumerate all markets → `readBet()` for YES/NO, mirroring debug logic.
+  - Grouped positions by season with per-season SOF subtotals; auto-refresh every 5s.
+  - Temporarily display a discovery debug box for verification; scheduled for removal after sign-off.
+
+- [x] InfoFi Market UI parity fixes
+  - Market card now reads bets with exact `bets(uint256,address,bool)` ABI and displays live on-chain total volume via `getMarket()`.
+  - Removed duplicate volume lines and cleaned up MID display in market cards.
+
+- [x] Widgets: Tx status toasts
+  - Buy/Sell flows already show transaction toasts; marking the Widgets task as complete.
+
 ### InfoFi Trading – Next Tasks (On-chain shift)
 
 - Next Objectives (2025-08-27):
@@ -136,7 +151,7 @@ All frontend development setup tasks have been completed:
 ### Frontend Features
 
 - [ ] Build raffle display components (season list, ticket positions, odds)
-- [ ] Build InfoFi market components with real-time updates
+- [x] Build InfoFi market components with real-time updates
 - [ ] Implement arbitrage opportunity display
 - [ ] Create cross-layer strategy panel
 - [ ] Add settlement status tracking
@@ -243,7 +258,7 @@ Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdr
   - [x] Implement `AccountPage` to show user's tickets, past participation, winnings
   - [x] Header: `NetworkToggle`, wallet connect, current chain indicator
   - [x] Header: add "Prediction Markets" nav entry linking to markets index (`/markets`)
-  - [ ] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
+  - [x] Widgets: `SeasonTimer`, `OddsBadge`, `TxStatusToast`
 
 #### RafflePositionTracker Integration (Frontend)
 
@@ -520,12 +535,93 @@ Given `onit-markets` is an SDK for Onit's hosted API (no public ABIs for local d
 
 ### Note
 
-## InfoFi Markets UI Plan (Polymarket‑inspired) — 2025-09-10
+## InfoFi Markets UI Plan (Polymarket‑inspired) — 2025-09---
+
+## Prize Distribution Plan (2025-09-12)
+
+This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `MerkleDistributorV2`) for raffle prize claiming, while keeping InfoFi claims as-is (InfoFiMarket already implements `claimPayout`).
+
+### Design Summary
+
+- __Grand Prize Split__
+  - Add `grandPrizeBps` to `RaffleTypes.SeasonConfig` (default MVP 6500 = 65%).
+  - On season finalization, compute:
+    - `grand = totalPrizePool * grandPrizeBps / 10000`
+    - `consolation = totalPrizePool - grand`
+  - Select grand winner as `winners[0]` (MVP single grand winner) and record `grandWinnerTickets` (optional, but we WILL use it for correct denominator logic).
+
+- __RafflePrizeDistributor (new)__
+  - Holds SOF prize funds and manages claims.
+  - Two claim paths:
+    - Grand winner: single allocation (`claimGrand(seasonId)`).
+    - Consolation: Merkle-based whitelist per season for all other participants (`claimConsolation(seasonId, index, account, amount, proof)`).
+  - Merkle root encodes `(index, account, amount)` tuples. “Amount” includes pro‑rata logic that excludes `grandWinnerTickets` from denominator.
+  - Season lifecycle in distributor:
+    - `configureSeason(seasonId, token, grandWinner, grandAmount, consolationAmount, merkleRoot, totalTicketsSnapshot, grandWinnerTickets)`; only `Raffle` (RAFFLE_ROLE).
+    - `fundSeason(seasonId, amount)` (mark funded). Prior step: Raffle extracts SOF from curve: `SOFBondingCurve.extractSof(distributor, totalPrizePool)`.
+    - Claim functions enforce `funded`, per-leaf not yet claimed, and time-based guards if needed.
+  - Storage per season: token, merkleRoot, grandWinner, amounts, funded flag, totalTicketsSnapshot, grandWinnerTickets, grandClaimed, `claimedBitMap` (packed leaf claim tracking as in Uniswap/Mint.club patterns).
+
+- __Why Merkle for consolation__
+  - Avoid heavy on-chain pro‑rata computations for all participants.
+  - Off-chain computation (deterministic, published) with on-chain light verification.
+  - Same proven approach as Uniswap/MintClub airdrops; resilient and gas‑efficient.
+
+### Contract Work Items
+
+- __RafflePrizeDistributor.sol__
+  - Roles: DEFAULT_ADMIN_ROLE, RAFFLE_ROLE.
+  - `configureSeason`, `fundSeason`, `claimGrand`, `claimConsolation(index, account, amount, proof)`, `isClaimed(index)`.
+  - Events: `SeasonConfigured`, `SeasonFunded`, `GrandClaimed`, `ConsolationClaimed`.
+  - Security: ReentrancyGuard; AccessControl; pause hooks optional.
+  - Tests: allocation correctness, double-claim protection, Merkle proof validation, unfunded/unfinished guards, grand-only claimant allowed.
+
+- __Raffle.sol wiring__
+  - Add `grandPrizeBps` to `SeasonConfig` (default 6500).
+  - In `_setupPrizeDistribution`:
+    - Compute `grand` and `consolation` as above.
+    - Gather `totalTicketsSnapshot` and `grandWinnerTickets`.
+    - `SOFBondingCurve.extractSof(distributor, totalPrizePool)`.
+    - `RafflePrizeDistributor.configureSeason(seasonId, sof, grandWinner, grand, consolation, merkleRoot, totalTicketsSnapshot, grandWinnerTickets)`.
+      - Merkle root produced off-chain from participant allocations (excluding grand winner).
+    - `RafflePrizeDistributor.fundSeason(seasonId, totalPrizePool)`.
+
+- __Merkle Tree generation (off-chain)__
+  - Input: season participants (excluding grand winner), final ticket counts, `consolation` amount, `grandWinnerTickets`, `totalTicketsSnapshot`.
+  - Formula: `amount_i = consolation * tickets_i / (totalTicketsSnapshot - grandWinnerTickets)`.
+  - Normalize rounding and ensure sum ≤ consolation; cap last leaf to avoid dust.
+  - Produce `(index, account, amount)` leaves; publish root and a manifest (IPFS or backend API).
+
+### UI Work Items
+
+- __Address format & profile links__
+  - Add `shortAddress(addr) => 0x1234…7890` helper.
+  - `AddressLink` component links to `/users/:address`.
+
+- __Rewards Panels__ (My Account actionable, User Profile read-only)
+  - Raffle Rewards: per season row with grand/consolation amounts, claim buttons (if applicable), and status (Funded/Configured).
+  - InfoFi Rewards: continue using Claim Center for market payouts; Rewards panel can display historical claimed entries.
+
+- __Pages__
+  - `AccountPage.jsx`: Keep PositionsPanel + ClaimCenter; add RewardsPanel (shows Raffle rewards when distributor is live).
+  - `UserProfile.jsx`: Add read-only RewardsPanel (no claim buttons).
+
+### Open Tasks
+
+- [ ] Implement `RafflePrizeDistributor.sol` with Merkle claims and grand claim.
+- [ ] Add `grandPrizeBps` to `SeasonConfig` and wire into Raffle finalization.
+- [ ] Add distributor address to `src/config/contracts.js` and ABIs to `src/contracts/abis/`.
+- [ ] Build Merkle generator script (Node) and integrate with season close tooling.
+- [ ] Frontend services: `onchainRaffleDistributor.js` with `claimGrand`, `claimConsolation`, `getSeasonPayouts`, `isClaimed`.
+- [ ] `RewardsPanel.jsx` (Account actionable, Profile read-only) with short addresses and profile links.
+- [ ] Tests: Foundry (contracts), Vitest (hooks/components).
+
 
 This plan adapts proven UX patterns from Polymarket to SecondOrder.fun’s InfoFi layer. It focuses on clear price communication (probability as percent), low‑friction discovery, and fast trade placement with real‑time updates.
 
 ### Phase 1 — Markets Index (MVP)
 Goals: Discoverability, fast scan, basic trade entry (redirect to detail)
+{{ ... }}
 
 - [ ] Markets Index Page `src/routes/MarketsIndex.jsx`
   - [ ] Sections: Trending, New, Ending Soon

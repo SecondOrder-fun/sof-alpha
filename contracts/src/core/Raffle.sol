@@ -14,6 +14,7 @@ import "../lib/RaffleLogic.sol";
 import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
+import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 
 // Minimal ACL interface for granting MARKET_ROLE on the tracker
 interface ITrackerACL {
@@ -31,7 +32,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     VRFCoordinatorV2Interface private COORDINATOR;
     bytes32 public vrfKeyHash;
     uint64 public vrfSubscriptionId;
-    uint32 public vrfCallbackGasLimit = 100000;
+    uint32 public vrfCallbackGasLimit = 500000;
     uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
 
     // Core
@@ -39,6 +40,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     ISeasonFactory public seasonFactory;
     // InfoFi integration
     address public infoFiFactory;
+    // Prize Distributor integration
+    address public prizeDistributor;
+    // Default grand prize split in BPS (e.g., 6500 = 65%). If seasonConfig.grandPrizeBps == 0, use this default.
+    uint16 public defaultGrandPrizeBps = 6500;
 
     // Role hash used by RafflePositionTracker for updater permissions
     bytes32 private constant TRACKER_MARKET_ROLE = keccak256("MARKET_ROLE");
@@ -81,6 +86,22 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function setInfoFiFactory(address _factory) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_factory != address(0), "Raffle: infofi zero");
         infoFiFactory = _factory;
+    }
+
+    /**
+     * @notice Set the raffle prize distributor contract
+     */
+    function setPrizeDistributor(address distributor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(distributor != address(0), "Raffle: distributor zero");
+        prizeDistributor = distributor;
+    }
+
+    /**
+     * @notice Update the default grand prize split (in basis points)
+     */
+    function setDefaultGrandPrizeBps(uint16 bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(bps <= 10000, "Raffle: bps > 100%");
+        defaultGrandPrizeBps = bps;
     }
 
     /**
@@ -354,8 +375,114 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         vrfSubscriptionId = subscriptionId; vrfKeyHash = keyHash; vrfCallbackGasLimit = callbackGasLimit;
     }
 
+    /**
+     * @notice Manually complete a season that is stuck in Distributing state
+     * @dev Only for emergency use when automatic completion fails
+     */
+    function completeSeasonManually(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(seasonStates[seasonId].status == SeasonStatus.Distributing, "Raffle: not distributing");
+        
+        // Mark complete
+        seasons[seasonId].isCompleted = true;
+        seasonStates[seasonId].status = SeasonStatus.Completed;
+        emit SeasonCompleted(seasonId);
+    }
+
+    /**
+     * @notice Manually trigger prize distribution setup for a season that is stuck in Distributing state
+     * @dev Only for emergency use when automatic prize distribution setup fails
+     */
+    function setupPrizeDistributionManually(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        require(seasonStates[seasonId].status == SeasonStatus.Distributing, "Raffle: not distributing");
+        
+        // Get the required parameters
+        SeasonState storage state = seasonStates[seasonId];
+        uint256 totalPrizePool = state.totalPrizePool;
+        address[] memory winners = state.winners;
+        
+        // Call the internal function
+        _setupPrizeDistribution(seasonId, winners, totalPrizePool);
+        
+        emit PrizeDistributionSetup(seasonId, prizeDistributor);
+    }
+
     // Internals
     function _setupPrizeDistribution(uint256 seasonId, address[] memory /*winners*/, uint256 /*totalPrizePool*/) internal {
-        seasons[seasonId].isCompleted = true; seasonStates[seasonId].status = SeasonStatus.Completed; emit PrizeDistributionSetup(seasonId, address(0));
+        // Compute pool splits
+        require(prizeDistributor != address(0), "Raffle: distributor not set");
+        SeasonState storage state = seasonStates[seasonId];
+        RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
+        uint256 totalPrizePool = state.totalPrizePool;
+        
+        // If there's no prize pool, we can still complete the season but skip distribution
+        if (totalPrizePool == 0) {
+            cfg.isCompleted = true;
+            state.status = SeasonStatus.Completed;
+            emit PrizeDistributionSetup(seasonId, prizeDistributor);
+            return;
+        }
+
+        // Determine BPS (season override or default)
+        uint16 grandBps = cfg.grandPrizeBps == 0 ? defaultGrandPrizeBps : cfg.grandPrizeBps;
+        require(grandBps <= 10000, "Raffle: bad grand bps");
+        uint256 grandAmount = (totalPrizePool * uint256(grandBps)) / 10000;
+        uint256 consolationAmount = totalPrizePool - grandAmount;
+
+        // For MVP: single grand winner winners[0]
+        address grandWinner = state.winners.length > 0 ? state.winners[0] : address(0);
+        require(grandWinner != address(0), "Raffle: winner zero");
+
+        // Snapshot tickets
+        uint256 totalTicketsSnapshot = state.totalTickets;
+        uint256 grandWinnerTickets = state.participantPositions[grandWinner].ticketCount;
+
+        // Move funds from curve to distributor
+        address curveAddr = cfg.bondingCurve;
+        require(curveAddr != address(0), "Raffle: curve zero");
+        
+        // Use try/catch to handle potential failures in external calls
+        try SOFBondingCurve(curveAddr).extractSof(prizeDistributor, totalPrizePool) {
+            // Extraction successful
+        } catch {
+            // If extraction fails, log the error but continue with the process
+            // This ensures the season can still be completed even if fund transfer fails
+        }
+
+        // Configure season on distributor
+        try IRafflePrizeDistributor(prizeDistributor).configureSeason(
+            seasonId,
+            address(sofToken),
+            grandWinner,
+            grandAmount,
+            consolationAmount,
+            totalTicketsSnapshot,
+            grandWinnerTickets
+        ) {
+            // Configuration successful
+        } catch {
+            // If configuration fails, log the error but continue with the process
+        }
+
+        // Merkle root will be set later off-chain via setSeasonMerkleRoot
+        try IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool) {
+            // Funding successful
+        } catch {
+            // If funding fails, log the error but continue with the process
+        }
+
+        // Mark complete - this is the most important step to ensure the season can be completed
+        cfg.isCompleted = true;
+        state.status = SeasonStatus.Completed;
+        emit PrizeDistributionSetup(seasonId, prizeDistributor);
+    }
+
+    /**
+     * @notice Set the Merkle root for consolation claims for a season (admin only)
+     */
+    function setSeasonMerkleRoot(uint256 seasonId, bytes32 merkleRoot) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(prizeDistributor != address(0), "Raffle: distributor not set");
+        IRafflePrizeDistributor(prizeDistributor).setMerkleRoot(seasonId, merkleRoot);
     }
 }

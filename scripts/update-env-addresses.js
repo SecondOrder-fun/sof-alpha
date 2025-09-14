@@ -30,6 +30,7 @@ const NAME_TO_ENV = {
   InfoFiMarketFactory: 'INFOFI_FACTORY',
   InfoFiPriceOracle: 'INFOFI_ORACLE',
   InfoFiSettlement: 'INFOFI_SETTLEMENT',
+  RafflePrizeDistributor: 'PRIZE_DISTRIBUTOR',
   // Legacy placeholder
   InfoFiMarket: 'INFOFI_MARKET',
   // VRF mock (needed for local resolve flows)

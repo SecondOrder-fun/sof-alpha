@@ -13,6 +13,7 @@ const contractsToCopy = [
   // Core contracts
   { sourceFile: 'Raffle.sol/Raffle.json', destFile: 'Raffle.json' },
   { sourceFile: 'SeasonFactory.sol/SeasonFactory.json', destFile: 'SeasonFactory.json' },
+  { sourceFile: 'RafflePrizeDistributor.sol/RafflePrizeDistributor.json', destFile: 'RafflePrizeDistributor.json' },
 
   // Curve + tokens
   { sourceFile: 'SOFBondingCurve.sol/SOFBondingCurve.json', destFile: 'SOFBondingCurve.json' },

@@ -23,6 +23,43 @@ function buildClients(networkKey) {
   return { publicClient, wsClient };
 }
 
+// Read full bet info including claimed/payout, preferring explicit prediction overload
+export async function readBetFull({ marketId, account, prediction, networkKey = 'LOCAL' }) {
+  const { publicClient } = buildClients(networkKey);
+  const { market } = getContracts(networkKey);
+  if (!market.address) throw new Error('INFOFI_MARKET address missing');
+  const idU256 = toUint256Id(marketId);
+  // ABI fragment for getBet overloads
+  const GetBetAbi = [
+    { type: 'function', name: 'getBet', stateMutability: 'view', inputs: [
+      { name: 'marketId', type: 'uint256' }, { name: 'better', type: 'address' }, { name: 'prediction', type: 'bool' }
+    ], outputs: [{ name: '', type: 'tuple', components: [
+      { name: 'prediction', type: 'bool' }, { name: 'amount', type: 'uint256' }, { name: 'claimed', type: 'bool' }, { name: 'payout', type: 'uint256' }
+    ]}] },
+    { type: 'function', name: 'getBet', stateMutability: 'view', inputs: [
+      { name: 'marketId', type: 'uint256' }, { name: 'better', type: 'address' }
+    ], outputs: [{ name: '', type: 'tuple', components: [
+      { name: 'prediction', type: 'bool' }, { name: 'amount', type: 'uint256' }, { name: 'claimed', type: 'bool' }, { name: 'payout', type: 'uint256' }
+    ]}] },
+  ];
+  // Try explicit overload when prediction is provided
+  if (typeof prediction === 'boolean') {
+    try {
+      const bet = await publicClient.readContract({ address: market.address, abi: GetBetAbi, functionName: 'getBet', args: [idU256, getAddress(account), prediction] });
+      const arr = Array.isArray(bet) ? bet : [bet.prediction, bet.amount, bet.claimed, bet.payout];
+      return { prediction: Boolean(arr[0]), amount: BigInt(arr[1] ?? 0), claimed: Boolean(arr[2]), payout: BigInt(arr[3] ?? 0) };
+    } catch (_) { /* fall through */ }
+  }
+  // Fallback to two-arg overload
+  try {
+    const bet = await publicClient.readContract({ address: market.address, abi: GetBetAbi, functionName: 'getBet', args: [idU256, getAddress(account)] });
+    const arr = Array.isArray(bet) ? bet : [bet.prediction, bet.amount, bet.claimed, bet.payout];
+    return { prediction: Boolean(arr[0]), amount: BigInt(arr[1] ?? 0), claimed: Boolean(arr[2]), payout: BigInt(arr[3] ?? 0) };
+  } catch (e) {
+    return { prediction: false, amount: 0n, claimed: false, payout: 0n };
+  }
+}
+
 // Enumerate all markets directly from the InfoFiMarket contract as a fallback when
 // factory events or season player lists are unavailable.
 export async function enumerateAllMarkets({ networkKey = 'LOCAL' }) {

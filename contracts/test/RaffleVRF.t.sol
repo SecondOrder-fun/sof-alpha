@@ -8,6 +8,7 @@ import "../src/curve/IRaffleToken.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../src/lib/RaffleTypes.sol";
 import "../src/core/SeasonFactory.sol";
+import "../src/core/RafflePrizeDistributor.sol";
 
 // Harness that exposes fulfillRandomWords and VRF state setter
 contract RaffleHarness is Raffle {
@@ -61,6 +62,11 @@ contract RaffleVRFTest is Test {
         // Wire SeasonFactory required by Raffle.createSeason
         SeasonFactory factory = new SeasonFactory(address(raffle));
         raffle.setSeasonFactory(address(factory));
+        
+        // Set up prize distributor
+        RafflePrizeDistributor distributor = new RafflePrizeDistributor(address(this));
+        distributor.grantRole(distributor.RAFFLE_ROLE(), address(raffle));
+        raffle.setPrizeDistributor(address(distributor));
     }
 
     function _steps() internal pure returns (RaffleTypes.BondStep[] memory s) {

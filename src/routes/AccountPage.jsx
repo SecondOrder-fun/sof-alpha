@@ -11,8 +11,10 @@ import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
-import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import PositionsPanel from '@/components/infofi/PositionsPanel';
+import ClaimCenter from '@/components/infofi/ClaimCenter';
+import RewardsDebug from '@/components/infofi/RewardsDebug';
+import RewardsPanel from '@/components/infofi/RewardsPanel';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
 // onchainInfoFi is now used by the shared PositionsPanel component
@@ -190,6 +192,12 @@ const AccountPage = () => {
       </Card>
       {/* Prediction Market Positions */}
       <PositionsPanel address={address} seasons={(allSeasonsQuery.data || [])} />
+      {/* Claims */}
+      <ClaimCenter address={address} />
+      {/* Rewards (Grand & Consolation) */}
+      <RewardsPanel readOnly={false} />
+      {/* Debug: Rewards (Distributor) */}
+      <RewardsDebug />
     </div>
   );
 };
@@ -267,10 +275,6 @@ const RaffleEntryRow = ({ row, address, client }) => {
         </div>
         <p className="text-xs text-muted-foreground break-all">Token: {row.token}</p>
       </button>
-      {/* Compact live hybrid pricing for this season */}
-      <div className="mt-2">
-        <InfoFiPricingTicker marketId={row.seasonId} />
-      </div>
       {open && (
         <div className="mt-2 border-t pt-2">
           <p className="font-semibold mb-2">Transactions</p>

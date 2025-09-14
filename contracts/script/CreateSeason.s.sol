@@ -25,7 +25,7 @@ contract CreateSeasonScript is Script {
         // Season config
         // IMPORTANT: Raffle.createSeason requires startTime > block.timestamp
         // We set startTime ~15s in the future and recommend starting the season after that; it ends ~3 minutes later
-        uint256 startTs = block.timestamp + 15; // start ~15s in the future
+        uint256 startTs = block.timestamp + 60; // start ~60s in the future
         uint256 endTs = startTs + 3 minutes;
 
         RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
@@ -35,6 +35,7 @@ contract CreateSeasonScript is Script {
             winnerCount: 3,
             prizePercentage: 5000, // 50%
             consolationPercentage: 4000, // 40%
+            grandPrizeBps: 6500, // 65% of total pool to grand winner (rest to consolation)
             raffleToken: address(0),
             bondingCurve: address(0),
             isActive: false,

@@ -12,6 +12,7 @@ import "../src/infofi/InfoFiSettlement.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
+import "../src/core/RafflePrizeDistributor.sol";
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract DeployScript is Script {
@@ -140,10 +141,24 @@ contract DeployScript is Script {
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
         console2.log("Deploying InfoFiSettlement...");
-        // Use msg.sender here to match previous working behavior
         InfoFiSettlement infoFiSettlement = new InfoFiSettlement(deployerAddr, address(raffle));
-        // (constructor already grants SETTLER_ROLE to raffle if provided)
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
+
+        // Deploy RafflePrizeDistributor and wire to Raffle
+        console2.log("Deploying RafflePrizeDistributor...");
+        RafflePrizeDistributor distributor = new RafflePrizeDistributor(deployerAddr);
+        // Grant RAFFLE_ROLE to Raffle so it can configure seasons and fund them
+        try distributor.grantRole(distributor.RAFFLE_ROLE(), address(raffle)) {
+            console2.log("Granted RAFFLE_ROLE to Raffle on Distributor");
+        } catch {
+            console2.log("Skipping RAFFLE_ROLE grant (not admin or already granted)");
+        }
+        // Set distributor on Raffle
+        try raffle.setPrizeDistributor(address(distributor)) {
+            console2.log("Raffle prize distributor set:", address(distributor));
+        } catch {
+            console2.log("Raffle.setPrizeDistributor failed or already set (skipping)");
+        }
 
         // Optional: Create a default Season 0 (disabled by default)
         // Control via env var CREATE_SEASON=true to enable.
@@ -173,6 +188,7 @@ contract DeployScript is Script {
                 winnerCount: 3,
                 prizePercentage: 5000, // 50%
                 consolationPercentage: 4000, // 40%
+                grandPrizeBps: 6500, // 65% of total pool to grand winner (rest to consolation)
                 raffleToken: address(0), // Will be set by the factory
                 bondingCurve: address(0), // Will be set by the factory
                 isActive: false,

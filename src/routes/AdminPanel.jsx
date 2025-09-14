@@ -12,10 +12,9 @@ import { getNetworkByKey } from '@/config/networks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { keccak256, stringToHex, parseUnits, formatUnits } from 'viem';
+// Removed Dialog imports after early-end cleanup
+import { keccak256, stringToHex, parseUnits, formatUnits, createWalletClient, custom, getAddress, encodePacked } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
-import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import HealthStatus from '@/components/admin/HealthStatus';
 
 // Minimal ERC20 ABI for decimals
@@ -119,7 +118,7 @@ TransactionStatus.propTypes = {
 };
 
 const AdminPanel = () => {
-  const { createSeason, startSeason, requestSeasonEnd, requestSeasonEndEarly } = useRaffleWrite();
+  const { createSeason, startSeason } = useRaffleWrite();
   const allSeasonsQuery = useAllSeasons();
   const { address } = useAccount();
   const { hasRole } = useAccessControl();
@@ -135,6 +134,137 @@ const AdminPanel = () => {
     queryFn: () => hasRole(DEFAULT_ADMIN_ROLE, address),
     enabled: !!address,
   });
+
+  // Minimal ABIs used for local E2E resolution
+  const RaffleMiniAbi = [
+    { type: 'function', name: 'requestSeasonEnd', stateMutability: 'nonpayable', inputs: [{ name: 'seasonId', type: 'uint256' }], outputs: [] },
+    { type: 'function', name: 'setSeasonMerkleRoot', stateMutability: 'nonpayable', inputs: [{ name: 'seasonId', type: 'uint256' }, { name: 'merkleRoot', type: 'bytes32' }], outputs: [] },
+    { type: 'function', name: 'getParticipants', stateMutability: 'view', inputs: [{ name: 'seasonId', type: 'uint256' }], outputs: [{ name: '', type: 'address[]' }] },
+    { type: 'function', name: 'getParticipantPosition', stateMutability: 'view', inputs: [{ name: 'seasonId', type: 'uint256' }, { name: 'participant', type: 'address' }], outputs: [{ name: 'position', type: 'tuple', components: [
+      { name: 'ticketCount', type: 'uint256' }, { name: 'entryBlock', type: 'uint256' }, { name: 'lastUpdateBlock', type: 'uint256' }, { name: 'isActive', type: 'bool' }
+    ]}] },
+  ];
+
+  const DistributorMiniAbi = [
+    { type: 'function', name: 'getSeason', stateMutability: 'view', inputs: [{ name: 'seasonId', type: 'uint256' }], outputs: [{ name: '', type: 'tuple', components: [
+      { name: 'token', type: 'address' }, { name: 'grandWinner', type: 'address' }, { name: 'grandAmount', type: 'uint256' }, { name: 'consolationAmount', type: 'uint256' }, { name: 'totalTicketsSnapshot', type: 'uint256' }, { name: 'grandWinnerTickets', type: 'uint256' }, { name: 'merkleRoot', type: 'bytes32' }, { name: 'funded', type: 'bool' }, { name: 'grandClaimed', type: 'bool' }
+    ]}] },
+  ];
+
+  // Helper: build Merkle root from leaves (index,address,amount) using keccak256(abi.encodePacked(...)) and sorted pair hashing
+  function buildMerkleRoot(leaves) {
+    const hashes = leaves.map((l) => keccak256(encodePacked(['uint256','address','uint256'], [BigInt(l.index), getAddress(l.account), BigInt(l.amount)])));
+    if (hashes.length === 0) return '0x'.padEnd(66, '0');
+    let layer = hashes;
+    while (layer.length > 1) {
+      const next = [];
+      for (let i = 0; i < layer.length; i += 2) {
+        const left = layer[i];
+        const right = i + 1 < layer.length ? layer[i + 1] : layer[i];
+        const packed = left.toLowerCase() < right.toLowerCase() ? `${left}${right.slice(2)}` : `${right}${left.slice(2)}`;
+        next.push(keccak256(`0x${packed.slice(2)}`));
+      }
+      layer = next;
+    }
+    return layer[0];
+  }
+
+  async function endSeasonLocalE2E(seasonId) {
+    try {
+      setEndingE2EId(seasonId);
+      setEndStatus('Requesting season end...');
+      // Step 1: requestSeasonEnd via wallet
+      const netKey = getStoredNetworkKey();
+      const raffleAddr = getContractAddresses(netKey).RAFFLE;
+      const distributorAddr = (await publicClient.readContract({ address: raffleAddr, abi: [{ type:'function', name:'prizeDistributor', stateMutability:'view', inputs:[], outputs:[{type:'address'}]}], functionName: 'prizeDistributor' }));
+
+      const wallet = createWalletClient({ chain: { id: chainId }, transport: custom(window.ethereum) });
+      const [from] = await wallet.getAddresses();
+      const endHash = await wallet.writeContract({ address: raffleAddr, abi: RaffleMiniAbi, functionName: 'requestSeasonEnd', args: [BigInt(seasonId)], account: from });
+
+      // Step 2: fulfill VRF on local (chainId 31337) using known mock address
+      setEndStatus('Fulfilling VRF...');
+      let requestIdDec = null;
+      if (chainId === 31337) {
+        const vrfMock = getContractAddresses(netKey).VRF_COORDINATOR || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+        // First try to parse the tx receipt for the VRF request emitted during requestSeasonEnd
+        const endReceipt = await publicClient.waitForTransactionReceipt({ hash: endHash });
+        let matchLog = [...(endReceipt.logs || [])].reverse().find((lg) => (lg.address || '').toLowerCase() === vrfMock.toLowerCase());
+        // Fallback: scan chain logs if not found in receipt (e.g., if coordinator emitted in another tx)
+        if (!matchLog) {
+          const sLogs = await publicClient.getLogs({ address: vrfMock, fromBlock: 0n, toBlock: 'latest' });
+          const raffleTopic = `0x${raffleAddr.toLowerCase().slice(2).padStart(64,'0')}`;
+          matchLog = [...sLogs].reverse().find((lg) => (lg.topics?.[3] || '').toLowerCase() === raffleTopic);
+        }
+        if (!matchLog) {
+          setVerify((prev) => ({ ...prev, [seasonId]: { error: 'No VRF requestId found for this raffle. Confirm end time has passed, then retry.' } }));
+          throw new Error('VRF request log not found for raffle');
+        }
+        const dataHex = matchLog.data || '0x';
+        // Heuristic: take first 32-byte word from data as requestId
+        const reqHex = dataHex.slice(0, 66);
+        requestIdDec = parseInt(reqHex, 16);
+        if (!Number.isFinite(requestIdDec)) {
+          setVerify((prev) => ({ ...prev, [seasonId]: { error: 'Could not parse VRF requestId from log.' } }));
+          throw new Error('Failed to parse VRF requestId');
+        }
+        // Call fulfillRandomWords(requestId, raffle)
+        await wallet.writeContract({ address: vrfMock, abi: [{ type:'function', name:'fulfillRandomWords', stateMutability:'nonpayable', inputs:[{type:'uint256'},{type:'address'}], outputs:[] }], functionName: 'fulfillRandomWords', args: [BigInt(requestIdDec), raffleAddr], account: from });
+      }
+
+      // Step 3: verify distributor funded & compute merkle
+      setEndStatus('Computing Merkle root...');
+      const distributor = distributorAddr;
+      const snap = await publicClient.readContract({ address: distributor, abi: DistributorMiniAbi, functionName: 'getSeason', args: [BigInt(seasonId)] });
+      const grandWinner = snap.grandWinner || snap[1];
+      const consol = BigInt(snap.consolationAmount || snap[3] || 0);
+      const totalTicketsSnapshot = BigInt(snap.totalTicketsSnapshot || snap[4] || 0);
+      const grandWinnerTickets = BigInt(snap.grandWinnerTickets || snap[5] || 0);
+      const funded = Boolean(snap.funded ?? snap[7] ?? false);
+
+      let root = '0x'.padEnd(66, '0');
+      if (consol > 0n && totalTicketsSnapshot > 0n) {
+        const participants = await publicClient.readContract({ address: raffleAddr, abi: RaffleMiniAbi, functionName: 'getParticipants', args: [BigInt(seasonId)] });
+        const denom = totalTicketsSnapshot - grandWinnerTickets;
+        const leaves = [];
+        let idx = 0;
+        if (denom > 0n) {
+          for (const acct of participants) {
+            if (acct.toLowerCase() === String(grandWinner).toLowerCase()) continue;
+            const pos = await publicClient.readContract({ address: raffleAddr, abi: RaffleMiniAbi, functionName: 'getParticipantPosition', args: [BigInt(seasonId), acct] });
+            const tickets = BigInt(pos?.ticketCount ?? (Array.isArray(pos) ? pos[0] : 0));
+            if (tickets === 0n) continue;
+            const amount = (consol * tickets) / denom;
+            if (amount > 0n) leaves.push({ index: idx++, account: acct, amount: amount.toString() });
+          }
+        }
+        root = buildMerkleRoot(leaves);
+      }
+
+      // Step 4: setSeasonMerkleRoot on raffle
+      setEndStatus('Setting merkle root on-chain...');
+      await wallet.writeContract({ address: raffleAddr, abi: RaffleMiniAbi, functionName: 'setSeasonMerkleRoot', args: [BigInt(seasonId), root], account: from });
+
+      setEndStatus('Done');
+      allSeasonsQuery.refetch();
+      // Store verification for UI
+      setVerify((prev) => ({
+        ...prev,
+        [seasonId]: {
+          funded,
+          grandWinner,
+          grandAmount: String(snap.grandAmount ?? snap[2] ?? 0n),
+          consolationAmount: String(consol),
+          requestId: requestIdDec,
+          error: null,
+        },
+      }));
+    } catch (e) {
+      setEndStatus(`Error: ${e?.shortMessage || e?.message || String(e)}`);
+    } finally {
+      setEndingE2EId(null);
+    }
+  }
 
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
     queryKey: ['hasSeasonCreatorRole', address],
@@ -158,12 +288,17 @@ const AdminPanel = () => {
   const [priceDelta, setPriceDelta] = useState('1'); // $SOF increase per step
   const [sofDecimals, setSofDecimals] = useState(18);
   const [autoStart, setAutoStart] = useState(false);
+  // Grand prize split as percentage for UI (we'll convert to BPS when building config)
+  const [grandPct, setGrandPct] = useState('65');
   const [autoStartTriggered, setAutoStartTriggered] = useState(false);
   // Track which season row initiated actions to scope status/errors per row
   const [lastStartSeasonId, setLastStartSeasonId] = useState(null);
   const [lastEndSeasonId, setLastEndSeasonId] = useState(null);
-  const [lastEarlyEndSeasonId, setLastEarlyEndSeasonId] = useState(null);
-  const [pendingStartThenEndId, setPendingStartThenEndId] = useState(null);
+  // Removed early-end flow states
+  const [endingE2EId, setEndingE2EId] = useState(null);
+  const [endStatus, setEndStatus] = useState('');
+  // Post-action verification per seasonId
+  const [verify, setVerify] = useState({}); // { [seasonId]: { funded, grandWinner, grandAmount, consolationAmount, requestId, error } }
   const stepSize = useMemo(() => {
     const max = Number(maxTickets);
     const steps = Number(numSteps);
@@ -240,7 +375,26 @@ const AdminPanel = () => {
       ? chainNowSec
       : Math.floor(new Date(startTime).getTime() / 1000);
     const end = Math.floor(new Date(endTime).getTime() / 1000);
-    const config = { name, startTime: BigInt(start), endTime: BigInt(end), winnerCount: 1, prizePercentage: 80, consolationPercentage: 10, raffleToken: '0x0000000000000000000000000000000000000000', bondingCurve: '0x0000000000000000000000000000000000000000', isActive: false, isCompleted: false };
+    // Validate grand prize percentage (UI only constraints 55% - 75%)
+    const grandParsedPct = Number(grandPct);
+    if (Number.isNaN(grandParsedPct) || grandParsedPct < 55 || grandParsedPct > 75) {
+      setFormError('Grand Prize must be between 55% and 75%');
+      return;
+    }
+    const grandPrizeBps = Math.round(grandParsedPct * 100); // convert % -> BPS
+    const config = {
+      name,
+      startTime: BigInt(start),
+      endTime: BigInt(end),
+      winnerCount: 1,
+      prizePercentage: 80,
+      consolationPercentage: 10,
+      grandPrizeBps,
+      raffleToken: '0x0000000000000000000000000000000000000000',
+      bondingCurve: '0x0000000000000000000000000000000000000000',
+      isActive: false,
+      isCompleted: false,
+    };
 
     // Parse and validate bond steps
     let bondSteps = [];
@@ -291,17 +445,7 @@ const AdminPanel = () => {
     }
   }, [autoStart, autoStartTriggered, createSeason?.isConfirmed, allSeasonsQuery.data, startSeason]);
 
-  // If user clicked "Start & End", once Start confirms, immediately request End
-  useEffect(() => {
-    if (!pendingStartThenEndId) return;
-    if (!startSeason?.isConfirmed) return;
-    // Only proceed for the same season we started
-    if (String(lastStartSeasonId) !== String(pendingStartThenEndId)) return;
-    setLastEndSeasonId(pendingStartThenEndId);
-    requestSeasonEnd?.mutate && requestSeasonEnd.mutate({ seasonId: pendingStartThenEndId });
-    // Clear flag to avoid duplicate triggers
-    setPendingStartThenEndId(null);
-  }, [pendingStartThenEndId, startSeason?.isConfirmed, lastStartSeasonId, requestSeasonEnd]);
+  // Early-end flow removed; no chained start->end effect
 
   if (isAdminLoading || isCreatorLoading || isEmergencyLoading) {
     return <p>Checking authorization...</p>;
@@ -350,6 +494,22 @@ const AdminPanel = () => {
                 </p>
               )}
               <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              <div>
+                <label className="text-sm">Grand Prize Split (%)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={55}
+                    max={75}
+                    step={1}
+                    value={grandPct}
+                    onChange={(e) => setGrandPct(e.target.value)}
+                    className="w-full"
+                  />
+                  <span className="w-12 text-right text-sm font-mono">{grandPct}%</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Allowed range: 55%–75%. You can adjust per season.</p>
+              </div>
               <div>
                 <label className="text-sm">Bond Steps</label>
                 <div className="grid gap-3">
@@ -466,7 +626,6 @@ const AdminPanel = () => {
               const startDate = new Date(Number(season.config.startTime) * 1000).toLocaleString();
               const endDate = new Date(Number(season.config.endTime) * 1000).toLocaleString();
               const showStartStatus = lastStartSeasonId === season.id;
-              const showEndStatus = lastEndSeasonId === season.id;
               return (
               <div key={season.id} className="p-2 border rounded flex justify-between items-center">
                 <div>
@@ -495,60 +654,43 @@ const AdminPanel = () => {
                       {chainMatch ? `Chain OK (${chainId})` : `Wrong Chain (${chainId})`}
                     </Badge>
                   </div>
-                  {/* Live hybrid pricing ticker for this season */}
-                  <div className="mt-2">
-                    <InfoFiPricingTicker marketId={season.id} />
-                  </div>
                 </div>
                 <div className="flex gap-2 flex-col">
                   {!hasCreatorRole && <p className="text-xs text-amber-600">Missing SEASON_CREATOR_ROLE</p>}
                   {/* Start button (shows late label if now > start) */}
-                  <Button
-                    onClick={() => { setLastStartSeasonId(season.id); startSeason?.mutate && startSeason.mutate({ seasonId: season.id }); }}
-                    disabled={startSeason?.isPending || !hasCreatorRole || !canStart || !chainMatch}
-                  >
-                    {nowSec > startSec ? 'Start Now (late)' : 'Start'}
+                  <Button onClick={() => { setLastStartSeasonId(season.id); startSeason?.mutate && startSeason.mutate({ seasonId: season.id }); }} disabled={startSeason?.isPending || !hasCreatorRole || !canStart || !chainMatch}>
+                    Start
                   </Button>
                   {showStartStatus && startSeason?.error && (
                     <p className="text-xs text-red-600 max-w-[260px] break-words">
                       {startSeason.error.message}
                     </p>
                   )}
-                  {/* Post-end actions */}
+                  {/* End action (single click, local E2E). Enabled only after end time */}
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => { setLastEndSeasonId(season.id); requestSeasonEnd?.mutate && requestSeasonEnd.mutate({ seasonId: season.id }); }}
-                      disabled={requestSeasonEnd?.isPending || !hasCreatorRole || !canEnd || !chainMatch}
+                      onClick={() => endSeasonLocalE2E(season.id)}
+                      disabled={endingE2EId === season.id || !hasCreatorRole || !chainMatch || !canEnd}
                       variant="destructive"
                     >
-                      {isPastEnd ? 'End Season' : 'End'}
+                      {endingE2EId === season.id ? (endStatus || 'Ending…') : 'End Season'}
                     </Button>
-                    {/* Early end button: only when Active and before end, gated by EMERGENCY_ROLE */}
-                    {isActive && !isPastEnd && (
-                      <Button
-                        variant="destructive"
-                        onClick={() => {
-                          setEarlyEndSeasonId(season.id);
-                          setShowEarlyEndConfirm(true);
-                        }}
-                        disabled={requestSeasonEndEarly?.isPending || !isEmergency || !chainMatch}
-                      >
-                        End Now (early)
-                      </Button>
-                    )}
-                    {isNotStarted && isPastEnd && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => { setPendingStartThenEndId(season.id); setLastStartSeasonId(season.id); startSeason?.mutate && startSeason.mutate({ seasonId: season.id }); }}
-                        disabled={startSeason?.isPending || requestSeasonEnd?.isPending || !hasCreatorRole || !chainMatch}
-                      >
-                        Start & End
-                      </Button>
-                    )}
                   </div>
                   {showStartStatus && <TransactionStatus mutation={startSeason} />}
-                  {showEndStatus && <TransactionStatus mutation={requestSeasonEnd} />}
-                  {lastEarlyEndSeasonId === season.id && <TransactionStatus mutation={requestSeasonEndEarly} />}
+                  {/* Post-action verification splash */}
+                  {verify[season.id] && (
+                    <div className="mt-2 p-2 border rounded text-xs">
+                      {verify[season.id].error ? (
+                        <p className="text-red-600">{verify[season.id].error}</p>
+                      ) : (
+                        <>
+                          <p>Winner: <span className="font-mono">{verify[season.id].grandWinner}</span></p>
+                          <p>Grand: <span className="font-mono">{verify[season.id].grandAmount}</span> SOF • Consolation: <span className="font-mono">{verify[season.id].consolationAmount}</span> SOF</p>
+                          <p>Funded: {verify[season.id].funded ? 'Yes' : 'No'}{verify[season.id].requestId != null ? ` • VRF reqId: ${verify[season.id].requestId}` : ''}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );})}
@@ -556,35 +698,7 @@ const AdminPanel = () => {
         </Card>
       </div>
 
-      {/* Early End Confirmation Modal */}
-      <Dialog open={showEarlyEndConfirm} onOpenChange={(open) => { if (!open) { setShowEarlyEndConfirm(false); setEarlyEndSeasonId(null); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>End Season Early</DialogTitle>
-            <DialogDescription>
-              This will immediately lock trading and request VRF to resolve the season. Are you sure you want to proceed?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={() => { setShowEarlyEndConfirm(false); setEarlyEndSeasonId(null); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={requestSeasonEndEarly?.isPending || !hasEmergencyRole}
-              onClick={() => {
-                if (!earlyEndSeasonId) return;
-                setLastEarlyEndSeasonId(earlyEndSeasonId);
-                requestSeasonEndEarly?.mutate && requestSeasonEndEarly.mutate({ seasonId: earlyEndSeasonId });
-                setShowEarlyEndConfirm(false);
-                // keep earlyEndSeasonId so per-row TransactionStatus renders; it resets when list re-renders
-              }}
-            >
-              Confirm End Now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Early end modal removed for MVP cleanup */}
     </div>
   );
 };

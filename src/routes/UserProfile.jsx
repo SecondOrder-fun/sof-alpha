@@ -10,8 +10,8 @@ import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
-import InfoFiPricingTicker from '@/components/infofi/InfoFiPricingTicker';
 import PositionsPanel from '@/components/infofi/PositionsPanel';
+import RewardsPanel from '@/components/infofi/RewardsPanel';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { useAccount } from 'wagmi';
 import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
@@ -101,8 +101,8 @@ const UserProfile = () => {
   }, [seasonBalancesQuery.data]);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-1">User Profile</h1>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">User Profile</h1>
       <p className="text-sm text-muted-foreground mb-4">Address: <span className="font-mono">{address}</span></p>
 
       <Card className="mb-4">
@@ -154,7 +154,9 @@ const UserProfile = () => {
         </CardContent>
       </Card>
 
-      <PositionsPanel address={address} seasons={seasons} />
+      <PositionsPanel address={address} seasons={(allSeasonsQuery.data || [])} />
+      {/* Read-only rewards view */}
+      <RewardsPanel readOnly />
 
       {/* Claims Panel (only visible for logged-in user viewing own profile) */}
       {myAddress && myAddress.toLowerCase() === String(address).toLowerCase() && (
@@ -323,10 +325,6 @@ const RaffleHoldingRow = ({ row, address, client }) => {
           </div>
         </div>
       </button>
-      {/* Compact live hybrid pricing for this season */}
-      <div className="mt-2">
-        <InfoFiPricingTicker marketId={row.seasonId} />
-      </div>
       {open && (
         <div className="mt-2 border-t pt-2">
           <p className="font-semibold mb-2">Buy/Sell History</p>
