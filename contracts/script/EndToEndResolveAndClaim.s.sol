@@ -9,27 +9,9 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {Raffle} from "../src/core/Raffle.sol";
 import {RaffleTypes} from "../src/lib/RaffleTypes.sol";
 import {RaffleStorage} from "../src/core/RaffleStorage.sol";
-import {InfoFiMarket} from "../src/infofi/InfoFiMarket.sol";
 import {VRFCoordinatorV2Mock} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 import {RafflePrizeDistributor} from "../src/core/RafflePrizeDistributor.sol";
 
-/**
- * End-to-end helper script to automate season end + market resolution + payout claiming:
- * 1) Warp to endTime and request season end (locks trading and emits SeasonEndRequested)
- * 2) Fulfill VRF on local mock using the emitted requestId
- * 3) Determine per-player market outcome from winners and resolve InfoFi market
- * 4) Claim payout for the winning bettor and log final balances
- *
- * Required env vars:
- * - PRIVATE_KEY                 (deployer/admin; OPERATOR_ROLE on InfoFiMarket)
- * - RAFFLE_ADDRESS              (deployed Raffle)
- * - INFOFI_MARKET_ADDRESS       (deployed InfoFiMarket)
- * - VRF_COORDINATOR_ADDRESS     (local VRFCoordinatorV2Mock)
- * - SOF_ADDRESS                 (betting token)
- * - ACCOUNT1_PRIVATE_KEY        (first user; placed YES in the buy script)
- * - ACCOUNT2_PRIVATE_KEY        (second user; placed NO in the buy script)
- * - (optional) SEASON_ID        (defaults to raffle.currentSeasonId())
- */
 contract EndToEndResolveAndClaim is Script {
     event SeasonEndRequested(uint256 indexed seasonId, uint256 indexed requestId);
 
@@ -37,56 +19,51 @@ contract EndToEndResolveAndClaim is Script {
         // Read env
         uint256 adminPk = vm.envUint("PRIVATE_KEY");
         address raffleAddr = vm.envAddress("RAFFLE_ADDRESS");
-        address infoFiMarketAddr = vm.envAddress("INFOFI_MARKET_ADDRESS");
         address sofAddr = vm.envAddress("SOF_ADDRESS");
         address vrfMockAddr = vm.envAddress("VRF_COORDINATOR_ADDRESS");
+        address prizeDistributorAddr = vm.envAddress("PRIZE_DISTRIBUTOR_ADDRESS");
 
-        uint256 user1Pk = vm.envUint("ACCOUNT1_PRIVATE_KEY");
-        uint256 user2Pk = vm.envUint("ACCOUNT2_PRIVATE_KEY");
-        address user1 = vm.addr(user1Pk);
-        address user2 = vm.addr(user2Pk);
+        address deployer = vm.addr(adminPk);
 
         require(raffleAddr != address(0), "RAFFLE_ADDRESS not set");
-        require(infoFiMarketAddr != address(0), "INFOFI_MARKET_ADDRESS not set");
         require(sofAddr != address(0), "SOF_ADDRESS not set");
         require(vrfMockAddr != address(0), "VRF_COORDINATOR_ADDRESS not set");
+        require(prizeDistributorAddr != address(0), "PRIZE_DISTRIBUTOR_ADDRESS not set");
 
         Raffle raffle = Raffle(raffleAddr);
-        InfoFiMarket infoFi = InfoFiMarket(infoFiMarketAddr);
         IERC20 sof = IERC20(sofAddr);
         VRFCoordinatorV2Mock vrf = VRFCoordinatorV2Mock(vrfMockAddr);
+        RafflePrizeDistributor distributor = RafflePrizeDistributor(prizeDistributorAddr);
 
         // Determine season id
         uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
-
         console2.log("[E2E-Resolve] Target season:", seasonId);
 
         // Read season to get endTime and ensure active or endable
         RaffleTypes.SeasonConfig memory cfg;
         RaffleStorage.SeasonStatus status;
-        uint256 totalParticipants;
-        uint256 totalTickets;
-        uint256 totalPrizePool;
-        (cfg, status, totalParticipants, totalTickets, totalPrizePool) = raffle.getSeasonDetails(seasonId);
+        (cfg, status, , ,) = raffle.getSeasonDetails(seasonId);
 
         // 1) If not completed, request season end (or emergency end) and fulfill VRF
         if (status != RaffleStorage.SeasonStatus.Completed) {
-            vm.startBroadcast(adminPk);
+            uint256 requestId;
+            if (status == RaffleStorage.SeasonStatus.Active || status == RaffleStorage.SeasonStatus.NotStarted) {
+                console2.log("[E2E-Resolve] Season is Active/NotStarted. Requesting end...");
+                vm.startBroadcast(adminPk);
+                vm.recordLogs();
+                raffle.requestSeasonEndEarly(seasonId);
+                vm.stopBroadcast();
 
+                Vm.Log[] memory entries = vm.getRecordedLogs();
+                requestId = _extractRequestIdFromLogs(entries);
+            } else if (status == RaffleStorage.SeasonStatus.VRFPending || status == RaffleStorage.SeasonStatus.EndRequested) {
+                console2.log("[E2E-Resolve] Season is already VRFPending/EndRequested. Retrieving existing requestId...");
+                requestId = raffle.getVrfRequestForSeason(seasonId);
+            } else {
+                revert("Invalid season status for resolution");
+            }
 
-
-
-            vm.recordLogs();
-            raffle.requestSeasonEnd(seasonId);
-
-            // Lock InfoFi markets for this raffle after we've successfully requested end
-            infoFi.lockMarketsForRaffle(seasonId);
-            vm.stopBroadcast();
-
-            // Parse logs to get requestId from SeasonEndRequested
-            Vm.Log[] memory entries = vm.getRecordedLogs();
-            uint256 requestId = _extractRequestIdFromLogs(entries);
-            require(requestId != 0, "Failed to extract VRF requestId");
+            require(requestId != 0, "Failed to find VRF requestId");
             console2.log("[E2E-Resolve] VRF requestId:", requestId);
 
             // 2) Fulfill VRF on mock, targeting the raffle contract
@@ -94,7 +71,7 @@ contract EndToEndResolveAndClaim is Script {
             vrf.fulfillRandomWords(requestId, address(raffle));
             vm.stopBroadcast();
             console2.log("[E2E-Resolve] VRF fulfilled");
-        
+
             // Confirm season has transitioned to Completed
             (, status, , , ) = raffle.getSeasonDetails(seasonId);
             require(status == RaffleStorage.SeasonStatus.Completed, "Season not completed after VRF");
@@ -102,84 +79,43 @@ contract EndToEndResolveAndClaim is Script {
             console2.log("[E2E-Resolve] Season already completed; skipping VRF step");
         }
 
-        // After fulfillment, winners are available; also season is Completed internally
+        // After fulfillment, winners are available
         address[] memory winners = raffle.getWinners(seasonId);
         console2.log("[E2E-Resolve] Winners count:", winners.length);
 
-        // 3) Resolve InfoFi market based on whether user1 is in winners (market created for user1 in prior script)
-        vm.startBroadcast(adminPk);
-        uint256 marketId = 0; // The first market created for the user
-        bool user1IsWinner = _isWinner(winners, user1);
-        infoFi.resolveMarket(marketId, user1IsWinner);
-        console2.log("[E2E-Resolve] Resolved market:", marketId, " outcome (user1 YES):", user1IsWinner);
-        vm.stopBroadcast();
-
-        // 4) Claim payout for the winning bettor (check which address predicted correctly)
-        InfoFiMarket.BetInfo memory b1 = infoFi.getBet(marketId, user1);
-        InfoFiMarket.BetInfo memory b2 = infoFi.getBet(marketId, user2);
-        if (b1.amount > 0 && b1.prediction == user1IsWinner) {
-            vm.startBroadcast(user1Pk);
-            uint256 balBefore = sof.balanceOf(user1);
-            infoFi.claimPayout(marketId, b1.prediction);
-            uint256 balAfter = sof.balanceOf(user1);
-            vm.stopBroadcast();
-            console2.log("[E2E-Resolve] User1 claimed. +SOF:", balAfter - balBefore);
-        } else if (b2.amount > 0 && b2.prediction == user1IsWinner) {
-            vm.startBroadcast(user2Pk);
-            uint256 balBefore2 = sof.balanceOf(user2);
-            infoFi.claimPayout(marketId, b2.prediction);
-            uint256 balAfter2 = sof.balanceOf(user2);
-            vm.stopBroadcast();
-            console2.log("[E2E-Resolve] User2 claimed. +SOF:", balAfter2 - balBefore2);
-        } else {
-            console2.log("[E2E-Resolve] No matching winning bet found to claim.");
-        }
-
-        // 5) Claim grand prize from the raffle
-        if (user1IsWinner) {
-            vm.startBroadcast(user1Pk);
-            RafflePrizeDistributor distributor = RafflePrizeDistributor(vm.envAddress("PRIZE_DISTRIBUTOR_ADDRESS"));
-            uint256 balBeforeGrand = sof.balanceOf(user1);
+        // 3) Claim grand prize from the raffle
+        bool deployerIsWinner = _isWinner(winners, deployer);
+        if (deployerIsWinner) {
+            vm.startBroadcast(adminPk);
+            uint256 balBeforeGrand = sof.balanceOf(deployer);
             distributor.claimGrand(seasonId);
-            uint256 balAfterGrand = sof.balanceOf(user1);
+            uint256 balAfterGrand = sof.balanceOf(deployer);
             vm.stopBroadcast();
-            console2.log("[E2E-Resolve] User1 claimed grand prize. +SOF:", balAfterGrand - balBeforeGrand);
+            console2.log("[E2E-Resolve] Deployer claimed grand prize. +SOF:", balAfterGrand - balBeforeGrand);
+        } else {
+            console2.log("[E2E-Resolve] Deployer was not the winner.");
         }
 
-        console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, market resolved, payout claimed.");
+        console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, payout claimed.");
     }
 
     function _extractRequestIdFromLogs(Vm.Log[] memory entries) internal pure returns (uint256) {
-        // Primary: Raffle.SeasonEndRequested(uint256 indexed seasonId, uint256 requestId OR indexed requestId)
-        // topic0 = keccak256("SeasonEndRequested(uint256,uint256)")
-        bytes32 topicSeasonEndRequested = 0x3a6aa14db7c3a1a7f0bde6b0a6a83cb98a9b6d5f35e25b44b2b16fed0f4a3b0c;
+        bytes32 topicSeasonEndRequested = 0x656e5c80604277a61c82dbec54c99e9c266e8e019c6c1367d5b82e773fd395c7;
         for (uint256 i = 0; i < entries.length; i++) {
             if (entries[i].topics.length > 0 && entries[i].topics[0] == topicSeasonEndRequested) {
-                // Case A: requestId in data (non-indexed): single 32-byte word
                 if (entries[i].data.length == 32) {
                     return abi.decode(entries[i].data, (uint256));
                 }
-                // Case B: requestId indexed as second topic
                 if (entries[i].topics.length >= 3) {
                     return uint256(entries[i].topics[2]);
                 }
             }
         }
 
-        // Fallback: parse Chainlink VRFCoordinatorV2Mock RandomWordsRequested
-        // topic0 = keccak256("RandomWordsRequested(bytes32,uint256,uint256,uint256,uint32,uint32,uint32,address)")
-        // Seen in local logs as 0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772
         bytes32 topicVRFRequested = 0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772;
         for (uint256 i = 0; i < entries.length; i++) {
             if (entries[i].topics.length > 0 && entries[i].topics[0] == topicVRFRequested) {
-                // In the mock, requestId is encoded as the first 32-byte word in data
                 if (entries[i].data.length >= 32) {
-                    bytes32 word0;
-                    assembly {
-                        word0 := calldataload(0) // placeholder to satisfy compiler; will not be used
-                    }
-                    // Safer decoding using abi.decode on a bytes slice
-                    // Decode the first word as uint256
                     bytes memory d = entries[i].data;
                     uint256 reqId;
                     assembly {

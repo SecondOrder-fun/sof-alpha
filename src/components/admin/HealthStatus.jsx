@@ -20,12 +20,34 @@ export default function HealthStatus() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['health'],
     queryFn: async () => {
-      const res = await fetch('/api/health');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
+      try {
+        const res = await fetch('/api/health');
+        if (!res.ok) {
+          // Backend may be intentionally not running during pure-frontend flows.
+          // Return a synthetic degraded payload instead of throwing to avoid console spam.
+          return {
+            status: 'DEGRADED',
+            timestamp: new Date().toISOString(),
+            env: {},
+            checks: { supabase: { ok: false }, rpc: { ok: false }, network: 'UNKNOWN' },
+            _note: `Backend unavailable (HTTP ${res.status})`,
+          };
+        }
+        return res.json();
+      } catch (e) {
+        // Network failure (e.g., server not running). Degrade gracefully.
+        return {
+          status: 'DEGRADED',
+          timestamp: new Date().toISOString(),
+          env: {},
+          checks: { supabase: { ok: false }, rpc: { ok: false }, network: 'UNKNOWN' },
+          _note: 'Backend unavailable (connection error)',
+        };
+      }
     },
     refetchInterval: 30000,
     staleTime: 25000,
+    retry: false,
   });
 
   return (
@@ -78,6 +100,7 @@ export default function HealthStatus() {
           </div>
         )}
         <div className="text-xs text-muted-foreground mt-2">
+          {data?._note ? `${data._note} · ` : ''}
           {isFetching ? 'Refreshing...' : data?.timestamp ? `Updated: ${new Date(data.timestamp).toLocaleString()}` : ''}
         </div>
         <button

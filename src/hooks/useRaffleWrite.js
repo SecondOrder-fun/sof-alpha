@@ -101,6 +101,7 @@ export function useRaffleWrite() {
   const queryClient = useQueryClient();
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
+  const publicClient = usePublicClient();
 
   const raffleContractConfig = {
     address: contracts.RAFFLE,
@@ -116,6 +117,17 @@ export function useRaffleWrite() {
         functionName: 'createSeason',
         args: [config, bondSteps, buyFeeBps, sellFeeBps],
       };
+    },
+    // Preflight check: ensure RAFFLE address has code on current chain
+    onMutate: async () => {
+      if (publicClient && raffleContractConfig.address) {
+        const code = await publicClient.getCode({ address: raffleContractConfig.address });
+        if (!code || code === '0x') {
+          throw new Error(
+            `No contract code found at RAFFLE address ${raffleContractConfig.address}. Check you are on the correct network and that addresses are up to date.`
+          );
+        }
+      }
     },
     onSuccess: async () => {
       // Proactively refetch so UI updates immediately

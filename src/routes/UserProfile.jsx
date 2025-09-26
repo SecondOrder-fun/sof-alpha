@@ -16,6 +16,7 @@ import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { useAccount } from 'wagmi';
 import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
 import { Button } from '@/components/ui/button';
+import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 
 const UserProfile = () => {
   const { address } = useParams();
@@ -100,6 +101,9 @@ const UserProfile = () => {
     }
   }, [seasonBalancesQuery.data]);
 
+  console.log('Seasons data in UserProfile:', seasons?.map(s => ({ id: s.id, status: s.status, name: s.config?.name })) || 'undefined/null');
+  console.log('All seasons query state - isSuccess:', allSeasonsQuery.isSuccess, 'data:', allSeasonsQuery.data, 'isLoading:', allSeasonsQuery.isLoading);
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">User Profile</h1>
@@ -155,12 +159,19 @@ const UserProfile = () => {
       </Card>
 
       <PositionsPanel address={address} seasons={(allSeasonsQuery.data || [])} />
-      {/* Read-only rewards view */}
-      <RewardsPanel readOnly />
+
 
       {/* Claims Panel (only visible for logged-in user viewing own profile) */}
       {myAddress && myAddress.toLowerCase() === String(address).toLowerCase() && (
-        <ClaimsPanel profileAddress={address} seasons={seasons} netKey={netKey} />
+        <>
+
+          <div className="my-4">
+            <h2 className="text-xl font-bold mb-2">Completed Season Prizes</h2>
+            {seasons.filter(s => s.status >= 4 /* Distributing or Completed */).map(s => (
+              <ClaimPrizeWidget key={s.id} seasonId={s.id} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

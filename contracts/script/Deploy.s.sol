@@ -50,8 +50,16 @@ contract DeployScript is Script {
         vrfCoordinator.addConsumer(subscriptionId, address(raffle));
         console2.log("Raffle contract added as VRF consumer.");
 
-        // Deploy SeasonFactory, passing the Raffle contract's address
-        SeasonFactory seasonFactory = new SeasonFactory(address(raffle));
+        // Deploy RafflePositionTracker
+        RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
+        console2.log("RafflePositionTracker deployed at:", address(tracker));
+
+        // Grant the Raffle contract admin role on the tracker so it can manage roles
+        tracker.grantRole(bytes32(0), address(raffle));
+        console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to Raffle contract");
+
+        // Deploy SeasonFactory, passing the Raffle and Tracker contract addresses
+        SeasonFactory seasonFactory = new SeasonFactory(address(raffle), address(tracker));
 
         // Set the season factory address in the Raffle contract (idempotent via try/catch)
         try raffle.setSeasonFactory(address(seasonFactory)) {
@@ -74,23 +82,7 @@ contract DeployScript is Script {
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
 
-        // Deploy RafflePositionTracker and wire roles
-        console2.log("Deploying RafflePositionTracker...");
-        RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
-        // Grant MARKET_ROLE to raffle and seasonFactory so they can push updates if needed
-        bytes32 marketRole = tracker.MARKET_ROLE();
-        // These may fail if the deployer is not the admin; don't block deployment.
-        try tracker.grantRole(marketRole, address(raffle)) {
-            console2.log("Granted MARKET_ROLE to Raffle on Tracker");
-        } catch {
-            console2.log("Skipping grantRole to Raffle on Tracker (not admin)");
-        }
-        try tracker.grantRole(marketRole, address(seasonFactory)) {
-            console2.log("Granted MARKET_ROLE to SeasonFactory on Tracker");
-        } catch {
-            console2.log("Skipping grantRole to SeasonFactory on Tracker (not admin)");
-        }
-        console2.log("RafflePositionTracker deployed at:", address(tracker));
+
 
         // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
         console2.log("Deploying InfoFiPriceOracle (weights 70/30) with deployer as admin...");
@@ -189,6 +181,5 @@ contract DeployScript is Script {
         console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
-        console2.log("RafflePositionTracker deployed at:", address(tracker));
     }
 }

@@ -41,9 +41,9 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
 
 TokenInfoTab.propTypes = {
   bondingCurveAddress: PropTypes.string,
-  curveSupply: PropTypes.oneOfType([PropTypes.object, PropTypes.string, PropTypes.number]),
+  curveSupply: PropTypes.any,
   allBondSteps: PropTypes.array,
-  curveReserves: PropTypes.oneOfType([PropTypes.object, PropTypes.string, PropTypes.number]),
+  curveReserves: PropTypes.any,
 };
 
 export default TokenInfoTab;

@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Ta
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useWallet } from '@/hooks/useWallet';
+import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
 
 const RaffleDetails = () => {
   const { seasonId } = useParams();
@@ -390,6 +391,7 @@ const RaffleDetails = () => {
                     })()}
                   </CardContent>
                 </Card>
+                <RaffleAdminControls seasonId={seasonId} />
               </CardContent>
             </Card>
           );

@@ -1,12 +1,14 @@
-import { createWalletClient, http, publicActions, getAddress } from 'viem';
+import { createWalletClient, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { anvil } from 'viem/chains';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
-import raffleAbi from '../src/contracts/abis/Raffle.json' assert { type: 'json' };
-import prizeDistributorAbi from '../src/contracts/abis/RafflePrizeDistributor.json' assert { type: 'json' };
+const require = createRequire(import.meta.url);
+const raffleAbi = require('../src/contracts/abis/Raffle.json');
+const prizeDistributorAbi = require('../src/contracts/abis/RafflePrizeDistributor.json');
 
 const ANVIL_RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
 const RAFFLE_ADDRESS = process.env.RAFFLE_ADDRESS;

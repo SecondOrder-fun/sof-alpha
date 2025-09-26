@@ -16,6 +16,7 @@ contract SeasonFactory is AccessControl {
     bytes32 public constant RAFFLE_ADMIN_ROLE = keccak256("RAFFLE_ADMIN_ROLE");
 
     address public immutable raffleAddress;
+    address public immutable trackerAddress;
 
     event SeasonContractsDeployed(
         uint256 indexed seasonId,
@@ -23,8 +24,9 @@ contract SeasonFactory is AccessControl {
         address indexed bondingCurve
     );
 
-    constructor(address _raffleAddress) {
+    constructor(address _raffleAddress, address _trackerAddress) {
         raffleAddress = _raffleAddress;
+        trackerAddress = _trackerAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
     }
@@ -59,6 +61,8 @@ contract SeasonFactory is AccessControl {
         // Grant curve rights on raffle token
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), curveAddr);
         raffleToken.grantRole(raffleToken.BURNER_ROLE(), curveAddr);
+
+
 
         emit SeasonContractsDeployed(seasonId, raffleTokenAddr, curveAddr);
     }

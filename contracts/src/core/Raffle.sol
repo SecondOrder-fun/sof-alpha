@@ -16,6 +16,7 @@ import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 
+
 // Minimal ACL interface for granting MARKET_ROLE on the tracker
 interface ITrackerACL {
     function grantRole(bytes32 role, address account) external;
@@ -189,7 +190,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonStates[seasonId].status == SeasonStatus.Active, "Raffle: bad status");
 
         // Lock trading on curve
-        SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
+        SOFBondingCurve curve = SOFBondingCurve(seasons[seasonId].bondingCurve);
+        curve.lockTrading();
+        seasonStates[seasonId].totalPrizePool = curve.getSofReserves();
         seasons[seasonId].isActive = false;
         seasonStates[seasonId].status = SeasonStatus.EndRequested;
         emit SeasonLocked(seasonId);
@@ -218,7 +221,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonStates[seasonId].status == SeasonStatus.Active, "Raffle: bad status");
 
         // Lock trading on curve
-        SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
+        SOFBondingCurve curve = SOFBondingCurve(seasons[seasonId].bondingCurve);
+        curve.lockTrading();
+        seasonStates[seasonId].totalPrizePool = curve.getSofReserves();
         seasons[seasonId].isActive = false;
         seasonStates[seasonId].status = SeasonStatus.EndRequested;
         emit SeasonLocked(seasonId);
@@ -242,9 +247,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonId != 0, "Raffle: bad req");
         require(seasonStates[seasonId].status == SeasonStatus.VRFPending, "Raffle: bad status");
 
-        // Prize pool from curve reserves
-        uint256 totalPrizePool = SOFBondingCurve(seasons[seasonId].bondingCurve).getSofReserves();
-        seasonStates[seasonId].totalPrizePool = totalPrizePool;
+        uint256 totalPrizePool = seasonStates[seasonId].totalPrizePool;
 
         // Select winners address-based
         address[] memory winners = RaffleLogic._selectWinnersAddressBased(seasonStates[seasonId], seasons[seasonId].winnerCount, randomWords);
@@ -368,6 +371,11 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         return seasonStates[seasonId].winners;
     }
 
+    function getVrfRequestForSeason(uint256 seasonId) external view returns (uint256) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        return seasonStates[seasonId].vrfRequestId;
+    }
+
     // Admin
     function pauseSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) { require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season"); seasons[seasonId].isActive = false; }
 
@@ -399,7 +407,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         
         // Get the required parameters
         SeasonState storage state = seasonStates[seasonId];
-        uint256 totalPrizePool = state.totalPrizePool;
+        RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
+        address curveAddr = cfg.bondingCurve;
+        require(curveAddr != address(0), "Raffle: curve zero");
+        uint256 totalPrizePool = SOFBondingCurve(curveAddr).getSofReserves();
         address[] memory winners = state.winners;
         
         // Call the internal function
@@ -442,16 +453,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         address curveAddr = cfg.bondingCurve;
         require(curveAddr != address(0), "Raffle: curve zero");
         
-        // Use try/catch to handle potential failures in external calls
-        try SOFBondingCurve(curveAddr).extractSof(prizeDistributor, totalPrizePool) {
-            // Extraction successful
-        } catch {
-            // If extraction fails, log the error but continue with the process
-            // This ensures the season can still be completed even if fund transfer fails
-        }
-
-        // Configure season on distributor
-        try IRafflePrizeDistributor(prizeDistributor).configureSeason(
+        // 1. Configure the prize distributor with amounts and winner info
+        IRafflePrizeDistributor(prizeDistributor).configureSeason(
             seasonId,
             address(sofToken),
             grandWinner,
@@ -459,16 +462,15 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             consolationAmount,
             totalTicketsSnapshot,
             grandWinnerTickets
-        ) {
-            // Configuration successful
-        } catch {
-            // If configuration fails, log the error but continue with the process
-        }
+        );
 
-        // Merkle root will be set later off-chain via setSeasonMerkleRoot
-        // Funding is now handled by a separate manual call to fundPrizeDistributor
+        // 2. Extract funds from the curve directly to the prize distributor
+        SOFBondingCurve(curveAddr).extractSof(prizeDistributor, totalPrizePool);
 
-        // Mark complete - this is the most important step to ensure the season can be completed
+        // 3. Call fundSeason on the distributor to finalize
+        IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool);
+
+        // 4. Mark season as completed
         cfg.isCompleted = true;
         state.status = SeasonStatus.Completed;
         emit PrizeDistributionSetup(seasonId, prizeDistributor);

@@ -18,27 +18,27 @@ export function useAllSeasons() {
       if (!addr.RAFFLE || currentSeasonId == null) return [];
 
       const seasonPromises = [];
-      for (let i = 0; i <= Number(currentSeasonId); i++) {
+      for (let i = 1; i <= Number(currentSeasonId); i++) {
         seasonPromises.push(
           client.readContract({
             address: addr.RAFFLE,
             abi: RAFFLE_ABI,
             functionName: 'getSeasonDetails',
             args: [BigInt(i)],
-          })
+          }).then(details => ({ id: i, details })) // Wrap promise to preserve ID
         );
       }
 
       const seasonsData = await Promise.all(seasonPromises);
 
       // Normalize and filter out zero/default structs that render as 1970 dates
-      const normalized = seasonsData.map((season, index) => ({
-        id: index,
-        config: season?.[0],
-        status: season?.[1],
-        totalParticipants: season?.[2],
-        totalTickets: season?.[3],
-        totalPrizePool: season?.[4],
+      const normalized = seasonsData.map(s => ({
+        id: s.id, // Use the preserved ID
+        config: s.details?.[0],
+        status: s.details?.[1],
+        totalParticipants: s.details?.[2],
+        totalTickets: s.details?.[3],
+        totalPrizePool: s.details?.[4],
       }));
 
       return normalized.filter((s) => {

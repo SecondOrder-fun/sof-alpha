@@ -14,7 +14,7 @@ contract CreateSeason is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        uint256 startTs = block.timestamp + 1 days;
+        uint256 startTs = block.timestamp + 60 seconds;
         uint256 endTs = startTs + 14 days;
 
         RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
@@ -48,6 +48,13 @@ contract CreateSeason is Script {
 
         uint256 seasonId = raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
         console2.log("Season created with ID:", seasonId);
+
+        // Wire the position tracker to the new season's curve
+        address trackerAddress = vm.envAddress("RAFFLE_TRACKER_ADDRESS");
+        if (trackerAddress != address(0)) {
+            raffle.setPositionTrackerForSeason(seasonId, trackerAddress);
+            console2.log("Wired position tracker for season", seasonId);
+        }
 
         vm.stopBroadcast();
     }

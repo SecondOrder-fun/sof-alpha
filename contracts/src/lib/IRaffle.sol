@@ -9,4 +9,8 @@ interface IRaffle {
     function recordParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external;
 
     function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external;
+
+    function setPositionTrackerForSeason(uint256 seasonId, address tracker) external;
+
+    function getVrfRequestForSeason(uint256 seasonId) external view returns (uint256);
 }
