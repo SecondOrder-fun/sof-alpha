@@ -26,15 +26,25 @@ import {
   formatUnits,
   createWalletClient,
   custom,
-  getAddress,
-  encodePacked,
 } from "viem";
 import { getContractAddresses } from "@/config/contracts";
 import {
   computeSeasonStartTimestamp,
   AUTO_START_BUFFER_SECONDS,
 } from "@/lib/seasonTime";
-import HealthStatus from "@/components/admin/HealthStatus";
+import { buildFriendlyContractError } from "@/lib/contractErrors";
+
+// Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
+const fmtLocalDatetime = (sec) => {
+  const d = new Date(sec * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+};
 
 // Minimal ERC20 ABI for decimals
 const ERC20_DECIMALS_ABI = [
@@ -71,6 +81,14 @@ const TransactionStatus = ({ mutation }) => {
       setShowPendingWarn(false);
     }
   }, [m.hash, m.isConfirmed, m.isError, pendingSince]);
+
+  useEffect(() => {
+    if (!pendingSince) return;
+    const t = setInterval(() => {
+      if (Date.now() - pendingSince > 60000) setShowPendingWarn(true);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [pendingSince]);
 
   useEffect(() => {
     if (!pendingSince) return;
@@ -151,13 +169,14 @@ TransactionStatus.propTypes = {
   seasonId: PropTypes.number,
 };
 
-const AdminPanel = () => {
+function AdminPanel() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
   const allSeasonsQuery = useAllSeasons();
   const { address } = useAccount();
   const { hasRole } = useAccessControl();
   const chainId = useChainId();
   const net = getNetworkByKey(getStoredNetworkKey());
+  // use existing environment/config variables declared later to avoid redeclarations
 
   const DEFAULT_ADMIN_ROLE =
     "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -170,6 +189,8 @@ const AdminPanel = () => {
     enabled: !!address,
   });
 
+  // Guards relocated below after state/query initialization
+
   // Minimal ABIs used for local E2E resolution
   const RaffleMiniAbi = [
     {
@@ -181,288 +202,62 @@ const AdminPanel = () => {
     },
     {
       type: "function",
-      name: "setSeasonMerkleRoot",
+      name: "requestSeasonEndEarly",
       stateMutability: "nonpayable",
-      inputs: [
-        { name: "seasonId", type: "uint256" },
-        { name: "merkleRoot", type: "bytes32" },
-      ],
+      inputs: [{ name: "seasonId", type: "uint256" }],
       outputs: [],
     },
+
     {
       type: "function",
-      name: "getParticipants",
+      name: "getSeasonDetails",
       stateMutability: "view",
       inputs: [{ name: "seasonId", type: "uint256" }],
-      outputs: [{ name: "", type: "address[]" }],
-    },
-    {
-      type: "function",
-      name: "getParticipantPosition",
-      stateMutability: "view",
-      inputs: [
-        { name: "seasonId", type: "uint256" },
-        { name: "participant", type: "address" },
-      ],
       outputs: [
         {
-          name: "position",
+          name: "config",
           type: "tuple",
           components: [
-            { name: "ticketCount", type: "uint256" },
-            { name: "entryBlock", type: "uint256" },
-            { name: "lastUpdateBlock", type: "uint256" },
+            { name: "name", type: "string" },
+            { name: "startTime", type: "uint256" },
+            { name: "endTime", type: "uint256" },
+            { name: "winnerCount", type: "uint8" },
+            { name: "prizePercentage", type: "uint8" },
+            { name: "consolationPercentage", type: "uint8" },
+            { name: "grandPrizeBps", type: "uint16" },
+            { name: "raffleToken", type: "address" },
+            { name: "bondingCurve", type: "address" },
             { name: "isActive", type: "bool" },
+            { name: "isCompleted", type: "bool" },
           ],
         },
+        { name: "status", type: "uint8" },
+        { name: "totalTickets", type: "uint256" },
+        { name: "winner", type: "address" },
+        { name: "merkleRoot", type: "bytes32" },
       ],
     },
-  ];
-
-  const DistributorMiniAbi = [
     {
       type: "function",
-      name: "getSeason",
+      name: "getVrfRequestForSeason",
       stateMutability: "view",
       inputs: [{ name: "seasonId", type: "uint256" }],
-      outputs: [
-        {
-          name: "",
-          type: "tuple",
-          components: [
-            { name: "token", type: "address" },
-            { name: "grandWinner", type: "address" },
-            { name: "grandAmount", type: "uint256" },
-            { name: "consolationAmount", type: "uint256" },
-            { name: "totalTicketsSnapshot", type: "uint256" },
-            { name: "grandWinnerTickets", type: "uint256" },
-            { name: "merkleRoot", type: "bytes32" },
-            { name: "funded", type: "bool" },
-            { name: "grandClaimed", type: "bool" },
-          ],
-        },
-      ],
+      outputs: [{ name: "", type: "uint256" }],
+    },
+    {
+      type: "function",
+      name: "fundPrizeDistributor",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "seasonId", type: "uint256" }],
+      outputs: [],
     },
   ];
 
-  // Helper: build Merkle root from leaves (index,address,amount) using keccak256(abi.encodePacked(...)) and sorted pair hashing
-  function buildMerkleRoot(leaves) {
-    const hashes = leaves.map((l) =>
-      keccak256(
-        encodePacked(
-          ["uint256", "address", "uint256"],
-          [BigInt(l.index), getAddress(l.account), BigInt(l.amount)]
-        )
-      )
-    );
-    if (hashes.length === 0) return "0x".padEnd(66, "0");
-    let layer = hashes;
-    while (layer.length > 1) {
-      const next = [];
-      for (let i = 0; i < layer.length; i += 2) {
-        const left = layer[i];
-        const right = i + 1 < layer.length ? layer[i + 1] : layer[i];
-        const packed =
-          left.toLowerCase() < right.toLowerCase()
-            ? `${left}${right.slice(2)}`
-            : `${right}${left.slice(2)}`;
-        next.push(keccak256(`0x${packed.slice(2)}`));
-      }
-      layer = next;
-    }
-    return layer[0];
-  }
+  // Distributor ABI removed – no Merkle-based post-processing required in UI.
 
-  async function endSeasonLocalE2E(seasonId) {
-    try {
-      setEndingE2EId(seasonId);
-      setEndStatus("Requesting season end...");
-      // Step 1: requestSeasonEnd via wallet
-      const netKey = getStoredNetworkKey();
-      const raffleAddr = getContractAddresses(netKey).RAFFLE;
-      const distributorAddr = await publicClient.readContract({
-        address: raffleAddr,
-        abi: [
-          {
-            type: "function",
-            name: "prizeDistributor",
-            stateMutability: "view",
-            inputs: [],
-            outputs: [{ type: "address" }],
-          },
-        ],
-        functionName: "prizeDistributor",
-      });
+  // Merkle root computation removed – claim restriction does not require Merkle verification.
 
-      const wallet = createWalletClient({
-        chain: { id: chainId },
-        transport: custom(window.ethereum),
-      });
-      const [from] = await wallet.getAddresses();
-      const endHash = await wallet.writeContract({
-        address: raffleAddr,
-        abi: RaffleMiniAbi,
-        functionName: "requestSeasonEnd",
-        args: [BigInt(seasonId)],
-        account: from,
-      });
-
-      // Step 2: fulfill VRF on local (chainId 31337) using known mock address
-      setEndStatus("Fulfilling VRF...");
-      let requestIdDec = null;
-      if (chainId === 31337) {
-        const vrfMock =
-          getContractAddresses(netKey).VRF_COORDINATOR ||
-          "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-        // First try to parse the tx receipt for the VRF request emitted during requestSeasonEnd
-        const endReceipt = await publicClient.waitForTransactionReceipt({
-          hash: endHash,
-        });
-        let matchLog = [...(endReceipt.logs || [])]
-          .reverse()
-          .find(
-            (lg) => (lg.address || "").toLowerCase() === vrfMock.toLowerCase()
-          );
-        // Fallback: scan chain logs if not found in receipt (e.g., if coordinator emitted in another tx)
-        if (!matchLog) {
-          const sLogs = await publicClient.getLogs({
-            address: vrfMock,
-            fromBlock: 0n,
-            toBlock: "latest",
-          });
-          const raffleTopic = `0x${raffleAddr
-            .toLowerCase()
-            .slice(2)
-            .padStart(64, "0")}`;
-          matchLog = [...sLogs]
-            .reverse()
-            .find((lg) => (lg.topics?.[3] || "").toLowerCase() === raffleTopic);
-        }
-        if (!matchLog) {
-          setVerify((prev) => ({
-            ...prev,
-            [seasonId]: {
-              error:
-                "No VRF requestId found for this raffle. Confirm end time has passed, then retry.",
-            },
-          }));
-          throw new Error("VRF request log not found for raffle");
-        }
-        const dataHex = matchLog.data || "0x";
-        // Heuristic: take first 32-byte word from data as requestId
-        const reqHex = dataHex.slice(0, 66);
-        requestIdDec = parseInt(reqHex, 16);
-        if (!Number.isFinite(requestIdDec)) {
-          setVerify((prev) => ({
-            ...prev,
-            [seasonId]: { error: "Could not parse VRF requestId from log." },
-          }));
-          throw new Error("Failed to parse VRF requestId");
-        }
-        // Call fulfillRandomWords(requestId, raffle)
-        await wallet.writeContract({
-          address: vrfMock,
-          abi: [
-            {
-              type: "function",
-              name: "fulfillRandomWords",
-              stateMutability: "nonpayable",
-              inputs: [{ type: "uint256" }, { type: "address" }],
-              outputs: [],
-            },
-          ],
-          functionName: "fulfillRandomWords",
-          args: [BigInt(requestIdDec), raffleAddr],
-          account: from,
-        });
-      }
-
-      // Step 3: verify distributor funded & compute merkle
-      setEndStatus("Computing Merkle root...");
-      const distributor = distributorAddr;
-      const snap = await publicClient.readContract({
-        address: distributor,
-        abi: DistributorMiniAbi,
-        functionName: "getSeason",
-        args: [BigInt(seasonId)],
-      });
-      const grandWinner = snap.grandWinner || snap[1];
-      const consol = BigInt(snap.consolationAmount || snap[3] || 0);
-      const totalTicketsSnapshot = BigInt(
-        snap.totalTicketsSnapshot || snap[4] || 0
-      );
-      const grandWinnerTickets = BigInt(
-        snap.grandWinnerTickets || snap[5] || 0
-      );
-      const funded = Boolean(snap.funded ?? snap[7] ?? false);
-
-      let root = "0x".padEnd(66, "0");
-      if (consol > 0n && totalTicketsSnapshot > 0n) {
-        const participants = await publicClient.readContract({
-          address: raffleAddr,
-          abi: RaffleMiniAbi,
-          functionName: "getParticipants",
-          args: [BigInt(seasonId)],
-        });
-        const denom = totalTicketsSnapshot - grandWinnerTickets;
-        const leaves = [];
-        let idx = 0;
-        if (denom > 0n) {
-          for (const acct of participants) {
-            if (acct.toLowerCase() === String(grandWinner).toLowerCase())
-              continue;
-            const pos = await publicClient.readContract({
-              address: raffleAddr,
-              abi: RaffleMiniAbi,
-              functionName: "getParticipantPosition",
-              args: [BigInt(seasonId), acct],
-            });
-            const tickets = BigInt(
-              pos?.ticketCount ?? (Array.isArray(pos) ? pos[0] : 0)
-            );
-            if (tickets === 0n) continue;
-            const amount = (consol * tickets) / denom;
-            if (amount > 0n)
-              leaves.push({
-                index: idx++,
-                account: acct,
-                amount: amount.toString(),
-              });
-          }
-        }
-        root = buildMerkleRoot(leaves);
-      }
-
-      // Step 4: setSeasonMerkleRoot on raffle
-      setEndStatus("Setting merkle root on-chain...");
-      await wallet.writeContract({
-        address: raffleAddr,
-        abi: RaffleMiniAbi,
-        functionName: "setSeasonMerkleRoot",
-        args: [BigInt(seasonId), root],
-        account: from,
-      });
-
-      setEndStatus("Done");
-      allSeasonsQuery.refetch();
-      // Store verification for UI
-      setVerify((prev) => ({
-        ...prev,
-        [seasonId]: {
-          funded,
-          grandWinner,
-          grandAmount: String(snap.grandAmount ?? snap[2] ?? 0n),
-          consolationAmount: String(consol),
-          requestId: requestIdDec,
-          error: null,
-        },
-      }));
-    } catch (e) {
-      setEndStatus(`Error: ${e?.shortMessage || e?.message || String(e)}`);
-    } finally {
-      setEndingE2EId(null);
-    }
-  }
+  // NOTE: Always use decodeErrorResult via buildFriendlyContractError to surface clear errors.
 
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
     queryKey: ["hasSeasonCreatorRole", address],
@@ -480,8 +275,8 @@ const AdminPanel = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [bondStepsText, setBondStepsText] = useState("");
-  const [maxTickets, setMaxTickets] = useState("");
-  const [numSteps, setNumSteps] = useState("");
+  const [maxTickets, setMaxTickets] = useState("100000");
+  const [numSteps, setNumSteps] = useState("10");
   const [basePrice, setBasePrice] = useState("10"); // $SOF starting price
   const [priceDelta, setPriceDelta] = useState("1"); // $SOF increase per step
   const [sofDecimals, setSofDecimals] = useState(18);
@@ -498,6 +293,211 @@ const AdminPanel = () => {
   // Post-action verification per seasonId
   const [verify, setVerify] = useState({}); // { [seasonId]: { funded, grandWinner, grandAmount, consolationAmount, requestId, error } }
   const [lastAttempt, setLastAttempt] = useState(null);
+
+  // Manually fund distributor after VRF completion (Phase 3)
+  async function fundDistributorManual(seasonId) {
+    try {
+      setEndingE2EId(seasonId);
+      setEndStatus("Funding distributor...");
+      const netKey = getStoredNetworkKey();
+      const netCfg = getNetworkByKey(netKey);
+      const raffleAddr = getContractAddresses(netKey).RAFFLE;
+      const wallet = createWalletClient({
+        chain: { id: chainId },
+        transport: custom(window.ethereum),
+      });
+      // Use connected account from wagmi rather than getAddresses to avoid silent failures
+      if (!address) {
+        setEndStatus("Connect your wallet to fund the distributor.");
+        return;
+      }
+
+      // Ensure correct chain; attempt to switch in MetaMask if needed
+      if (chainId !== netCfg.id && window?.ethereum?.request) {
+        try {
+          setEndStatus(`Switching network to ${netCfg.name}...`);
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: `0x${netCfg.id.toString(16)}` }],
+          });
+        } catch (switchErr) {
+          // If chain is not added, try to add
+          if (switchErr?.code === 4902) {
+            try {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [
+                  {
+                    chainId: `0x${netCfg.id.toString(16)}`,
+                    chainName: netCfg.name,
+                    nativeCurrency: {
+                      name: "ETH",
+                      symbol: "ETH",
+                      decimals: 18,
+                    },
+                    rpcUrls: [netCfg.rpcUrl],
+                    blockExplorerUrls: netCfg.explorer ? [netCfg.explorer] : [],
+                  },
+                ],
+              });
+            } catch (addErr) {
+              setEndStatus(
+                `Please switch your network to ${netCfg.name} and try again.`
+              );
+              return;
+            }
+          } else {
+            setEndStatus(
+              `Please switch your network to ${netCfg.name} and try again.`
+            );
+            return;
+          }
+        }
+      }
+
+      // Resolve distributor (best-effort; some builds may not expose this view)
+      let distributor = undefined;
+      try {
+        distributor = await publicClient.readContract({
+          address: raffleAddr,
+          abi: [
+            {
+              type: "function",
+              name: "prizeDistributor",
+              stateMutability: "view",
+              inputs: [],
+              outputs: [{ type: "address" }],
+            },
+          ],
+          functionName: "prizeDistributor",
+        });
+      } catch (_) {
+        // proceed; post-verification may be skipped if distributor unknown
+      }
+      const DistAbi = [
+        {
+          type: "function",
+          name: "getSeason",
+          stateMutability: "view",
+          inputs: [{ name: "seasonId", type: "uint256" }],
+          outputs: [
+            {
+              name: "",
+              type: "tuple",
+              components: [
+                { name: "token", type: "address" },
+                { name: "grandWinner", type: "address" },
+                { name: "grandAmount", type: "uint256" },
+                { name: "consolationAmount", type: "uint256" },
+                { name: "totalTicketsSnapshot", type: "uint256" },
+                { name: "grandWinnerTickets", type: "uint256" },
+                { name: "merkleRoot", type: "bytes32" },
+                { name: "funded", type: "bool" },
+                { name: "grandClaimed", type: "bool" },
+              ],
+            },
+          ],
+        },
+      ];
+
+      // Pre state
+      let distSeason = null;
+      if (
+        distributor &&
+        distributor !== "0x0000000000000000000000000000000000000000"
+      ) {
+        try {
+          distSeason = await publicClient.readContract({
+            address: distributor,
+            abi: DistAbi,
+            functionName: "getSeason",
+            args: [BigInt(seasonId)],
+          });
+        } catch (_) {
+          // ignore pre-read errors
+        }
+      }
+      const preWinner =
+        distSeason?.grandWinner ??
+        distSeason?.[1] ??
+        "0x0000000000000000000000000000000000000000";
+      const preFunded = Boolean(distSeason?.funded ?? distSeason?.[7] ?? false);
+      setVerify((prev) => ({
+        ...prev,
+        [seasonId]: {
+          ...(prev[seasonId] || {}),
+          distGrandWinner: preWinner,
+          distFunded: preFunded,
+        },
+      }));
+
+      // Guard rails: must have a nonzero winner and not already funded
+      if (preWinner === "0x0000000000000000000000000000000000000000") {
+        setEndStatus(
+          "Cannot fund: winner not set yet. Ensure VRF has completed and winners selected."
+        );
+        return;
+      }
+      if (preFunded) {
+        setEndStatus("Already funded. No action needed.");
+        return;
+      }
+
+      try {
+        await wallet.writeContract({
+          address: raffleAddr,
+          abi: RaffleMiniAbi,
+          functionName: "fundPrizeDistributor",
+          args: [BigInt(seasonId)],
+          account: address,
+        });
+      } catch (err) {
+        const msg = buildFriendlyContractError(
+          RaffleMiniAbi,
+          err,
+          "Failed to fund distributor"
+        );
+        setEndStatus(`Error: ${msg}`);
+        throw err;
+      }
+
+      if (
+        distributor &&
+        distributor !== "0x0000000000000000000000000000000000000000"
+      ) {
+        try {
+          const after = await publicClient.readContract({
+            address: distributor,
+            abi: DistAbi,
+            functionName: "getSeason",
+            args: [BigInt(seasonId)],
+          });
+          const afterWinner =
+            after?.grandWinner ??
+            after?.[1] ??
+            "0x0000000000000000000000000000000000000000";
+          const afterFunded = Boolean(after?.funded ?? after?.[7] ?? false);
+          setVerify((prev) => ({
+            ...prev,
+            [seasonId]: {
+              ...(prev[seasonId] || {}),
+              distGrandWinnerAfter: afterWinner,
+              distFundedAfter: afterFunded,
+            },
+          }));
+        } catch (_) {
+          // skip post-read if unavailable
+        }
+      }
+      setEndStatus("Done");
+      allSeasonsQuery.refetch();
+    } catch (e) {
+      setEndStatus(`Error: ${e?.shortMessage || e?.message || String(e)}`);
+    } finally {
+      setEndingE2EId(null);
+    }
+  }
+
   const stepSize = useMemo(() => {
     const max = Number(maxTickets);
     const steps = Number(numSteps);
@@ -511,23 +511,40 @@ const AdminPanel = () => {
   const publicClient = usePublicClient();
 
   // Contract code presence check for RAFFLE
-  const [raffleCodeStatus, setRaffleCodeStatus] = useState({ checked: false, hasCode: false, error: null });
+  const [raffleCodeStatus, setRaffleCodeStatus] = useState({
+    checked: false,
+    hasCode: false,
+    error: null,
+  });
   useEffect(() => {
     let cancelled = false;
     async function checkCode() {
       try {
         if (!publicClient || !addresses.RAFFLE) {
-          if (!cancelled) setRaffleCodeStatus({ checked: true, hasCode: false, error: null });
+          if (!cancelled)
+            setRaffleCodeStatus({ checked: true, hasCode: false, error: null });
           return;
         }
         const code = await publicClient.getCode({ address: addresses.RAFFLE });
-        if (!cancelled) setRaffleCodeStatus({ checked: true, hasCode: !!code && code !== '0x', error: null });
+        if (!cancelled)
+          setRaffleCodeStatus({
+            checked: true,
+            hasCode: !!code && code !== "0x",
+            error: null,
+          });
       } catch (e) {
-        if (!cancelled) setRaffleCodeStatus({ checked: true, hasCode: false, error: e?.message || String(e) });
+        if (!cancelled)
+          setRaffleCodeStatus({
+            checked: true,
+            hasCode: false,
+            error: e?.message || String(e),
+          });
       }
     }
     checkCode();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [publicClient, addresses.RAFFLE]);
 
   useEffect(() => {
@@ -562,6 +579,59 @@ const AdminPanel = () => {
     refetchInterval: 10_000,
     staleTime: 5_000,
   });
+
+  // Prefill manual start when manual mode is selected and no value provided
+  useEffect(() => {
+    if (autoStart) return; // only for manual mode
+    const nowSec =
+      typeof chainTimeQuery.data === "number"
+        ? chainTimeQuery.data
+        : Math.floor(Date.now() / 1000);
+    const minStartSec = nowSec + AUTO_START_BUFFER_SECONDS + 5; // cushion
+    // If no start time yet, or it's earlier than the minimum buffer, normalize it
+    let currentStartSec = null;
+    if (startTime) {
+      const parsed = Math.floor(new Date(startTime).getTime() / 1000);
+      if (Number.isFinite(parsed)) currentStartSec = parsed;
+    }
+    if (
+      !currentStartSec ||
+      currentStartSec - nowSec < AUTO_START_BUFFER_SECONDS
+    ) {
+      setStartTime(fmtLocalDatetime(minStartSec));
+    }
+  }, [autoStart, startTime, chainTimeQuery.data]);
+
+  // When toggling from autoStart -> manual, prefill start time immediately if empty
+  useEffect(() => {
+    if (autoStart) return;
+    if (startTime) return;
+    const nowSec =
+      typeof chainTimeQuery.data === "number"
+        ? chainTimeQuery.data
+        : Math.floor(Date.now() / 1000);
+    const minStartSec = nowSec + AUTO_START_BUFFER_SECONDS + 5;
+    setStartTime(fmtLocalDatetime(minStartSec));
+  }, [autoStart, startTime, chainTimeQuery.data]);
+
+  // UI guard: detect too-soon manual start and disable submit pre-emptively
+  const nowSecUi = useMemo(() => {
+    return typeof chainTimeQuery.data === "number"
+      ? chainTimeQuery.data
+      : Math.floor(Date.now() / 1000);
+  }, [chainTimeQuery.data]);
+
+  const manualStartSecUi = useMemo(() => {
+    if (!startTime || autoStart) return null;
+    const parsed = Math.floor(new Date(startTime).getTime() / 1000);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [startTime, autoStart]);
+
+  const startTooSoonUi = useMemo(() => {
+    if (autoStart) return false;
+    if (!manualStartSecUi) return false;
+    return manualStartSecUi - nowSecUi <= AUTO_START_BUFFER_SECONDS;
+  }, [autoStart, manualStartSecUi, nowSecUi]);
 
   // Auto-generate linear bond steps JSON when inputs change
   useEffect(() => {
@@ -644,8 +714,12 @@ const AdminPanel = () => {
     const secondsAhead = Number(start) - effectiveChainTime;
     // Only enforce the buffer window for manual starts; auto-start already applies the buffer internally
     if (!autoStart && secondsAhead <= AUTO_START_BUFFER_SECONDS) {
+      // Guard: auto-adjust too-early manual start to now+buffer (plus small cushion) and ask user to resubmit
+      const minStartSec = effectiveChainTime + AUTO_START_BUFFER_SECONDS + 5; // cushion 5s
+      const adjusted = new Date(minStartSec * 1000).toISOString().slice(0, 16);
+      setStartTime(adjusted);
       setFormError(
-        `Start time must be at least ${AUTO_START_BUFFER_SECONDS} seconds ahead of the current chain time (currently ${secondsAhead} seconds).`
+        `Start time was adjusted to be at least ${AUTO_START_BUFFER_SECONDS}s ahead of chain time. Please review and submit again.`
       );
       return;
     }
@@ -815,11 +889,16 @@ const AdminPanel = () => {
             <span className="font-semibold">chainId:</span> {chainId}
           </div>
           <div className="break-all">
-            <span className="font-semibold">RAFFLE:</span> {addresses.RAFFLE || 'n/a'}
+            <span className="font-semibold">RAFFLE:</span>{" "}
+            {addresses.RAFFLE || "n/a"}
           </div>
           <div>
-            <span className="font-semibold">Contract Code:</span>{' '}
-            {!raffleCodeStatus.checked ? 'checking…' : raffleCodeStatus.hasCode ? 'present' : 'absent'}
+            <span className="font-semibold">Contract Code:</span>{" "}
+            {!raffleCodeStatus.checked
+              ? "checking…"
+              : raffleCodeStatus.hasCode
+              ? "present"
+              : "absent"}
             {raffleCodeStatus.error ? (
               <span className="text-red-600"> — {raffleCodeStatus.error}</span>
             ) : null}
@@ -827,15 +906,6 @@ const AdminPanel = () => {
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-4 mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Platform Health</CardTitle>
-            <CardDescription>Backend connectivity status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <HealthStatus />
-          </CardContent>
-        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Create New Season</CardTitle>
@@ -860,11 +930,17 @@ const AdminPanel = () => {
                 </label>
               </div>
               {!autoStart && (
-                <Input
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
+                <div className="space-y-1">
+                  <Input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Start time must be at least {AUTO_START_BUFFER_SECONDS}{" "}
+                    seconds ahead of the current chain time.
+                  </p>
+                </div>
               )}
               {autoStart && (
                 <p className="text-xs text-muted-foreground">
@@ -969,7 +1045,16 @@ const AdminPanel = () => {
                   )}
                 </div>
               </div>
-              <Button type="submit" disabled={createSeason?.isPending}>
+              {startTooSoonUi && (
+                <p className="text-xs text-amber-600 mb-1">
+                  Start time must be at least {AUTO_START_BUFFER_SECONDS}s ahead
+                  of chain time.
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={createSeason?.isPending || startTooSoonUi}
+              >
                 {createSeason?.isPending ? "Creating..." : "Create Season"}
               </Button>
               <TransactionStatus mutation={createSeason} />
@@ -998,10 +1083,9 @@ const AdminPanel = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Optimistic pending season row */}
             {(createSeason?.isPending ||
               (createSeason?.hash && !createSeason?.isConfirmed)) && (
-              <div className="p-2 border rounded flex justify-between items-center bg-muted/40">
+              <div className="flex items-center justify-between rounded border bg-muted/40 p-2">
                 <div>
                   <p className="font-bold">
                     Season (pending) - {name || "New Season"}
@@ -1011,11 +1095,11 @@ const AdminPanel = () => {
                     {startTime ? new Date(startTime).toLocaleString() : "-"} |
                     End: {endTime ? new Date(endTime).toLocaleString() : "-"}
                   </p>
-                  <div className="flex gap-2 mt-1">
+                  <div className="mt-1 flex gap-2">
                     <Badge variant="outline">Pending</Badge>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-col">
+                <div className="flex flex-col gap-2">
                   <Button disabled variant="secondary">
                     Start
                   </Button>
@@ -1026,216 +1110,230 @@ const AdminPanel = () => {
                 </div>
               </div>
             )}
+
             {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
             {allSeasonsQuery.error && (
               <p>Error loading seasons: {allSeasonsQuery.error.message}</p>
             )}
-            {allSeasonsQuery.data &&
-              allSeasonsQuery.data
-                .filter((season) => Number(season.id) > 0)
-                .map((season) => {
-                  const nowSec =
-                    typeof chainTimeQuery.data === "number"
-                      ? chainTimeQuery.data
-                      : Math.floor(Date.now() / 1000);
-                  const startSec = Number(season.config.startTime);
-                  const endSec = Number(season.config.endTime);
-                  const isWindowOpen = nowSec >= startSec && nowSec < endSec;
-                  const isPastEnd = nowSec >= endSec;
-                  const isNotStarted = season.status === 0; // NotStarted
-                  const isActive = season.status === 1; // Active
-                  const isCreator = !!hasCreatorRole;
-                  const isEmergency = !!hasEmergencyRole;
-                  const chainMatch = chainId === net.id;
-                  // Allow late start as long as NotStarted and within window
-                  const canStart = isNotStarted && isWindowOpen;
-                  // Allow end if Active and past end; optionally allow end when NotStarted but past end (may revert if contract forbids)
-                  const canEnd =
-                    (isActive && isPastEnd) || (isNotStarted && isPastEnd);
-                  const startDate = new Date(
-                    Number(season.config.startTime) * 1000
-                  ).toLocaleString();
-                  const endDate = new Date(
-                    Number(season.config.endTime) * 1000
-                  ).toLocaleString();
-                  const showStartStatus = lastStartSeasonId === season.id;
-                  return (
-                    <div
-                      key={season.id}
-                      className="p-2 border rounded flex justify-between items-center"
-                    >
-                      <div>
-                        <p className="font-bold">
-                          Season #{season.id} - {season.config.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Start: {startDate} | End: {endDate}
-                        </p>
-                        <div className="flex gap-2 mt-1 flex-wrap">
-                          <Badge
-                            variant={
-                              season.config.isActive ? "secondary" : "outline"
-                            }
-                          >
-                            {season.config.isActive ? "Ongoing" : "Inactive"}
-                          </Badge>
-                          <Badge variant={"outline"}>
-                            {season.status === 0
-                              ? "NotStarted"
-                              : season.status === 1
-                              ? "Active"
-                              : "Completed"}
-                          </Badge>
-                          <Badge
-                            variant={isCreator ? "secondary" : "destructive"}
-                          >
-                            {isCreator ? "Role OK" : "Missing Role"}
-                          </Badge>
-                          <Badge
-                            variant={isWindowOpen ? "secondary" : "destructive"}
-                          >
-                            {isWindowOpen
-                              ? "Chain Time OK"
-                              : "Chain Time Closed"}
-                          </Badge>
-                          <Badge
-                            variant={isEmergency ? "secondary" : "destructive"}
-                          >
-                            {isEmergency ? "Emergency OK" : "No Emergency Role"}
-                          </Badge>
-                          <Badge
-                            variant={
-                              isNotStarted
-                                ? "secondary"
-                                : isActive
-                                ? "destructive"
-                                : "destructive"
-                            }
-                          >
-                            {isNotStarted
-                              ? "Ready to Start"
-                              : isActive
-                              ? "Already Active"
-                              : "Completed"}
-                          </Badge>
-                          <Badge
-                            variant={chainMatch ? "secondary" : "destructive"}
-                          >
-                            {chainMatch
-                              ? `Chain OK (${chainId})`
-                              : `Wrong Chain (${chainId})`}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 flex-col">
-                        {!hasCreatorRole && (
-                          <p className="text-xs text-amber-600">
-                            Missing SEASON_CREATOR_ROLE
-                          </p>
-                        )}
-                        {/* Start button (shows late label if now > start) */}
-                        <Button
-                          onClick={() => {
-                            setLastStartSeasonId(season.id);
-                            startSeason?.mutate &&
-                              startSeason.mutate({ seasonId: season.id });
-                          }}
-                          disabled={
-                            startSeason?.isPending ||
-                            !hasCreatorRole ||
-                            !canStart ||
-                            !chainMatch
+
+            {allSeasonsQuery.data
+              ?.filter((season) => Number(season.id) > 0)
+              .map((season) => {
+                const nowSec =
+                  typeof chainTimeQuery.data === "number"
+                    ? chainTimeQuery.data
+                    : Math.floor(Date.now() / 1000);
+                const startSec = Number(season.config.startTime);
+                const endSec = Number(season.config.endTime);
+                const isWindowOpen = nowSec >= startSec && nowSec < endSec;
+                const isPastEnd = nowSec >= endSec;
+                const isNotStarted = season.status === 0;
+                const isActive = season.status === 1;
+                const isCreator = !!hasCreatorRole;
+                const isEmergency = !!hasEmergencyRole;
+                const chainMatch = chainId === net.id;
+                const canStart = isNotStarted && isWindowOpen;
+                const canEnd =
+                  (isActive && isPastEnd) || (isNotStarted && isPastEnd);
+                const startDate = new Date(
+                  Number(season.config.startTime) * 1000
+                ).toLocaleString();
+                const endDate = new Date(
+                  Number(season.config.endTime) * 1000
+                ).toLocaleString();
+                const showStartStatus = lastStartSeasonId === season.id;
+
+                return (
+                  <div
+                    key={season.id}
+                    className="flex items-start justify-between gap-4 rounded border p-2"
+                  >
+                    <div>
+                      <p className="font-bold">
+                        Season #{season.id} - {season.config.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Start: {startDate} | End: {endDate}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <Badge
+                          variant={
+                            season.config.isActive ? "secondary" : "outline"
                           }
                         >
-                          Start
-                        </Button>
-                        {showStartStatus && startSeason?.error && (
-                          <p className="text-xs text-red-600 max-w-[260px] break-words">
-                            {startSeason.error.message}
-                          </p>
-                        )}
-                        {/* End action (single click, local E2E). Enabled only after end time */}
-                        <div className="flex gap-2">
-                          <Button
-                            data-testid={`end-season-${season.id}`}
-                            onClick={() => {
-                              // Prefer canonical end flow via contract hook; fallback to local E2E helper when flag enabled
-                              const useLocal = Boolean(
-                                import.meta?.env?.VITE_E2E_LOCAL
-                              );
-                              if (useLocal) {
-                                endSeasonLocalE2E(season.id);
-                              } else {
-                                setLastEndSeasonId(season.id);
-                                requestSeasonEnd?.mutate &&
-                                  requestSeasonEnd.mutate({
-                                    seasonId: season.id,
-                                  });
-                              }
-                            }}
-                            disabled={
-                              endingE2EId === season.id ||
-                              !hasCreatorRole ||
-                              !chainMatch ||
-                              !canEnd ||
-                              requestSeasonEnd?.isPending
-                            }
-                            variant="destructive"
-                          >
-                            {requestSeasonEnd?.isPending &&
-                            lastEndSeasonId === season.id
-                              ? "Ending…"
-                              : endingE2EId === season.id
-                              ? endStatus || "Ending…"
-                              : "End Season"}
-                          </Button>
-                        </div>
-                        {showStartStatus && (
-                          <TransactionStatus mutation={startSeason} />
-                        )}
-                        {/* Post-action verification splash */}
-                        {verify[season.id] && (
-                          <div className="mt-2 p-2 border rounded text-xs">
-                            {verify[season.id].error ? (
-                              <p className="text-red-600">
-                                {verify[season.id].error}
-                              </p>
-                            ) : (
-                              <>
-                                <p>
-                                  Winner:{" "}
-                                  <span className="font-mono">
-                                    {verify[season.id].grandWinner}
-                                  </span>
-                                </p>
-                                <p>
-                                  Grand:{" "}
-                                  <span className="font-mono">
-                                    {verify[season.id].grandAmount}
-                                  </span>{" "}
-                                  SOF • Consolation:{" "}
-                                  <span className="font-mono">
-                                    {verify[season.id].consolationAmount}
-                                  </span>{" "}
-                                  SOF
-                                </p>
-                                <p>
-                                  Funded:{" "}
-                                  {verify[season.id].funded ? "Yes" : "No"}
-                                  {verify[season.id].requestId != null
-                                    ? ` • VRF reqId: ${
-                                        verify[season.id].requestId
-                                      }`
-                                    : ""}
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        )}
+                          {season.config.isActive ? "Ongoing" : "Inactive"}
+                        </Badge>
+                        <Badge variant="outline">
+                          {season.status === 0
+                            ? "NotStarted"
+                            : season.status === 1
+                            ? "Active"
+                            : "Completed"}
+                        </Badge>
+                        <Badge
+                          variant={isCreator ? "secondary" : "destructive"}
+                        >
+                          {isCreator ? "Role OK" : "Missing Role"}
+                        </Badge>
+                        <Badge
+                          variant={isWindowOpen ? "secondary" : "destructive"}
+                        >
+                          {isWindowOpen ? "Chain Time OK" : "Chain Time Closed"}
+                        </Badge>
+                        <Badge
+                          variant={isEmergency ? "secondary" : "destructive"}
+                        >
+                          {isEmergency ? "Emergency OK" : "No Emergency Role"}
+                        </Badge>
+                        <Badge
+                          variant={isNotStarted ? "secondary" : "destructive"}
+                        >
+                          {isNotStarted
+                            ? "Ready to Start"
+                            : isActive
+                            ? "Already Active"
+                            : "Completed"}
+                        </Badge>
+                        <Badge
+                          variant={chainMatch ? "secondary" : "destructive"}
+                        >
+                          {chainMatch
+                            ? `Chain OK (${chainId})`
+                            : `Wrong Chain (${chainId})`}
+                        </Badge>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="flex flex-col gap-2">
+                      {!hasCreatorRole && (
+                        <p className="text-xs text-amber-600">
+                          Missing SEASON_CREATOR_ROLE
+                        </p>
+                      )}
+
+                      <Button
+                        onClick={() => {
+                          setLastStartSeasonId(season.id);
+                          startSeason?.mutate?.({ seasonId: season.id });
+                        }}
+                        disabled={
+                          startSeason?.isPending ||
+                          !hasCreatorRole ||
+                          !canStart ||
+                          !chainMatch
+                        }
+                      >
+                        Start
+                      </Button>
+
+                      {showStartStatus && startSeason?.error && (
+                        <p className="max-w-[260px] break-words text-xs text-red-600">
+                          {startSeason.error.message}
+                        </p>
+                      )}
+
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => {
+                            setLastEndSeasonId(season.id);
+                            requestSeasonEnd?.mutate?.({ seasonId: season.id });
+                          }}
+                          disabled={
+                            !hasCreatorRole ||
+                            !chainMatch ||
+                            !canEnd ||
+                            requestSeasonEnd?.isPending
+                          }
+                          variant="destructive"
+                        >
+                          {requestSeasonEnd?.isPending &&
+                          lastEndSeasonId === season.id
+                            ? "Requesting End…"
+                            : "Request End"}
+                        </Button>
+
+                        <Button
+                          onClick={() => fundDistributorManual(season.id)}
+                          disabled={
+                            endingE2EId === season.id ||
+                            !hasCreatorRole ||
+                            !chainMatch ||
+                            season.status !== 3
+                          }
+                          variant="outline"
+                        >
+                          {endingE2EId === season.id
+                            ? endStatus || "Working…"
+                            : "Fund Distributor"}
+                        </Button>
+
+                        {endingE2EId === season.id && endStatus && (
+                          <p className="max-w-[280px] break-words text-xs text-muted-foreground">
+                            {endStatus}
+                          </p>
+                        )}
+                      </div>
+
+                      {showStartStatus && (
+                        <TransactionStatus mutation={startSeason} />
+                      )}
+
+                      {verify[season.id] && (
+                        <div className="mt-2 rounded border p-2 text-xs">
+                          {verify[season.id].error ? (
+                            <p className="text-red-600">
+                              {verify[season.id]?.error}
+                            </p>
+                          ) : (
+                            <>
+                              {(() => {
+                                const v = verify[season.id] || {};
+                                const winner =
+                                  v.distGrandWinnerAfter ||
+                                  v.distGrandWinner ||
+                                  v.grandWinner ||
+                                  "";
+                                const funded =
+                                  v.distFundedAfter ?? v.distFunded ?? v.funded
+                                    ? "Yes"
+                                    : "No";
+                                return (
+                                  <>
+                                    <p>
+                                      Winner:{" "}
+                                      <span className="font-mono">
+                                        {winner}
+                                      </span>
+                                    </p>
+                                    <p>Funded: {funded}</p>
+                                  </>
+                                );
+                              })()}
+                              <p>
+                                Grand:{" "}
+                                <span className="font-mono">
+                                  {verify[season.id]?.grandAmount}
+                                </span>{" "}
+                                SOF • Consolation:{" "}
+                                <span className="font-mono">
+                                  {verify[season.id]?.consolationAmount}
+                                </span>{" "}
+                                SOF
+                              </p>
+                              {verify[season.id]?.requestId != null && (
+                                <p>
+                                  VRF reqId:{" "}
+                                  {String(verify[season.id]?.requestId)}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
           </CardContent>
         </Card>
       </div>
@@ -1243,6 +1341,6 @@ const AdminPanel = () => {
       {/* Early end modal removed for MVP cleanup */}
     </div>
   );
-};
+}
 
 export default AdminPanel;

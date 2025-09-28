@@ -162,8 +162,9 @@ const DiscoveryDebug = ({ address }) => {
     staleTime: 5_000,
     refetchInterval: 5_000,
   });
-
-  const firstFew = (disc.data || []).slice(0, 5);
+  // Normalize discovery data to an array to avoid runtime errors when an object like { error } is returned
+  const discData = Array.isArray(disc.data) ? disc.data : [];
+  const firstFew = discData.slice(0, 5);
   const reads = useQuery({
     queryKey: ['positionsPanel_discoveryReads', netKey, address, firstFew.map((m) => m.id).join(',')],
     enabled: !!address && firstFew.length > 0,
@@ -186,8 +187,8 @@ const DiscoveryDebug = ({ address }) => {
     <div className="mt-2 p-2 border rounded bg-muted/20 text-[11px]">
       <div className="font-medium mb-1">Debug: Discovery</div>
       <div>Network: <span className="font-mono">{netKey}</span></div>
-      <div>Markets found: <span className="font-mono">{Array.isArray(disc.data) ? disc.data.length : 0}</span></div>
-      {reads.data && reads.data.length > 0 && (
+      <div>Markets found: <span className="font-mono">{discData.length}</span></div>
+      {Array.isArray(reads.data) && reads.data.length > 0 && (
         <div className="mt-1 space-y-1">
           {reads.data.map((r) => (
             <div key={r.id} className="flex justify-between">

@@ -1,33 +1,65 @@
 import { useReadContract, useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { formatEther } from 'viem';
-import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
+import { getContractAddresses } from '@/config/contracts';
 import PrizeDistributorAbi from '@/contracts/abis/RafflePrizeDistributor.json';
+import { getPrizeDistributor } from '@/services/onchainRaffleDistributor';
 import RaffleAbi from '@/contracts/abis/Raffle.json';
 
 
 
 export function useRafflePrizes(seasonId) {
   const netKey = getStoredNetworkKey();
-  const { RAFFLE_ADDRESS, PRIZE_DISTRIBUTOR_ADDRESS } = getContractAddresses(netKey);
+  // Using on-chain distributor discovery; no direct RAFFLE usage here.
   const { address } = useAccount();
   const [isWinner, setIsWinner] = useState(false);
-  const [isConsolationWinner, setIsConsolationWinner] = useState(false);
   const [claimableAmount, setClaimableAmount] = useState(0n);
-  const [merkleProof, setMerkleProof] = useState(null);
-  const [merkleIndex, setMerkleIndex] = useState(0);
 
 
 
+  const distributorQuery = useQuery({
+    queryKey: ['prize_distributor_addr', netKey],
+    queryFn: () => getPrizeDistributor({ networkKey: netKey }),
+    staleTime: 10_000,
+  });
+
+  // On-chain fallback: read prizeDistributor() from configured RAFFLE if service is unavailable
+  const { RAFFLE } = getContractAddresses(netKey);
+  const { data: distributorFromChain } = useReadContract({
+    address: distributorQuery.data ? undefined : RAFFLE,
+    abi: RaffleAbi,
+    functionName: 'prizeDistributor',
+    args: [],
+    query: {
+      enabled: !distributorQuery.data && Boolean(RAFFLE),
+    },
+  });
+
+  const distributorAddress = distributorQuery.data || distributorFromChain;
+
+  // Read distributor payouts snapshot
   const { data: seasonPayouts, isLoading: isLoadingPayouts } = useReadContract({
-    address: PRIZE_DISTRIBUTOR_ADDRESS,
+    address: distributorAddress,
     abi: PrizeDistributorAbi,
     functionName: 'getSeason',
-    args: [seasonId],
+    args: [BigInt(seasonId)],
     query: {
-      enabled: !!seasonId,
+      enabled: !!seasonId && !!distributorAddress && distributorAddress !== '0x0000000000000000000000000000000000000000',
       refetchInterval: 5000, // Poll for updates
+    },
+  });
+
+  // Read raffle season details to compare status/winner against distributor snapshot
+  const { data: raffleDetails } = useReadContract({
+    address: RAFFLE,
+    abi: RaffleAbi,
+    functionName: 'getSeasonDetails',
+    args: [BigInt(seasonId)],
+    query: {
+      enabled: Boolean(RAFFLE) && Boolean(seasonId),
+      refetchInterval: 5000,
     },
   });
 
@@ -39,67 +71,38 @@ export function useRafflePrizes(seasonId) {
       if (grandWinner.toLowerCase() === address.toLowerCase()) {
         setIsWinner(true);
         setClaimableAmount(seasonPayouts.grandAmount || 0n);
-      } else {
-        // Check for consolation prize only if not the grand winner
-        try {
-          const response = await fetch(`/merkle/season-${seasonId}.json`);
-          if (!response.ok) {
-            // If the file doesn't exist, there are no consolation prizes for this season.
-            setIsConsolationWinner(false);
-            return;
-          }
-          const merkleData = await response.json();
-          const leaf = merkleData.leaves.find(l => l.account.toLowerCase() === address.toLowerCase());
-
-          if (leaf) {
-            setIsConsolationWinner(true);
-            setClaimableAmount(BigInt(leaf.amount));
-            setMerkleProof(leaf.proof);
-            setMerkleIndex(leaf.index);
-          }
-        } catch (error) {
-          // Could not fetch Merkle proof file, which is fine if it doesn't exist.
-          setIsConsolationWinner(false);
-        }
       }
   }
 
   checkWinnerAndConsolation();
-  }, [address, seasonId, seasonPayouts]);
+  }, [address, seasonId, seasonPayouts, isLoadingPayouts]);
 
   const { writeContractAsync: claimGrandPrize, data: claimGrandHash } = useWriteContract();
-  const { writeContractAsync: claimConsolationPrize, data: claimConsolationHash } = useWriteContract();
 
   const { isLoading: isConfirmingGrand, isSuccess: isConfirmedGrand } = useWaitForTransactionReceipt({ hash: claimGrandHash });
-  const { isLoading: isConfirmingConsolation, isSuccess: isConfirmedConsolation } = useWaitForTransactionReceipt({ hash: claimConsolationHash });
 
   const handleClaimGrandPrize = async () => {
+    if (!distributorAddress) return;
     await claimGrandPrize({
-      address: PRIZE_DISTRIBUTOR_ADDRESS,
+      address: distributorAddress,
       abi: PrizeDistributorAbi,
       functionName: 'claimGrand',
-      args: [seasonId],
-    });
-  };
-
-  const handleClaimConsolationPrize = async () => {
-    if (!merkleProof) return;
-    await claimConsolationPrize({
-      address: PRIZE_DISTRIBUTOR_ADDRESS,
-      abi: PrizeDistributorAbi,
-      functionName: 'claimConsolation',
-      args: [seasonId, merkleIndex, address, claimableAmount, merkleProof],
+      args: [BigInt(seasonId)],
     });
   };
 
   return {
     isWinner,
-    isConsolationWinner,
     claimableAmount: formatEther(claimableAmount),
     isLoading: isLoadingPayouts,
-    isConfirming: isConfirmingGrand || isConfirmingConsolation,
-    isConfirmed: isConfirmedGrand || isConfirmedConsolation,
+    isConfirming: isConfirmingGrand,
+    isConfirmed: isConfirmedGrand,
     handleClaimGrandPrize,
-    handleClaimConsolationPrize,
+    distributorAddress,
+    hasDistributor: Boolean(distributorAddress && distributorAddress !== '0x0000000000000000000000000000000000000000'),
+    grandWinner: seasonPayouts?.grandWinner,
+    funded: Boolean(seasonPayouts?.funded),
+    raffleWinner: Array.isArray(raffleDetails) ? raffleDetails[3] : raffleDetails?.winner,
+    raffleStatus: Array.isArray(raffleDetails) ? Number(raffleDetails[1]) : raffleDetails?.status,
   };
 }

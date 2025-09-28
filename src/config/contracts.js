@@ -30,6 +30,7 @@ export const CONTRACTS = {
     INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_LOCAL || "",
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_LOCAL || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_LOCAL || "", // legacy
+    VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_LOCAL || "",
   },
   TESTNET: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || "",
@@ -40,6 +41,7 @@ export const CONTRACTS = {
     INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_TESTNET || "",
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_TESTNET || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_TESTNET || "", // legacy
+    VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_TESTNET || "",
   },
 };
 

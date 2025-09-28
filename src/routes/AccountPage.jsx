@@ -15,6 +15,7 @@ import PositionsPanel from '@/components/infofi/PositionsPanel';
 import ClaimCenter from '@/components/infofi/ClaimCenter';
 import RewardsDebug from '@/components/infofi/RewardsDebug';
 import RewardsPanel from '@/components/infofi/RewardsPanel';
+import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
 // onchainInfoFi is now used by the shared PositionsPanel component
@@ -122,6 +123,18 @@ const AccountPage = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">My Account</h1>
+      {/* Completed Season Prizes – moved to top */}
+      {Array.isArray(allSeasonsQuery.data) && (allSeasonsQuery.data || []).length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold mb-2">Completed Season Prizes</h2>
+          <p className="text-sm text-muted-foreground mb-2">If your connected wallet was the grand winner for a completed season, a claim panel will appear here.</p>
+          <div className="space-y-3">
+            {(allSeasonsQuery.data || []).map((s) => (
+              <ClaimPrizeWidget key={`claim-${String(s.id)}`} seasonId={s.id} />
+            ))}
+          </div>
+        </div>
+      )}
       <Card className="mb-4">
         <CardHeader>
           <CardTitle>Account Information</CardTitle>

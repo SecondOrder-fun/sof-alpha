@@ -11,7 +11,6 @@ import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import PositionsPanel from '@/components/infofi/PositionsPanel';
-import RewardsPanel from '@/components/infofi/RewardsPanel';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { useAccount } from 'wagmi';
 import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
@@ -101,8 +100,7 @@ const UserProfile = () => {
     }
   }, [seasonBalancesQuery.data]);
 
-  console.log('Seasons data in UserProfile:', seasons?.map(s => ({ id: s.id, status: s.status, name: s.config?.name })) || 'undefined/null');
-  console.log('All seasons query state - isSuccess:', allSeasonsQuery.isSuccess, 'data:', allSeasonsQuery.data, 'isLoading:', allSeasonsQuery.isLoading);
+  // Debug logs removed for production cleanliness.
 
   return (
     <div className="container mx-auto p-4">
@@ -167,9 +165,12 @@ const UserProfile = () => {
 
           <div className="my-4">
             <h2 className="text-xl font-bold mb-2">Completed Season Prizes</h2>
-            {seasons.filter(s => s.status >= 4 /* Distributing or Completed */).map(s => (
-              <ClaimPrizeWidget key={s.id} seasonId={s.id} />
-            ))}
+            <p className="text-sm text-muted-foreground mb-2">If your connected wallet was the grand winner for a completed season, a claim panel will appear here.</p>
+            <div className="space-y-3">
+              {(seasons || []).map((s) => (
+                <ClaimPrizeWidget key={`claim-profile-${String(s.id)}`} seasonId={s.id} />
+              ))}
+            </div>
           </div>
         </>
       )}

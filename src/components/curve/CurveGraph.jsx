@@ -326,7 +326,9 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
 };
 
 BondingCurvePanel.propTypes = {
-  curveSupply: PropTypes.oneOfType([PropTypes.object, PropTypes.string, PropTypes.number]),
+  // Accept bigint (no native PropTypes.bigint), object wrappers, strings, or numbers.
+  // Internal logic normalizes values as needed.
+  curveSupply: PropTypes.any,
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
 };

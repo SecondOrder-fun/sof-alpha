@@ -1,7 +1,6 @@
 import { useAccount, useReadContract } from 'wagmi';
 import { getContractAddresses, RAFFLE_ABI } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import RaffleAbi from '@/contracts/abis/Raffle.json';
 import { useRaffleWrite } from '@/hooks/useRaffleWrite';
 
 /**
@@ -12,13 +11,13 @@ import { useRaffleWrite } from '@/hooks/useRaffleWrite';
 export function useRaffleAdmin(seasonId) {
   const { address } = useAccount();
   const netKey = getStoredNetworkKey();
-  const { RAFFLE_ADDRESS } = getContractAddresses(netKey);
+  const { RAFFLE } = getContractAddresses(netKey);
 
   const SEASON_CREATOR_ROLE = '0x2a2244d3406b63b21b0521e100ecb30349b863d375b5b7588e3a09552a454c54'; // keccak256("SEASON_CREATOR_ROLE")
 
   const { data: isAdmin, isLoading: isLoadingAdminRole } = useReadContract({
-    address: RAFFLE_ADDRESS,
-    abi: RaffleAbi,
+    address: RAFFLE,
+    abi: RAFFLE_ABI,
     functionName: 'hasRole',
     args: [SEASON_CREATOR_ROLE, address],
     query: {
