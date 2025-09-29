@@ -161,13 +161,24 @@ const SeasonList = ({
                   </Button>
 
                   <Button
-                    onClick={() => fundDistributor(season.id)}
+                    onClick={() => {
+                      console.log('Fund Distributor button clicked for season:', season.id);
+                      console.log('Season details:', {
+                        id: season.id,
+                        status: season.status,
+                        config: season.config,
+                        isActive: season.config.isActive,
+                        isCompleted: season.config.isCompleted
+                      });
+                      fundDistributor(season.id);
+                    }}
                     disabled={
                       endingE2EId === season.id ||
                       !hasCreatorRole ||
                       !chainMatch ||
                       season.status !== 3
                     }
+                    title={`Status: ${season.status}, Creator Role: ${hasCreatorRole}, Chain Match: ${chainMatch}, EndingE2EId: ${endingE2EId === season.id ? 'Active' : 'Inactive'}`}
                     variant="outline"
                   >
                     {endingE2EId === season.id

@@ -17,6 +17,7 @@ export function ClaimPrizeWidget({ seasonId }) {
     distributorAddress,
     raffleWinner,
     raffleStatus,
+    claimStatus,
   } = useRafflePrizes(seasonId);
 
   if (isLoading) {
@@ -50,6 +51,7 @@ export function ClaimPrizeWidget({ seasonId }) {
                 onClick={handleClaimGrandPrize}
                 disabled={isConfirming || isConfirmed}
                 className="w-full"
+                variant={isConfirmed ? "outline" : "default"}
               >
                 {isConfirming
                   ? "Claiming..."
@@ -57,8 +59,14 @@ export function ClaimPrizeWidget({ seasonId }) {
                   ? "Claimed!"
                   : "Claim Your Prize"}
               </Button>
-              {isConfirmed && (
-                <p className="text-center text-green-600">Your prize has been successfully claimed!</p>
+              {claimStatus === 'completed' && (
+                <div className="text-center text-green-600 space-y-1">
+                  <p>Your prize has been successfully claimed!</p>
+                  <p className="text-sm text-muted-foreground">The funds have been transferred to your wallet.</p>
+                </div>
+              )}
+              {claimStatus === 'claiming' && !isConfirmed && (
+                <p className="text-center text-amber-600">Transaction in progress, please wait...</p>
               )}
             </>
           ) : (

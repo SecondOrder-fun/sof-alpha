@@ -21,7 +21,7 @@ import { getContractAddresses } from "@/config/contracts";
 import TransactionStatus from "@/components/admin/TransactionStatus";
 import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
 import SeasonList from "@/components/admin/SeasonList";
-import FundDistributor from "@/components/admin/FundDistributor";
+import useFundDistributor from "@/hooks/useFundDistributor";
 
 // Minimal ABIs used for local E2E resolution
 const RaffleMiniAbi = [
@@ -82,6 +82,13 @@ const RaffleMiniAbi = [
     inputs: [{ name: "seasonId", type: "uint256" }],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "getWinners",
+    stateMutability: "view",
+    inputs: [{ name: "seasonId", type: "uint256" }],
+    outputs: [{ name: "winners", type: "address[]" }],
+  },
 ];
 
 function AdminPanel() {
@@ -91,7 +98,7 @@ function AdminPanel() {
   const { hasRole } = useAccessControl();
   const chainId = useChainId();
   const publicClient = usePublicClient();
-  
+
   // Network configuration
   const netKey = getStoredNetworkKey();
   const netCfg = getNetworkByKey(netKey);
@@ -112,7 +119,7 @@ function AdminPanel() {
     queryFn: () => hasRole(DEFAULT_ADMIN_ROLE, address),
     enabled: !!address,
   });
-  
+
   // Check if user has creator role
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
     queryKey: ["hasSeasonCreatorRole", address],
@@ -126,7 +133,7 @@ function AdminPanel() {
     queryFn: () => hasRole(EMERGENCY_ROLE, address),
     enabled: !!address,
   });
-  
+
   // Get chain time for UI
   const chainTimeQuery = useQuery({
     queryKey: ["chainTime", netKey],
@@ -137,19 +144,19 @@ function AdminPanel() {
     },
     refetchInterval: 10000, // Refresh every 10 seconds
   });
-  
+
   // Contract code presence check for RAFFLE
   const [raffleCodeStatus, setRaffleCodeStatus] = useState({
     checked: false,
     hasCode: false,
     error: null,
   });
-  
+
   // Check if RAFFLE contract has code deployed
   useEffect(() => {
     let cancelled = false;
     const addresses = getContractAddresses(getStoredNetworkKey());
-    
+
     async function checkCode() {
       try {
         if (!publicClient || !addresses?.RAFFLE) {
@@ -178,20 +185,20 @@ function AdminPanel() {
     }
 
     checkCode();
-    
+
     return () => {
       cancelled = true;
     };
   }, [publicClient]);
-  
+
   // Initialize the FundDistributor hook
-  const { fundDistributorManual } = FundDistributor({
-    seasonId: endingE2EId,
+  const { fundDistributorManual } = useFundDistributor({
+    seasonId: null, // Set to null initially, will be provided when button is clicked
     setEndingE2EId,
     setEndStatus,
     setVerify,
     allSeasonsQuery,
-    RaffleMiniAbi
+    RaffleMiniAbi,
   });
 
   if (isAdminLoading || isCreatorLoading || isEmergencyLoading) {
@@ -236,9 +243,9 @@ function AdminPanel() {
             <CardDescription>Set up a new raffle season.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CreateSeasonForm 
-              createSeason={createSeason} 
-              chainTimeQuery={chainTimeQuery} 
+            <CreateSeasonForm
+              createSeason={createSeason}
+              chainTimeQuery={chainTimeQuery}
             />
           </CardContent>
         </Card>

@@ -1,10 +1,14 @@
 // src/lib/wsClient.js
 // Minimal singleton WS client with heartbeat, auto-reconnect, and event dispatch
 
-const listeners = new Set();
+// WebSocket client for server communication
+import { safeStringify } from './jsonUtils';
+
 let ws = null;
 let heartbeatTimer = null;
 let reconnectTimer = null;
+
+const listeners = new Set();
 
 function getBackendWSUrl() {
   try {
@@ -30,7 +34,7 @@ function startHeartbeat() {
   stopHeartbeat();
   heartbeatTimer = setInterval(() => {
     try {
-      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'ping' }));
+      if (ws?.readyState === 1) ws.send(safeStringify({ type: 'ping' }));
     } catch (e) {
       // ignore transient send errors
     }

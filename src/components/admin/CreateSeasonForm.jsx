@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
+import { safeStringify } from "@/lib/jsonUtils";
 import TransactionStatus from "./TransactionStatus";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
@@ -133,7 +134,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         priceScaled: priceScaledBig.toString(),
       };
     });
-    setBondStepsText(JSON.stringify(arr));
+    setBondStepsText(safeStringify(arr));
   }, [maxTickets, numSteps, basePrice, priceDelta, sofDecimals]);
 
   // Handle form errors from mutation

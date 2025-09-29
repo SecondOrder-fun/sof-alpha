@@ -60,7 +60,7 @@ contract RaffleVRFTest is Test {
         address mockCoordinator = address(0xCAFE);
         raffle = new RaffleHarness(address(sof), mockCoordinator, 0, bytes32(0));
         // Wire SeasonFactory required by Raffle.createSeason
-        SeasonFactory factory = new SeasonFactory(address(raffle));
+        SeasonFactory factory = new SeasonFactory(address(raffle), address(0)); // Pass address(0) for tracker in tests
         raffle.setSeasonFactory(address(factory));
         
         // Set up prize distributor

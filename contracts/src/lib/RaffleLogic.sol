@@ -16,6 +16,13 @@ library RaffleLogic {
         if (state.totalTickets == 0 || state.participants.length == 0 || winnerCount == 0) {
             return new address[](0);
         }
+        
+        // Special case: if there's only one participant, they must be the winner
+        if (state.participants.length == 1) {
+            address[] memory singleWinner = new address[](1);
+            singleWinner[0] = state.participants[0];
+            return singleWinner;
+        }
 
         address[] memory temp = new address[](winnerCount);
         bool[] memory picked = new bool[](state.participants.length);

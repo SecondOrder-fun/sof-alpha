@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { getPrizeDistributor, getSeasonPayouts } from '@/services/onchainRaffleDistributor';
+import { safeStringify } from '@/lib/jsonUtils';
 
 const RewardsDebug = ({ title = 'Debug: Rewards (Distributor)', description = 'Raw distributor state per season.' }) => {
   const netKey = getStoredNetworkKey();
@@ -53,7 +54,7 @@ const RewardsDebug = ({ title = 'Debug: Rewards (Distributor)', description = 'R
                   <span className="font-medium">Season #{String(row.seasonId)}</span>
                   <span className="font-mono">{row.distributor}</span>
                 </div>
-                <pre className="whitespace-pre-wrap break-all text-[10px]">{JSON.stringify(row.data, null, 2)}</pre>
+                <pre className="whitespace-pre-wrap break-all text-[10px]">{safeStringify(row.data, 2)}</pre>
               </div>
             ))}
             {(payoutsQuery.data || []).length === 0 && <div className="text-muted-foreground">No distributor snapshots yet.</div>}
