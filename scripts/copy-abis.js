@@ -20,6 +20,9 @@ const contractsToCopy = [
   { sourceFile: 'RaffleToken.sol/RaffleToken.json', destFile: 'RaffleToken.json' },
   { sourceFile: 'SOFToken.sol/SOFToken.json', destFile: 'SOFToken.json' },
 
+  // Faucet
+  { sourceFile: 'SOFFaucet.sol/SOFFaucet.json', destFile: 'SOFFaucet.json' },
+
   // InfoFi
   { sourceFile: 'InfoFiMarket.sol/InfoFiMarket.json', destFile: 'InfoFiMarket.json' },
   { sourceFile: 'InfoFiMarketFactory.sol/InfoFiMarketFactory.json', destFile: 'InfoFiMarketFactory.json' },

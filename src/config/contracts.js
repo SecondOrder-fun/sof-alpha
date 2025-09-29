@@ -12,6 +12,7 @@
  * @property {`0x${string}` | string} INFOFI_ORACLE
  * @property {`0x${string}` | string} INFOFI_SETTLEMENT
  * @property {`0x${string}` | string} INFOFI_MARKET // legacy placeholder
+ * @property {`0x${string}` | string} SOF_FAUCET
  */
 
 import RAFFLE_ABI_JSON from '../contracts/abis/Raffle.json';
@@ -31,6 +32,7 @@ export const CONTRACTS = {
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_LOCAL || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_LOCAL || "", // legacy
     VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_LOCAL || "",
+    SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_LOCAL || "",
   },
   TESTNET: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || "",
@@ -42,6 +44,7 @@ export const CONTRACTS = {
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_TESTNET || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_TESTNET || "", // legacy
     VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_TESTNET || "",
+    SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET || "",
   },
 };
 

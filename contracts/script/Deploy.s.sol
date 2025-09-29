@@ -13,6 +13,7 @@ import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
 import "../src/core/RafflePrizeDistributor.sol";
+import "../src/faucet/SOFFaucet.sol";
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract DeployScript is Script {
@@ -38,7 +39,7 @@ contract DeployScript is Script {
         console2.log("VRF Mock deployed at:", address(vrfCoordinator));
         console2.log("VRF Subscription created with ID:", subscriptionId);
         
-        // Deploy SOF token with a 10,000,000 SOF premint to the deployer (18 decimals)
+        // Deploy SOF token with a 100,000,000 SOF premint to the deployer (18 decimals)
         uint256 initialSupply = 100_000_000 ether; // 100,000,000 * 1e18
         SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, msg.sender);
         console2.log("SOF initial supply minted to deployer:", initialSupply);
@@ -164,6 +165,31 @@ contract DeployScript is Script {
             createSeason = false; // default: do NOT create a season during deployment
         }
 
+        // Deploy SOF Faucet
+        console2.log("Deploying SOF Faucet...");
+        uint256 amountPerRequest = 10_000 * 10**18; // 10,000 SOF tokens
+        uint256 cooldownPeriod = 6 * 60 * 60; // 6 hours
+        
+        // Allowed chain IDs: Anvil (31337) and Sepolia (11155111)
+        uint256[] memory allowedChainIds = new uint256[](2);
+        allowedChainIds[0] = 31337;
+        allowedChainIds[1] = 11155111;
+        
+        SOFFaucet faucet = new SOFFaucet(
+            address(sof),
+            amountPerRequest,
+            cooldownPeriod,
+            allowedChainIds
+        );
+        
+        // Keep 1,000,000 SOF for the deployer and transfer the rest to the faucet
+        uint256 deployerKeeps = 1_000_000 ether; // 1 million SOF
+        uint256 faucetAmount = initialSupply - deployerKeeps; // 99 million SOF
+        sof.transfer(address(faucet), faucetAmount);
+        console2.log("SOF Faucet deployed at:", address(faucet));
+        console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
+        console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
+        
         if (createSeason) {
             // This logic is now handled in a separate script
         } else {
@@ -180,6 +206,7 @@ contract DeployScript is Script {
         console2.log("InfoFiMarketFactory contract deployed at:", address(infoFiFactory));
         console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
+        console2.log("SOF Faucet deployed at:", address(faucet));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
     }
 }

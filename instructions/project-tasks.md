@@ -22,6 +22,23 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Latest Progress (2025-09-29)
 
+- [x] Enhanced SOF Faucet with Karma System
+  - Updated `SOFFaucet.sol` to increase claim amount to 10,000 SOF (from 100) and reduce cooldown to 6 hours (from 24)
+  - Added `contributeKarma()` function to allow users to return SOF tokens to the faucet for others to use
+  - Modified deployment scripts to allocate 99% of SOF tokens to the faucet (1M for deployer, 99M for faucet)
+  - Enhanced `FaucetWidget.jsx` with tabbed interface for claiming and contributing karma
+  - Updated `useFaucet.js` hook to support the karma contribution functionality
+  - Added comprehensive tests for the new karma feature
+  - Verified end-to-end functionality with local Anvil deployment
+
+- [x] Implemented SOF Faucet System for Beta Testers
+  - Created `SOFFaucet.sol` contract with configurable distribution, cooldown period, and chain ID restriction
+  - Developed `FaucetPage.jsx` component with SOF faucet and Sepolia ETH faucet tabs
+  - Added navigation link in header and updated router configuration
+  - Updated contract address configuration and environment variables
+  - Updated copy-abis.js script to include the SOF Faucet ABI
+  - Created comprehensive tests for both contract and frontend components
+
 - [x] Fixed Admin Panel Raffle Flow
   - Fixed the end-to-end raffle completion process in the Admin Panel
   - Updated `useFundDistributor` hook to correctly use `RaffleMiniAbi` for all contract interactions
@@ -225,16 +242,16 @@ Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdr
 
 ### Testing Utilities (NEW)
 
-- [ ] $SOF Test Faucet — Anvil/Sepolia Only (Pending Plan Approval 2025-09-04)
-  - Scope: Provide a small amount of $SOF to a wallet for local Anvil and Sepolia testnet only, strictly one claim per address, with rate limiting and per-claim cap.
-  - Decision Needed: Choose between on-chain faucet contract vs. backend-signer faucet vs. frontend-only (requires mint role). Default recommendation: on-chain faucet contract funded during deploy, with chainId gating (31337, 11155111) and one-claim-per-address.
+- [x] $SOF Test Faucet — Anvil/Sepolia Only (Completed 2025-09-29)
+  - Scope: Provide a small amount of $SOF to a wallet for local Anvil and Sepolia testnet only, with rate limiting and configurable claim amount.
+  - Implementation: On-chain faucet contract funded during deploy, with chainId gating (31337, 11155111).
   - Subtasks:
-    - [ ] Finalize design choice and parameters (claim amount, cooldown, caps)
-    - [ ] Contracts (if chosen): implement `SOFFaucet.sol` with `claim()` once-per-address mapping, `require(chainid in {31337, 11155111})`, pausable, owner-configurable per-claim amount and cooldown; fund faucet from deploy script
-    - [ ] Frontend: add `SofFaucet` component gated by network (Anvil/Sepolia), display remaining claims, and call `claim()`; add basic abuse copy and UX
-    - [ ] Backend (optional): add rate-limit middleware for any supporting endpoints; no server-side signing of transactions
-    - [ ] Env/Docs: add faucet address per network to `.env.example`, update `contracts.js` and README/runbook
-    - [ ] Tests: Foundry unit tests (success, cooldown/duplicate claim, wrong chain); Vitest UI tests (success, wrong-network, already-claimed)
+    - [x] Finalized design choice and parameters: 10,000 SOF per claim, 6-hour cooldown
+    - [x] Contracts: implemented `SOFFaucet.sol` with `claim()` function, chainId restriction, pausable, owner-configurable parameters
+    - [x] Added `contributeKarma()` function to allow users to return SOF tokens to the faucet
+    - [x] Frontend: enhanced `FaucetWidget` component with tabbed interface for claiming and contributing karma
+    - [x] Env/Docs: added faucet address to `.env.example`, updated `contracts.js` and deploy scripts
+    - [x] Tests: Created Foundry unit tests for all functionality including karma feature
   - Acceptance Criteria:
     - Works only on chainId 31337 (Anvil) and 11155111 (Sepolia)
     - One successful claim per wallet address; subsequent attempts revert or are disabled in UI
@@ -955,3 +972,63 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [x] Resolved React hook-order warnings during HMR by making hook declarations unconditional in `useCurve`.
 - [x] Fixed Markdown list indentation (MD005, MD007) and blanks-around-lists (MD032) in `instructions/project-tasks.md`.
 - [x] Added UI copy in `RaffleDetails.jsx` to show "Estimated receive" and "Min after slippage" for sell transactions.
+
+## SOF Faucet System Implementation (2025-09-29)
+
+### Smart Contract Development
+
+- [x] Create `SOFFaucet.sol` contract with the following features:
+  - [x] ERC20 token distribution with configurable amount
+  - [x] Cooldown period between claims (e.g., 24 hours)
+  - [x] Chain ID restriction (Anvil/Sepolia only)
+  - [x] Admin functions for parameter adjustment
+  - [x] Withdrawal function for contract owner
+  - [x] Karma contribution function for returning tokens to the faucet
+
+- [x] Create `DeployFaucet.s.sol` script to:
+  - [x] Deploy the faucet contract
+  - [x] Fund it with initial SOF tokens (99M SOF, 99% of total supply)
+  - [x] Update environment variables
+
+### Frontend Development
+
+- [x] Create `FaucetPage.jsx` component with:
+  - [x] SOF faucet tab with claim functionality
+  - [x] Sepolia ETH faucet tab with external links
+  - [x] Balance display and cooldown timer
+
+- [x] Enhance `FaucetWidget.jsx` with:
+  - [x] Tabbed interface for claim and karma contribution
+  - [x] Input field for karma amount
+  - [x] Transaction status and success indicators
+  - [x] Improved UX with descriptive text
+  - [x] Transaction status feedback
+
+- [x] Add route and navigation:
+  - [x] Update router configuration
+  - [x] Add navigation link in header
+
+### Integration & Configuration
+
+- [x] Update contract address configuration:
+  - [x] Add faucet address to `contracts.js`
+  - [x] Update `.env.example` with faucet variables
+
+- [x] Copy faucet ABI to frontend:
+  - [x] Update `scripts/copy-abis.js` to include faucet ABI
+
+### Test Implementation
+
+- [x] Write Solidity tests for `SOFFaucet.sol`:
+  - [x] Test initial state and configuration
+  - [x] Test claim functionality and cooldown
+  - [x] Test chain ID restriction
+  - [x] Test admin functions
+  - [x] Test karma contribution functionality
+
+- [x] Write frontend tests for `FaucetPage.jsx` and `FaucetWidget.jsx`:
+  - [x] Test tab switching
+  - [x] Test connected/disconnected states
+  - [x] Test claim button states
+  - [x] Test karma contribution flow
+  - [x] Test cooldown display

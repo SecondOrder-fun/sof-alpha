@@ -22,10 +22,6 @@ export default function NetworkToggle({ className = "" }) {
       setSelected(def);
       setStoredNetworkKey(def);
     }
-
-NetworkToggle.propTypes = {
-  className: PropTypes.string,
-};
     // no deps on purpose (init only)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

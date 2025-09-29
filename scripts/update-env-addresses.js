@@ -31,6 +31,8 @@ const NAME_TO_ENV = {
   InfoFiPriceOracle: 'INFOFI_ORACLE',
   InfoFiSettlement: 'INFOFI_SETTLEMENT',
   RafflePrizeDistributor: 'PRIZE_DISTRIBUTOR',
+  // Faucet
+  SOFFaucet: 'SOF_FAUCET',
   // Legacy placeholder
   InfoFiMarket: 'INFOFI_MARKET',
   // VRF mock (needed for local resolve flows)
@@ -77,7 +79,11 @@ function findLatestBroadcast(chainId = '31337') {
 
 /**
  * Parse simple KEY=VALUE env files into a map. Ignores comments and blank lines.
+ * Note: This function is kept for future use but currently not used directly.
+ * @param {string} filePath - Path to the env file
+ * @returns {Map<string, string>} Map of key-value pairs
  */
+// eslint-disable-next-line no-unused-vars
 function readEnvToMap(filePath) {
   const map = new Map();
   if (!fs.existsSync(filePath)) return map;
@@ -95,7 +101,15 @@ function readEnvToMap(filePath) {
 /**
  * Build target env content from .env.example, filtering to allowed keys and
  * filling values using (1) updates override, (2) existing file values, (3) example defaults.
+ * Note: This function is kept for future use but currently not used directly.
+ * @param {string} exampleText - Content of the example env file
+ * @param {Object} options - Options for building the env file
+ * @param {Function} options.allowPredicate - Function to determine if a key should be included
+ * @param {Object} options.updates - Key-value pairs to override existing values
+ * @param {Map<string, string>} options.existing - Map of existing key-value pairs
+ * @returns {string} The built env file content
  */
+// eslint-disable-next-line no-unused-vars
 function buildFromExample(exampleText, {
   allowPredicate, // (key) => boolean
   updates = {},

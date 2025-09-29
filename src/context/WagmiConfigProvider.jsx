@@ -5,22 +5,61 @@ import { WagmiProvider, createConfig } from 'wagmi';
 import { getChainConfig, getStoredNetworkKey } from '@/lib/wagmi';
 
 const buildWagmiConfig = (networkKey) => {
-  const { chain, transport } = getChainConfig(networkKey);
-
-  return createConfig({
-    chains: [chain],
-    transports: {
-      [chain.id]: transport,
-    },
-  });
+  try {
+    const { chain, transport } = getChainConfig(networkKey);
+    
+    if (!chain || !transport) {
+      // eslint-disable-next-line no-console
+      console.error('Invalid chain configuration for network key:', networkKey);
+      // Fallback to default configuration
+      const fallback = getChainConfig('LOCAL');
+      return createConfig({
+        chains: [fallback.chain],
+        transports: {
+          [fallback.chain.id]: fallback.transport,
+        },
+      });
+    }
+    
+    return createConfig({
+      chains: [chain],
+      transports: {
+        [chain.id]: transport,
+      },
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error building Wagmi config:', error);
+    // Return a minimal working config for Anvil/localhost
+    const { chain, transport } = getChainConfig('LOCAL');
+    return createConfig({
+      chains: [chain],
+      transports: {
+        [chain.id]: transport,
+      },
+    });
+  }
 };
 
 export const WagmiConfigProvider = ({ children }) => {
-  const [networkKey, setNetworkKey] = useState(getStoredNetworkKey());
+  const [networkKey, setNetworkKey] = useState(() => {
+    try {
+      return getStoredNetworkKey();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting stored network key:', error);
+      return 'LOCAL';
+    }
+  });
 
   useEffect(() => {
     const handleNetworkChange = (event) => {
-      setNetworkKey(event.detail.key);
+      try {
+        setNetworkKey(event.detail.key);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error handling network change:', error);
+      }
     };
 
     window.addEventListener('sof:network-changed', handleNetworkChange);

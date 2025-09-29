@@ -1,6 +1,5 @@
 // React import not needed with Vite JSX transform
 import { Link } from 'react-router-dom';
-import { useMemo } from "react";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +55,9 @@ const Header = () => {
             )}
             <Link to={isConnected && address ? `/users/${address}` : "/account"} className="hover:text-primary transition-colors">
               My Account
+            </Link>
+            <Link to="/faucet" className="hover:text-primary transition-colors">
+              Beta Faucets
             </Link>
           </nav>
         </div>
