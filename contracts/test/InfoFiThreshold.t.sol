@@ -93,8 +93,6 @@ contract InfoFiThresholdTest is Test {
             startTime: block.timestamp + 60,
             endTime: block.timestamp + 3600,
             winnerCount: 1,
-            prizePercentage: 9000, // 90%
-            consolationPercentage: 1000, // 10%
             grandPrizeBps: 6500, // 65% grand prize
             raffleToken: address(0), // Will be set by factory
             bondingCurve: address(0), // Will be set by factory
@@ -122,10 +120,8 @@ contract InfoFiThresholdTest is Test {
         raffle.startSeason(seasonId);
 
         // Get the curve address from the season config
-        // We need to access the public mapping directly
-        address curveAddr;
-        (,,,,,,,, curveAddr,,) = raffle.seasons(seasonId);
-        curve = SOFBondingCurve(curveAddr);
+        (RaffleTypes.SeasonConfig memory seasonConfig, , , , ) = raffle.getSeasonDetails(seasonId);
+        curve = SOFBondingCurve(seasonConfig.bondingCurve);
 
         // Transfer SOF tokens to players (can't mint directly)
         sofToken.transfer(player1, 10000 ether);

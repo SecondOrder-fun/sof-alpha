@@ -240,8 +240,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       startTime: BigInt(start),
       endTime: BigInt(end),
       winnerCount: 1,
-      prizePercentage: 80,
-      consolationPercentage: 10,
       grandPrizeBps,
       raffleToken: "0x0000000000000000000000000000000000000000",
       bondingCurve: "0x0000000000000000000000000000000000000000",

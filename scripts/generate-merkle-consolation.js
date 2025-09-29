@@ -33,8 +33,6 @@ const RaffleAbi = [
       { name: 'startTime', type: 'uint256' },
       { name: 'endTime', type: 'uint256' },
       { name: 'winnerCount', type: 'uint16' },
-      { name: 'prizePercentage', type: 'uint16' },
-      { name: 'consolationPercentage', type: 'uint16' },
       { name: 'grandPrizeBps', type: 'uint16' },
       { name: 'raffleToken', type: 'address' },
       { name: 'bondingCurve', type: 'address' },

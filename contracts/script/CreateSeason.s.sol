@@ -22,8 +22,6 @@ contract CreateSeason is Script {
             startTime: startTs,
             endTime: endTs,
             winnerCount: 3,
-            prizePercentage: 5000, // 50%
-            consolationPercentage: 4000, // 40%
             grandPrizeBps: 6500, // 65% of total pool to grand winner (rest to consolation)
             raffleToken: address(0), // Will be set by the factory
             bondingCurve: address(0), // Will be set by the factory

@@ -18,9 +18,22 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Scope: Raffle sell path only (InfoFi market buy/sell is separate and in progress).
   - Action: Investigate contract/UI/hook path in `src/hooks/useCurve.js` and `src/routes/RaffleDetails.jsx` after current InfoFi task is complete.
 
+- [ ] Failing tests after SeasonConfig structure change (Reported 2025-09-29)
+  - Symptom: Two tests failing after removing `prizePercentage` and `consolationPercentage` fields.
+  - Scope: `testPrizePoolCapturedFromCurveReserves` in RaffleVRF.t.sol and `test_MultiAddress_StaggeredRemovals_OrderAndReadd` in SellAllTickets.t.sol.
+  - Action: Update tests to work with the new SeasonConfig structure.
+
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Latest Progress (2025-09-29)
+
+- [x] Simplified SeasonConfig Structure
+  - Removed redundant `prizePercentage` and `consolationPercentage` fields from `RaffleTypes.SeasonConfig`
+  - Updated all contract code to use only `grandPrizeBps` for prize distribution calculations
+  - Modified prize calculation in `_setupPrizeDistribution` to use `grandPrizeBps` for grand prize amount and remainder for consolation
+  - Updated all tests and scripts to use the simplified structure
+  - Improved validation in `createSeason` to check `grandPrizeBps <= 10000`
+  - Note: Some tests need further updates to work with the new structure
 
 - [x] Fixed InfoFiThreshold.t.sol Test Issues
   - Added missing methods to `InfoFiMarketFactory` contract: `getMarketCount()`, `getMarketInfo()`, `getMarketId()`, and `hasMarket()`

@@ -86,8 +86,7 @@ contract RaffleTest is Test {
         cfg.endTime = end;
         //cfg.maxParticipants = 0; // not enforced in contract currently
         cfg.winnerCount = 2;
-        cfg.prizePercentage = 9000; // 90%
-        cfg.consolationPercentage = 0;
+        cfg.grandPrizeBps = 6500; // 65% grand prize
         RaffleTypes.BondStep[] memory steps = _defaultBondSteps();
         seasonId = raffle.createSeason(cfg, steps, 50, 70); // 0.5% buy, 0.7% sell
     }

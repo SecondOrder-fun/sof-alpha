@@ -81,8 +81,7 @@ contract RaffleVRFTest is Test {
         cfg.startTime = block.timestamp + 1;
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
-        cfg.prizePercentage = 9000;
-        cfg.consolationPercentage = 0;
+        cfg.grandPrizeBps = 6500;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
@@ -159,8 +158,7 @@ contract RaffleVRFTest is Test {
         cfg.startTime = block.timestamp + 1;
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 3;
-        cfg.prizePercentage = 9000;
-        cfg.consolationPercentage = 0;
+        cfg.grandPrizeBps = 6500;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
@@ -193,14 +191,20 @@ contract RaffleVRFTest is Test {
 
         uint256 reservesBefore = curve.getSofReserves();
 
+        // Lock trading and set the prize pool
+        raffle.testRequestSeasonEnd(seasonId, 999);
+        
+        // Now fulfill the VRF request
         uint256 reqId = 999;
-        raffle.testSetVrf(seasonId, reqId);
         uint256[] memory words = new uint256[](2);
         words[0] = 123; words[1] = 456;
         raffle.testFulfill(reqId, words);
 
+        // Get the season state and verify the prize pool was captured correctly
         (,, , , uint256 totalPrizePool) = raffle.getSeasonDetails(seasonId);
-        assertEq(totalPrizePool, reservesBefore);
+        
+        // The prize pool should match the reserves that were in the curve
+        assertEq(totalPrizePool, reservesBefore, "Prize pool should match curve reserves");
     }
 
     function testAccessControlEnforced() public {

@@ -138,7 +138,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(config.startTime > block.timestamp, "Raffle: start in future");
         require(config.endTime > config.startTime, "Raffle: bad end");
         require(config.winnerCount > 0, "Raffle: winners 0");
-        require(config.prizePercentage + config.consolationPercentage <= 10000, "Raffle: pct > 100%");
+        require(config.grandPrizeBps <= 10000, "Raffle: grand bps > 100%");
         require(bondSteps.length > 0, "Raffle: steps 0");
 
         seasonId = ++currentSeasonId;

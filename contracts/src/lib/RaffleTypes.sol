@@ -7,8 +7,6 @@ library RaffleTypes {
         uint256 startTime;
         uint256 endTime;
         uint16 winnerCount;
-        uint16 prizePercentage; // In basis points
-        uint16 consolationPercentage; // In basis points
         uint16 grandPrizeBps; // In basis points (e.g. 6500 = 65% of totalPrizePool to grand winner). 0 => use default in Raffle
         address raffleToken;
         address bondingCurve;

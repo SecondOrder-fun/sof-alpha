@@ -108,10 +108,10 @@ contract ConfigureDistributorSimple is Script {
             address sofToken = config.raffleToken;
             console2.log("- SOF token:", sofToken);
             
-            // Calculate prize amounts based on percentages and actual prize pool
+            // Calculate prize amounts based on grandPrizeBps and actual prize pool
             uint256 totalValue = totalPrizePool;
-            uint256 grandPrizeAmount = (totalValue * config.prizePercentage) / 10000; // prizePercentage is in basis points (100% = 10000)
-            uint256 consolationAmount = (totalValue * config.consolationPercentage) / 10000;
+            uint256 grandPrizeAmount = (totalValue * config.grandPrizeBps) / 10000; // grandPrizeBps is in basis points (100% = 10000)
+            uint256 consolationAmount = totalValue - grandPrizeAmount; // Remainder goes to consolation
             
             console2.log("Configuring distributor with:");
             console2.log("- Grand prize amount:", grandPrizeAmount);
