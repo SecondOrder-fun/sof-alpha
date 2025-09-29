@@ -249,6 +249,20 @@ contract InfoFiMarketFactory is AccessControl {
     }
     
     /**
+     * @notice Get the market address for a player and market type
+     * @param player The player address
+     * @param seasonId The season ID
+     * @param marketType The market type
+     * @return address The market address or address(0) if not found
+     */
+    function getMarketFor(address player, uint256 seasonId, bytes32 marketType) external view returns (address) {
+        if (marketType == WINNER_PREDICTION) {
+            return winnerPredictionMarkets[seasonId][player];
+        }
+        return address(0);
+    }
+    
+    /**
      * @notice Create a market for a player and market type
      * @dev This is a convenience method for tests and admin operations
      * @param seasonId The season ID

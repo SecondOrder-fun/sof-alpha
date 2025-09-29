@@ -449,7 +449,7 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 - [x] Raffle wired as VRF consumer (local mock) and season factory connected.
 - [x] ENV/addresses synced to frontend/backend via scripts.
 - [x] Frontend: added on-chain service `src/services/onchainInfoFi.js` and UI in `src/routes/MarketsIndex.jsx` to list season players and call `createWinnerPredictionMarket` permissionlessly.
-- [ ] Position events: Curve does not yet emit `PositionUpdate` nor call factory on threshold.
+- [x] Position events: Curve now emits `PositionUpdate` and calls factory on threshold crossing.
 - [ ] Testnet deployments remain pending.
 
 ### InfoFi Smart Contracts
@@ -457,8 +457,8 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 - [ ] Deploy `InfoFiMarketFactory.sol` to testnet; record addresses in `src/config/contracts.js` and backend env.
 - [ ] Deploy `InfoFiPriceOracle.sol` to testnet; set initial weights (70/30).
 - [ ] Deploy `InfoFiSettlement.sol` to testnet; grant `SETTLER_ROLE` to raffle/curve contract.
-- [ ] Add `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` event in `SOFBondingCurve`.
-- [ ] In `SOFBondingCurve.buyTokens/sellTokens`, emit `PositionUpdate` and calculate probability bps; on crossing 1% upward, call `InfoFiMarketFactory.onPositionUpdate(...)` (idempotent guard in factory).
+- [x] Add `PositionUpdate(address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)` event in `SOFBondingCurve`.
+- [x] In `SOFBondingCurve.buyTokens/sellTokens`, emit `PositionUpdate` and calculate probability bps; on crossing 1% upward, call `InfoFiMarketFactory.onPositionUpdate(...)` (idempotent guard in factory).
 - [x] Ensure oracle updater role is assigned to factory (done via constructor passing factory as admin in local deploy; replicate on testnet).
 - [ ] Validate VRF winner flow triggers settlement (raffle → settlement) on testnet.
 
@@ -467,11 +467,11 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 — Execute these in order to enable automatic market creation on threshold without manual backfills.
 
 - **Contracts**
-  - [ ] Implement `PositionUpdate` event in `contracts/src/curve/SOFBondingCurve.sol`.
-  - [ ] Emit `PositionUpdate` in `buyTokens` and `sellTokens` with `{ player, oldTickets, newTickets, totalTickets }`.
-  - [ ] On upward cross to ≥1% (old < 100 bps, new ≥ 100 bps), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)`.
-  - [ ] Add factory view: `getMarketFor(address player, uint256 seasonId, bytes32 marketType)` to prevent duplicates and allow discovery.
-  - [ ] Confirm `InfoFiPriceOracle` grants updater role to factory in `contracts/script/Deploy.s.sol` (already done locally) and mirror on testnet.
+  - [x] Implement `PositionUpdate` event in `contracts/src/curve/SOFBondingCurve.sol`.
+  - [x] Emit `PositionUpdate` in `buyTokens` and `sellTokens` with `{ player, oldTickets, newTickets, totalTickets }`.
+  - [x] On upward cross to ≥1% (old < 100 bps, new ≥ 100 bps), call `InfoFiMarketFactory.onPositionUpdate(player, oldTickets, newTickets, totalTickets)`.
+  - [x] Add factory view: `getMarketFor(address player, uint256 seasonId, bytes32 marketType)` to prevent duplicates and allow discovery.
+  - [x] Confirm `InfoFiPriceOracle` grants updater role to factory in `contracts/script/Deploy.s.sol` (already done locally) and mirror on testnet.
 
 - **Backend**
   - [ ] Add viem watcher: `watchContractEvent(PositionUpdate)` with debounce and idempotency checks; backfill with `getLogs` on boot.
@@ -498,7 +498,7 @@ This roadmap consolidates the InfoFi specs into executable tasks across contract
 Derived from the new prediction market development ruleset. These items complement existing tasks.
 
 - **Smart Contracts**
-  - [ ] Ensure raffle exposes or adapt to `IRaffleContract` interface: `getCurrentSeason()`, `isSeasonActive()`, `getTotalTickets()`, `getPlayerPosition()`, `getPlayerList()`, `getNumberRange()`, `getSeasonWinner()`, `getFinalPlayerPosition()`.
+  - [x] Ensure raffle exposes or adapt to `IRaffleContract` interface: `getCurrentSeason()`, `isSeasonActive()`, `getTotalTickets()`, `getPlayerPosition()`, `getPlayerList()`, `getNumberRange()`, `getSeasonWinner()`, `getFinalPlayerPosition()`.
   - [x] Implement `RafflePositionTracker` with snapshots and `MARKET_ROLE`; push updates to markets on position changes.
   - [ ] Implement market contracts (MVP per ruleset):
     - [ ] `RaffleBinaryMarket` (YES/NO) with 70/30 hybrid pricing and USDC collateral; 2% winnings fee; `resolveMarket` role-gated.

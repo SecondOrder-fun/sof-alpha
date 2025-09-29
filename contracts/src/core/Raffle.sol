@@ -370,6 +370,95 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonStates[seasonId].status == SeasonStatus.Completed, "Raffle: not completed");
         return seasonStates[seasonId].winners;
     }
+    
+    /**
+     * @notice Get the current active season ID
+     * @return uint256 The current active season ID or 0 if no active season
+     */
+    function getCurrentSeason() external view returns (uint256) {
+        for (uint256 i = currentSeasonId; i > 0; i--) {
+            if (seasons[i].isActive) {
+                return i;
+            }
+        }
+        return 0; // No active season
+    }
+    
+    /**
+     * @notice Check if a season is active
+     * @param seasonId The season ID to check
+     * @return bool True if the season is active
+     */
+    function isSeasonActive(uint256 seasonId) external view returns (bool) {
+        return seasons[seasonId].isActive;
+    }
+    
+    /**
+     * @notice Get the total tickets for a season
+     * @param seasonId The season ID
+     * @return uint256 The total tickets
+     */
+    function getTotalTickets(uint256 seasonId) external view returns (uint256) {
+        return seasonStates[seasonId].totalTickets;
+    }
+    
+    /**
+     * @notice Get the player list for a season
+     * @param seasonId The season ID
+     * @return address[] The list of players
+     */
+    function getPlayerList(uint256 seasonId) external view returns (address[] memory) {
+        return seasonStates[seasonId].participants;
+    }
+    
+    /**
+     * @notice Get the number range for a player in a season
+     * @param seasonId The season ID
+     * @param player The player address
+     * @return startRange The start of the player's number range
+     * @return endRange The end of the player's number range
+     */
+    function getNumberRange(uint256 seasonId, address player) external view returns (uint256 startRange, uint256 endRange) {
+        // Calculate the player's number range based on their position in the participants array
+        uint256 rangeStart = 0;
+        address[] memory participants = seasonStates[seasonId].participants;
+        
+        for (uint256 i = 0; i < participants.length; i++) {
+            if (participants[i] == player) {
+                break;
+            }
+            ParticipantPosition memory prevPos = seasonStates[seasonId].participantPositions[participants[i]];
+            rangeStart += prevPos.ticketCount;
+        }
+        
+        ParticipantPosition memory pos = seasonStates[seasonId].participantPositions[player];
+        startRange = rangeStart;
+        endRange = rangeStart + pos.ticketCount;
+        return (startRange, endRange);
+    }
+    
+    /**
+     * @notice Get the season winner
+     * @param seasonId The season ID
+     * @return address The winner address or address(0) if not determined yet
+     */
+    function getSeasonWinner(uint256 seasonId) external view returns (address) {
+        if (seasonStates[seasonId].winners.length > 0) {
+            return seasonStates[seasonId].winners[0];
+        }
+        return address(0);
+    }
+    
+    /**
+     * @notice Get the final player position after season completion
+     * @param seasonId The season ID
+     * @param player The player address
+     * @return uint256 The final ticket count
+     */
+    function getFinalPlayerPosition(uint256 seasonId, address player) external view returns (uint256) {
+        require(seasons[seasonId].isCompleted, "Raffle: season not completed");
+        return seasonStates[seasonId].participantPositions[player].ticketCount;
+    }
 
     function getVrfRequestForSeason(uint256 seasonId) external view returns (uint256) {
         require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
