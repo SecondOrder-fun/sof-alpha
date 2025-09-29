@@ -3,6 +3,7 @@ import { useAccount, usePublicClient } from 'wagmi';
 import { createWalletClient, custom } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Hook for managing the raffle distribution process
@@ -17,8 +18,10 @@ const useFundDistributor = ({
 }) => {
   const netKey = getStoredNetworkKey();
   const publicClient = usePublicClient();
-  const { chain } = useAccount();
+  const { chain, address } = useAccount();
   const netCfg = chain;
+  const queryClient = useQueryClient();
+  const contractAddresses = getContractAddresses(netKey);
 
   // Check contract state before proceeding
   async function checkContractState(raffleAddr, seasonId) {
@@ -72,9 +75,7 @@ const useFundDistributor = ({
     let account;
     
     try {
-      // Get network configuration
-      const contractAddresses = getContractAddresses(netKey);
-
+      // Check if contract addresses are available
       if (!contractAddresses || !contractAddresses.RAFFLE) {
         setEndStatus(`Could not find RAFFLE contract address for network ${netKey}`);
         return;
@@ -427,6 +428,15 @@ const useFundDistributor = ({
           
           await publicClient.waitForTransactionReceipt({ hash: fundHash });
           setEndStatus("Season funded successfully!");
+          
+          // Invalidate SOF balance query to refresh the user's balance
+          if (address) {
+            console.log('Invalidating SOF balance query for address:', address);
+            queryClient.invalidateQueries({ queryKey: ['sofBalance', netKey, contractAddresses.SOF, address] });
+            
+            // Also invalidate raffle token balances query
+            queryClient.invalidateQueries({ queryKey: ['raffleTokenBalances', netKey, address] });
+          }
         } catch (error) {
           setEndStatus(`Error funding distributor: ${error.message}`);
           return;
@@ -439,6 +449,15 @@ const useFundDistributor = ({
       // Refresh data
       setEndStatus("Done! Season fully resolved and funded.");
       allSeasonsQuery.refetch();
+      
+      // Invalidate SOF balance query to refresh the user's balance
+      if (address) {
+        console.log('Invalidating SOF balance query for address:', address);
+        queryClient.invalidateQueries({ queryKey: ['sofBalance', netKey, contractAddresses.SOF, address] });
+        
+        // Also invalidate raffle token balances query
+        queryClient.invalidateQueries({ queryKey: ['raffleTokenBalances', netKey, address] });
+      }
     } catch (error) {
       setEndStatus(`Unexpected error: ${error.message}`);
     } finally {
