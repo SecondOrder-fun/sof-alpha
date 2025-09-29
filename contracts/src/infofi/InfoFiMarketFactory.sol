@@ -193,4 +193,79 @@ contract InfoFiMarketFactory is AccessControl {
     function getSeasonPlayers(uint256 seasonId) external view returns (address[] memory) {
         return _seasonPlayers[seasonId];
     }
+    
+    /**
+     * @notice Check if a market exists for a player and market type
+     * @param seasonId The season ID
+     * @param player The player address
+     * @param marketType The market type (e.g., WINNER_PREDICTION)
+     * @return bool True if the market exists
+     */
+    function hasMarket(uint256 seasonId, address player, bytes32 marketType) external view returns (bool) {
+        if (marketType == WINNER_PREDICTION) {
+            return winnerPredictionCreated[seasonId][player];
+        }
+        return false;
+    }
+    
+    /**
+     * @notice Get the number of markets for a season
+     * @param seasonId The season ID
+     * @return uint256 The number of markets
+     */
+    function getMarketCount(uint256 seasonId) external view returns (uint256) {
+        return _seasonPlayers[seasonId].length;
+    }
+    
+    /**
+     * @notice Get market information by index
+     * @param seasonId The season ID
+     * @param index The index of the market
+     * @return player The player address
+     * @return marketType The market type
+     * @return marketAddr The market address
+     */
+    function getMarketInfo(uint256 seasonId, uint256 index) external view returns (
+        address player,
+        bytes32 marketType,
+        address marketAddr
+    ) {
+        require(index < _seasonPlayers[seasonId].length, "Factory: index out of bounds");
+        player = _seasonPlayers[seasonId][index];
+        marketType = WINNER_PREDICTION; // Currently only supporting winner prediction markets
+        marketAddr = winnerPredictionMarkets[seasonId][player];
+        return (player, marketType, marketAddr);
+    }
+    
+    /**
+     * @notice Get the market ID for a player and market type
+     * @param seasonId The season ID
+     * @param player The player address
+     * @param marketType The market type
+     * @return bytes32 The market ID
+     */
+    function getMarketId(uint256 seasonId, address player, bytes32 marketType) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(seasonId, player, marketType));
+    }
+    
+    /**
+     * @notice Create a market for a player and market type
+     * @dev This is a convenience method for tests and admin operations
+     * @param seasonId The season ID
+     * @param player The player address
+     * @param marketType The market type
+     */
+    function createMarket(uint256 seasonId, address player, bytes32 marketType) external onlyRole(ADMIN_ROLE) {
+        require(player != address(0), "Factory: player zero");
+        
+        if (marketType == WINNER_PREDICTION && !winnerPredictionCreated[seasonId][player]) {
+            winnerPredictionCreated[seasonId][player] = true;
+            address marketAddr = address(infoFiMarket);
+            winnerPredictionMarkets[seasonId][player] = marketAddr;
+            _seasonPlayers[seasonId].push(player);
+            
+            // We don't know the probability here, so use 0 as a placeholder
+            emit MarketCreated(seasonId, player, WINNER_PREDICTION, 0, marketAddr);
+        }
+    }
 }
