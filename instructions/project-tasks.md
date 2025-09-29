@@ -4,9 +4,14 @@
 
 SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency speculation into structured, fair finite games through applied game theory enhanced with InfoFi (Information Finance) integration. The platform combines transparent raffle mechanics with sophisticated prediction markets to create a multi-layer system enabling cross-layer strategies, real-time arbitrage opportunities, and information-based value creation.
 
-## Known Issues (2025-08-20)
+## Known Issues (2025-09-29)
 
 - [x] Cannot buy tickets in the active raffle (Resolved 2025-08-20; see Latest Progress).
+
+- [x] Admin Panel Raffle Flow not working (Resolved 2025-09-29)
+  - Symptom: End-to-end raffle completion process in Admin Panel was failing.
+  - Scope: VRF fulfillment and prize distribution in `useFundDistributor.js`.
+  - Resolution: Fixed account parameter in Viem v2 writeContract calls and added SOF balance invalidation.
 
 - [ ] Cannot sell tickets to close position in raffle (Reported 2025-08-21)
   - Symptom: Sell flow fails when attempting to close or reduce raffle ticket positions.
@@ -14,6 +19,16 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Action: Investigate contract/UI/hook path in `src/hooks/useCurve.js` and `src/routes/RaffleDetails.jsx` after current InfoFi task is complete.
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
+
+## Latest Progress (2025-09-29)
+
+- [x] Fixed Admin Panel Raffle Flow
+  - Fixed the end-to-end raffle completion process in the Admin Panel
+  - Updated `useFundDistributor` hook to correctly use `RaffleMiniAbi` for all contract interactions
+  - Added account parameter to all `walletClient.writeContract()` calls to comply with Viem v2 requirements
+  - Implemented automatic SOF balance update after claim events by invalidating React Query cache
+  - Cleaned up debug logs and fixed lint errors in `useFundDistributor.js`
+  - Verified full raffle lifecycle from requesting season end to prize claim works correctly
 
 ## Latest Progress (2025-09-10)
 
@@ -543,14 +558,14 @@ This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `Me
 
 ### Design Summary
 
-- __Grand Prize Split__
+- **Grand Prize Split**
   - Add `grandPrizeBps` to `RaffleTypes.SeasonConfig` (default MVP 6500 = 65%).
   - On season finalization, compute:
     - `grand = totalPrizePool * grandPrizeBps / 10000`
     - `consolation = totalPrizePool - grand`
   - Select grand winner as `winners[0]` (MVP single grand winner) and record `grandWinnerTickets` (optional, but we WILL use it for correct denominator logic).
 
-- __RafflePrizeDistributor (new)__
+- **RafflePrizeDistributor (new)**
   - Holds SOF prize funds and manages claims.
   - Two claim paths:
     - Grand winner: single allocation (`claimGrand(seasonId)`).
@@ -562,21 +577,21 @@ This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `Me
     - Claim functions enforce `funded`, per-leaf not yet claimed, and time-based guards if needed.
   - Storage per season: token, merkleRoot, grandWinner, amounts, funded flag, totalTicketsSnapshot, grandWinnerTickets, grandClaimed, `claimedBitMap` (packed leaf claim tracking as in Uniswap/Mint.club patterns).
 
-- __Why Merkle for consolation__
+- **Why Merkle for consolation**
   - Avoid heavy on-chain pro‑rata computations for all participants.
   - Off-chain computation (deterministic, published) with on-chain light verification.
   - Same proven approach as Uniswap/MintClub airdrops; resilient and gas‑efficient.
 
 ### Contract Work Items
 
-- __RafflePrizeDistributor.sol__
+- **RafflePrizeDistributor.sol**
   - Roles: DEFAULT_ADMIN_ROLE, RAFFLE_ROLE.
   - `configureSeason`, `fundSeason`, `claimGrand`, `claimConsolation(index, account, amount, proof)`, `isClaimed(index)`.
   - Events: `SeasonConfigured`, `SeasonFunded`, `GrandClaimed`, `ConsolationClaimed`.
   - Security: ReentrancyGuard; AccessControl; pause hooks optional.
   - Tests: allocation correctness, double-claim protection, Merkle proof validation, unfunded/unfinished guards, grand-only claimant allowed.
 
-- __Raffle.sol wiring__
+- **Raffle.sol wiring**
   - Add `grandPrizeBps` to `SeasonConfig` (default 6500).
   - In `_setupPrizeDistribution`:
     - Compute `grand` and `consolation` as above.
@@ -586,7 +601,7 @@ This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `Me
       - Merkle root produced off-chain from participant allocations (excluding grand winner).
     - `RafflePrizeDistributor.fundSeason(seasonId, totalPrizePool)`.
 
-- __Merkle Tree generation (off-chain)__
+- **Merkle Tree generation (off-chain)**
   - Input: season participants (excluding grand winner), final ticket counts, `consolation` amount, `grandWinnerTickets`, `totalTicketsSnapshot`.
   - Formula: `amount_i = consolation * tickets_i / (totalTicketsSnapshot - grandWinnerTickets)`.
   - Normalize rounding and ensure sum ≤ consolation; cap last leaf to avoid dust.
@@ -594,15 +609,15 @@ This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `Me
 
 ### UI Work Items
 
-- __Address format & profile links__
+- **Address format & profile links**
   - Add `shortAddress(addr) => 0x1234…7890` helper.
   - `AddressLink` component links to `/users/:address`.
 
-- __Rewards Panels__ (My Account actionable, User Profile read-only)
+- **Rewards Panels** (My Account actionable, User Profile read-only)
   - Raffle Rewards: per season row with grand/consolation amounts, claim buttons (if applicable), and status (Funded/Configured).
   - InfoFi Rewards: continue using Claim Center for market payouts; Rewards panel can display historical claimed entries.
 
-- __Pages__
+- **Pages**
   - `AccountPage.jsx`: Keep PositionsPanel + ClaimCenter; add RewardsPanel (shows Raffle rewards when distributor is live).
   - `UserProfile.jsx`: Add read-only RewardsPanel (no claim buttons).
 
@@ -616,10 +631,10 @@ This plan adopts a Merkle-based distributor pattern (inspired by Mint.club's `Me
 - [ ] `RewardsPanel.jsx` (Account actionable, Profile read-only) with short addresses and profile links.
 - [ ] Tests: Foundry (contracts), Vitest (hooks/components).
 
-
 This plan adapts proven UX patterns from Polymarket to SecondOrder.fun’s InfoFi layer. It focuses on clear price communication (probability as percent), low‑friction discovery, and fast trade placement with real‑time updates.
 
 ### Phase 1 — Markets Index (MVP)
+
 Goals: Discoverability, fast scan, basic trade entry (redirect to detail)
 {{ ... }}
 
@@ -646,6 +661,7 @@ Goals: Discoverability, fast scan, basic trade entry (redirect to detail)
   - [ ] Each card shows percent, delta, volume, and time left with accessible labels
 
 ### Phase 2 — Market Detail (YES/NO) + Positions (Portfolio)
+
 Goals: Polymarket‑style clarity; fast trade placement; positions visibility
 
 - [ ] Route `src/routes/MarketDetail.jsx`
@@ -673,6 +689,7 @@ Goals: Polymarket‑style clarity; fast trade placement; positions visibility
   - [ ] Portfolio shows new position <5s after trade confirmation
 
 ### Phase 3 — Advanced Trading (Order Book) & Categories
+
 Goals: Power‑user features approximating Polymarket depth and discovery polish
 
 - [ ] Order Book
@@ -730,7 +747,6 @@ Goals: Power‑user features approximating Polymarket depth and discovery polish
 - [ ] Confirm whether trading is AMM‑style or order‑book (affects Detail UI). Initial assumption: AMM/hybrid probability; we can simulate depth until order book is live.
 - [ ] Determine canonical marketId and season linkage for navigation
 - [ ] Finalize categories taxonomy and mapping from on‑chain metadata
-
 
 - No official Onit ABIs surfaced; if true onchain local is required, implement Option B: deploy our minimal prediction markets to Anvil and expose API-shaped adapter.
 

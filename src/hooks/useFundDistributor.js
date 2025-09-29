@@ -26,12 +26,6 @@ const useFundDistributor = ({
   // Check contract state before proceeding
   async function checkContractState(raffleAddr, seasonId) {
     try {
-      console.log('checkContractState called with:', { raffleAddr, seasonId });
-      console.log('Using RaffleMiniAbi:', RaffleMiniAbi);
-      console.log('Looking for getSeasonDetails function in ABI');
-      const getSeasonDetailsAbi = RaffleMiniAbi.find(item => item.name === 'getSeasonDetails');
-      console.log('Found getSeasonDetails in ABI:', !!getSeasonDetailsAbi);
-      
       // Get season details
       const seasonDetails = await publicClient.readContract({
         address: raffleAddr,
@@ -39,8 +33,6 @@ const useFundDistributor = ({
         functionName: "getSeasonDetails",
         args: [BigInt(seasonId)],
       });
-      
-      console.log('Season details returned:', seasonDetails);
 
       // Extract season details for processing
       const [, status, totalParticipants, totalTickets, totalPrizePool] = seasonDetails;
@@ -63,11 +55,6 @@ const useFundDistributor = ({
   // Complete end-to-end flow for raffle resolution
   async function fundDistributorManual(targetSeasonId) {
     const idToUse = targetSeasonId || seasonId;
-    console.log('fundDistributorManual called with seasonId:', idToUse);
-    console.log('RaffleMiniAbi available:', !!RaffleMiniAbi);
-    if (RaffleMiniAbi) {
-      console.log('RaffleMiniAbi functions:', RaffleMiniAbi.map(item => item.name).join(', '));
-    }
     setEndingE2EId(idToUse);
     setEndStatus("Initializing end-to-end process for season " + idToUse);
     
@@ -89,11 +76,9 @@ const useFundDistributor = ({
       
       // Step 1: Check initial season state
       setEndStatus("Checking season state...");
-      console.log('Checking contract state for raffle address:', raffleAddr, 'and season ID:', idToUse);
       let seasonState;
       try {
         seasonState = await checkContractState(raffleAddr, idToUse);
-        console.log('Season state retrieved:', seasonState);
         setEndStatus(`Season status: ${statusLabels[seasonState.status]}`);
         
         // Add season details to verification data for admin UI
@@ -116,13 +101,11 @@ const useFundDistributor = ({
       // Check if window.ethereum is available
       if (!window.ethereum) {
         setEndStatus("Error: MetaMask or compatible wallet not found");
-        console.log('Error: window.ethereum not available');
         return;
       }
       
       // Create wallet client for transactions
       setEndStatus("Creating wallet client...");
-      console.log('Creating wallet client with netCfg:', netCfg);
       let walletClient;
       
       try {
@@ -145,14 +128,10 @@ const useFundDistributor = ({
           },
         };
         
-        console.log('Chain config for wallet client:', chainConfig);
-        
         walletClient = createWalletClient({
           chain: chainConfig,
           transport: custom(window.ethereum),
         });
-        
-        console.log('Wallet client created successfully');
       } catch (error) {
         setEndStatus(`Error creating wallet client: ${error.message}`);
         return;
@@ -160,28 +139,21 @@ const useFundDistributor = ({
       
       // Get the current chain ID and account
       try {
-        console.log('Getting chain ID from wallet client');
         const chainId = await walletClient.getChainId();
-        console.log('Chain ID from wallet:', chainId, 'Expected:', netCfg.id);
         
         if (chainId !== netCfg.id) {
           setEndStatus(`Error: Connected to wrong chain. Expected ${netCfg.id}, got ${chainId}`);
-          console.log(`Error: Connected to wrong chain. Expected ${netCfg.id}, got ${chainId}`);
           return;
         }
         
-        console.log('Getting wallet addresses');
         const accounts = await walletClient.getAddresses();
-        console.log('Wallet addresses:', accounts);
         
         if (!accounts || accounts.length === 0) {
           setEndStatus("Error: No accounts found. Please connect your wallet.");
-          console.log('Error: No accounts found');
           return;
         }
         
         account = accounts[0];
-        console.log('Using account:', account);
       } catch (error) {
         setEndStatus(`Error getting account: ${error.message}`);
         return;
@@ -235,9 +207,6 @@ const useFundDistributor = ({
       // Step 4: Fulfill VRF request
       if (requestId && (seasonState.status === 2 || seasonState.status === 3)) { // EndRequested or VRFPending
         setEndStatus(`Fulfilling VRF request ${requestId}...`);
-        console.log('Attempting to fulfill VRF request:', requestId);
-        console.log('VRF Coordinator address:', vrfCoordinatorAddr);
-        console.log('Raffle address (consumer):', raffleAddr);
         
         try {
           const vrfAbi = [
@@ -253,9 +222,6 @@ const useFundDistributor = ({
             },
           ];
           
-          console.log('Using VRF ABI:', vrfAbi);
-          console.log('VRF function args:', [requestId, raffleAddr]);
-          
           const hash = await walletClient.writeContract({
             address: vrfCoordinatorAddr,
             abi: vrfAbi,
@@ -263,8 +229,6 @@ const useFundDistributor = ({
             args: [requestId, raffleAddr],
             account
           });
-          
-          console.log('VRF fulfillment transaction hash:', hash);
           
           setEndStatus("VRF fulfillment requested. Waiting for transaction confirmation...");
           
@@ -275,13 +239,6 @@ const useFundDistributor = ({
           seasonState = await checkContractState(raffleAddr, idToUse);
           setEndStatus(`Season status after VRF: ${statusLabels[seasonState.status]}`);
         } catch (error) {
-          console.error('Error fulfilling VRF:', error);
-          console.log('Error details:', {
-            message: error.message,
-            code: error.code,
-            data: error.data,
-            stack: error.stack
-          });
           setEndStatus(`Error fulfilling VRF: ${error.message}`);
           return;
         }
@@ -431,7 +388,6 @@ const useFundDistributor = ({
           
           // Invalidate SOF balance query to refresh the user's balance
           if (address) {
-            console.log('Invalidating SOF balance query for address:', address);
             queryClient.invalidateQueries({ queryKey: ['sofBalance', netKey, contractAddresses.SOF, address] });
             
             // Also invalidate raffle token balances query
@@ -452,7 +408,6 @@ const useFundDistributor = ({
       
       // Invalidate SOF balance query to refresh the user's balance
       if (address) {
-        console.log('Invalidating SOF balance query for address:', address);
         queryClient.invalidateQueries({ queryKey: ['sofBalance', netKey, contractAddresses.SOF, address] });
         
         // Also invalidate raffle token balances query
