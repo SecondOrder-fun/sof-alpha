@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
-// Arbitrage UI removed for on-chain-only refactor
+import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useOnchainInfoFiMarkets } from '@/hooks/useOnchainInfoFiMarkets';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 
@@ -17,6 +17,13 @@ const MarketsIndex = () => {
   }, [seasons]);
 
   const { markets, isLoading, error } = useOnchainInfoFiMarkets(activeSeasonId, 'LOCAL');
+
+  // Get bonding curve address from active season
+  const bondingCurveAddress = useMemo(() => {
+    const arr = Array.isArray(seasons) ? seasons : [];
+    const active = arr.find((s) => Number(s?.status) === 1);
+    return active?.config?.bondingCurve || null;
+  }, [seasons]);
 
   // Group markets by SecondOrder.fun plan types
   const { winners, positionSize, behavioral, others } = useMemo(() => {
@@ -133,7 +140,16 @@ const MarketsIndex = () => {
         </CardContent>
       </Card>
 
-      {/* On-chain-only: activity/arbitrage UI removed */}
+      {/* Arbitrage Opportunities - On-chain only */}
+      {!seasonsLoading && activeSeasonId !== '0' && bondingCurveAddress && (
+        <div className="mt-6">
+          <ArbitrageOpportunityDisplay
+            seasonId={activeSeasonId}
+            bondingCurveAddress={bondingCurveAddress}
+            minProfitability={2}
+          />
+        </div>
+      )}
     </div>
   );
 };

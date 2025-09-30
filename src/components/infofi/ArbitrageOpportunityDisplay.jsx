@@ -1,76 +1,229 @@
 // src/components/infofi/ArbitrageOpportunityDisplay.jsx
-import PropTypes from 'prop-types'
-import { useEffect, useState } from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+// Updated: 2025-09-30 15:56 - Fixed all BigInt conversions
+import PropTypes from 'prop-types';
+import { useMemo } from 'react';
+import { TrendingUp, AlertCircle, RefreshCw, Activity } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useArbitrageDetectionLive } from '@/hooks/useArbitrageDetection';
 
 /**
- * ArbitrageOpportunityDisplay (scaffold)
- * Minimal fetch + list rendering. If raffleId is provided, filter client-side.
+ * ArbitrageOpportunityDisplay
+ * 
+ * Displays real-time arbitrage opportunities between raffle entry costs
+ * and InfoFi prediction market prices. Uses on-chain oracle price updates
+ * for live detection.
+ * 
+ * @param {object} props
+ * @param {number|string} props.seasonId - Season ID to monitor
+ * @param {string} props.bondingCurveAddress - Bonding curve contract address
+ * @param {number} props.minProfitability - Minimum profit threshold (default: 2%)
  */
-const ArbitrageOpportunityDisplay = ({ raffleId }) => {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfitability = 2 }) => {
+  const { opportunities, isLoading, error, isLive, refetch } = useArbitrageDetectionLive(
+    seasonId,
+    bondingCurveAddress,
+    {
+      minProfitabilityBps: minProfitability * 100,
+      maxResults: 10,
+    }
+  );
 
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const res = await fetch('/api/arbitrage/opportunities')
-        if (!res.ok) throw new Error(`Failed to fetch opportunities (${res.status})`)
-        const data = await res.json()
-        let list = data?.opportunities || []
-        if (raffleId != null) {
-          list = list.filter((o) => String(o.raffle_id) === String(raffleId))
-        }
-        if (mounted) setItems(list)
-      } catch (e) {
-        if (mounted) setError(e)
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    })()
-    return () => { mounted = false }
-  }, [raffleId])
+  // Format timestamp for display
+  const lastUpdateTime = useMemo(() => {
+    if (!opportunities || opportunities.length === 0) return null;
+    try {
+      const latest = Math.max(...opportunities.map((o) => o.lastUpdated || 0));
+      return new Date(latest).toLocaleTimeString();
+    } catch (err) {
+      // Silent fail for timestamp formatting
+      return null;
+    }
+  }, [opportunities]);
+
+  // Get profitability badge color
+  const getProfitabilityColor = (profitability) => {
+    if (profitability >= 10) return 'bg-green-600 text-white hover:bg-green-700';
+    if (profitability >= 5) return 'bg-green-500 text-white hover:bg-green-600';
+    if (profitability >= 3) return 'bg-yellow-500 text-white hover:bg-yellow-600';
+    return 'bg-gray-500 text-white hover:bg-gray-600';
+  };
+
+  // Handle missing configuration
+  if (!seasonId || !bondingCurveAddress) {
+    return (
+      <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white">
+        <CardHeader>
+          <CardTitle>Arbitrage Opportunities</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            Configuration required: seasonId and bondingCurveAddress must be provided
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card>
+    <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white">
       <CardHeader>
-        <CardTitle>Arbitrage Opportunities</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-amber-600" />
+            <CardTitle>Arbitrage Opportunities</CardTitle>
+            {isLive && (
+              <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
+                <Activity className="h-3 w-3 animate-pulse" />
+                Live
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {lastUpdateTime && (
+              <span className="text-xs text-muted-foreground">
+                Updated {lastUpdateTime}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refetch}
+              disabled={isLoading}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        {loading && <p className="text-muted-foreground">Loading...</p>}
-        {error && <p className="text-red-500">Failed to load opportunities</p>}
-        {!loading && !error && (
-          <div className="space-y-2">
-            {items.length === 0 && (
-              <p className="text-muted-foreground">No opportunities detected.</p>
-            )}
-            {items.map((it) => (
-              <div key={`${it.market_id}-${it.created_at}`} className="border rounded p-2">
-                <div className="flex justify-between items-start">
+        {isLoading && opportunities.length === 0 && (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <RefreshCw className="mx-auto h-8 w-8 animate-spin text-amber-600" />
+              <p className="mt-2 text-sm text-muted-foreground">Scanning for opportunities...</p>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <div>
+              <p className="text-sm font-medium text-red-900">Failed to detect opportunities</p>
+              <p className="text-xs text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !error && opportunities.length === 0 && (
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+            <TrendingUp className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-4 text-sm font-medium text-gray-900">No opportunities detected</h3>
+            <p className="mt-2 text-xs text-gray-600">
+              Arbitrage opportunities appear when there&apos;s a price discrepancy between
+              raffle entry costs and prediction market prices.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Minimum threshold: {minProfitability}% profit
+            </p>
+          </div>
+        )}
+
+        {!isLoading && !error && opportunities && opportunities.length > 0 && (
+          <div className="space-y-3">
+            {opportunities.map((opportunity) => (
+              <div
+                key={opportunity.id}
+                className="group rounded-lg border border-amber-200 bg-white p-4 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        Player: {opportunity.player.slice(0, 6)}...{opportunity.player.slice(-4)}
+                      </h4>
+                      <Badge
+                        variant="secondary"
+                        className="text-xs"
+                      >
+                        MID: {String(opportunity.marketId).slice(0, 8)}...
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Season {opportunity.seasonId}
+                    </p>
+                  </div>
+                  <Badge className={getProfitabilityColor(Number(opportunity.profitability))}>
+                    {Number(opportunity.profitability).toFixed(2)}% profit
+                  </Badge>
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-gray-50 p-2">
                   <div>
-                    <div className="text-sm font-medium">Market {it.market_id}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Raffle: {it.raffle_id} • Player: {it.player_address}
+                    <p className="text-xs text-muted-foreground">Raffle Cost</p>
+                    <p className="text-sm font-medium">{Number(opportunity.rafflePrice).toFixed(4)} SOF</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Market Price</p>
+                    <p className="text-sm font-medium">{Number(opportunity.marketPrice).toFixed(4)} SOF</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Spread</p>
+                    <p className="text-sm font-medium text-green-600">
+                      {Number(opportunity.priceDifference).toFixed(4)} SOF
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-amber-900">Strategy</p>
+                      <p className="mt-1 text-xs text-amber-800">{opportunity.strategy}</p>
                     </div>
                   </div>
-                  <div className="text-right text-sm">
-                    <div className="font-medium">{Number(it.profitability || 0).toFixed(2)}%</div>
-                    <div className="text-xs text-muted-foreground">Δ {Number(it.price_difference || 0).toFixed(4)}</div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex gap-3">
+                    <span>
+                      Raffle: {(Number(opportunity.raffleProbabilityBps) / 100).toFixed(2)}%
+                    </span>
+                    <span>
+                      Market: {(Number(opportunity.marketSentimentBps) / 100).toFixed(2)}%
+                    </span>
                   </div>
+                  <span className="text-xs italic">
+                    Est. profit: {Number(opportunity.estimatedProfit).toFixed(4)} SOF
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        {opportunities.length > 0 && (
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+            <p className="text-xs text-blue-900">
+              <strong>Note:</strong> Arbitrage execution is not yet implemented. These opportunities
+              are for informational purposes only. Always verify prices and consider gas costs
+              before executing any trades.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 ArbitrageOpportunityDisplay.propTypes = {
-  raffleId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-}
+  seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  bondingCurveAddress: PropTypes.string.isRequired,
+  minProfitability: PropTypes.number,
+};
 
-export default ArbitrageOpportunityDisplay
+export default ArbitrageOpportunityDisplay;

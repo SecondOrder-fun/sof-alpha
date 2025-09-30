@@ -76,16 +76,6 @@
             "internalType": "uint16"
           },
           {
-            "name": "prizePercentage",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
-            "name": "consolationPercentage",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
             "name": "grandPrizeBps",
             "type": "uint16",
             "internalType": "uint16"

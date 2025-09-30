@@ -123,10 +123,15 @@ No changes to open Known Issues at this time.
 
 ### InfoFi Trading – Next Tasks (On-chain shift)
 
-- Next Objectives (2025-09-29):
+- Next Objectives (2025-09-30):
 
   - [✓] [C] RafflePositionTracker Integration (Frontend): implement env + ABI + `useRaffleTracker()` and wire into UI. (Completed)
-  - [B] ArbitrageOpportunityDisplay: build UI leveraging on-chain oracle.
+  - [✓] [B] ArbitrageOpportunityDisplay: build UI leveraging on-chain oracle. (Completed)
+    - Created `useArbitrageDetection.js` hook with on-chain arbitrage detection
+    - Updated `ArbitrageOpportunityDisplay.jsx` with real-time oracle event subscriptions
+    - Displays top 10 opportunities with 2% minimum profitability threshold
+    - Includes comprehensive unit tests
+    - Future enhancement: Add "Execute Arbitrage" button functionality
 
 - [x] Replace threshold-sync REST with direct on-chain factory call (permissionless)
 
@@ -226,7 +231,12 @@ All frontend development setup tasks have been completed:
 
 - [ ] Build raffle display components (season list, ticket positions, odds)
 - [x] Build InfoFi market components with real-time updates
-- [ ] Implement arbitrage opportunity display
+- [x] Implement arbitrage opportunity display (display-only; execution button pending)
+- [ ] Add "Execute Arbitrage" button functionality (future enhancement)
+  - Implement one-click arbitrage execution
+  - Handle multi-step transactions (buy raffle + sell market or vice versa)
+  - Add slippage protection and gas estimation
+  - Show execution progress and confirmation
 - [ ] Create cross-layer strategy panel
 - [ ] Add settlement status tracking
 - [ ] Build winnings claim interface

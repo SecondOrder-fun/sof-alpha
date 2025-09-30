@@ -9,8 +9,9 @@ SecondOrder.fun is a decentralized platform that:
 - Hosts raffles where players can win prizes
 - Creates associated prediction markets (InfoFi) for each raffle
 - Uses hybrid pricing mechanisms combining raffle positions with market sentiment
-- Detects and exploits arbitrage opportunities between raffle prices and market predictions
-- Provides real-time updates via Server-Sent Events (SSE)
+- **Detects arbitrage opportunities in real-time** between raffle prices and market predictions
+- Provides live updates via on-chain oracle event subscriptions
+- Enables cross-layer strategies between raffle and prediction market layers
 
 ## Technology Stack
 
