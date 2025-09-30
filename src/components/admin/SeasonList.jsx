@@ -1,6 +1,7 @@
 // src/components/admin/SeasonList.jsx
 import { useState } from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from 'react-i18next';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TransactionStatus from "./TransactionStatus";
@@ -18,11 +19,12 @@ const SeasonList = ({
   endingE2EId,
   endStatus
 }) => {
+  const { t } = useTranslation('admin');
   const [lastStartSeasonId, setLastStartSeasonId] = useState(null);
   const [lastEndSeasonId, setLastEndSeasonId] = useState(null);
   
   if (!seasons || seasons.length === 0) {
-    return <p>No seasons found.</p>;
+    return <p>{t('noSeasonsFound')}</p>;
   }
 
   return (
@@ -69,45 +71,45 @@ const SeasonList = ({
                       season.config.isActive ? "secondary" : "outline"
                     }
                   >
-                    {season.config.isActive ? "Ongoing" : "Inactive"}
+                    {season.config.isActive ? t('ongoing') : t('inactive')}
                   </Badge>
                   <Badge variant="outline">
                     {season.status === 0
-                      ? "NotStarted"
+                      ? t('notStarted')
                       : season.status === 1
-                      ? "Active"
-                      : "Completed"}
+                      ? t('active')
+                      : t('completed')}
                   </Badge>
                   <Badge
                     variant={isCreator ? "secondary" : "destructive"}
                   >
-                    {isCreator ? "Role OK" : "Missing Role"}
+                    {isCreator ? t('roleOk') : t('missingRole')}
                   </Badge>
                   <Badge
                     variant={isWindowOpen ? "secondary" : "destructive"}
                   >
-                    {isWindowOpen ? "Chain Time OK" : "Chain Time Closed"}
+                    {isWindowOpen ? t('chainTimeOk') : t('chainTimeClosed')}
                   </Badge>
                   <Badge
                     variant={isEmergency ? "secondary" : "destructive"}
                   >
-                    {isEmergency ? "Emergency OK" : "No Emergency Role"}
+                    {isEmergency ? t('emergencyOk') : t('noEmergencyRole')}
                   </Badge>
                   <Badge
                     variant={isNotStarted ? "secondary" : "destructive"}
                   >
                     {isNotStarted
-                      ? "Ready to Start"
+                      ? t('readyToStart')
                       : isActive
-                      ? "Already Active"
-                      : "Completed"}
+                      ? t('alreadyActive')
+                      : t('completed')}
                   </Badge>
                   <Badge
                     variant={chainMatch ? "secondary" : "destructive"}
                   >
                     {chainMatch
-                      ? `Chain OK (${chainId})`
-                      : `Wrong Chain (${chainId})`}
+                      ? t('chainOk', { chainId })
+                      : t('wrongChain', { chainId })}
                   </Badge>
                 </div>
               </div>
@@ -115,7 +117,7 @@ const SeasonList = ({
               <div className="flex flex-col gap-2">
                 {!hasCreatorRole && (
                   <p className="text-xs text-amber-600">
-                    Missing SEASON_CREATOR_ROLE
+                    {t('missingSeasonCreatorRole')}
                   </p>
                 )}
 
@@ -131,7 +133,7 @@ const SeasonList = ({
                     !chainMatch
                   }
                 >
-                  Start
+                  {t('start')}
                 </Button>
 
                 {showStartStatus && startSeason?.error && (
@@ -156,8 +158,8 @@ const SeasonList = ({
                   >
                     {requestSeasonEnd?.isPending &&
                     lastEndSeasonId === season.id
-                      ? "Requesting End…"
-                      : "Request End"}
+                      ? t('requestingEnd')
+                      : t('requestEnd')}
                   </Button>
 
                   <Button
@@ -182,8 +184,8 @@ const SeasonList = ({
                     variant="outline"
                   >
                     {endingE2EId === season.id
-                      ? endStatus || "Working…"
-                      : "Fund Distributor"}
+                      ? endStatus || t('working')
+                      : t('fundDistributor')}
                   </Button>
 
                   {endingE2EId === season.id && endStatus && (
@@ -235,21 +237,21 @@ const SeasonList = ({
                           return (
                             <>
                               <p>
-                                Winner:{" "}
+                                {t('winner')}:{" "}
                                 <span className="font-mono">
                                   {winner ===
                                   "0x0000000000000000000000000000000000000000"
-                                    ? "Not set"
+                                    ? t('notSet')
                                     : `${winner.slice(
                                         0,
                                         6
                                       )}...${winner.slice(-4)}`}
                                 </span>
                               </p>
-                              <p>Funded: {funded}</p>
+                              <p>{t('funded')}: {funded}</p>
                               <p>
-                                Grand: {formatToken(grandAmount)} SOF •
-                                Consolation:{" "}
+                                {t('grand')}: {formatToken(grandAmount)} SOF •
+                                {t('consolation')}:{" "}
                                 {formatToken(consolationAmount)} SOF
                               </p>
                             </>
@@ -257,7 +259,7 @@ const SeasonList = ({
                         })()}
                         {verify[season.id]?.requestId != null && (
                           <p>
-                            VRF reqId:{" "}
+                            {t('vrfReqId')}:{" "}
                             {String(verify[season.id]?.requestId)}
                           </p>
                         )}

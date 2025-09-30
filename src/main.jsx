@@ -11,6 +11,10 @@ import { AuthKitProvider } from '@farcaster/auth-kit';
 import '@rainbow-me/rainbowkit/styles.css';
 import './styles/tailwind.css';
 
+// Initialize i18n
+import './i18n';
+import { useTranslation } from 'react-i18next';
+
 import App from './App';
 import ErrorPage from './components/common/ErrorPage';
 import { WalletProvider } from './context/WalletProvider';
@@ -145,6 +149,22 @@ ProviderErrorBoundary.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
+// Wrapper component to provide RainbowKit with current locale
+const RainbowKitWrapper = ({ children }) => {
+  const { i18n } = useTranslation();
+  const locale = i18n.language === 'ja' ? 'ja' : 'en';
+  
+  return (
+    <RainbowKitProvider locale={locale}>
+      {children}
+    </RainbowKitProvider>
+  );
+};
+
+RainbowKitWrapper.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ProviderErrorBoundary>
@@ -153,7 +173,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <ProviderErrorBoundary>
             <AuthKitProvider config={farcasterConfig}>
               <ProviderErrorBoundary>
-                <RainbowKitProvider>
+                <RainbowKitWrapper>
                   <ProviderErrorBoundary>
                     <WalletProvider>
                       <FarcasterProvider>
@@ -164,7 +184,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                       </FarcasterProvider>
                     </WalletProvider>
                   </ProviderErrorBoundary>
-                </RainbowKitProvider>
+                </RainbowKitWrapper>
               </ProviderErrorBoundary>
             </AuthKitProvider>
           </ProviderErrorBoundary>

@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { NETWORKS, getDefaultNetworkKey } from "@/config/networks";
 import { getStoredNetworkKey, setStoredNetworkKey } from "@/lib/wagmi";
 
@@ -13,6 +14,7 @@ const OPTIONS = [
 ];
 
 export default function NetworkToggle({ className = "" }) {
+  const { t } = useTranslation('common');
   const [selected, setSelected] = useState(getStoredNetworkKey());
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function NetworkToggle({ className = "" }) {
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <label className="text-sm text-muted-foreground">Network</label>
+      <label className="text-sm text-muted-foreground">{t('network', { defaultValue: 'Network' })}</label>
       <select
         value={selected}
         onChange={onChange}

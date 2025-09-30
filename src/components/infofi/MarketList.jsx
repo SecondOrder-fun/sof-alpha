@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useWallet } from '@/hooks/useWallet';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { formatMarketId, isValidMarketId } from '@/lib/marketId';
 
 const MarketList = () => {
+  const { t } = useTranslation('market');
   const { isConnected } = useWallet();
   const { toast } = useToast();
   
@@ -65,8 +67,8 @@ const MarketList = () => {
     
     if (!isConnected) {
       toast({
-        title: 'Wallet not connected',
-        description: 'Please connect your wallet to create a market.',
+        title: t('walletNotConnected'),
+        description: t('connectWalletToCreate'),
         variant: 'destructive'
       });
       return;
@@ -84,12 +86,12 @@ const MarketList = () => {
       });
       
       toast({
-        title: 'Market Created',
-        description: 'Your InfoFi market has been created successfully.'
+        title: t('marketCreated'),
+        description: t('marketCreatedSuccess')
       });
     } catch (error) {
       toast({
-        title: 'Error',
+        title: t('common:error'),
         description: error.message || 'Failed to create market',
         variant: 'destructive'
       });
@@ -102,8 +104,8 @@ const MarketList = () => {
     
     if (!isConnected) {
       toast({
-        title: 'Wallet not connected',
-        description: 'Please connect your wallet to place a bet.',
+        title: t('walletNotConnected'),
+        description: t('connectWalletToBet'),
         variant: 'destructive'
       });
       return;
@@ -113,8 +115,8 @@ const MarketList = () => {
       // Validate canonical marketId
       if (!isValidMarketId(bet.marketId)) {
         toast({
-          title: 'Invalid Market ID',
-          description: 'Please enter a canonical marketId like seasonId:MARKET_TYPE:subject.',
+          title: t('invalidMarketId'),
+          description: t('invalidMarketIdDesc'),
           variant: 'destructive'
         });
         return;
@@ -123,8 +125,8 @@ const MarketList = () => {
       // console.log('Placing bet:', bet);
       
       toast({
-        title: 'Bet Placed',
-        description: `Successfully placed ${bet.prediction ? 'YES' : 'NO'} bet of ${bet.amount} tokens.`
+        title: t('betPlaced'),
+        description: t('betPlacedSuccess', { prediction: bet.prediction ? 'YES' : 'NO', amount: bet.amount })
       });
       
       // Reset form
@@ -135,7 +137,7 @@ const MarketList = () => {
       });
     } catch (error) {
       toast({
-        title: 'Error',
+        title: t('common:error'),
         description: error.message || 'Failed to place bet',
         variant: 'destructive'
       });
@@ -156,91 +158,91 @@ const MarketList = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">InfoFi Markets</h1>
-        <p className="text-muted-foreground">Bet on outcomes and earn rewards!</p>
+        <h1 className="text-3xl font-bold">{t('infoFiMarkets')}</h1>
+        <p className="text-muted-foreground">{t('betOnOutcomes')}</p>
       </div>
       
       {/* Create Market Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Create New Market</CardTitle>
-          <CardDescription>Create a new prediction market</CardDescription>
+          <CardTitle>{t('createNewMarket')}</CardTitle>
+          <CardDescription>{t('createPredictionMarket')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateMarket} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="raffleId">Raffle ID</Label>
+                <Label htmlFor="raffleId">{t('raffleId')}</Label>
                 <Input
                   id="raffleId"
                   type="number"
                   value={newMarket.raffleId}
                   onChange={(e) => setNewMarket({...newMarket, raffleId: e.target.value})}
-                  placeholder="Enter raffle ID"
+                  placeholder={t('enterRaffleId')}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tokenAddress">Token Address</Label>
+                <Label htmlFor="tokenAddress">{t('tokenAddress')}</Label>
                 <Input
                   id="tokenAddress"
                   value={newMarket.tokenAddress}
                   onChange={(e) => setNewMarket({...newMarket, tokenAddress: e.target.value})}
-                  placeholder="Enter token contract address"
+                  placeholder={t('enterTokenAddress')}
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="question">Question</Label>
+              <Label htmlFor="question">{t('question')}</Label>
               <Input
                 id="question"
                 value={newMarket.question}
                 onChange={(e) => setNewMarket({...newMarket, question: e.target.value})}
-                placeholder="Enter yes/no question"
+                placeholder={t('enterYesNoQuestion')}
                 required
               />
             </div>
           </form>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleCreateMarket}>Create Market</Button>
+          <Button onClick={handleCreateMarket}>{t('createMarket')}</Button>
         </CardFooter>
       </Card>
       
       {/* Place Bet Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Place Bet</CardTitle>
-          <CardDescription>Place a bet on an existing market</CardDescription>
+          <CardTitle>{t('placeBet')}</CardTitle>
+          <CardDescription>{t('placeABet')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePlaceBet} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="marketId">Market ID</Label>
+                <Label htmlFor="marketId">{t('marketId', { id: '' }).replace(': ', '')}</Label>
                 <Input
                   id="marketId"
                   value={bet.marketId}
                   onChange={(e) => setBet({ ...bet, marketId: e.target.value })}
-                  placeholder="seasonId:MARKET_TYPE:subject (e.g., 1:WINNER_PREDICTION:-)"
+                  placeholder={t('enterMarketId')}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">{t('common:amount')}</Label>
                 <Input
                   id="amount"
                   type="number"
                   value={bet.amount}
                   onChange={(e) => setBet({...bet, amount: e.target.value})}
-                  placeholder="Enter bet amount"
+                  placeholder={t('common:amount')}
                   required
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Prediction</Label>
+              <Label>{t('prediction')}</Label>
               <div className="flex space-x-4">
                 <Button
                   type="button"
@@ -261,7 +263,7 @@ const MarketList = () => {
           </form>
         </CardContent>
         <CardFooter>
-          <Button onClick={handlePlaceBet}>Place Bet</Button>
+          <Button onClick={handlePlaceBet}>{t('placeBet')}</Button>
         </CardFooter>
       </Card>
       
@@ -273,30 +275,30 @@ const MarketList = () => {
           return (
             <Card key={market.canonicalId} className="flex flex-col">
               <CardHeader>
-                <CardTitle className="text-lg">Market {market.canonicalId}</CardTitle>
-                <CardDescription>Raffle #{market.raffleId}</CardDescription>
+                <CardTitle className="text-lg">{t('market')} {market.canonicalId}</CardTitle>
+                <CardDescription>{t('raffle:season')} #{market.raffleId}</CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
                 <p className="mb-4 font-medium">{market.question}</p>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Pool:</span>
+                    <span className="text-muted-foreground">{t('totalPool')}:</span>
                     <span className="font-medium">{market.totalPool} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">YES Pool:</span>
+                    <span className="text-muted-foreground">{t('yesPool')}:</span>
                     <span className="font-medium">{market.totalYesPool} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">NO Pool:</span>
+                    <span className="text-muted-foreground">{t('noPool')}:</span>
                     <span className="font-medium">{market.totalNoPool} tokens</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">YES Odds:</span>
+                    <span className="text-muted-foreground">{t('yesOdds')}:</span>
                     <span className="font-medium">{odds.yes}:1</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">NO Odds:</span>
+                    <span className="text-muted-foreground">{t('noOdds')}:</span>
                     <span className="font-medium">{odds.no}:1</span>
                   </div>
                 </div>
@@ -306,7 +308,7 @@ const MarketList = () => {
                   className="w-full"
                   onClick={() => setBet({ ...bet, marketId: market.canonicalId })}
                 >
-                  Place Bet
+                  {t('placeBet')}
                 </Button>
               </CardFooter>
             </Card>

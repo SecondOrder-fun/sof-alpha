@@ -1,6 +1,7 @@
 // src/components/faucet/FaucetWidget.jsx
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -12,6 +13,7 @@ import { useFaucet } from '@/hooks/useFaucet';
  * FaucetWidget component for claiming SOF tokens
  */
 const FaucetWidget = () => {
+  const { t } = useTranslation('common');
   const { isConnected } = useAccount();
   const { 
     sofBalance, 
@@ -88,28 +90,28 @@ const FaucetWidget = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>$SOF Token Faucet</CardTitle>
+        <CardTitle>{t('sofTokenFaucet')}</CardTitle>
         <CardDescription>
-          Get $SOF tokens for testing or contribute back to the community
+          {t('getSofTokens')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!isConnected ? (
           <Alert>
-            <AlertTitle>Connect your wallet</AlertTitle>
+            <AlertTitle>{t('raffle:connectWallet')}</AlertTitle>
             <AlertDescription>
-              Please connect your wallet to use the faucet
+              {t('connectWalletToUseFaucet')}
             </AlertDescription>
           </Alert>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Your $SOF Balance</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">{t('yourSofBalance')}</h3>
                 <p className="text-2xl font-bold">{parseFloat(sofBalance).toLocaleString()} SOF</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Claim Amount</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">{t('claimAmount')}</h3>
                 <p className="text-2xl font-bold">
                   {faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0'} SOF
                 </p>
@@ -118,25 +120,25 @@ const FaucetWidget = () => {
             
             {timeRemaining ? (
               <Alert className="mb-4">
-                <AlertTitle>Cooldown Period</AlertTitle>
+                <AlertTitle>{t('cooldownPeriod')}</AlertTitle>
                 <AlertDescription>
-                  You can claim again in {timeRemaining}
+                  {t('canClaimAgainIn', { time: timeRemaining })}
                 </AlertDescription>
               </Alert>
             ) : null}
             
             {error ? (
               <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>{t('error')}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
             
             {txHash ? (
               <Alert className="mb-4 bg-green-50 border-green-200">
-                <AlertTitle>Success!</AlertTitle>
+                <AlertTitle>{t('success')}</AlertTitle>
                 <AlertDescription>
-                  Transaction submitted: {' '}
+                  {t('raffle:transactionSubmitted')}: {' '}
                   <a 
                     href={getExplorerUrl(txHash)} 
                     target="_blank" 
@@ -151,8 +153,8 @@ const FaucetWidget = () => {
             
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-2 mb-4">
-                <TabsTrigger value="claim">Claim Tokens</TabsTrigger>
-                <TabsTrigger value="karma">Contribute Karma</TabsTrigger>
+                <TabsTrigger value="claim">{t('claimTokens')}</TabsTrigger>
+                <TabsTrigger value="karma">{t('contributeKarma')}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="claim" className="mt-0">
@@ -161,10 +163,10 @@ const FaucetWidget = () => {
                   disabled={!isClaimable || isLoading}
                   className="w-full"
                 >
-                  {isLoading ? 'Processing...' : 'Claim $SOF Tokens'}
+                  {isLoading ? t('raffle:processing') : t('claimSofTokens')}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-2">
-                  Claim {faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0'} SOF tokens every 6 hours
+                  {t('claimEvery6Hours', { amount: faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0' })}
                 </p>
               </TabsContent>
               
@@ -173,7 +175,7 @@ const FaucetWidget = () => {
                   <div className="flex space-x-2">
                     <Input
                       type="number"
-                      placeholder="Amount to contribute"
+                      placeholder={t('amountToContribute')}
                       value={karmaAmount}
                       onChange={(e) => setKarmaAmount(e.target.value)}
                       min="0"
@@ -183,11 +185,11 @@ const FaucetWidget = () => {
                       onClick={handleKarmaContribution}
                       disabled={!karmaAmount || parseFloat(karmaAmount) <= 0 || isLoading || parseFloat(karmaAmount) > parseFloat(sofBalance)}
                     >
-                      Contribute
+                      {t('contribute')}
                     </Button>
                   </div>
                   <p className="text-xs text-center text-muted-foreground">
-                    Return SOF tokens to the faucet for others to use
+                    {t('returnSofToFaucet')}
                   </p>
                 </div>
               </TabsContent>

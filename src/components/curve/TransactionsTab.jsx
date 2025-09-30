@@ -1,6 +1,7 @@
 // src/components/curve/TransactionsTab.jsx
 import PropTypes from 'prop-types';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
@@ -8,6 +9,7 @@ import { getNetworkByKey } from '@/config/networks';
 const MAX_ROWS = 25;
 
 const TransactionsTab = ({ bondingCurveAddress }) => {
+  const { t } = useTranslation('common');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,25 +57,25 @@ const TransactionsTab = ({ bondingCurveAddress }) => {
       }
     })();
     return () => { stop = true; };
-  }, [bondingCurveAddress]);
+  }, [bondingCurveAddress, client]);
 
   return (
     <div>
-      {loading && <div className="text-sm text-muted-foreground">Loading transactions…</div>}
+      {loading && <div className="text-sm text-muted-foreground">{t('loadingTransactions')}</div>}
       {error && <div className="text-sm text-red-600">{error}</div>}
       {!loading && !error && rows.length === 0 && (
-        <div className="text-sm text-muted-foreground">No recent on-chain activity found for this curve.</div>
+        <div className="text-sm text-muted-foreground">{t('noRecentActivity')}</div>
       )}
       {rows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-muted-foreground">
               <tr>
-                <th className="py-2 pr-2">Side</th>
-                <th className="py-2 pr-2">Amount</th>
-                <th className="py-2 pr-2">From</th>
-                <th className="py-2 pr-2">To</th>
-                <th className="py-2 pr-2">Tx</th>
+                <th className="py-2 pr-2">{t('side')}</th>
+                <th className="py-2 pr-2">{t('amount')}</th>
+                <th className="py-2 pr-2">{t('from')}</th>
+                <th className="py-2 pr-2">{t('to')}</th>
+                <th className="py-2 pr-2">{t('tx')}</th>
               </tr>
             </thead>
             <tbody>

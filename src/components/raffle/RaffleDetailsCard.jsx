@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { parseUnits } from 'viem';
 import PropTypes from 'prop-types';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +16,7 @@ import { formatAddress } from '@/lib/utils';
  * RaffleDetailsCard component for displaying and interacting with a raffle
  */
 const RaffleDetailsCard = ({ seasonId }) => {
+  const { t } = useTranslation('raffle');
   const { address, isConnected } = useAccount();
   const { 
     seasonDetails, 
@@ -88,7 +90,7 @@ const RaffleDetailsCard = ({ seasonId }) => {
       <Card>
         <CardContent className="pt-6">
           <div className="flex justify-center items-center h-40">
-            <p className="text-muted-foreground">Loading raffle details...</p>
+            <p className="text-muted-foreground">{t('loadingDetails')}</p>
           </div>
         </CardContent>
       </Card>
@@ -101,9 +103,9 @@ const RaffleDetailsCard = ({ seasonId }) => {
       <Card>
         <CardContent className="pt-6">
           <Alert variant="destructive">
-            <AlertTitle>Raffle Not Found</AlertTitle>
+            <AlertTitle>{t('raffleNotFound')}</AlertTitle>
             <AlertDescription>
-              The raffle season #{seasonId} could not be found or has not been created yet.
+              {t('raffleNotFoundDescription', { seasonId })}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -114,28 +116,28 @@ const RaffleDetailsCard = ({ seasonId }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Raffle Season #{seasonId}</CardTitle>
+        <CardTitle>{t('seasonNumber', { number: seasonId })}</CardTitle>
         <CardDescription>
           {seasonDetails.isActive ? (
-            <span className="text-green-600">Active - Ends in {getTimeRemaining()}</span>
+            <span className="text-green-600">{t('activeEndsIn', { time: getTimeRemaining() })}</span>
           ) : seasonDetails.isEnded ? (
-            <span className="text-amber-600">Ended</span>
+            <span className="text-amber-600">{t('ended')}</span>
           ) : (
-            <span className="text-muted-foreground">Pending</span>
+            <span className="text-muted-foreground">{t('pending')}</span>
           )}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Your Position</h3>
-            <p className="text-2xl font-bold">{userPosition.ticketCount} Tickets</p>
+            <h3 className="text-sm font-medium text-muted-foreground">{t('yourPosition')}</h3>
+            <p className="text-2xl font-bold">{t('ticketCount', { count: userPosition.ticketCount })}</p>
             <p className="text-sm text-muted-foreground">
-              {userPosition.probability.toFixed(2)}% chance to win
+              {t('chanceToWin', { percent: userPosition.probability.toFixed(2) })}
             </p>
           </div>
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Total Tickets</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t('totalTickets')}</h3>
             <p className="text-2xl font-bold">
               {seasonDetails.totalTickets ? seasonDetails.totalTickets.toLocaleString() : '0'}
             </p>
@@ -145,13 +147,13 @@ const RaffleDetailsCard = ({ seasonId }) => {
         {/* Winners section (if resolved) */}
         {seasonDetails.isResolved && winners.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">Winners</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('winnersTitle')}</h3>
             <div className="space-y-2">
               {winners.map((winner, index) => (
                 <div key={index} className="flex justify-between items-center p-2 bg-muted rounded-md">
-                  <span>#{index + 1}: {formatAddress(winner)}</span>
+                  <span>{t('winnerNumber', { number: index + 1, address: formatAddress(winner) })}</span>
                   {winner.toLowerCase() === address?.toLowerCase() && (
-                    <span className="text-green-600 font-semibold">You won!</span>
+                    <span className="text-green-600 font-semibold">{t('youWon')}</span>
                   )}
                 </div>
               ))}
@@ -162,20 +164,20 @@ const RaffleDetailsCard = ({ seasonId }) => {
         {/* Buy tickets form (if active) */}
         {seasonDetails.isActive && isConnected && (
           <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-2">Buy Tickets</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('buyTicketsTitle')}</h3>
             
             {error && (
               <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>{t('common:error')}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             
             {txHash && (
               <Alert className="mb-4 bg-green-50 border-green-200">
-                <AlertTitle>Success!</AlertTitle>
+                <AlertTitle>{t('common:success')}</AlertTitle>
                 <AlertDescription>
-                  Transaction submitted: {' '}
+                  {t('transactionSubmitted')}: {' '}
                   <a 
                     href={getExplorerUrl(txHash)} 
                     target="_blank" 
@@ -190,26 +192,26 @@ const RaffleDetailsCard = ({ seasonId }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Ticket Amount</label>
+                <label className="block text-sm font-medium mb-1">{t('ticketAmount')}</label>
                 <Input
                   type="number"
                   value={ticketAmount}
                   onChange={(e) => setTicketAmount(e.target.value)}
-                  placeholder="Number of tickets"
+                  placeholder={t('numberOfTickets')}
                   min="1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Max Cost (SOF)</label>
+                <label className="block text-sm font-medium mb-1">{t('maxCost')}</label>
                 <Input
                   type="number"
                   value={maxCost}
                   onChange={(e) => setMaxCost(e.target.value)}
-                  placeholder="Maximum SOF to spend"
+                  placeholder={t('maximumSofToSpend')}
                   min="1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Your balance: {parseFloat(sofBalance).toLocaleString()} SOF
+                  {t('yourBalance', { balance: parseFloat(sofBalance).toLocaleString() })}
                 </p>
               </div>
             </div>
@@ -219,7 +221,7 @@ const RaffleDetailsCard = ({ seasonId }) => {
               disabled={isLoading || !ticketAmount || !maxCost}
               className="w-full"
             >
-              {isLoading ? 'Processing...' : 'Buy Tickets'}
+              {isLoading ? t('processing') : t('buyTickets')}
             </Button>
           </div>
         )}
@@ -227,19 +229,19 @@ const RaffleDetailsCard = ({ seasonId }) => {
         {/* Not connected message */}
         {!isConnected && (
           <Alert>
-            <AlertTitle>Connect your wallet</AlertTitle>
+            <AlertTitle>{t('connectWallet')}</AlertTitle>
             <AlertDescription>
-              Please connect your wallet to participate in this raffle
+              {t('connectWalletDescription')}
             </AlertDescription>
           </Alert>
         )}
       </CardContent>
       <CardFooter className="border-t pt-4 flex justify-between">
         <div className="text-sm text-muted-foreground">
-          <span>Start: {new Date(seasonDetails.startTime * 1000).toLocaleString()}</span>
+          <span>{t('start')}: {new Date(seasonDetails.startTime * 1000).toLocaleString()}</span>
         </div>
         <div className="text-sm text-muted-foreground">
-          <span>End: {new Date(seasonDetails.endTime * 1000).toLocaleString()}</span>
+          <span>{t('end')}: {new Date(seasonDetails.endTime * 1000).toLocaleString()}</span>
         </div>
       </CardFooter>
     </Card>

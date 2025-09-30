@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { createPublicClient, http, formatUnits } from 'viem';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 
 const UserProfile = () => {
+  const { t } = useTranslation('account');
   const { address } = useParams();
   const { address: myAddress } = useAccount();
 
@@ -104,21 +106,21 @@ const UserProfile = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">User Profile</h1>
-      <p className="text-sm text-muted-foreground mb-4">Address: <span className="font-mono">{address}</span></p>
+      <h1 className="text-2xl font-bold mb-4">{t('userProfile')}</h1>
+      <p className="text-sm text-muted-foreground mb-4">{t('address')}: <span className="font-mono">{address}</span></p>
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>$SOF Balance</CardTitle>
-          <CardDescription>Wallet&apos;s current $SOF holdings.</CardDescription>
+          <CardTitle>{t('sofBalanceTitle')}</CardTitle>
+          <CardDescription>{t('sofBalanceDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {sofBalanceQuery.isLoading ? (
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">{t('common:loading')}</p>
           ) : sofBalanceQuery.error ? (
             <div>
-              <p className="text-red-500">Error loading SOF balance</p>
-              <p className="text-xs text-muted-foreground">Token: <span className="font-mono">{contracts.SOF || '—'}</span></p>
+              <p className="text-red-500">{t('errorLoadingSofBalance')}</p>
+              <p className="text-xs text-muted-foreground">{t('token')}: <span className="font-mono">{contracts.SOF || '—'}</span></p>
             </div>
           ) : (
             (() => {
@@ -132,21 +134,21 @@ const UserProfile = () => {
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>Raffle Holdings</CardTitle>
+          <CardTitle>{t('raffleHoldings')}</CardTitle>
           <CardDescription>
-            Tickets held by this user across seasons.
+            {t('raffleHoldingsDescription')}
             {seasonBalancesQuery.isSuccess && (
-              <span className="ml-2">Total: <span className="font-semibold">{totalTicketsAcrossSeasons}</span></span>
+              <span className="ml-2">{t('total')}: <span className="font-semibold">{totalTicketsAcrossSeasons}</span></span>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {seasonBalancesQuery.isLoading && <p className="text-muted-foreground">Loading...</p>}
-          {seasonBalancesQuery.error && <p className="text-red-500">Error loading ticket balances</p>}
+          {seasonBalancesQuery.isLoading && <p className="text-muted-foreground">{t('common:loading')}</p>}
+          {seasonBalancesQuery.error && <p className="text-red-500">{t('errorLoadingTicketBalances')}</p>}
           {!seasonBalancesQuery.isLoading && !seasonBalancesQuery.error && (
             <div className="space-y-2">
               {(seasonBalancesQuery.data || []).length === 0 && (
-                <p className="text-muted-foreground">No ticket balances found.</p>
+                <p className="text-muted-foreground">{t('noTicketBalances')}</p>
               )}
               {(seasonBalancesQuery.data || []).map((row) => (
                 <RaffleHoldingRow key={row.seasonId} row={row} address={address} client={client} />
@@ -164,8 +166,8 @@ const UserProfile = () => {
         <>
 
           <div className="my-4">
-            <h2 className="text-xl font-bold mb-2">Completed Season Prizes</h2>
-            <p className="text-sm text-muted-foreground mb-2">If your connected wallet was the grand winner for a completed season, a claim panel will appear here.</p>
+            <h2 className="text-xl font-bold mb-2">{t('completedSeasonPrizes')}</h2>
+            <p className="text-sm text-muted-foreground mb-2">{t('completedSeasonPrizesDescription')}</p>
             <div className="space-y-3">
               {(seasons || []).map((s) => (
                 <ClaimPrizeWidget key={`claim-profile-${String(s.id)}`} seasonId={s.id} />

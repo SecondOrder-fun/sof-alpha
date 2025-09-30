@@ -1,10 +1,11 @@
-// src/routes/RaffleList.jsx
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 const RaffleList = () => {
+  const { t } = useTranslation('raffle');
   const allSeasonsQuery = useAllSeasons();
 
   const renderBadge = (st) => {
@@ -15,12 +16,12 @@ const RaffleList = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Raffles</h1>
+      <h1 className="text-2xl font-bold mb-4">{t('title')}</h1>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Active Seasons</CardTitle>
-          <CardDescription>All seasons currently available to participate in.</CardDescription>
+          <CardTitle>{t('activeSeasons')}</CardTitle>
+          <CardDescription>{t('activeSeasonsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
@@ -41,7 +42,7 @@ const RaffleList = () => {
                         {renderBadge(s.status)}
                       </div>
                       {/* Live ticker removed for MVP */}
-                      <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
+                      <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">{t('open')}</Link>
                     </div>
                   ))}
                 </div>
@@ -53,8 +54,8 @@ const RaffleList = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Seasons</CardTitle>
-          <CardDescription>Includes started and completed seasons.</CardDescription>
+          <CardTitle>{t('allSeasons')}</CardTitle>
+          <CardDescription>{t('allSeasonsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
@@ -72,7 +73,7 @@ const RaffleList = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Compact ticker removed for MVP */}
-                  <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">Open</Link>
+                  <Link to={`/raffles/${s.id}`} className="text-blue-500 hover:underline">{t('open')}</Link>
                 </div>
               </div>
             ))}

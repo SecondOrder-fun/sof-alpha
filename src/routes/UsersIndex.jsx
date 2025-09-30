@@ -1,6 +1,7 @@
 // src/routes/UsersIndex.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { getSeasonPlayersOnchain } from '@/services/onchainInfoFi';
 import { formatAddress } from '@/lib/utils';
 
 const UsersIndex = () => {
+  const { t } = useTranslation('common');
   const { address: myAddress } = useAccount();
   const netKey = getStoredNetworkKey();
   const { data: seasons = [], isLoading: seasonsLoading } = useAllSeasons();
@@ -58,15 +60,15 @@ const UsersIndex = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Users</h1>
+      <h1 className="text-2xl font-bold mb-4">{t('users')}</h1>
       <Card>
         <CardHeader>
-          <CardTitle>All User Profiles</CardTitle>
+          <CardTitle>{t('allUserProfiles')}</CardTitle>
         </CardHeader>
         <CardContent>
-          {(seasonsLoading || loading) && <p className="text-muted-foreground">Loading...</p>}
+          {(seasonsLoading || loading) && <p className="text-muted-foreground">{t('loading')}</p>}
           {!seasonsLoading && !loading && players.length === 0 && (
-            <p className="text-muted-foreground">No users found yet.</p>
+            <p className="text-muted-foreground">{t('noUsersFound')}</p>
           )}
           {!seasonsLoading && !loading && players.length > 0 && (
             <div className="divide-y rounded border">
@@ -75,10 +77,10 @@ const UsersIndex = () => {
                   <div className="flex items-center gap-2">
                     <div className="font-mono">{formatAddress(addr)}</div>
                     {myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase() && (
-                      <Badge variant="secondary">You</Badge>
+                      <Badge variant="secondary">{t('you')}</Badge>
                     )}
                   </div>
-                  <Link to={`/users/${addr}`} className="text-primary hover:underline">View Profile</Link>
+                  <Link to={`/users/${addr}`} className="text-primary hover:underline">{t('viewProfile')}</Link>
                 </div>
               ))}
             </div>
@@ -87,7 +89,7 @@ const UsersIndex = () => {
           {!seasonsLoading && !loading && players.length > 0 && (
             <div className="flex items-center justify-between mt-3">
               <div className="text-sm text-muted-foreground">
-                Showing {start + 1}-{Math.min(end, total)} of {total}
+                {t('showingRange', { start: start + 1, end: Math.min(end, total), total })}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -95,15 +97,15 @@ const UsersIndex = () => {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
                 >
-                  Previous
+                  {t('previous')}
                 </button>
-                <span className="text-sm">Page {page} / {pageCount}</span>
+                <span className="text-sm">{t('page')} {page} / {pageCount}</span>
                 <button
                   className="px-3 py-1 rounded border disabled:opacity-50"
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                   disabled={page >= pageCount}
                 >
-                  Next
+                  {t('next')}
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useOraclePriceLive } from '@/hooks/useOraclePriceLive';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,12 +23,13 @@ import { computeWinnerMarketId } from '@/services/onchainInfoFi';
  * Displays a single InfoFi market with live hybrid pricing and minimal metadata.
  */
 const InfoFiMarketCard = ({ market }) => {
+  const { t } = useTranslation('market');
   // Safe defaults so hooks are not conditional
   const seasonId = market?.raffle_id ?? market?.seasonId;
   const isWinnerPrediction = market.market_type === 'WINNER_PREDICTION' && market.player && seasonId != null;
   const parts = buildMarketTitleParts(market);
-  const title = market?.question || market?.market_type || 'Market';
-  const subtitle = `Market ID: ${market?.id ?? '—'}`;
+  const title = market?.question || market?.market_type || t('market');
+  const subtitle = t('marketId', { id: market?.id ?? '—' });
   const { isConnected, address } = useAccount();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -136,20 +138,20 @@ const InfoFiMarketCard = ({ market }) => {
     mutationFn: () => claimPayoutTx({ marketId: effectiveMarketId, prediction: true }),
     onSuccess: (hash) => {
       qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, true] });
-      toast({ title: 'Claim Successful', description: `YES payout claimed. Tx: ${String(hash)}` });
+      toast({ title: t('claimSuccessful'), description: t('yesPayoutClaimed', { hash: String(hash) }) });
     },
     onError: (e) => {
-      toast({ title: 'Claim Failed', description: e?.message || 'Transaction error', variant: 'destructive' });
+      toast({ title: t('claimFailed'), description: e?.message || t('transactionError'), variant: 'destructive' });
     }
   });
   const claimNo = useMutation({
     mutationFn: () => claimPayoutTx({ marketId: effectiveMarketId, prediction: false }),
     onSuccess: (hash) => {
       qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, false] });
-      toast({ title: 'Claim Successful', description: `NO payout claimed. Tx: ${String(hash)}` });
+      toast({ title: t('claimSuccessful'), description: t('noPayoutClaimed', { hash: String(hash) }) });
     },
     onError: (e) => {
-      toast({ title: 'Claim Failed', description: e?.message || 'Transaction error', variant: 'destructive' });
+      toast({ title: t('claimFailed'), description: e?.message || t('transactionError'), variant: 'destructive' });
     }
   });
   const noPos = useQuery({
@@ -173,10 +175,10 @@ const InfoFiMarketCard = ({ market }) => {
       yesPos.refetch?.();
       noPos.refetch?.();
       setForm((f) => ({ ...f, amount: '' }));
-      toast({ title: 'Bet Confirmed', description: `${form.side} ${form.amount} SOF • Tx: ${String(hash)}` });
+      toast({ title: t('betConfirmed'), description: t('betDetails', { side: form.side, amount: form.amount, hash: String(hash) }) });
     },
     onError: (e) => {
-      toast({ title: 'Trade Failed', description: e?.message || 'Transaction error', variant: 'destructive' });
+      toast({ title: t('tradeFailed'), description: e?.message || t('transactionError'), variant: 'destructive' });
     }
   });
 
@@ -187,9 +189,9 @@ const InfoFiMarketCard = ({ market }) => {
 
   const formatVolume = (v) => {
     const n = Number(v || 0);
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}m Vol.`;
-    if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}k Vol.`;
-    return `$${n.toFixed(2)} Vol.`;
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}m ${t('volume')}`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}k ${t('volume')}`;
+    return `$${n.toFixed(2)} ${t('volume')}`;
   };
 
   const formatSof = (amount) => {
@@ -229,7 +231,7 @@ DebugInfoFiPanel.propTypes = {
                 <Link to={`/users/${market.player}`} className="text-primary hover:underline font-mono">
                   {parts.userAddr}
                 </Link>{" "}
-                win {" "}
+                {t('willWin')} {" "}
                 <Link to={`/raffles/${seasonId}`} className="text-primary hover:underline">
                   {parts.seasonLabel}
                 </Link>
@@ -241,7 +243,7 @@ DebugInfoFiPanel.propTypes = {
           </CardTitle>
           <div className="flex items-center gap-2">
             <div
-              aria-label="Chance"
+              aria-label={t('chance')}
               className="relative w-12 h-12 rounded-full"
               style={{
                 background: `conic-gradient(var(--primary) ${Math.max(0, Math.min(100, Number(percent))) * 3.6}deg, rgba(0,0,0,0.08) 0deg)`
@@ -270,26 +272,26 @@ DebugInfoFiPanel.propTypes = {
       <CardContent className="p-0">
         {/* Positions mini-row */}
         <div className="flex justify-between text-xs text-muted-foreground mb-2">
-          <div>My YES: <span className="font-mono">{(() => { try { const v = yesPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
-          <div>My NO: <span className="font-mono">{(() => { try { const v = noPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
+          <div>{t('myYes')}: <span className="font-mono">{(() => { try { const v = yesPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
+          <div>{t('myNo')}: <span className="font-mono">{(() => { try { const v = noPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
           <Button
             className="h-10 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             variant="outline"
             onClick={() => setForm({ ...form, side: 'YES' })}
-          >Yes</Button>
+          >{t('yes')}</Button>
           <Button
             className="h-10 bg-rose-50 text-rose-700 hover:bg-rose-100"
             variant="outline"
             onClick={() => setForm({ ...form, side: 'NO' })}
-          >No</Button>
+          >{t('no')}</Button>
         </div>
         {/* Amount + submit row (kept for now) */}
         <div className="mt-2 grid grid-cols-3 gap-2 items-end">
           <Input
             className="mt-2"
-            placeholder="Amount (SOF)"
+            placeholder={t('amountSof')}
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
           />
@@ -298,7 +300,7 @@ DebugInfoFiPanel.propTypes = {
             className="col-span-2"
             onClick={() => betMutation.mutate()}
             disabled={!isConnected || !form.amount || betMutation.isPending}
-          >{betMutation.isPending ? 'Submitting…' : (form.side === 'YES' ? 'Place YES' : 'Place NO')}</Button>
+          >{betMutation.isPending ? t('submitting') : (form.side === 'YES' ? t('placeYes') : t('placeNo'))}</Button>
         </div>
 
         {/* Footer meta removed: avoid duplicate volume display (we already render live on-chain volume above) */}
@@ -306,10 +308,10 @@ DebugInfoFiPanel.propTypes = {
         {/* Claims retained below fold (optional) */}
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Button variant="outline" disabled={claimYes.isPending} onClick={() => claimYes.mutate()}>
-            {claimYes.isPending ? 'Claiming YES…' : 'Claim YES'}
+            {claimYes.isPending ? t('claimingYes') : t('claimYes')}
           </Button>
           <Button variant="outline" disabled={claimNo.isPending} onClick={() => claimNo.mutate()}>
-            {claimNo.isPending ? 'Claiming NO…' : 'Claim NO'}
+            {claimNo.isPending ? t('claimingNo') : t('claimNo')}
           </Button>
         </div>
 

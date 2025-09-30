@@ -1,6 +1,7 @@
 // src/routes/MarketsIndex.jsx
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
 import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
@@ -8,6 +9,7 @@ import { useOnchainInfoFiMarkets } from '@/hooks/useOnchainInfoFiMarkets';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 
 const MarketsIndex = () => {
+  const { t } = useTranslation('market');
   // Determine current active season and default to it
   const { data: seasons, isLoading: seasonsLoading } = useAllSeasons?.() || { data: [], isLoading: false };
   const activeSeasonId = useMemo(() => {
@@ -41,15 +43,15 @@ const MarketsIndex = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold">Prediction Markets</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         {!seasonsLoading && activeSeasonId !== '0' && (
-          <div className="text-xs border rounded px-2 py-1 bg-muted/30">Active Season: <span className="font-mono">#{activeSeasonId}</span></div>
+          <div className="text-xs border rounded px-2 py-1 bg-muted/30">{t('activeSeason')}: <span className="font-mono">#{activeSeasonId}</span></div>
         )}
       </div>
       {/* Admin-only market creation UI moved to Admin page */}
       <Card>
         <CardHeader>
-          <CardTitle>Active Markets</CardTitle>
+          <CardTitle>{t('activeMarkets')}</CardTitle>
         </CardHeader>
         <CardContent>
           {seasonsLoading && <p className="text-muted-foreground">Loading seasons…</p>}
@@ -66,7 +68,7 @@ const MarketsIndex = () => {
 
               {winners.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Winner Prediction ({winners.length})</div>
+                  <div className="text-sm font-medium mb-2">{t('winnerPredictionCount', { count: winners.length })}</div>
                   <div className="space-y-2">
                     {winners.map((m) => (
                       <div key={m.id} className="relative">
@@ -84,7 +86,7 @@ const MarketsIndex = () => {
 
               {positionSize.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Position Size ({positionSize.length})</div>
+                  <div className="text-sm font-medium mb-2">{t('positionSizeCount', { count: positionSize.length })}</div>
                   <div className="space-y-2">
                     {positionSize.map((m) => (
                       <div key={m.id} className="relative">
@@ -102,7 +104,7 @@ const MarketsIndex = () => {
 
               {behavioral.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Behavioral ({behavioral.length})</div>
+                  <div className="text-sm font-medium mb-2">{t('behavioralCount', { count: behavioral.length })}</div>
                   <div className="space-y-2">
                     {behavioral.map((m) => (
                       <div key={m.id} className="relative">
@@ -120,7 +122,7 @@ const MarketsIndex = () => {
 
               {others.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Other ({others.length})</div>
+                  <div className="text-sm font-medium mb-2">{t('otherCount', { count: others.length })}</div>
                   <div className="space-y-2">
                     {others.map((m) => (
                       <div key={m.id} className="relative">

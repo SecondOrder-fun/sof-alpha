@@ -477,6 +477,64 @@ Note: Trading lock was validated at the curve level via `lockTrading()`; add a f
 
 - [ ] Refactor contract files to move library-like contracts into `contracts/src/lib`
 
+## Internationalization (i18n) - Japanese Localization (NEW - 2025-09-30)
+
+### Research & Planning Phase
+
+- [ ] Research localization packages compatible with React + Vite
+  - Evaluated: react-i18next, next-intl, formatjs/react-intl
+  - Recommendation: **react-i18next** (best fit for React + Vite projects)
+  - Reasoning: Most mature, excellent Vite support, flexible API, 8.1 trust score, 337 code snippets
+- [ ] Formulate integration plan
+  - Package selection and installation
+  - Configuration strategy
+  - Translation file structure
+  - Component integration approach
+  - Language toggle UI design
+- [ ] Prepare Japanese translations for entire frontend
+  - Navigation and header elements
+  - Page titles and descriptions
+  - Form labels and buttons
+  - Error messages and validation
+  - Smart contract interaction messages
+  - InfoFi market terminology
+
+### Implementation Phase
+
+- [ ] Install and configure react-i18next
+  - Install: `react-i18next`, `i18next`, `i18next-http-backend`, `i18next-browser-languagedetector`
+  - Create i18n configuration file
+  - Set up translation file structure (`/public/locales/en/`, `/public/locales/ja/`)
+  - Configure language detection and fallback
+- [ ] Create translation files
+  - Extract all hardcoded strings from components
+  - Create English translation files (baseline)
+  - Create Japanese translation files
+  - Organize by feature/namespace (common, raffle, market, admin, etc.)
+- [ ] Integrate i18n into components
+  - Wrap App with I18nextProvider
+  - Replace hardcoded strings with `useTranslation()` hook
+  - Update all components systematically
+  - Handle pluralization and formatting
+- [ ] Implement language toggle in Header
+  - Add language selector dropdown/button
+  - Persist language preference in localStorage
+  - Update UI immediately on language change
+  - Add language icons/flags (optional)
+- [ ] Testing and validation
+  - Test all pages in both languages
+  - Verify no missing translations
+  - Check text overflow/layout issues
+  - Test language persistence across sessions
+  - Add Vitest tests for i18n hooks
+
+### Documentation
+
+- [ ] Update README with i18n setup instructions
+- [ ] Document translation file structure
+- [ ] Create contributor guide for adding new languages
+- [ ] Document best practices for adding new translatable strings
+
 ## InfoFi Integration Roadmap (NEXT)
 
 This roadmap consolidates the InfoFi specs into executable tasks across contracts, backend, frontend, and testing. These will be the next priorities after stabilizing tests and the ticket purchase bug.

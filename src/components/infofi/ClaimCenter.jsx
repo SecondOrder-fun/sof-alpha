@@ -2,6 +2,7 @@
 import PropTypes from 'prop-types';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getStoredNetworkKey } from '@/lib/wagmi';
@@ -13,7 +14,8 @@ import { formatUnits } from 'viem';
  * Groups claimable InfoFi market payouts by season.
  * No placeholders; reads strictly from chain.
  */
-const ClaimCenter = ({ address, title = 'Claims', description = 'Claimable raffle prizes and InfoFi market winnings.' }) => {
+const ClaimCenter = ({ address, title, description }) => {
+  const { t } = useTranslation(['market', 'raffle', 'common']);
   const netKey = getStoredNetworkKey();
   const qc = useQueryClient();
   const [claimingAll, setClaimingAll] = useState(false);
@@ -81,36 +83,36 @@ const ClaimCenter = ({ address, title = 'Claims', description = 'Claimable raffl
   return (
     <Card className="mb-4">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>{title || t('market:claimWinnings')}</CardTitle>
+        <CardDescription>{description || t('market:claimDescription', { defaultValue: 'Claimable raffle prizes and market winnings.' })}</CardDescription>
       </CardHeader>
       <CardContent>
-        {!address && <p className="text-muted-foreground">Connect wallet to view claims.</p>}
+        {!address && <p className="text-muted-foreground">{t('errors:notConnected')}</p>}
         {address && (
           <div className="space-y-3">
             {(discovery.isLoading || claimsQuery.isLoading) && (
-              <p className="text-muted-foreground">Scanning for claims…</p>
+              <p className="text-muted-foreground">{t('common:loading')}</p>
             )}
             {claimsQuery.error && (
-              <p className="text-red-500">Error loading claims: {String(claimsQuery.error?.message || claimsQuery.error)}</p>
+              <p className="text-red-500">{t('common:error')}: {String(claimsQuery.error?.message || claimsQuery.error)}</p>
             )}
             {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length === 0 && (
-              <p className="text-muted-foreground">No claimable items found right now.</p>
+              <p className="text-muted-foreground">{t('raffle:nothingToClaim')}</p>
             )}
             {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length > 0 && (
               <>
                 <div className="flex justify-end">
                   <Button onClick={claimAll} disabled={claimingAll}>
-                    {claimingAll ? 'Claiming…' : 'Claim All'}
+                    {claimingAll ? t('transactions:claiming') : t('raffle:claimAll')}
                   </Button>
                 </div>
                 <div className="space-y-3">
                   {Array.from(grouped.entries()).map(([season, rows]) => (
                     <div key={season} className="border rounded">
                       <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                        <div className="text-sm font-medium">Season #{season}</div>
+                        <div className="text-sm font-medium">{t('raffle:seasonNumber', { number: season })}</div>
                         <div className="text-xs text-muted-foreground">
-                          Subtotal: <span className="font-mono">{
+                          {t('common:subtotal', { defaultValue: 'Subtotal' })}: <span className="font-mono">{
                             (() => {
                               try { return formatUnits(rows.reduce((acc, r) => acc + (r.payout ?? 0n), 0n), 18) } catch { return '0' }
                             })()
@@ -121,10 +123,10 @@ const ClaimCenter = ({ address, title = 'Claims', description = 'Claimable raffl
                         {rows.map((r) => (
                           <div key={`${r.marketId}-${String(r.prediction)}`} className="flex items-center justify-between border rounded p-2 text-sm">
                             <div className="text-xs text-muted-foreground">
-                              Market: <span className="font-mono">{String(r.marketId)}</span> • Side: {r.prediction ? 'YES' : 'NO'} • Payout: <span className="font-mono">{formatUnits(r.payout ?? 0n, 18)}</span> SOF
+                              {t('market:market')}: <span className="font-mono">{String(r.marketId)}</span> • {t('common:side', { defaultValue: 'Side' })}: {r.prediction ? 'YES' : 'NO'} • {t('market:potentialPayout')}: <span className="font-mono">{formatUnits(r.payout ?? 0n, 18)}</span> SOF
                             </div>
                             <Button variant="outline" onClick={() => claimOne.mutate({ marketId: r.marketId, prediction: r.prediction })} disabled={claimOne.isPending}>
-                              {claimOne.isPending ? 'Claiming…' : 'Claim'}
+                              {claimOne.isPending ? t('transactions:claiming') : t('common:claim')}
                             </Button>
                           </div>
                         ))}

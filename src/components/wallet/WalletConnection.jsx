@@ -1,8 +1,10 @@
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 
 const WalletConnection = () => {
+  const { t } = useTranslation('common');
   const { address, isConnected } = useAccount();
   const { connect, connectors, isLoading, error } = useConnect();
   const { disconnect } = useDisconnect();
@@ -11,7 +13,7 @@ const WalletConnection = () => {
   // Handle connection errors
   if (error) {
     toast({
-      title: 'Connection Error',
+      title: t('connectionError'),
       description: error.message,
       variant: 'destructive',
     });
@@ -24,7 +26,7 @@ const WalletConnection = () => {
           {address?.slice(0, 6)}...{address?.slice(-4)}
         </span>
         <Button onClick={() => disconnect()} variant="outline">
-          Disconnect
+          {t('disconnect')}
         </Button>
       </div>
     );
@@ -40,12 +42,12 @@ const WalletConnection = () => {
             disabled={isLoading}
             variant="default"
           >
-            Connect {connector.name}
+            {t('connectWith', { name: connector.name })}
           </Button>
         ))}
       </div>
       {isLoading && (
-        <p className="text-sm text-muted-foreground">Connecting...</p>
+        <p className="text-sm text-muted-foreground">{t('connecting')}</p>
       )}
     </div>
   );

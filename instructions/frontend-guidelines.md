@@ -53,6 +53,86 @@ src/features/raffle/
 └── utils/          # Raffle utility functions
 ```
 
+## Internationalization (i18n)
+
+### Translation Guidelines
+
+All user-facing text must use the i18n system via `react-i18next`. Never hardcode English or any language strings in components.
+
+```jsx
+// ✅ Good - Using translation
+import { useTranslation } from 'react-i18next';
+
+const RaffleCard = ({ raffle }) => {
+  const { t } = useTranslation('raffle');
+  
+  return (
+    <div>
+      <h2>{t('title')}</h2>
+      <p>{t('activeSeasons')}</p>
+      <button>{t('open')}</button>
+    </div>
+  );
+};
+
+// ❌ Bad - Hardcoded strings
+const RaffleCard = ({ raffle }) => {
+  return (
+    <div>
+      <h2>Raffles</h2>
+      <p>Active Seasons</p>
+      <button>Open</button>
+    </div>
+  );
+};
+```
+
+### Translation Keys Organization
+
+Translation files are organized by feature in `/public/locales/{lang}/`:
+
+- `common.json` - Shared UI elements (buttons, labels, etc.)
+- `raffle.json` - Raffle-specific text
+- `market.json` - Prediction market text
+- `admin.json` - Admin panel text
+- `errors.json` - Error messages
+- `navigation.json` - Navigation items
+
+### Hooks and i18n
+
+**Hooks should NOT contain translation logic or generate user-facing text.** Hooks return data; components handle all text rendering and translation.
+
+```jsx
+// ✅ Good - Hook returns data
+export const useMarketData = (marketId) => {
+  return {
+    market: {
+      type: 'WINNER_PREDICTION',  // Data
+      count: 5,                    // Data
+      status: 'active',            // Data
+    }
+  };
+};
+
+// Component handles translation
+const MarketDisplay = () => {
+  const { t } = useTranslation('market');
+  const { market } = useMarketData(marketId);
+  
+  return <div>{t('winnerPredictionCount', { count: market.count })}</div>;
+};
+
+// ❌ Bad - Hook generates text
+export const useMarketData = (marketId) => {
+  return {
+    market: {
+      title: 'Winner Prediction (5)',  // Don't generate text in hooks
+      statusText: 'Active',            // Don't generate text in hooks
+    }
+  };
+};
+```
+
 ## Component Development Standards
 
 ### UI Component System (Radix + shadcn/ui)
@@ -194,7 +274,66 @@ const getRaffleData = () => {}; // This should be a regular function
 const raffleHook = () => {}; // Not descriptive enough
 ```
 
-#### 2. Hook Structure Template
+#### 2. Hooks Return Data, Components Handle Text
+
+**Important:** Hooks should return raw data and state, not formatted text or UI strings. This ensures:
+
+- Better separation of concerns
+- All i18n logic centralized in components
+- Easier testing of hooks
+- No translation keys scattered in hooks
+
+```jsx
+// ✅ Good - Hook returns data
+export const useArbitrageDetection = (seasonId, bondingCurveAddress) => {
+  // ... detection logic ...
+  
+  return {
+    opportunities: [
+      {
+        id: '...',
+        direction: 'buy_raffle', // Data, not text
+        rafflePrice: 10.5,        // Numbers
+        marketPrice: 12.3,        // Numbers
+        profitability: 15.2,      // Numbers
+        // No 'strategy' text field
+      }
+    ],
+    isLoading,
+    error,
+  };
+};
+
+// Component handles text rendering
+const ArbitrageDisplay = () => {
+  const { t } = useTranslation('market');
+  const { opportunities } = useArbitrageDetection(seasonId, curveAddress);
+  
+  return opportunities.map(opp => (
+    <div key={opp.id}>
+      {/* Component generates text based on data */}
+      {opp.direction === 'buy_raffle' 
+        ? t('buyRaffleTickets', { price: opp.rafflePrice, sellPrice: opp.marketPrice })
+        : t('buyInfoFiPosition', { price: opp.marketPrice, exitPrice: opp.rafflePrice })
+      }
+    </div>
+  ));
+};
+
+// ❌ Bad - Hook generates text
+export const useArbitrageDetection = (seasonId, bondingCurveAddress) => {
+  return {
+    opportunities: [
+      {
+        strategy: `Buy raffle tickets at ${price} SOF`, // Don't do this
+        description: 'This is a good opportunity',      // Don't do this
+      }
+    ],
+  };
+};
+```
+
+#### 3. Hook Structure Template
 
 ```jsx
 // File: src/hooks/useRaffleData.js

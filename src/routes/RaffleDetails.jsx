@@ -1,6 +1,7 @@
 // src/routes/RaffleDetails.jsx
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useRaffleState } from '@/hooks/useRaffleState';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
 
 const RaffleDetails = () => {
+  const { t, i18n } = useTranslation('raffle');
   const { seasonId } = useParams();
   const { seasonDetailsQuery } = useRaffleState(seasonId);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
@@ -238,10 +240,10 @@ const RaffleDetails = () => {
             <Card>
               <CardHeader>
                 <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <CardTitle>{cfg.name} - Season #{seasonId}</CardTitle>
+                  <CardTitle>{t('season')} #{seasonId} - {cfg.name}</CardTitle>
                   <div className="text-xs text-muted-foreground">
-                    <span className="mr-4">Start: {new Date(Number(cfg.startTime) * 1000).toLocaleString()}</span>
-                    <span>End: {new Date(Number(cfg.endTime) * 1000).toLocaleString()}</span>
+                    <span className="mr-4">{t('start')}: {new Date(Number(cfg.startTime) * 1000).toLocaleString(i18n.language)}</span>
+                    <span>{t('end')}: {new Date(Number(cfg.endTime) * 1000).toLocaleString(i18n.language)}</span>
                   </div>
                 </div>
               </CardHeader>
@@ -293,8 +295,8 @@ const RaffleDetails = () => {
                       {/* Player snapshot (from RafflePositionTracker) */}
                       <div className="mt-3 p-3 border rounded-md bg-muted/20">
                         <div className="flex items-center justify-between">
-                          <div className="font-medium">Your Current Position</div>
-                          {!isConnected && (<Badge variant="secondary">Connect wallet to view</Badge>)}
+                          <div className="font-medium">{t('yourCurrentPosition')}</div>
+                          {!isConnected && (<Badge variant="secondary">{t('connectWalletToView')}</Badge>)}
                         </div>
                         {isConnected && (
                           <div className="mt-2 text-sm">
@@ -302,9 +304,9 @@ const RaffleDetails = () => {
                             {snapshotQuery.error && (<span className="text-red-600">Error: {snapshotQuery.error.message}</span>)}
                             {(snapshotQuery.data || localPosition) && (
                               <div className="space-y-1">
-                                <div>Tickets: <span className="font-mono">{(localPosition?.tickets ?? snapshotQuery.data?.ticketCount ?? 0n).toString()}</span></div>
-                                <div>Win Probability: <span className="font-mono">{(() => { try { const base = (localPosition?.probBps ?? (snapshotQuery.data?.winProbabilityBps ?? 0)); const bps = Number(base); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
-                                <div className="text-xs text-muted-foreground">Total Tickets (at snapshot): <span className="font-mono">{(localPosition?.total ?? snapshotQuery.data?.totalTicketsAtTime ?? 0n).toString()}</span></div>
+                                <div>{t('tickets')}: <span className="font-mono">{(localPosition?.tickets ?? snapshotQuery.data?.ticketCount ?? 0n).toString()}</span></div>
+                                <div>{t('winProbability')}: <span className="font-mono">{(() => { try { const base = (localPosition?.probBps ?? (snapshotQuery.data?.winProbabilityBps ?? 0)); const bps = Number(base); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
+                                <div className="text-xs text-muted-foreground">{t('totalTicketsAtSnapshot')}: <span className="font-mono">{(localPosition?.total ?? snapshotQuery.data?.totalTicketsAtTime ?? 0n).toString()}</span></div>
                               </div>
                             )}
                             {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (<span className="text-muted-foreground">No snapshot yet.</span>)}
@@ -336,7 +338,7 @@ const RaffleDetails = () => {
 
                 <Card className="mt-4">
                   <CardHeader>
-                    <CardTitle>Activity & Details</CardTitle>
+                    <CardTitle>{t('activityAndDetails')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {(() => {
@@ -365,9 +367,9 @@ const RaffleDetails = () => {
                         return (
                           <Tabs value={activeTab} onValueChange={setActiveTab}>
                             <TabsList>
-                              <TabsTrigger value="token-info" onClick={() => setActiveTab('token-info')}>Token Info</TabsTrigger>
-                              <TabsTrigger value="transactions" onClick={() => setActiveTab('transactions')}>Transactions</TabsTrigger>
-                              <TabsTrigger value="holders" onClick={() => setActiveTab('holders')}>Token Holders</TabsTrigger>
+                              <TabsTrigger value="token-info" onClick={() => setActiveTab('token-info')}>{t('tokenInfo')}</TabsTrigger>
+                              <TabsTrigger value="transactions" onClick={() => setActiveTab('transactions')}>{t('common:transactions')}</TabsTrigger>
+                              <TabsTrigger value="holders" onClick={() => setActiveTab('holders')}>{t('tokenHolders')}</TabsTrigger>
                             </TabsList>
                             {activeTab === 'token-info' && (
                               <TabsContent value="token-info">

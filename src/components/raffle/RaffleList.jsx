@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useWallet } from '@/hooks/useWallet';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
 
 const RaffleList = () => {
+  const { t } = useTranslation(['raffle', 'common', 'errors']);
   const { isConnected } = useWallet();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -64,8 +66,8 @@ const RaffleList = () => {
     
     if (!isConnected) {
       toast({
-        title: 'Wallet not connected',
-        description: 'Please connect your wallet to create a raffle.',
+        title: t('errors:notConnected'),
+        description: t('errors:notConnected'),
         variant: 'destructive'
       });
       return;
@@ -86,16 +88,16 @@ const RaffleList = () => {
       });
       
       toast({
-        title: 'Raffle Created',
-        description: 'Your raffle has been created successfully.'
+        title: t('common:success'),
+        description: t('raffle:seasonDetails')
       });
       
       // Refresh raffles
       queryClient.invalidateQueries(['raffles']);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create raffle',
+        title: t('common:error'),
+        description: error.message || t('errors:generic'),
         variant: 'destructive'
       });
     }
@@ -107,8 +109,8 @@ const RaffleList = () => {
     
     if (!isConnected) {
       toast({
-        title: 'Wallet not connected',
-        description: 'Please connect your wallet to buy tickets.',
+        title: t('errors:notConnected'),
+        description: t('errors:notConnected'),
         variant: 'destructive'
       });
       return;
@@ -119,8 +121,8 @@ const RaffleList = () => {
       // console.log('Buying tickets:', ticketPurchase);
       
       toast({
-        title: 'Tickets Purchased',
-        description: `Successfully purchased ${ticketPurchase.ticketCount} tickets.`
+        title: t('common:success'),
+        description: t('raffle:ticketCount', { count: ticketPurchase.ticketCount })
       });
       
       // Reset form
@@ -133,8 +135,8 @@ const RaffleList = () => {
       queryClient.invalidateQueries(['raffles']);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to purchase tickets',
+        title: t('common:error'),
+        description: error.message || t('errors:generic'),
         variant: 'destructive'
       });
     }
@@ -145,7 +147,7 @@ const RaffleList = () => {
     const now = Date.now();
     const diff = endTime - now;
     
-    if (diff <= 0) return 'Ended';
+    if (diff <= 0) return t('raffle:ended');
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -159,42 +161,42 @@ const RaffleList = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Active Raffles</h1>
-        <p className="text-muted-foreground">Join raffles and win prizes!</p>
+        <h1 className="text-3xl font-bold">{t('raffle:title')}</h1>
+        <p className="text-muted-foreground">{t('raffle:getStarted')}</p>
       </div>
       
       {/* Create Raffle Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Create New Raffle</CardTitle>
-          <CardDescription>Create a new raffle for players to join</CardDescription>
+          <CardTitle>{t('raffle:season')}</CardTitle>
+          <CardDescription>{t('raffle:seasonDetails')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateRaffle} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Raffle Name</Label>
+                <Label htmlFor="name">{t('raffle:season')}</Label>
                 <Input
                   id="name"
                   value={newRaffle.name}
                   onChange={(e) => setNewRaffle({...newRaffle, name: e.target.value})}
-                  placeholder="Enter raffle name"
+                  placeholder={t('raffle:season')}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ticketPrice">Ticket Price</Label>
+                <Label htmlFor="ticketPrice">{t('raffle:ticketPrice')}</Label>
                 <Input
                   id="ticketPrice"
                   type="number"
                   value={newRaffle.ticketPrice}
                   onChange={(e) => setNewRaffle({...newRaffle, ticketPrice: e.target.value})}
-                  placeholder="Enter ticket price"
+                  placeholder={t('raffle:ticketPrice')}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (seconds)</Label>
+                <Label htmlFor="duration">{t('raffle:timeRemaining')}</Label>
                 <Input
                   id="duration"
                   type="number"
@@ -205,7 +207,7 @@ const RaffleList = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="winnerCount">Number of Winners</Label>
+                <Label htmlFor="winnerCount">{t('raffle:winners')}</Label>
                 <Input
                   id="winnerCount"
                   type="number"
@@ -219,12 +221,12 @@ const RaffleList = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t('common:details')}</Label>
               <Input
                 id="description"
                 value={newRaffle.description}
                 onChange={(e) => setNewRaffle({...newRaffle, description: e.target.value})}
-                placeholder="Enter raffle description"
+                placeholder={t('common:details')}
                 required
               />
             </div>
@@ -241,21 +243,21 @@ const RaffleList = () => {
           </form>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleCreateRaffle}>Create Raffle</Button>
+          <Button onClick={handleCreateRaffle}>{t('raffle:season')}</Button>
         </CardFooter>
       </Card>
       
       {/* Buy Tickets Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Buy Tickets</CardTitle>
-          <CardDescription>Purchase tickets for an existing raffle</CardDescription>
+          <CardTitle>{t('raffle:buyTickets')}</CardTitle>
+          <CardDescription>{t('raffle:getStarted')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleBuyTickets} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="raffleId">Raffle ID</Label>
+                <Label htmlFor="raffleId">{t('raffle:season')}</Label>
                 <Input
                   id="raffleId"
                   type="number"
@@ -266,7 +268,7 @@ const RaffleList = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ticketCount">Number of Tickets</Label>
+                <Label htmlFor="ticketCount">{t('raffle:tickets')}</Label>
                 <Input
                   id="ticketCount"
                   type="number"
@@ -281,7 +283,7 @@ const RaffleList = () => {
           </form>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleBuyTickets}>Buy Tickets</Button>
+          <Button onClick={handleBuyTickets}>{t('raffle:buyTickets')}</Button>
         </CardFooter>
       </Card>
       
@@ -296,30 +298,30 @@ const RaffleList = () => {
             <CardContent className="flex-grow">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Prize Pool:</span>
+                  <span className="text-muted-foreground">{t('raffle:prizePool')}:</span>
                   <span className="font-medium">{raffle.totalPrize} tokens</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ticket Price:</span>
+                  <span className="text-muted-foreground">{t('raffle:ticketPrice')}:</span>
                   <span className="font-medium">{raffle.ticketPrice} tokens</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tickets Sold:</span>
+                  <span className="text-muted-foreground">{t('raffle:tickets')}:</span>
                   <span className="font-medium">{raffle.totalTickets}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Winners:</span>
+                  <span className="text-muted-foreground">{t('raffle:winners')}:</span>
                   <span className="font-medium">{raffle.winnerCount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Time Remaining:</span>
+                  <span className="text-muted-foreground">{t('raffle:timeRemaining')}:</span>
                   <span className="font-medium">{formatTimeRemaining(raffle.endTime)}</span>
                 </div>
               </div>
             </CardContent>
             <CardFooter>
               <Button className="w-full" onClick={() => setTicketPurchase({...ticketPurchase, raffleId: raffle.id.toString()})}>
-                Buy Tickets
+                {t('raffle:buyTickets')}
               </Button>
             </CardFooter>
           </Card>

@@ -1,6 +1,7 @@
 // src/components/infofi/SettlementStatus.jsx
 import PropTypes from 'prop-types';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
@@ -19,36 +20,37 @@ import { formatDistanceToNow } from 'date-fns';
  * @param {boolean} props.compact - Whether to show a compact version of the component
  */
 const SettlementStatus = ({ marketId, marketType, question, compact = false }) => {
+  const { t } = useTranslation(['market', 'common']);
   const { outcome, settlementStatus, isLoading, error } = useSettlement(marketId);
   
   const statusDisplay = useMemo(() => {
     switch (settlementStatus) {
       case 'settled':
         return {
-          label: 'Settled',
+          label: t('market:resolved'),
           color: 'success',
           icon: CheckCircle,
         };
       case 'settling':
         return {
-          label: 'Settling',
+          label: t('market:settlement'),
           color: 'warning',
           icon: Loader2,
         };
       case 'pending':
         return {
-          label: 'Pending',
+          label: t('market:pending'),
           color: 'default',
           icon: Clock,
         };
       default:
         return {
-          label: 'Unknown',
+          label: t('common:unknown', { defaultValue: 'Unknown' }),
           color: 'secondary',
           icon: AlertCircle,
         };
     }
-  }, [settlementStatus]);
+  }, [settlementStatus, t]);
   
   const StatusIcon = statusDisplay.icon;
   
@@ -87,10 +89,10 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
           <StatusIcon className={`h-5 w-5 ${statusDisplay.color === 'success' ? 'text-green-500' : 
             statusDisplay.color === 'warning' ? 'text-amber-500' : 
             statusDisplay.color === 'default' ? 'text-blue-500' : 'text-gray-500'}`} />
-          Market Settlement Status
+          {t('market:settlementStatus')}
         </CardTitle>
         <CardDescription>
-          {marketType === 'WINNER_PREDICTION' ? 'Winner Prediction' : marketType}
+          {marketType === 'WINNER_PREDICTION' ? t('market:winnerPrediction', { defaultValue: 'Winner Prediction' }) : marketType}
           {question && `: ${question}`}
         </CardDescription>
       </CardHeader>
@@ -98,11 +100,11 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
         {isLoading ? (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Loading settlement information...</span>
+            <span>{t('common:loading')}</span>
           </div>
         ) : error ? (
           <div className="text-red-500">
-            Error loading settlement status: {error.message || String(error)}
+            {t('common:error')}: {error.message || String(error)}
           </div>
         ) : (
           <div className="space-y-4">
@@ -116,7 +118,7 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
               </Badge>
               {formattedSettlementTime && (
                 <span className="text-sm text-muted-foreground" title={formattedSettlementTime.absolute}>
-                  Settled {formattedSettlementTime.relative}
+                  {t('market:resolved')} {formattedSettlementTime.relative}
                 </span>
               )}
             </div>
@@ -124,13 +126,13 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
             {outcome && (
               <div className="space-y-2">
                 <div className="text-sm">
-                  <span className="font-medium">Market ID:</span>{' '}
+                  <span className="font-medium">{t('market:market')} ID:</span>{' '}
                   <span className="font-mono text-xs">{marketId}</span>
                 </div>
                 
                 {outcome.winner && outcome.winner !== '0x0000000000000000000000000000000000000000' && (
                   <div className="text-sm">
-                    <span className="font-medium">Winner:</span>{' '}
+                    <span className="font-medium">{t('raffle:winner', { defaultValue: 'Winner' })}:</span>{' '}
                     <AddressLink address={outcome.winner} />
                     {' '}({shortAddress(outcome.winner)})
                   </div>
@@ -139,7 +141,7 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
                 {settlementStatus === 'settled' && (
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
                     <p className="text-green-800 text-sm">
-                      This market has been settled. If you have winning positions, you can claim your rewards.
+                      {t('market:marketResolved')}
                     </p>
                   </div>
                 )}
@@ -148,7 +150,7 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
                   <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
                     <p className="text-amber-800 text-sm">
-                      Settlement in progress. Please wait while the market is being settled.
+                      {t('market:settlementInProgress', { defaultValue: 'Settlement in progress. Please wait.' })}
                     </p>
                   </div>
                 )}
@@ -156,7 +158,7 @@ const SettlementStatus = ({ marketId, marketType, question, compact = false }) =
                 {settlementStatus === 'pending' && (
                   <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <p className="text-blue-800 text-sm">
-                      This market is waiting for settlement. Settlement will occur after the raffle winner is determined.
+                      {t('market:settlementPending', { defaultValue: 'Waiting for settlement after raffle completion.' })}
                     </p>
                   </div>
                 )}

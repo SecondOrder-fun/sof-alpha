@@ -6,10 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useTranslation } from 'react-i18next';
 import NetworkToggle from '@/components/common/NetworkToggle';
+import LanguageToggle from '@/components/common/LanguageToggle';
 import { useAccessControl } from '@/hooks/useAccessControl';
 
 const Header = () => {
+  const { t } = useTranslation('navigation');
   const { address, isConnected } = useAccount();
   const { hasRole } = useAccessControl();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -36,28 +39,28 @@ const Header = () => {
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-8">
           <Link to="/" className="text-2xl font-bold text-primary">
-            SecondOrder.fun
+            {t('brandName')}
           </Link>
           <nav className="hidden md:flex space-x-6">
             <Link to="/raffles" className="hover:text-primary transition-colors">
-              Raffles
+              {t('raffles')}
             </Link>
             <Link to="/markets" className="hover:text-primary transition-colors">
-              Prediction Markets
+              {t('predictionMarkets')}
             </Link>
             <Link to="/users" className="hover:text-primary transition-colors">
-              Users
+              {t('users')}
             </Link>
             {isAdmin && (
               <Link to="/admin" className="hover:text-primary transition-colors">
-                Admin
+                {t('admin')}
               </Link>
             )}
             <Link to={isConnected && address ? `/users/${address}` : "/account"} className="hover:text-primary transition-colors">
-              My Account
+              {t('myAccount')}
             </Link>
             <Link to="/faucet" className="hover:text-primary transition-colors">
-              Beta Faucets
+              {t('betaFaucets')}
             </Link>
           </nav>
         </div>
@@ -76,6 +79,7 @@ const Header = () => {
           <div className="flex items-center gap-2">
             {/* Wallet toolbar lives here (RainbowKit) */}
           </div>
+          <LanguageToggle />
           <NetworkToggle />
           <ConnectButton
             showBalance={false}

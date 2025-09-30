@@ -1,5 +1,6 @@
 // src/components/curve/HoldersTab.jsx
 import PropTypes from 'prop-types';
+import { useTranslation } from 'react-i18next';
 
 /**
  * HoldersTab
@@ -7,13 +8,15 @@ import PropTypes from 'prop-types';
  * Optionally, future: reconstruct from Transfer logs to approximate holders.
  */
 const HoldersTab = ({ bondingCurveAddress }) => {
+  const { t } = useTranslation('common');
+  
   return (
     <div className="space-y-2">
       <div className="text-sm text-muted-foreground">
-        Token holders list will appear here. For MVP, this section is a placeholder.
+        {t('holdersListPlaceholder')}
       </div>
       <div className="text-xs text-muted-foreground">
-        Contract: <span className="font-mono">{bondingCurveAddress || '—'}</span>
+        {t('contract')}: <span className="font-mono">{bondingCurveAddress || '—'}</span>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 // src/components/infofi/PositionsPanel.jsx
 import PropTypes from 'prop-types';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getStoredNetworkKey } from '@/lib/wagmi';
@@ -13,8 +14,11 @@ import { formatUnits } from 'viem';
  * - Discovers markets via factory events; falls back to enumerating InfoFiMarket
  * - Displays discovery debug panel for now (can be toggled off later)
  */
-const PositionsPanel = ({ address, seasons = [], title = 'Prediction Market Positions', description = 'Open positions across InfoFi markets.' }) => {
+const PositionsPanel = ({ address, seasons = [], title, description }) => {
+  const { t } = useTranslation('market');
   const netKey = getStoredNetworkKey();
+  const defaultTitle = title || t('predictionMarketPositions');
+  const defaultDescription = description || t('openPositionsAcross');
 
   const positionsQuery = useQuery({
     queryKey: ['positionsPanel_all', address, seasons.map((s) => s.id).join(','), netKey],
@@ -79,23 +83,23 @@ const PositionsPanel = ({ address, seasons = [], title = 'Prediction Market Posi
   return (
     <Card className="mb-4">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>{defaultTitle}</CardTitle>
+        <CardDescription>{defaultDescription}</CardDescription>
       </CardHeader>
       <CardContent>
-        {!address && <p className="text-muted-foreground">Connect wallet to view positions.</p>}
+        {!address && <p className="text-muted-foreground">{t('connectWalletToView')}</p>}
         {address && (
           <div className="space-y-2">
             {positionsQuery.isLoading && (
-              <p className="text-muted-foreground">Loading positions...</p>
+              <p className="text-muted-foreground">{t('loadingPositions')}</p>
             )}
             {positionsQuery.error && (
-              <p className="text-red-500">Error loading positions: {String(positionsQuery.error?.message || positionsQuery.error)}</p>
+              <p className="text-red-500">{t('errorLoadingPositions', { error: String(positionsQuery.error?.message || positionsQuery.error) })}</p>
             )}
             {!positionsQuery.isLoading && !positionsQuery.error && (() => {
               const primary = positionsQuery.data || [];
               const data = primary.length > 0 ? primary : (fallbackQuery.data || []);
-              if (data.length === 0) return <p className="text-muted-foreground">No open positions found.</p>;
+              if (data.length === 0) return <p className="text-muted-foreground">{t('noOpenPositions')}</p>;
               // Group by seasonId
               const bySeason = new Map();
               for (const row of data) {
@@ -111,18 +115,18 @@ const PositionsPanel = ({ address, seasons = [], title = 'Prediction Market Posi
                     return (
                       <div key={season} className="border rounded">
                         <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                          <div className="text-sm font-medium">Season #{season}</div>
-                          <div className="text-xs text-muted-foreground">Subtotal: <span className="font-mono">{totalSof}</span> SOF</div>
+                          <div className="text-sm font-medium">{t('raffle:season')} #{season}</div>
+                          <div className="text-xs text-muted-foreground">{t('subtotal')}: <span className="font-mono">{totalSof}</span> SOF</div>
                         </div>
                         <div className="p-2 space-y-2">
                           {rows.map((pos) => (
                             <div key={`${pos.seasonId}-${pos.marketId}-${pos.outcome}`} className="border rounded p-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="font-medium">{pos.marketType || 'Market'}</span>
-                                <span className="text-xs text-muted-foreground">ID: {pos.marketId}</span>
+                                <span className="font-medium">{pos.marketType || t('market')}</span>
+                                <span className="text-xs text-muted-foreground">{t('common:id')}: {pos.marketId}</span>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Outcome: {pos.outcome || '—'} • Amount: {pos.amount || '—'} {pos.player ? `• Player: ${pos.player}` : ''}
+                                {t('outcome')}: {pos.outcome || '—'} • {t('common:amount')}: {pos.amount || '—'} {pos.player ? `• ${t('player')}: ${pos.player}` : ''}
                               </div>
                             </div>
                           ))}
@@ -150,6 +154,7 @@ PositionsPanel.propTypes = {
 
 // Inline discovery panel while stabilizing feature
 const DiscoveryDebug = ({ address }) => {
+  const { t } = useTranslation('market');
   const netKey = getStoredNetworkKey();
   const disc = useQuery({
     queryKey: ['positionsPanel_discovery', netKey],
@@ -185,9 +190,9 @@ const DiscoveryDebug = ({ address }) => {
 
   return (
     <div className="mt-2 p-2 border rounded bg-muted/20 text-[11px]">
-      <div className="font-medium mb-1">Debug: Discovery</div>
-      <div>Network: <span className="font-mono">{netKey}</span></div>
-      <div>Markets found: <span className="font-mono">{discData.length}</span></div>
+      <div className="font-medium mb-1">{t('debugDiscovery')}</div>
+      <div>{t('network')}: <span className="font-mono">{netKey}</span></div>
+      <div>{t('marketsFound')}: <span className="font-mono">{discData.length}</span></div>
       {Array.isArray(reads.data) && reads.data.length > 0 && (
         <div className="mt-1 space-y-1">
           {reads.data.map((r) => (

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useRafflePrizes } from "@/hooks/useRafflePrizes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Trophy } from "lucide-react";
 import PropTypes from "prop-types";
 
 export function ClaimPrizeWidget({ seasonId }) {
+  const { t } = useTranslation(['raffle', 'common', 'transactions']);
   const {
     isWinner,
     claimableAmount,
@@ -21,12 +23,12 @@ export function ClaimPrizeWidget({ seasonId }) {
   } = useRafflePrizes(seasonId);
 
   if (isLoading) {
-    return <div>Loading prize information...</div>;
+    return <div>{t('common:loading')}</div>;
   }
 
   const winnerAddr = grandWinner || '0x0000000000000000000000000000000000000000';
 
-  const prizeType = "Grand Prize";
+  const prizeType = t('raffle:grandPrize');
   const Icon = Trophy;
 
   return (
@@ -34,7 +36,7 @@ export function ClaimPrizeWidget({ seasonId }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Icon className="h-6 w-6 text-yellow-500" />
-          {isWinner ? 'You Won a Prize!' : 'Season Prize Status'}
+          {isWinner ? t('raffle:youWon') : t('raffle:status')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -42,7 +44,7 @@ export function ClaimPrizeWidget({ seasonId }) {
           {isWinner ? (
             <>
               <p className="text-lg">
-                Congratulations! You&apos;ve won the {prizeType} for Season {seasonId}.
+                {t('raffle:congratulations')}! {t('raffle:youWon')} {prizeType} {t('raffle:seasonNumber', { number: seasonId })}.
               </p>
               <div className="text-2xl font-bold text-center">
                 {claimableAmount} SOF
@@ -54,35 +56,35 @@ export function ClaimPrizeWidget({ seasonId }) {
                 variant={isConfirmed ? "outline" : "default"}
               >
                 {isConfirming
-                  ? "Claiming..."
+                  ? t('transactions:claiming')
                   : isConfirmed
-                  ? "Claimed!"
-                  : "Claim Your Prize"}
+                  ? t('raffle:prizeClaimed')
+                  : t('raffle:claimPrize')}
               </Button>
               {claimStatus === 'completed' && (
                 <div className="text-center text-green-600 space-y-1">
-                  <p>Your prize has been successfully claimed!</p>
-                  <p className="text-sm text-muted-foreground">The funds have been transferred to your wallet.</p>
+                  <p>{t('raffle:prizeClaimed')}</p>
+                  <p className="text-sm text-muted-foreground">{t('transactions:confirmed')}</p>
                 </div>
               )}
               {claimStatus === 'claiming' && !isConfirmed && (
-                <p className="text-center text-amber-600">Transaction in progress, please wait...</p>
+                <p className="text-center text-amber-600">{t('transactions:confirming')}</p>
               )}
             </>
           ) : (
             <>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <div>
-                  Distributor winner: <span className="font-mono">{winnerAddr}</span>
+                  {t('raffle:winner')}: <span className="font-mono">{winnerAddr}</span>
                 </div>
                 <div className="text-xs">
-                  Distributor: <span className="font-mono">{hasDistributor ? distributorAddress : 'Not available'}</span>
+                  {t('common:distributor', { defaultValue: 'Distributor' })}: <span className="font-mono">{hasDistributor ? distributorAddress : t('common:notAvailable')}</span>
                 </div>
                 <div>
-                  Raffle winner: <span className="font-mono">{raffleWinner || '0x0000000000000000000000000000000000000000'}</span>
+                  {t('raffle:winner')}: <span className="font-mono">{raffleWinner || '0x0000000000000000000000000000000000000000'}</span>
                 </div>
                 <div className="text-xs">
-                  Raffle status: <span className="font-mono">{typeof raffleStatus === 'number' ? raffleStatus : (raffleStatus ?? '—')}</span>
+                  {t('raffle:status')}: <span className="font-mono">{typeof raffleStatus === 'number' ? raffleStatus : (raffleStatus ?? '—')}</span>
                 </div>
               </div>
             </>

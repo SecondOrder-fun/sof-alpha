@@ -2,6 +2,7 @@
 import PropTypes from 'prop-types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPublicClient, formatUnits, http } from 'viem';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
@@ -19,6 +20,7 @@ function useFormatSOF() {
 }
 
 const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
+  const { t } = useTranslation(['common', 'transactions']);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
   const formatSOF = useFormatSOF();
   const [activeTab, setActiveTab] = useState('buy');
@@ -116,7 +118,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       const cap = applyMaxSlippage(buyEst);
       const tx = await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
       onTxSuccess && onTxSuccess();
-      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: 'Purchase complete', hash }); } catch {
+      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); } catch {
         /* no-op */
       }
       setBuyAmount('');
@@ -130,7 +132,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       const floor = applyMinSlippage(sellEst);
       const tx = await sellTokens.mutateAsync({ tokenAmount: BigInt(sellAmount), minSofAmount: floor });
       onTxSuccess && onTxSuccess();
-      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: 'Sell complete', hash }); } catch {
+      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: t('transactions:sold'), hash }); } catch {
         /* no-op */
       }
       setSellAmount('');
@@ -158,15 +160,15 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
         <div className="relative w-full mb-3 mt-2">
           <div className="w-full flex justify-center">
             <TabsList className="flex gap-3">
-              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-4 text-lg">Buy</TabsTrigger>
-              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-4 text-lg">Sell</TabsTrigger>
+              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-4 text-lg">{t('common:buy')}</TabsTrigger>
+              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-4 text-lg">{t('common:sell')}</TabsTrigger>
             </TabsList>
           </div>
           <button type="button" className="absolute right-0 top-0 text-xl px-2 py-1 rounded hover:bg-muted" onClick={() => setShowSettings((s) => !s)} title="Slippage settings">⚙︎</button>
           {showSettings && (
             <div className="absolute right-0 top-8 z-10 w-64 border rounded-md bg-card p-3 shadow">
-              <div className="text-sm font-medium mb-2">Slippage tolerance</div>
-              <div className="text-xs text-muted-foreground mb-2">This is maximum percentage you are willing to lose due to unfavorable price changes.</div>
+              <div className="text-sm font-medium mb-2">{t('common:slippage', { defaultValue: 'Slippage tolerance' })}</div>
+              <div className="text-xs text-muted-foreground mb-2">{t('common:slippageDescription', { defaultValue: 'Maximum percentage you are willing to lose due to unfavorable price changes.' })}</div>
               <div className="flex gap-2 mb-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('0')}>0.0%</Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setSlippagePct('1')}>1.0%</Button>
@@ -174,7 +176,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
               </div>
               <div className="flex items-center gap-2">
                 <Input type="number" value={slippagePct} onChange={(e) => setSlippagePct(e.target.value)} className="w-24" />
-                <Button type="button" size="sm" onClick={() => setShowSettings(false)}>Save</Button>
+                <Button type="button" size="sm" onClick={() => setShowSettings(false)}>{t('common:save')}</Button>
               </div>
             </div>
           )}
@@ -183,11 +185,11 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
         {activeTab === 'buy' && (
           <TabsContent value="buy">
             <form className="space-y-2" onSubmit={onBuy}>
-              <div className="font-medium">Amount to Buy</div>
-              <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="Amount" />
-              <div className="text-xs text-muted-foreground">Estimated cost: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
+              <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
+              <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
+              <div className="text-xs text-muted-foreground">{t('common:estimatedCost', { defaultValue: 'Estimated cost' })}: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
               <Button type="submit" disabled={rpcMissing || !buyAmount || buyTokens.isPending} className="w-full" title={disabledTip}>
-                {buyTokens.isPending ? 'Buying…' : 'Buy'}
+                {buyTokens.isPending ? t('transactions:buying') : t('common:buy')}
               </Button>
             </form>
           </TabsContent>
@@ -196,14 +198,14 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
         {activeTab === 'sell' && (
           <TabsContent value="sell">
             <form className="space-y-2" onSubmit={onSell}>
-              <div className="font-medium">Amount to Sell</div>
+              <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
               <div className="flex gap-2">
-                <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder="Amount" />
-                <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title="Max you can sell">MAX</Button>
+                <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
+                <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title={t('common:max', { defaultValue: 'Max' })}>MAX</Button>
               </div>
-              <div className="text-xs text-muted-foreground">Estimated proceed: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
+              <div className="text-xs text-muted-foreground">{t('common:estimatedProceeds', { defaultValue: 'Estimated proceeds' })}: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
               <Button type="submit" variant="secondary" disabled={rpcMissing || !sellAmount || sellTokens.isPending} className="w-full" title={disabledTip}>
-                {sellTokens.isPending ? 'Selling…' : 'Sell'}
+                {sellTokens.isPending ? t('transactions:selling') : t('common:sell')}
               </Button>
             </form>
           </TabsContent>

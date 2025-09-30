@@ -2,6 +2,7 @@
 // Updated: 2025-09-30 15:56 - Fixed all BigInt conversions
 import PropTypes from 'prop-types';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp, AlertCircle, RefreshCw, Activity } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,7 @@ import { useArbitrageDetectionLive } from '@/hooks/useArbitrageDetection';
  * @param {number} props.minProfitability - Minimum profit threshold (default: 2%)
  */
 const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfitability = 2 }) => {
+  const { t } = useTranslation('market');
   const { opportunities, isLoading, error, isLive, refetch } = useArbitrageDetectionLive(
     seasonId,
     bondingCurveAddress,
@@ -55,11 +57,11 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
     return (
       <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white">
         <CardHeader>
-          <CardTitle>Arbitrage Opportunities</CardTitle>
+          <CardTitle>{t('arbitrageOpportunities')}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Configuration required: seasonId and bondingCurveAddress must be provided
+            {t('configurationRequired')}
           </p>
         </CardContent>
       </Card>
@@ -72,18 +74,18 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-amber-600" />
-            <CardTitle>Arbitrage Opportunities</CardTitle>
+            <CardTitle>{t('arbitrageOpportunities')}</CardTitle>
             {isLive && (
               <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
                 <Activity className="h-3 w-3 animate-pulse" />
-                Live
+                {t('live')}
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
             {lastUpdateTime && (
               <span className="text-xs text-muted-foreground">
-                Updated {lastUpdateTime}
+                {t('updated')} {lastUpdateTime}
               </span>
             )}
             <Button
@@ -103,7 +105,7 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <RefreshCw className="mx-auto h-8 w-8 animate-spin text-amber-600" />
-              <p className="mt-2 text-sm text-muted-foreground">Scanning for opportunities...</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t('scanningForOpportunities')}</p>
             </div>
           </div>
         )}
@@ -112,7 +114,7 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
           <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <div>
-              <p className="text-sm font-medium text-red-900">Failed to detect opportunities</p>
+              <p className="text-sm font-medium text-red-900">{t('failedToDetectOpportunities')}</p>
               <p className="text-xs text-red-700">{error}</p>
             </div>
           </div>
@@ -121,13 +123,12 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
         {!isLoading && !error && opportunities.length === 0 && (
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
             <TrendingUp className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-sm font-medium text-gray-900">No opportunities detected</h3>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">{t('noOpportunitiesDetected')}</h3>
             <p className="mt-2 text-xs text-gray-600">
-              Arbitrage opportunities appear when there&apos;s a price discrepancy between
-              raffle entry costs and prediction market prices.
+              {t('arbitrageDescription')}
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              Minimum threshold: {minProfitability}% profit
+              {t('minimumThreshold', { percent: minProfitability })}
             </p>
           </div>
         )}
@@ -143,7 +144,7 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-medium text-gray-900">
-                        Player: {opportunity.player.slice(0, 6)}...{opportunity.player.slice(-4)}
+                        {t('player')}: {opportunity.player.slice(0, 6)}...{opportunity.player.slice(-4)}
                       </h4>
                       <Badge
                         variant="secondary"
@@ -153,7 +154,7 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Season {opportunity.seasonId}
+                      {t('raffle:season')} {opportunity.seasonId}
                     </p>
                   </div>
                   <Badge className={getProfitabilityColor(Number(opportunity.profitability))}>
@@ -163,15 +164,15 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
 
                 <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-gray-50 p-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Raffle Cost</p>
+                    <p className="text-xs text-muted-foreground">{t('raffleCost')}</p>
                     <p className="text-sm font-medium">{Number(opportunity.rafflePrice).toFixed(4)} SOF</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Market Price</p>
+                    <p className="text-xs text-muted-foreground">{t('marketPrice')}</p>
                     <p className="text-sm font-medium">{Number(opportunity.marketPrice).toFixed(4)} SOF</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Spread</p>
+                    <p className="text-xs text-muted-foreground">{t('spread')}</p>
                     <p className="text-sm font-medium text-green-600">
                       {Number(opportunity.priceDifference).toFixed(4)} SOF
                     </p>
@@ -182,8 +183,19 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
                   <div className="flex items-start gap-2">
                     <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-amber-900">Strategy</p>
-                      <p className="mt-1 text-xs text-amber-800">{opportunity.strategy}</p>
+                      <p className="text-xs font-medium text-amber-900">{t('strategy')}</p>
+                      <p className="mt-1 text-xs text-amber-800">
+                        {opportunity.direction === 'buy_raffle'
+                          ? t('buyRaffleTickets', { 
+                              price: Number(opportunity.rafflePrice).toFixed(4), 
+                              sellPrice: Number(opportunity.marketPrice).toFixed(4) 
+                            })
+                          : t('buyInfoFiPosition', { 
+                              price: Number(opportunity.marketPrice).toFixed(4), 
+                              exitPrice: Number(opportunity.rafflePrice).toFixed(4) 
+                            })
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -191,14 +203,14 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex gap-3">
                     <span>
-                      Raffle: {(Number(opportunity.raffleProbabilityBps) / 100).toFixed(2)}%
+                      {t('raffle')}: {(Number(opportunity.raffleProbabilityBps) / 100).toFixed(2)}%
                     </span>
                     <span>
-                      Market: {(Number(opportunity.marketSentimentBps) / 100).toFixed(2)}%
+                      {t('market')}: {(Number(opportunity.marketSentimentBps) / 100).toFixed(2)}%
                     </span>
                   </div>
                   <span className="text-xs italic">
-                    Est. profit: {Number(opportunity.estimatedProfit).toFixed(4)} SOF
+                    {t('estimatedProfitShort')}: {Number(opportunity.estimatedProfit).toFixed(4)} SOF
                   </span>
                 </div>
               </div>
@@ -209,9 +221,7 @@ const ArbitrageOpportunityDisplay = ({ seasonId, bondingCurveAddress, minProfita
         {opportunities.length > 0 && (
           <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-3">
             <p className="text-xs text-blue-900">
-              <strong>Note:</strong> Arbitrage execution is not yet implemented. These opportunities
-              are for informational purposes only. Always verify prices and consider gas costs
-              before executing any trades.
+              <strong>{t('note')}:</strong> {t('arbitrageNote')}
             </p>
           </div>
         )}

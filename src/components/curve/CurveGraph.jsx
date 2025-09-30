@@ -1,6 +1,7 @@
 // src/components/curve/CurveGraph.jsx
 import PropTypes from 'prop-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPublicClient, formatUnits, http } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
@@ -12,6 +13,7 @@ import { getContractAddresses } from '@/config/contracts';
  * MVP: progress, current step, current price, recent steps.
  */
 const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
+  const { t } = useTranslation('raffle');
   const [sofDecimals, setSofDecimals] = useState(18);
 
   // Read SOF decimals from configured token
@@ -171,7 +173,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
       {/* SVG Stepped Curve Visualization */}
       <div className="w-full overflow-hidden border rounded p-2 bg-background">
         {chartData.points.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No bonding curve data available.</div>
+          <div className="text-sm text-muted-foreground">{t('noBondingCurveData')}</div>
         ) : (
           <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-80" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
             {/* Axes */}
@@ -219,7 +221,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
                     {/* Vertical guideline */}
                     <line x1={cx} y1={margin.top} x2={cx} y2={height - margin.bottom} stroke="#f97316" strokeDasharray="4 3" />
                     <circle cx={cx} cy={cy} r={3} fill="#ef4444" />
-                    <text x={cx + 6} y={cy - 6} fontSize="10" fill="#ef4444">Current</text>
+                    <text x={cx + 6} y={cy - 6} fontSize="10" fill="#ef4444">{t('current')}</text>
                   </g>
                 );
               } catch { return null; }
@@ -239,8 +241,8 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
                   return (
                     <g>
                       <rect x={tx} y={ty} width={boxW} height={boxH} rx={6} ry={6} fill="#111827" opacity="0.9" />
-                      <text x={tx + pad} y={ty + 16} fontSize="11" fill="#e5e7eb">Supply: {Math.round(hover.xSupply)}</text>
-                      <text x={tx + pad} y={ty + 32} fontSize="11" fill="#e5e7eb">Price: {hover.yPrice.toFixed(4)} SOF</text>
+                      <text x={tx + pad} y={ty + 16} fontSize="11" fill="#e5e7eb">{t('supply')}: {Math.round(hover.xSupply)}</text>
+                      <text x={tx + pad} y={ty + 32} fontSize="11" fill="#e5e7eb">{t('common:price')}: {hover.yPrice.toFixed(4)} SOF</text>
                     </g>
                   );
                 })()}
@@ -248,19 +250,19 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
             )}
 
             {/* Axis labels */}
-            <text x={width / 2} y={height - 4} textAnchor="middle" fontSize="11" fill="#6b7280">Supply (tickets)</text>
-            <text x={12} y={height / 2} textAnchor="middle" fontSize="11" fill="#6b7280" transform={`rotate(-90 12 ${height / 2})`}>Price (SOF)</text>
+            <text x={width / 2} y={height - 4} textAnchor="middle" fontSize="11" fill="#6b7280">{t('supplyTickets')}</text>
+            <text x={12} y={height / 2} textAnchor="middle" fontSize="11" fill="#6b7280" transform={`rotate(-90 12 ${height / 2})`}>{t('priceSof')}</text>
           </svg>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-2 border rounded">
-          <div className="text-muted-foreground">Current Step</div>
+          <div className="text-muted-foreground">{t('currentStep')}</div>
           <div className="font-mono text-lg">{curveStep?.step?.toString?.() ?? '0'}</div>
         </div>
         <div className="p-2 border rounded">
-          <div className="text-muted-foreground">Current Price (SOF)</div>
+          <div className="text-muted-foreground">{t('currentPrice')}</div>
           <div className="font-mono text-lg">{formatSOF(currentPrice)}</div>
         </div>
       </div>
@@ -268,7 +270,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
       {/* Progress bar moved below the graph */}
       <div>
         <div className="flex justify-between text-sm text-muted-foreground mb-1">
-          <span>Bonding Curve Progress</span>
+          <span>{t('bondingCurveProgress')}</span>
           <span>{progressPct.toFixed(2)}%</span>
         </div>
         <div className="w-full" onMouseLeave={onProgressLeave}>
@@ -293,7 +295,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
                         className="absolute -top-1 translate-x-[-50%] w-2 h-2 rounded-full bg-primary border border-white shadow cursor-help"
                         style={{ left: `${leftPct}%` }}
                         onMouseEnter={() => onStepEnter(leftPct, price, String(stepNum))}
-                        aria-label={`Step ${String(stepNum)} price ${price} SOF`}
+                        aria-label={`${t('step')} ${String(stepNum)} ${t('common:price')} ${price} SOF`}
                       />
                     );
                   })}
@@ -302,14 +304,14 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
                       className="absolute -top-10 translate-x-[-50%] px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs border shadow"
                       style={{ left: `${progressTip.leftPct}%` }}
                       role="tooltip"
-                      aria-label={`Step ${progressTip.step} price ${progressTip.price} SOF`}
+                      aria-label={`${t('step')} ${progressTip.step} ${t('common:price')} ${progressTip.price} SOF`}
                       // Prevent tooltip from capturing the mouse and causing flicker
                       onMouseEnter={(e) => e.stopPropagation()}
                       onMouseMove={(e) => e.stopPropagation()}
                       onMouseLeave={(e) => e.stopPropagation()}
                     >
                       <div className="font-mono">{progressTip.price} SOF</div>
-                      <div className="text-[10px] text-muted-foreground">Step #{progressTip.step}</div>
+                      <div className="text-[10px] text-muted-foreground">{t('step')} #{progressTip.step}</div>
                     </div>
                   )}
                 </>
@@ -318,7 +320,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
           </div>
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          Supply: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
+          {t('supply')}: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
         </div>
       </div>
     </div>

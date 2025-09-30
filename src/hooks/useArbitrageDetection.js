@@ -81,15 +81,8 @@ export function useArbitrageDetection(seasonId, bondingCurveAddress, options = {
             // Filter by minimum profitability threshold
             if (profitabilityBps < minProfitabilityBps) continue;
 
-            // Determine arbitrage direction and strategy
-            let direction, strategy;
-            if (raffleCost < marketPriceSOF) {
-              direction = 'buy_raffle';
-              strategy = `Buy raffle tickets at ${raffleCost.toFixed(4)} SOF, sell InfoFi position at ${marketPriceSOF.toFixed(4)} SOF`;
-            } else {
-              direction = 'buy_market';
-              strategy = `Buy InfoFi position at ${marketPriceSOF.toFixed(4)} SOF, exit raffle at ${raffleCost.toFixed(4)} SOF`;
-            }
+            // Determine arbitrage direction (no text generation - let component handle it)
+            const direction = raffleCost < marketPriceSOF ? 'buy_raffle' : 'buy_market';
 
             detected.push({
               id: `${market.id}-${Date.now()}`,
@@ -101,7 +94,6 @@ export function useArbitrageDetection(seasonId, bondingCurveAddress, options = {
               priceDifference,
               profitability: profitabilityBps / 100, // Convert to percentage
               estimatedProfit: priceDifference,
-              strategy,
               direction,
               raffleProbabilityBps: oraclePrice.raffleProbabilityBps,
               marketSentimentBps: oraclePrice.marketSentimentBps,
