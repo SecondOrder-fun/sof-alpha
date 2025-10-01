@@ -40,9 +40,11 @@ contract DeployScript is Script {
         console2.log("VRF Subscription created with ID:", subscriptionId);
         
         // Deploy SOF token with a 100,000,000 SOF premint to the deployer (18 decimals)
+        // Treasury address set to deployer (account[0]) for testing; change to multisig for production
         uint256 initialSupply = 100_000_000 ether; // 100,000,000 * 1e18
-        SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, msg.sender);
+        SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, deployerAddr);
         console2.log("SOF initial supply minted to deployer:", initialSupply);
+        console2.log("SOF treasury address set to:", deployerAddr);
 
         // Deploy Raffle contract first
         Raffle raffle = new Raffle(address(sof), address(vrfCoordinator), subscriptionId, keyHash);

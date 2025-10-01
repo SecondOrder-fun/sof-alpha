@@ -58,6 +58,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     // Player ticket tracking (mirrors mint/burn actions for fast reads)
     mapping(address => uint256) public playerTickets;
 
+    // Treasury fee tracking
+    uint256 public accumulatedFees;
+
     // Events
     event TokensPurchased( // total paid including fee
     address indexed buyer, uint256 sofAmount, uint256 tokensReceived, uint256 feeAmount);
@@ -78,6 +81,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     event TradingLocked(uint256 timestamp);
     event SofExtracted(address indexed to, uint256 amount);
     event CurveInitialized(address raffleToken, uint256 stepCount);
+    event FeesExtracted(address indexed to, uint256 amount);
 
     constructor(address _sofToken) {
         require(_sofToken != address(0), "SOF: token is zero");
@@ -196,9 +200,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Mint raffle tokens to buyer (assumes raffleToken has mint(address,uint256))
         _mintRaffleTokens(msg.sender, tokenAmount);
 
-        // Update curve state (reserves track only base cost; fees remain as surplus)
+        // Update curve state (reserves track only base cost; fees accumulate separately)
         curveConfig.totalSupply += tokenAmount;
         curveConfig.sofReserves += baseCost;
+        accumulatedFees += fee;
 
         // Update player position
         uint256 newTickets = oldTickets + tokenAmount;
@@ -288,9 +293,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Transfer $SOF to seller (after fee)
         sofToken.safeTransfer(msg.sender, payout);
 
-        // Update curve state (reserves decrease by base return; fees remain as surplus)
+        // Update curve state (reserves decrease by base return; fees accumulate separately)
         curveConfig.totalSupply -= tokenAmount;
         curveConfig.sofReserves -= baseReturn;
+        accumulatedFees += fee;
 
         // Update player position
         uint256 newTickets = oldTickets - tokenAmount;
@@ -438,6 +444,29 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      */
     function getSofReserves() external view returns (uint256) {
         return curveConfig.sofReserves;
+    }
+
+    /**
+     * @notice Extract accumulated fees to SOFToken treasury system
+     * @dev Can be called manually by admin or automatically at season end
+     */
+    function extractFeesToTreasury() external onlyRole(RAFFLE_MANAGER_ROLE) nonReentrant {
+        require(accumulatedFees > 0, "Curve: no fees");
+        
+        uint256 feesToExtract = accumulatedFees;
+        accumulatedFees = 0;
+        
+        // Approve SOFToken to collect fees
+        sofToken.approve(address(sofToken), feesToExtract);
+        
+        // Call SOFToken's collectFees function
+        try IERC20(address(sofToken)).transferFrom(address(this), address(sofToken), feesToExtract) {
+            emit FeesExtracted(address(sofToken), feesToExtract);
+        } catch {
+            // If transfer fails, restore accumulated fees
+            accumulatedFees = feesToExtract;
+            revert("Curve: fee extraction failed");
+        }
     }
 
     /**

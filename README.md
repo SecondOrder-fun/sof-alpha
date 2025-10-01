@@ -198,7 +198,9 @@ forge test
 
 ## Smart Contracts
 
-### Raffle.sol
+### Core Contracts
+
+#### Raffle.sol
 
 The core raffle contract that handles:
 
@@ -207,7 +209,25 @@ The core raffle contract that handles:
 - Selecting winners using Chainlink VRF
 - Distributing prizes
 
-### InfoFiMarket.sol
+#### SOFBondingCurve.sol
+
+Discrete bonding curve for ticket sales:
+
+- Step-based pricing mechanism
+- Buy/sell fee collection (0.1% buy, 0.7% sell)
+- Fee accumulation for treasury system
+- Season locking capability
+
+#### SOFToken.sol
+
+Platform token with treasury management:
+
+- ERC20 token with 100M initial supply
+- Centralized fee collection system
+- Treasury distribution mechanism
+- Role-based access control
+
+#### InfoFiMarket.sol
 
 The prediction market contract that handles:
 
@@ -215,6 +235,32 @@ The prediction market contract that handles:
 - Accepting bets on yes/no questions
 - Resolving markets with outcomes
 - Distributing payouts to winners
+
+### Treasury System
+
+SecondOrder.fun implements a two-stage fee collection and treasury management system:
+
+1. **Fee Accumulation**: Bonding curves accumulate fees from buy/sell transactions
+2. **Fee Extraction**: Fees are extracted to SOFToken contract (manual or automated)
+3. **Treasury Distribution**: Treasury managers distribute accumulated fees to treasury address
+
+**Key Features:**
+
+- Minimal gas overhead (~100 gas per transaction)
+- Centralized fee aggregation across all platform contracts
+- Flexible distribution timing and destinations
+- Role-based access control for security
+
+**Documentation:**
+
+- [Treasury System Overview](./doc/TREASURY_SYSTEM.md)
+- [Fee Collection Gas Analysis](./doc/FEE_COLLECTION_GAS_ANALYSIS.md)
+
+**Gas Impact:**
+
+- Fee tracking: ~100 gas per buy/sell transaction (<0.1% increase)
+- Fee extraction: ~50,000 gas (admin operation, not user-facing)
+- Treasury distribution: ~30,000 gas (treasury manager operation)
 
 ## API Endpoints
 

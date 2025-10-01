@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../src/core/Raffle.sol";
 import "../src/lib/RaffleTypes.sol";
+import "../src/token/SOFToken.sol";
 
 contract CreateSeason is Script {
     function run() external {
@@ -52,6 +53,19 @@ contract CreateSeason is Script {
         if (trackerAddress != address(0)) {
             raffle.setPositionTrackerForSeason(seasonId, trackerAddress);
             console2.log("Wired position tracker for season", seasonId);
+        }
+
+        // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
+        address sofAddress = vm.envAddress("SOF_ADDRESS");
+        if (sofAddress != address(0)) {
+            SOFToken sofToken = SOFToken(sofAddress);
+            (, , , , , address bondingCurve, , , ) = raffle.seasons(seasonId);
+            
+            try sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), bondingCurve) {
+                console2.log("Granted FEE_COLLECTOR_ROLE to bonding curve:", bondingCurve);
+            } catch {
+                console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
+            }
         }
 
         vm.stopBroadcast();
