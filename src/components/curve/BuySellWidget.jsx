@@ -160,8 +160,8 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
         <div className="relative w-full mb-3 mt-2">
           <div className="w-full flex justify-center">
             <TabsList className="flex gap-3">
-              <TabsTrigger value="buy" onClick={() => setActiveTab('buy')} className="px-8 py-4 text-lg">{t('common:buy')}</TabsTrigger>
-              <TabsTrigger value="sell" onClick={() => setActiveTab('sell')} className="px-8 py-4 text-lg">{t('common:sell')}</TabsTrigger>
+              <TabsTrigger value="buy" className="px-8 py-4 text-lg">{t('common:buy')}</TabsTrigger>
+              <TabsTrigger value="sell" className="px-8 py-4 text-lg">{t('common:sell')}</TabsTrigger>
             </TabsList>
           </div>
           <button type="button" className="absolute right-0 top-0 text-xl px-2 py-1 rounded hover:bg-muted" onClick={() => setShowSettings((s) => !s)} title="Slippage settings">⚙︎</button>
@@ -182,34 +182,30 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
           )}
         </div>
 
-        {activeTab === 'buy' && (
-          <TabsContent value="buy">
-            <form className="space-y-2" onSubmit={onBuy}>
-              <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
-              <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
-              <div className="text-xs text-muted-foreground">{t('common:estimatedCost', { defaultValue: 'Estimated cost' })}: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
-              <Button type="submit" disabled={rpcMissing || !buyAmount || buyTokens.isPending} className="w-full" title={disabledTip}>
-                {buyTokens.isPending ? t('transactions:buying') : t('common:buy')}
-              </Button>
-            </form>
-          </TabsContent>
-        )}
+        <TabsContent value="buy">
+          <form className="space-y-2" onSubmit={onBuy}>
+            <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
+            <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
+            <div className="text-xs text-muted-foreground">{t('common:estimatedCost', { defaultValue: 'Estimated cost' })}: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
+            <Button type="submit" disabled={rpcMissing || !buyAmount || buyTokens.isPending} className="w-full" title={disabledTip}>
+              {buyTokens.isPending ? t('transactions:buying') : t('common:buy')}
+            </Button>
+          </form>
+        </TabsContent>
 
-        {activeTab === 'sell' && (
-          <TabsContent value="sell">
-            <form className="space-y-2" onSubmit={onSell}>
-              <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
-              <div className="flex gap-2">
-                <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
-                <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title={t('common:max', { defaultValue: 'Max' })}>MAX</Button>
-              </div>
-              <div className="text-xs text-muted-foreground">{t('common:estimatedProceeds', { defaultValue: 'Estimated proceeds' })}: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
-              <Button type="submit" variant="secondary" disabled={rpcMissing || !sellAmount || sellTokens.isPending} className="w-full" title={disabledTip}>
-                {sellTokens.isPending ? t('transactions:selling') : t('common:sell')}
-              </Button>
-            </form>
-          </TabsContent>
-        )}
+        <TabsContent value="sell">
+          <form className="space-y-2" onSubmit={onSell}>
+            <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
+            <div className="flex gap-2">
+              <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
+              <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title={t('common:max', { defaultValue: 'Max' })}>MAX</Button>
+            </div>
+            <div className="text-xs text-muted-foreground">{t('common:estimatedProceeds', { defaultValue: 'Estimated proceeds' })}: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
+            <Button type="submit" variant="secondary" disabled={rpcMissing || !sellAmount || sellTokens.isPending} className="w-full" title={disabledTip}>
+              {sellTokens.isPending ? t('transactions:selling') : t('common:sell')}
+            </Button>
+          </form>
+        </TabsContent>
       </Tabs>
     </div>
   );

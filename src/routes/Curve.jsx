@@ -93,25 +93,19 @@ const Curve = () => {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
-              <TabsTrigger value="transactions" onClick={() => setActiveTab('transactions')}>Transactions</TabsTrigger>
-              <TabsTrigger value="token-info" onClick={() => setActiveTab('token-info')}>Token Info</TabsTrigger>
-              <TabsTrigger value="holders" onClick={() => setActiveTab('holders')}>Token Holders</TabsTrigger>
+              <TabsTrigger value="transactions">Transactions</TabsTrigger>
+              <TabsTrigger value="token-info">Token Info</TabsTrigger>
+              <TabsTrigger value="holders">Token Holders</TabsTrigger>
             </TabsList>
-            {activeTab === 'transactions' && (
-              <TabsContent value="transactions">
-                <TransactionsTab bondingCurveAddress={bondingCurveAddress} />
-              </TabsContent>
-            )}
-            {activeTab === 'token-info' && (
-              <TabsContent value="token-info">
-                <TokenInfoTab bondingCurveAddress={bondingCurveAddress} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
-              </TabsContent>
-            )}
-            {activeTab === 'holders' && (
-              <TabsContent value="holders">
-                <HoldersTab bondingCurveAddress={bondingCurveAddress} />
-              </TabsContent>
-            )}
+            <TabsContent value="transactions">
+              <TransactionsTab bondingCurveAddress={bondingCurveAddress} />
+            </TabsContent>
+            <TabsContent value="token-info">
+              <TokenInfoTab bondingCurveAddress={bondingCurveAddress} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
+            </TabsContent>
+            <TabsContent value="holders">
+              <HoldersTab bondingCurveAddress={bondingCurveAddress} />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

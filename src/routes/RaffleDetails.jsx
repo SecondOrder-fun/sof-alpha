@@ -27,6 +27,7 @@ const RaffleDetails = () => {
   const { seasonDetailsQuery } = useRaffleState(seasonId);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
+  const [activeTab, setActiveTab] = useState('token-info');
   const { curveSupply, curveReserves, curveStep, /* bondStepsPreview, */ allBondSteps, debouncedRefresh } = useCurveState(
     bondingCurveAddress,
     { isActive: seasonDetailsQuery?.data?.status === 1, pollMs: 12000 }
@@ -249,9 +250,6 @@ const RaffleDetails = () => {
               </CardHeader>
               <CardContent>
 
-                {/* Player snapshot moved below Buy/Sell widget */}
-
-                {/* Status badge intentionally removed */}
                 {(() => {
                   const st = seasonDetailsQuery.data.status;
                   const start = Number(cfg.startTime);
@@ -262,7 +260,6 @@ const RaffleDetails = () => {
                   }
                   return null;
                 })()}
-                {/* Start/End times shown in header */}
 
                 {/* Bonding Curve UI */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
@@ -341,56 +338,22 @@ const RaffleDetails = () => {
                     <CardTitle>{t('activityAndDetails')}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {(() => {
-                      // local tab state
-                      // Note: component already imports useState at top
-                      // We create a local state holder by closing over a ref variable via IIFE scope
-                      // to avoid re-render loops. Instead, lift to top-level state.
-                      return null;
-                    })()}
-                    {
-                      // Define tab state at component scope
-                    }
-                    {(() => {
-                      // Ensure activeTab exists on window for now; migrate to component state
-                      return null;
-                    })()}
-                    {
-                      /* Render tabs with manual state */
-                    }
-                    {(() => {
-                      // Simple stateful tabs using React state
-                      // We inline a small component to keep diff minimal
-                      // eslint-disable-next-line react/display-name
-                      const TabsBlock = () => {
-                        const [activeTab, setActiveTab] = useState('token-info');
-                        return (
-                          <Tabs value={activeTab} onValueChange={setActiveTab}>
-                            <TabsList>
-                              <TabsTrigger value="token-info" onClick={() => setActiveTab('token-info')}>{t('tokenInfo')}</TabsTrigger>
-                              <TabsTrigger value="transactions" onClick={() => setActiveTab('transactions')}>{t('common:transactions')}</TabsTrigger>
-                              <TabsTrigger value="holders" onClick={() => setActiveTab('holders')}>{t('tokenHolders')}</TabsTrigger>
-                            </TabsList>
-                            {activeTab === 'token-info' && (
-                              <TabsContent value="token-info">
-                                <TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
-                              </TabsContent>
-                            )}
-                            {activeTab === 'transactions' && (
-                              <TabsContent value="transactions">
-                                <TransactionsTab bondingCurveAddress={bc} />
-                              </TabsContent>
-                            )}
-                            {activeTab === 'holders' && (
-                              <TabsContent value="holders">
-                                <HoldersTab bondingCurveAddress={bc} />
-                              </TabsContent>
-                            )}
-                          </Tabs>
-                        );
-                      };
-                      return <TabsBlock />;
-                    })()}
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                      <TabsList>
+                        <TabsTrigger value="token-info">{t('tokenInfo')}</TabsTrigger>
+                        <TabsTrigger value="transactions">{t('common:transactions')}</TabsTrigger>
+                        <TabsTrigger value="holders">{t('tokenHolders')}</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="token-info">
+                        <TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
+                      </TabsContent>
+                      <TabsContent value="transactions">
+                        <TransactionsTab bondingCurveAddress={bc} seasonId={seasonId} />
+                      </TabsContent>
+                      <TabsContent value="holders">
+                        <HoldersTab bondingCurveAddress={bc} seasonId={seasonId} />
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
                 <RaffleAdminControls seasonId={seasonId} />

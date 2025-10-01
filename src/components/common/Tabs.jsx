@@ -1,14 +1,20 @@
 // src/components/common/Tabs.jsx
 import PropTypes from 'prop-types';
-import { useId } from 'react';
+import { createContext, useContext, useId } from 'react';
 
-export const Tabs = ({ children }) => (
-  <div data-tabs-root="" className="w-full">
-    {children}
-  </div>
+const TabsContext = createContext({ value: '', onValueChange: () => {} });
+
+export const Tabs = ({ children, value, onValueChange }) => (
+  <TabsContext.Provider value={{ value, onValueChange }}>
+    <div data-tabs-root="" className="w-full">
+      {children}
+    </div>
+  </TabsContext.Provider>
 );
 Tabs.propTypes = {
   children: PropTypes.node,
+  value: PropTypes.string,
+  onValueChange: PropTypes.func,
 };
 
 export const TabsList = ({ children }) => (
@@ -22,13 +28,19 @@ TabsList.propTypes = {
 
 export const TabsTrigger = ({ value, children, onClick }) => {
   const id = useId();
+  const { value: activeValue, onValueChange } = useContext(TabsContext);
+  const isActive = activeValue === value;
+  
   return (
     <button
       id={`tab-${id}`}
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        onValueChange?.(value);
+        onClick?.();
+      }}
       className="px-3 py-1.5 rounded text-sm hover:bg-muted aria-selected:bg-background aria-selected:border aria-selected:shadow"
-      aria-selected={undefined}
+      aria-selected={isActive}
       data-value={value}
     >
       {children}
@@ -41,11 +53,19 @@ TabsTrigger.propTypes = {
   onClick: PropTypes.func,
 };
 
-export const TabsContent = ({ value, children }) => (
-  <div data-value={value} className="mt-2">
-    {children}
-  </div>
-);
+export const TabsContent = ({ value, children }) => {
+  const { value: activeValue } = useContext(TabsContext);
+  
+  if (activeValue !== value) {
+    return null;
+  }
+  
+  return (
+    <div data-value={value} className="mt-2">
+      {children}
+    </div>
+  );
+};
 TabsContent.propTypes = {
   value: PropTypes.string,
   children: PropTypes.node,
