@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import NetworkToggle from '@/components/common/NetworkToggle';
 import LanguageToggle from '@/components/common/LanguageToggle';
 import { useAccessControl } from '@/hooks/useAccessControl';
+import { Globe } from 'lucide-react';
 
 const Header = () => {
   const { t } = useTranslation('navigation');
@@ -52,9 +53,17 @@ const Header = () => {
               {t('users')}
             </Link>
             {isAdmin && (
-              <Link to="/admin" className="hover:text-primary transition-colors">
-                {t('admin')}
-              </Link>
+              <>
+                <Link to="/admin" className="hover:text-primary transition-colors">
+                  {t('admin')}
+                </Link>
+                <Link to="/admin/localization" className="hover:text-primary transition-colors">
+                  <span className="flex items-center gap-1">
+                    <Globe className="h-4 w-4" />
+                    Localization
+                  </span>
+                </Link>
+              </>
             )}
             <Link to={isConnected && address ? `/users/${address}` : "/account"} className="hover:text-primary transition-colors">
               {t('myAccount')}

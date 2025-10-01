@@ -23,7 +23,7 @@ export const SelectTrigger = ({ className, children, ...props }) => (
   </SelectPrimitive.Trigger>
 );
 
-export const SelectContent = ({ className, position = "popper", ...props }) => (
+export const SelectContent = ({ className, children, position = "popper", ...props }) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       className={cn(
@@ -37,7 +37,9 @@ export const SelectContent = ({ className, position = "popper", ...props }) => (
       {...props}
     >
       <SelectScrollUpButton />
-      <SelectViewport className="p-1" />
+      <SelectPrimitive.Viewport className="p-1">
+        {children}
+      </SelectPrimitive.Viewport>
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>

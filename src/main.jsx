@@ -52,6 +52,7 @@ import MarketsIndex from './routes/MarketsIndex';
 import UsersIndex from './routes/UsersIndex';
 import UserProfile from './routes/UserProfile';
 import FaucetPage from './routes/FaucetPage';
+import LocalizationAdmin from './routes/LocalizationAdmin';
 
 // Create router
 const router = createBrowserRouter([
@@ -99,6 +100,10 @@ const router = createBrowserRouter([
       {
         path: 'faucet',
         element: <FaucetPage />,
+      },
+      {
+        path: 'admin/localization',
+        element: <LocalizationAdmin />,
       },
       {
         path: '*',
@@ -152,7 +157,22 @@ ProviderErrorBoundary.propTypes = {
 // Wrapper component to provide RainbowKit with current locale
 const RainbowKitWrapper = ({ children }) => {
   const { i18n } = useTranslation();
-  const locale = i18n.language === 'ja' ? 'ja' : 'en';
+  
+  // Map our language codes to RainbowKit supported locales
+  // RainbowKit supports: en, zh, ja, fr, es, pt, ru
+  const localeMap = {
+    en: 'en',
+    ja: 'ja',
+    fr: 'fr',
+    es: 'es',
+    de: 'en', // German not supported by RainbowKit, fallback to English
+    pt: 'pt',
+    it: 'en', // Italian not supported by RainbowKit, fallback to English
+    zh: 'zh',
+    ru: 'ru',
+  };
+  
+  const locale = localeMap[i18n.language] || 'en';
   
   return (
     <RainbowKitProvider locale={locale}>

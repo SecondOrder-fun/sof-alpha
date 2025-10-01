@@ -9,7 +9,7 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: 'en',
-    supportedLngs: ['en', 'ja'],
+    supportedLngs: ['en', 'ja', 'fr', 'es', 'de', 'pt', 'it', 'zh', 'ru'],
     defaultNS: 'common',
     ns: ['common', 'navigation', 'raffle', 'market', 'admin', 'account', 'errors', 'transactions'],
     
