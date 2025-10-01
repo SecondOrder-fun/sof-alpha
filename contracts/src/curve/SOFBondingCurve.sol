@@ -267,6 +267,13 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Guardrail: ensure tokenAmount does not exceed current supply for pricing calc
         require(tokenAmount <= curveConfig.totalSupply, "Curve: amount > supply");
         uint256 baseReturn = calculateSellPrice(tokenAmount);
+        
+        // Edge case: if selling all tokens, cap baseReturn to available reserves
+        // This handles rounding errors in the discrete bonding curve calculation
+        if (tokenAmount == curveConfig.totalSupply && baseReturn > curveConfig.sofReserves) {
+            baseReturn = curveConfig.sofReserves;
+        }
+        
         uint256 fee = (baseReturn * curveConfig.sellFee) / 10000;
         uint256 payout = baseReturn - fee;
 

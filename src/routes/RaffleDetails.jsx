@@ -52,6 +52,7 @@ const RaffleDetails = () => {
 
   // Local immediate position override after tx (until server snapshot catches up)
   const [localPosition, setLocalPosition] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshPositionNow = async () => {
     try {
       if (!isConnected || !address || !bondingCurveAddress) return;
@@ -154,6 +155,14 @@ const RaffleDetails = () => {
   const copyHash = async (hash) => {
     try { await navigator.clipboard.writeText(hash); } catch (_) { /* no-op */ }
   };
+
+  // Initial load: fetch position immediately
+  useEffect(() => {
+    if (isConnected && address && bondingCurveAddress) {
+      refreshPositionNow();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, bondingCurveAddress]);
 
   // Clear local override when server snapshot has caught up
   useEffect(() => {
@@ -273,20 +282,32 @@ const RaffleDetails = () => {
                       <BuySellWidget
                         bondingCurveAddress={bc}
                         onTxSuccess={() => {
+                          setIsRefreshing(true);
                           debouncedRefresh(250);
                           refreshPositionNow();
                           snapshotQuery.refetch?.();
                           // schedule a couple of follow-ups in case indexers are lagging
                           setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
-                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 4000);
+                          setTimeout(() => { 
+                            debouncedRefresh(0); 
+                            refreshPositionNow(); 
+                            snapshotQuery.refetch?.(); 
+                            setIsRefreshing(false);
+                          }, 4000);
                         }}
                         onNotify={(evt) => {
                           addToast(evt);
+                          setIsRefreshing(true);
                           debouncedRefresh(0);
                           refreshPositionNow();
                           snapshotQuery.refetch?.();
                           setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
-                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 4000);
+                          setTimeout(() => { 
+                            debouncedRefresh(0); 
+                            refreshPositionNow(); 
+                            snapshotQuery.refetch?.(); 
+                            setIsRefreshing(false);
+                          }, 4000);
                         }}
                       />
                       {/* Player snapshot (from RafflePositionTracker) */}
@@ -294,6 +315,7 @@ const RaffleDetails = () => {
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{t('yourCurrentPosition')}</div>
                           {!isConnected && (<Badge variant="secondary">{t('connectWalletToView')}</Badge>)}
+                          {isConnected && isRefreshing && (<Badge variant="outline" className="animate-pulse">{t('updating')}</Badge>)}
                         </div>
                         {isConnected && (
                           <div className="mt-2 text-sm">
@@ -306,7 +328,7 @@ const RaffleDetails = () => {
                                 <div className="text-xs text-muted-foreground">{t('totalTicketsAtSnapshot')}: <span className="font-mono">{(localPosition?.total ?? snapshotQuery.data?.totalTicketsAtTime ?? 0n).toString()}</span></div>
                               </div>
                             )}
-                            {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && (<span className="text-muted-foreground">No snapshot yet.</span>)}
+                            {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && !localPosition && (<span className="text-muted-foreground">No position yet.</span>)}
                           </div>
                         )}
                       </div>

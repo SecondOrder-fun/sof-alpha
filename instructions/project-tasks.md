@@ -14,11 +14,13 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Scope: VRF fulfillment and prize distribution in `useFundDistributor.js`.
   - Resolution: Fixed account parameter in Viem v2 writeContract calls and added SOF balance invalidation.
 
-- [ ] Cannot sell tickets to close position in raffle (Reported 2025-08-21)
+- [x] Cannot sell tickets to close position in raffle (Resolved 2025-10-01)
 
-  - Symptom: Sell flow fails when attempting to close or reduce raffle ticket positions.
+  - Symptom: "Sell Max" button would revert with errors when trying to sell all tokens.
   - Scope: Raffle sell path only (InfoFi market buy/sell is separate and in progress).
-  - Action: Investigate contract/UI/hook path in `src/hooks/useCurve.js` and `src/routes/RaffleDetails.jsx` after current InfoFi task is complete.
+  - Root Cause: Two issues: (1) Discrete bonding curve's `calculateSellPrice()` could return a value slightly higher than actual reserves due to rounding in step-based pricing, and (2) InfoFiMarketFactory would revert when totalTickets became 0.
+  - Resolution: Fixed `SOFBondingCurve.sol` to cap baseReturn to available reserves when selling all tokens. Fixed `InfoFiMarketFactory.sol` to return early instead of reverting when totalTickets is 0. Removed frontend workaround. See `SELL_MAX_FIX.md` for full details.
+  - Verified: Confirmed working on local Anvil deployment.
 
 - [ ] Skipped tests that need deeper fixes (Reported 2025-09-29)
   - Symptom: Three tests temporarily skipped as they require deeper changes to the Raffle contract.

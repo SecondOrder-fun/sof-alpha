@@ -124,7 +124,11 @@ contract InfoFiMarketFactory is AccessControl {
             "Factory: only curve or raffle"
         );
         require(player != address(0), "Factory: player zero");
-        require(totalTickets > 0, "Factory: total 0");
+        
+        // If totalTickets is 0 (all tickets sold), no probability update needed
+        if (totalTickets == 0) {
+            return;
+        }
 
         uint256 oldBps = (oldTickets * 10000) / totalTickets;
         uint256 newBps = (newTickets * 10000) / totalTickets;

@@ -117,5 +117,6 @@
   "of": "of",
   "previous": "Previous",
   "next": "Next",
-  "reset": "Reset"
+  "reset": "Reset",
+  "updating": "Updating..."
 }

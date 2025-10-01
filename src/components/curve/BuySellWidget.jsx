@@ -10,7 +10,7 @@ import { useCurve } from '@/hooks/useCurve';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { useSofDecimals } from '@/hooks/useSofDecimals';
-import { getContractAddresses } from '@/config/contracts';
+import { useWallet } from '@/hooks/useWallet';
 
 function useFormatSOF() {
   const decimals = useSofDecimals();
@@ -23,6 +23,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const { t } = useTranslation(['common', 'transactions']);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
   const formatSOF = useFormatSOF();
+  const { address: connectedAddress } = useWallet();
   const [activeTab, setActiveTab] = useState('buy');
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
@@ -33,7 +34,6 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const addrs = getContractAddresses(netKey);
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
     return createPublicClient({
@@ -117,10 +117,29 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       await approve.mutateAsync({ amount: maxUint });
       const cap = applyMaxSlippage(buyEst);
       const tx = await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
-      onTxSuccess && onTxSuccess();
-      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); } catch {
+      const hash = tx?.hash ?? tx ?? '';
+      
+      // Notify immediately with transaction hash
+      try { 
+        onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); 
+      } catch {
         /* no-op */
       }
+      
+      // Wait for transaction to be mined before refreshing
+      if (client && hash) {
+        try {
+          await client.waitForTransactionReceipt({ hash, confirmations: 1 });
+          onTxSuccess && onTxSuccess();
+        } catch (waitErr) {
+          // If waiting fails, still trigger refresh after delay
+          setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
+        }
+      } else {
+        // Fallback: trigger refresh after delay if no client
+        setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
+      }
+      
       setBuyAmount('');
     } catch { /* surfaced by mutate */ }
   };
@@ -129,25 +148,140 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     e.preventDefault();
     if (!sellAmount || !bondingCurveAddress) return;
     try {
+      const tokenAmount = BigInt(sellAmount);
       const floor = applyMinSlippage(sellEst);
-      const tx = await sellTokens.mutateAsync({ tokenAmount: BigInt(sellAmount), minSofAmount: floor });
-      onTxSuccess && onTxSuccess();
-      try { const hash = tx?.hash ?? tx ?? ''; onNotify && onNotify({ type: 'success', message: t('transactions:sold'), hash }); } catch {
+      
+      // Check curve reserves before selling
+      if (client) {
+        try {
+          const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
+          const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
+          const cfg = await client.readContract({
+            address: bondingCurveAddress,
+            abi: SOFBondingCurveAbi,
+            functionName: 'curveConfig',
+            args: []
+          });
+          const reserves = cfg[1]; // sofReserves
+          console.log('[BuySellWidget] Curve reserves:', reserves.toString(), 'SOF');
+          console.log('[BuySellWidget] Sell would return:', sellEst.toString(), 'SOF');
+          
+          if (reserves < sellEst) {
+            console.error('[BuySellWidget] INSUFFICIENT RESERVES! Reserves:', reserves.toString(), 'Need:', sellEst.toString());
+            onNotify && onNotify({ 
+              type: 'error', 
+              message: 'Insufficient curve reserves - cannot sell this amount',
+              hash: '' 
+            });
+            return;
+          }
+        } catch (checkErr) {
+          console.warn('[BuySellWidget] Could not check reserves:', checkErr);
+        }
+      }
+      
+      console.log('[BuySellWidget] Selling:', {
+        tokenAmount: tokenAmount.toString(),
+        minSofAmount: floor.toString(),
+        sellEst: sellEst.toString()
+      });
+      
+      const tx = await sellTokens.mutateAsync({ tokenAmount, minSofAmount: floor });
+      const hash = tx?.hash ?? tx ?? '';
+      
+      console.log('[BuySellWidget] Sell transaction submitted:', hash);
+      
+      // Notify immediately with transaction hash
+      try { 
+        onNotify && onNotify({ type: 'success', message: t('transactions:sold'), hash }); 
+      } catch {
         /* no-op */
       }
+      
+      // Wait for transaction to be mined before refreshing
+      if (client && hash) {
+        try {
+          const receipt = await client.waitForTransactionReceipt({ hash, confirmations: 1 });
+          console.log('[BuySellWidget] Transaction receipt:', receipt);
+          
+          if (receipt.status === 'reverted') {
+            console.error('[BuySellWidget] Transaction REVERTED!');
+            // Try to get revert reason
+            try {
+              const tx = await client.getTransaction({ hash });
+              console.log('[BuySellWidget] Transaction details:', tx);
+              
+              // Try to simulate the transaction to get revert reason
+              const result = await client.call({
+                to: tx.to,
+                data: tx.input,
+                from: tx.from,
+                value: tx.value,
+                blockNumber: receipt.blockNumber - 1n
+              });
+              console.log('[BuySellWidget] Simulation result:', result);
+            } catch (simErr) {
+              console.error('[BuySellWidget] Revert reason:', simErr.message);
+            }
+            
+            // Show error to user
+            onNotify && onNotify({ 
+              type: 'error', 
+              message: 'Transaction reverted - check console for details',
+              hash 
+            });
+            
+            // Still refresh position to show accurate state
+            // (transaction reverted, so balance should be unchanged)
+            onTxSuccess && onTxSuccess();
+          } else {
+            // Transaction succeeded
+            onTxSuccess && onTxSuccess();
+          }
+        } catch (waitErr) {
+          console.error('[BuySellWidget] Wait for receipt failed:', waitErr);
+          // If waiting fails, still trigger refresh after delay
+          setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
+        }
+      } else {
+        // Fallback: trigger refresh after delay if no client
+        setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
+      }
+      
       setSellAmount('');
-    } catch { /* surfaced by mutate */ }
+    } catch (err) {
+      console.error('[BuySellWidget] Sell failed:', err);
+      // Show error notification
+      try {
+        onNotify && onNotify({ 
+          type: 'error', 
+          message: t('transactions:sellFailed', { defaultValue: 'Sell failed' }),
+          hash: '' 
+        });
+      } catch {
+        /* no-op */
+      }
+    }
   };
 
-  // MAX helpers
-  const erc20Abi = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] }];
-  const onMaxSell = async (ownerAddress) => {
+  // MAX helpers - reads user's position from bonding curve's playerTickets mapping
+  const onMaxSell = async () => {
     try {
-      if (!client || !ownerAddress) return;
-      const bal = await client.readContract({ address: bondingCurveAddress, abi: erc20Abi, functionName: 'balanceOf', args: [ownerAddress] });
+      if (!client || !connectedAddress) return;
+      console.log('[BuySellWidget] MAX clicked, reading playerTickets for:', connectedAddress);
+      const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
+      const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
+      const bal = await client.readContract({ 
+        address: bondingCurveAddress, 
+        abi: SOFBondingCurveAbi, 
+        functionName: 'playerTickets', 
+        args: [connectedAddress] 
+      });
+      console.log('[BuySellWidget] playerTickets balance:', bal?.toString());
+      
       setSellAmount((bal ?? 0n).toString());
-    } catch {
-      /* no-op */
+    } catch (err) {
+      console.error('[BuySellWidget] MAX button failed:', err);
     }
   };
 
@@ -198,7 +332,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
             <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
             <div className="flex gap-2">
               <Input type="number" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
-              <Button type="button" variant="outline" onClick={() => onMaxSell(addrs?.ACCOUNT0 || addrs?.RAFFLE)} title={t('common:max', { defaultValue: 'Max' })}>MAX</Button>
+              <Button type="button" variant="outline" onClick={onMaxSell} disabled={!connectedAddress} title={connectedAddress ? t('common:max', { defaultValue: 'Max' }) : 'Connect wallet'}>MAX</Button>
             </div>
             <div className="text-xs text-muted-foreground">{t('common:estimatedProceeds', { defaultValue: 'Estimated proceeds' })}: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
             <Button type="submit" variant="secondary" disabled={rpcMissing || !sellAmount || sellTokens.isPending} className="w-full" title={disabledTip}>
