@@ -46,6 +46,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
   const [grandPct, setGrandPct] = useState("65");
   const [formError, setFormError] = useState("");
   const [lastAttempt, setLastAttempt] = useState(null);
+  const [nameError, setNameError] = useState("");
   
   const publicClient = usePublicClient();
   const addresses = getContractAddresses(getStoredNetworkKey());
@@ -155,6 +156,14 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
   const handleCreateSeason = async (e) => {
     e.preventDefault();
     setFormError("");
+    setNameError("");
+
+    // Validate name is not empty
+    if (!name || name.trim().length === 0) {
+      setNameError("Season name is required");
+      setFormError("Season name is required");
+      return;
+    }
 
     let latestChainSec = null;
     if (publicClient) {
@@ -307,11 +316,25 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 
   return (
     <form onSubmit={handleCreateSeason} className="space-y-4">
-      <Input
-        placeholder="Season Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
+      <div className="space-y-1">
+        <Input
+          placeholder="Season Name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (nameError) setNameError("");
+          }}
+          required
+          className={nameError ? "border-red-500" : ""}
+          aria-invalid={nameError ? "true" : "false"}
+          aria-describedby={nameError ? "name-error" : undefined}
+        />
+        {nameError && (
+          <p id="name-error" className="text-xs text-red-500">
+            {nameError}
+          </p>
+        )}
+      </div>
       <div className="space-y-1">
         <Input
           type="datetime-local"
@@ -429,7 +452,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       )}
       <Button
         type="submit"
-        disabled={createSeason?.isPending || startTooSoonUi}
+        disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0}
       >
         {createSeason?.isPending ? "Creating..." : "Create Season"}
       </Button>

@@ -270,4 +270,16 @@ contract RaffleVRFTest is Test {
         address[] memory winners = raffle.getWinners(seasonId);
         assertEq(winners.length, 0);
     }
+
+    function testRevertOnEmptySeasonName() public {
+        RaffleTypes.SeasonConfig memory cfg;
+        cfg.name = ""; // Empty name
+        cfg.startTime = block.timestamp + 1;
+        cfg.endTime = block.timestamp + 3 days;
+        cfg.winnerCount = 1;
+        cfg.grandPrizeBps = 6500;
+        
+        vm.expectRevert("Raffle: name empty");
+        raffle.createSeason(cfg, _steps(), 50, 70);
+    }
 }
