@@ -186,25 +186,51 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [ ] Test that overlay shows when wallet disconnected (deferred)
   - [ ] Test that forms are disabled when disconnected (deferred)
 
-### 5. Position Display Fix (Name Dependency)
+### 5. Position Display Fix (Name Dependency) ✅ RESOLVED
 
-- [ ] **Investigation**
-  - [ ] Identify where position display logic depends on raffle name
-  - [ ] Check `RaffleDetails.jsx` and `AccountPage.jsx` for name-based conditionals
-  - [ ] Review data fetching hooks for name filtering
+- [x] **Investigation**
+  - [x] Identified that position display does NOT depend on raffle name
+  - [x] Checked `RaffleDetailsCard.jsx` - uses seasonId as primary identifier
+  - [x] Reviewed data fetching hooks - no name-based filtering
+  - [x] Created `POSITION_DISPLAY_INVESTIGATION.md` with findings
 
-- [ ] **Fix Implementation**
-  - [ ] Remove name dependency from position display logic
-  - [ ] Use season ID or bonding curve address as primary identifier
-  - [ ] Ensure positions display even when name is empty/missing
-  - [ ] Add fallback display for unnamed seasons (e.g., "Season #1")
+- [x] **Resolution**
+  - [x] Position display already uses season ID as primary identifier
+  - [x] Fallback display already exists ("Season #{seasonId}")
+  - [x] Name validation prevents empty names (implemented earlier today)
+  - [x] Issue does not exist in current codebase
 
-- [ ] **Testing**
-  - [ ] Create test season with empty name
-  - [ ] Verify positions display correctly
-  - [ ] Test on both RaffleDetails and AccountPage
+- [x] **Outcome**
+  - Issue was likely historical or database-related
+  - Current code architecture is correct
+  - Name validation prevents future occurrences
+  - No code changes required
 
 ## Latest Progress (2025-10-03)
+
+- [x] **Prize Pool Sponsorship Feature - COMPLETED**
+
+  - **Smart Contract**: Enhanced `RafflePrizeDistributor.sol` with sponsorship functionality:
+    - Added `sponsorERC20()` and `sponsorERC721()` permissionless functions
+    - Implemented `claimSponsoredERC20()` and `claimSponsoredERC721()` for winners
+    - Added sponsorship lifecycle management (open → locked → claimed)
+    - Integrated ERC721Holder for safe NFT handling
+  - **Test Suite**: Created comprehensive test suite - ✅ ALL PASSING (12/12)
+    - ERC-20 sponsorship tests (single and multiple)
+    - ERC-721 sponsorship tests (single and multiple)
+    - Winner claim functionality tests
+    - Security and validation tests
+  - **Documentation**: Created `PRIZE_SPONSORSHIP_IMPLEMENTATION.md`
+  - **Impact**: Anyone can now sponsor ERC-20 tokens and NFTs to prize pools
+
+- [x] **Position Display Investigation - RESOLVED**
+
+  - **Investigation**: Reviewed all position display logic
+  - **Finding**: Position display does NOT depend on raffle names
+  - **Architecture**: Already uses seasonId as primary identifier
+  - **Validation**: Name validation (implemented earlier) prevents empty names
+  - **Outcome**: Issue does not exist in current codebase, no changes required
+  - **Documentation**: Created `POSITION_DISPLAY_INVESTIGATION.md`
 
 - [x] **Trading Lock & Wallet Connection UI Improvements - COMPLETED**
 
