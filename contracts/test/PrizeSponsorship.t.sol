@@ -183,8 +183,7 @@ contract PrizeSponsorshipTest is Test {
             winner,
             1000 ether,  // grand amount
             500 ether,   // consolation amount
-            1000,        // total tickets
-            100          // grand winner tickets
+            10           // total participants
         );
         
         // Fund season
@@ -224,8 +223,7 @@ contract PrizeSponsorshipTest is Test {
             winner,
             1000 ether,
             500 ether,
-            1000,
-            100
+            10  // total participants
         );
         
         // Fund season
@@ -265,8 +263,7 @@ contract PrizeSponsorshipTest is Test {
             winner,
             1000 ether,
             500 ether,
-            1000,
-            100
+            10  // total participants
         );
         sofToken.mint(address(distributor), 1500 ether);
         distributor.fundSeason(SEASON_ID, 1500 ether);
@@ -296,8 +293,7 @@ contract PrizeSponsorshipTest is Test {
             winner,
             1000 ether,
             500 ether,
-            1000,
-            100
+            10  // total participants
         );
         sofToken.mint(address(distributor), 1500 ether);
         distributor.fundSeason(SEASON_ID, 1500 ether);

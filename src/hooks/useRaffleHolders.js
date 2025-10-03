@@ -116,10 +116,18 @@ export const useRaffleHolders = (bondingCurveAddress, seasonId, options = {}) =>
           return a.blockNumber - b.blockNumber;
         });
 
-        // Assign ranks
+        // Get current total tickets from most recent update
+        const currentTotalTickets = sortedHolders[0]?.totalTicketsAtTime || 0n;
+
+        // Recalculate ALL probabilities based on current total
+        // This ensures all players' odds update when anyone buys/sells
         return sortedHolders.map((holder, index) => ({
           ...holder,
           rank: index + 1,
+          // Recalculate live probability for this holder
+          winProbabilityBps: currentTotalTickets > 0n
+            ? Math.floor((Number(holder.ticketCount) * 10000) / Number(currentTotalTickets))
+            : 0
         }));
       } catch (error) {
         console.error('Error fetching raffle holders:', error);

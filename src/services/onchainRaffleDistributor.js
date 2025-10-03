@@ -24,9 +24,7 @@ const DistributorAbi = [
           { name: 'grandWinner', type: 'address' },
           { name: 'grandAmount', type: 'uint256' },
           { name: 'consolationAmount', type: 'uint256' },
-          { name: 'totalTicketsSnapshot', type: 'uint256' },
-          { name: 'grandWinnerTickets', type: 'uint256' },
-          { name: 'merkleRoot', type: 'bytes32' },
+          { name: 'totalParticipants', type: 'uint256' },
           { name: 'funded', type: 'bool' },
           { name: 'grandClaimed', type: 'bool' },
         ],
@@ -35,14 +33,10 @@ const DistributorAbi = [
   },
   { type: 'function', name: 'claimGrand', stateMutability: 'nonpayable', inputs: [{ name: 'seasonId', type: 'uint256' }], outputs: [] },
   { type: 'function', name: 'claimConsolation', stateMutability: 'nonpayable', inputs: [
-    { name: 'seasonId', type: 'uint256' },
-    { name: 'index', type: 'uint256' },
-    { name: 'account', type: 'address' },
-    { name: 'amount', type: 'uint256' },
-    { name: 'merkleProof', type: 'bytes32[]' }
+    { name: 'seasonId', type: 'uint256' }
   ], outputs: [] },
-  { type: 'function', name: 'isClaimed', stateMutability: 'view', inputs: [
-    { name: 'seasonId', type: 'uint256' }, { name: 'index', type: 'uint256' }
+  { type: 'function', name: 'isConsolationClaimed', stateMutability: 'view', inputs: [
+    { name: 'seasonId', type: 'uint256' }, { name: 'account', type: 'address' }
   ], outputs: [{ name: '', type: 'bool' }] },
 ];
 
@@ -77,7 +71,7 @@ export async function claimGrand({ seasonId, networkKey = getStoredNetworkKey() 
   return hash;
 }
 
-export async function claimConsolation({ seasonId, index, amount, proof, networkKey = getStoredNetworkKey() }) {
+export async function claimConsolation({ seasonId, networkKey = getStoredNetworkKey() }) {
   if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
   const net = getNetworkByKey(networkKey);
   const wallet = createWalletClient({ chain: { id: net.chainId }, transport: custom(window.ethereum) });
@@ -87,16 +81,16 @@ export async function claimConsolation({ seasonId, index, amount, proof, network
     address: distributor,
     abi: DistributorAbi,
     functionName: 'claimConsolation',
-    args: [BigInt(seasonId), BigInt(index), getAddress(account), BigInt(amount), proof],
+    args: [BigInt(seasonId)],
     account,
   });
   return hash;
 }
 
-export async function isConsolationClaimed({ seasonId, index, networkKey = getStoredNetworkKey() }) {
+export async function isConsolationClaimed({ seasonId, account, networkKey = getStoredNetworkKey() }) {
   const client = buildClient(networkKey);
   const distributor = await getPrizeDistributor({ networkKey });
   if (distributor === '0x0000000000000000000000000000000000000000') return false;
-  const claimed = await client.readContract({ address: distributor, abi: DistributorAbi, functionName: 'isClaimed', args: [BigInt(seasonId), BigInt(index)] });
+  const claimed = await client.readContract({ address: distributor, abi: DistributorAbi, functionName: 'isConsolationClaimed', args: [BigInt(seasonId), getAddress(account)] });
   return !!claimed;
 }
