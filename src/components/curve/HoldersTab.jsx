@@ -165,8 +165,8 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
         ),
         cell: ({ row }) => {
           const tickets = row.getValue('ticketCount');
-          const total = row.original.totalTicketsAtTime;
-          const share = total > 0n ? (Number(tickets) / Number(total)) * 100 : 0;
+          // Use the actual current total tickets, not the stale totalTicketsAtTime
+          const share = totalTickets > 0n ? (Number(tickets) / Number(totalTickets)) * 100 : 0;
           return <span className="font-mono text-xs text-muted-foreground">{share.toFixed(2)}%</span>;
         },
         size: 100,
@@ -185,7 +185,7 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
         size: 120,
       },
     ],
-    [t, connectedAddress]
+    [t, connectedAddress, totalTickets]
   );
 
   if (isLoading) {

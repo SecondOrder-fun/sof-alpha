@@ -1416,3 +1416,21 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [x] Test claim button states
   - [x] Test karma contribution flow
   - [x] Test cooldown display
+
+## Test Suite Fixes (2025-10-03 Evening)
+
+### useRaffleHolders Probability Tests
+
+- [x] Fixed `useRaffleHolders.probability.test.jsx` mock setup issues:
+  - [x] Created module-level mock functions for viem client methods
+  - [x] Properly reset mock implementations in beforeEach
+  - [x] Changed waitFor assertions from `.toBeDefined()` to specific length checks
+  - [x] Removed redundant client creation in individual tests
+  - [x] All 5 probability recalculation tests now passing
+
+### Test Suite Status
+
+- [x] **All tests passing: 191/191 (100%)**
+  - [x] 38 test files passing
+  - [x] 0 failures
+  - [x] Fixed final mock hoisting and async timing issues

@@ -27,7 +27,7 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
     },
   });
   
-  const [sorting, setSorting] = useState([{ id: 'blockNumber', desc: true }]);
+  const [sorting, setSorting] = useState([{ id: 'timestamp', desc: true }]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
 

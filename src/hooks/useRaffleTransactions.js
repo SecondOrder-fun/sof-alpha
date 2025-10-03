@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
+import { queryLogsInChunks } from '@/utils/blockRangeQuery';
 
 /**
  * Fetch raffle transactions from on-chain PositionUpdate events
@@ -34,32 +35,47 @@ export const useRaffleTransactions = (bondingCurveAddress, seasonId, options = {
     queryKey: ['raffleTransactions', bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
+        console.log('[useRaffleTransactions] Missing client or address:', { client: !!client, bondingCurveAddress });
         return [];
       }
 
       try {
         // Get current block
         const currentBlock = await client.getBlockNumber();
+        console.log('[useRaffleTransactions] Current block:', currentBlock);
         
-        // Fetch PositionUpdate events from last ~33 hours (10,000 blocks at 12s/block)
-        // Adjust block range based on your needs
-        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+        // For Base (2s block time): 100k blocks = ~55 hours, 500k blocks = ~11.5 days
+        // Use a large lookback to capture full season history
+        // TODO: Store season creation block in contract for precise queries
+        const LOOKBACK_BLOCKS = 500000n; // ~11.5 days on Base
+        const fromBlock = currentBlock > LOOKBACK_BLOCKS ? currentBlock - LOOKBACK_BLOCKS : 0n;
         
         const positionUpdateEvent = parseAbiItem(
           'event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets, uint256 probabilityBps)'
         );
 
-        const logs = await client.getLogs({
+        // Use chunked query to handle RPC block range limits
+        const logs = await queryLogsInChunks(client, {
           address: bondingCurveAddress,
           event: positionUpdateEvent,
           fromBlock,
           toBlock: 'latest',
+        });
+        
+        console.log('[useRaffleTransactions] Fetched logs:', {
+          bondingCurveAddress,
+          fromBlock: fromBlock.toString(),
+          toBlock: 'latest',
+          totalLogs: logs.length,
+          seasonId
         });
 
         // Filter by seasonId if provided
         const filteredLogs = seasonId 
           ? logs.filter(log => Number(log.args.seasonId) === Number(seasonId))
           : logs;
+        
+        console.log('[useRaffleTransactions] Filtered logs:', filteredLogs.length);
 
         // Fetch block timestamps for each transaction
         const transactions = await Promise.all(
@@ -107,15 +123,12 @@ export const useRaffleTransactions = (bondingCurveAddress, seasonId, options = {
           })
         );
 
-        // Sort by block number and log index (newest first)
-        return transactions.sort((a, b) => {
-          if (b.blockNumber !== a.blockNumber) {
-            return b.blockNumber - a.blockNumber;
-          }
-          return b.logIndex - a.logIndex;
-        });
+        // Sort by block number (descending) and return
+        const sorted = transactions.sort((a, b) => b.blockNumber - a.blockNumber);
+        console.log('[useRaffleTransactions] Returning transactions:', sorted.length);
+        return sorted;
       } catch (error) {
-        console.error('Error fetching raffle transactions:', error);
+        console.error('[useRaffleTransactions] Error fetching transactions:', error);
         throw error;
       }
     },

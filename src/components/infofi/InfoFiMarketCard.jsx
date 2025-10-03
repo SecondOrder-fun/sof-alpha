@@ -38,8 +38,25 @@ const InfoFiMarketCard = ({ market }) => {
   const { data: priceData } = useOraclePriceLive(market?.id);
   React.useEffect(() => {
     if (!priceData) return;
-    setBps({ hybrid: priceData.hybridPriceBps, raffle: priceData.raffleProbabilityBps, market: priceData.marketSentimentBps });
-  }, [priceData]);
+    
+    // Validate and clamp probability data to 0-10000 range
+    const hybrid = Math.max(0, Math.min(10000, Number(priceData.hybridPriceBps ?? 0)));
+    const raffle = Math.max(0, Math.min(10000, Number(priceData.raffleProbabilityBps ?? 0)));
+    const market = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
+    
+    setBps({ hybrid, raffle, market });
+    
+    // Debug: log invalid data
+    if (priceData.hybridPriceBps > 10000 || priceData.raffleProbabilityBps > 10000) {
+      console.error('[InfoFi] Invalid probability data:', {
+        marketId: market?.id,
+        player: market?.player,
+        hybrid: priceData.hybridPriceBps,
+        raffle: priceData.raffleProbabilityBps,
+        market: priceData.marketSentimentBps
+      });
+    }
+  }, [priceData, market?.id, market?.player]);
 
   // Derive preferred uint256 market id if listing supplied a bytes32 id
   const netKey = (import.meta.env.VITE_DEFAULT_NETWORK || 'LOCAL').toUpperCase();
@@ -184,7 +201,9 @@ const InfoFiMarketCard = ({ market }) => {
 
   const percent = React.useMemo(() => {
     const v = Number(bps.hybrid ?? 0);
-    return (v / 100).toFixed(0);
+    // Clamp to 0-10000 range, then convert to percentage with 1 decimal
+    const clamped = Math.max(0, Math.min(10000, v));
+    return (clamped / 100).toFixed(1);
   }, [bps.hybrid]);
 
   const formatVolume = (v) => {

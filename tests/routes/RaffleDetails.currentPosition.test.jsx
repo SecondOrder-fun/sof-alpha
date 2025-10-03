@@ -52,6 +52,11 @@ vi.mock('@/hooks/useWallet', () => ({
   useWallet: () => ({ address: '0xabc0000000000000000000000000000000000001', isConnected: true }),
 }));
 
+// Mock the chunked query utility
+vi.mock('@/utils/blockRangeQuery', () => ({
+  queryLogsInChunks: vi.fn(() => Promise.resolve([])),
+}));
+
 vi.mock('viem', async () => {
   const actual = await vi.importActual('viem');
   return {
@@ -65,8 +70,11 @@ vi.mock('viem', async () => {
         return 0n;
       }),
       getBlock: vi.fn(async () => ({ timestamp: BigInt(Math.floor(Date.now() / 1000)) })),
+      getBlockNumber: vi.fn(async () => 1000n),
+      getLogs: vi.fn(async () => []),
     })),
     http: vi.fn(() => ({})),
+    parseAbiItem: vi.fn(() => ({})),
   };
 });
 
@@ -102,22 +110,30 @@ vi.mock('@/components/admin/TreasuryControls', () => ({
 
 import RaffleDetails from '@/routes/RaffleDetails.jsx';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-function renderWithRouter() {
+function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+  
   return render(
-    <MemoryRouter initialEntries={["/raffles/1"]}>
-      <Routes>
-        <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/raffles/1"]}>
+        <Routes>
+          <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
 describe('RaffleDetails current position refresh', () => {
   beforeEach(() => vi.clearAllMocks());
-
   it('updates the Your Current Position widget after a simulated buy', async () => {
-    renderWithRouter();
+    renderPage();
 
     // initially shows placeholder or 0 (i18n key: yourCurrentPosition)
     expect(screen.getByText('yourCurrentPosition')).toBeInTheDocument();

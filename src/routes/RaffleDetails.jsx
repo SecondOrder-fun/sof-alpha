@@ -368,7 +368,7 @@ const RaffleDetails = () => {
                         <TabsTrigger value="holders">{t('tokenHolders')}</TabsTrigger>
                       </TabsList>
                       <TabsContent value="token-info">
-                        <TokenInfoTab bondingCurveAddress={bc} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
+                        <TokenInfoTab bondingCurveAddress={bc} seasonId={seasonId} curveSupply={curveSupply} allBondSteps={allBondSteps} curveReserves={curveReserves} />
                       </TabsContent>
                       <TabsContent value="transactions">
                         <TransactionsTab bondingCurveAddress={bc} seasonId={seasonId} />

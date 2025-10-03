@@ -4,14 +4,18 @@ import { useMemo, useState, useEffect } from 'react';
 import { formatUnits, createPublicClient, http } from 'viem';
 import { useTranslation } from 'react-i18next';
 import { useSofDecimals } from '@/hooks/useSofDecimals';
+import { useRaffleHolders } from '@/hooks/useRaffleHolders';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 
-const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveReserves }) => {
+const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps, curveReserves }) => {
   const { t } = useTranslation('common');
   const sofDecimals = useSofDecimals();
   const [raffleTokenAddress, setRaffleTokenAddress] = useState(null);
-  const [totalParticipants, setTotalParticipants] = useState(0);
+  
+  // Get actual participants count from holders (users with active positions)
+  const { totalHolders } = useRaffleHolders(bondingCurveAddress, seasonId);
+  const totalParticipants = totalHolders;
   
   const formatSOF = (v) => { try { return Number(formatUnits(v ?? 0n, sofDecimals)).toFixed(4); } catch { return '0.0000'; } };
   const maxSupply = useMemo(() => {
@@ -21,7 +25,7 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
     } catch { return 0n; }
   }, [allBondSteps]);
 
-  // Fetch raffle token address and total participants from bonding curve
+  // Fetch raffle token address from bonding curve
   useEffect(() => {
     let cancelled = false;
     async function fetchCurveData() {
@@ -42,34 +46,24 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
           transport: http(net.rpcUrl),
         });
         
-        const abi = [
-          { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-          { type: 'function', name: 'totalParticipants', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] }
+        // Get raffle token from bonding curve
+        const curveAbi = [
+          { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] }
         ];
         
-        const [tokenAddr, participants] = await Promise.all([
-          client.readContract({
-            address: bondingCurveAddress,
-            abi,
-            functionName: 'raffleToken',
-            args: []
-          }).catch(() => null),
-          client.readContract({
-            address: bondingCurveAddress,
-            abi,
-            functionName: 'totalParticipants',
-            args: []
-          }).catch(() => 0n)
-        ]);
+        const tokenAddr = await client.readContract({
+          address: bondingCurveAddress,
+          abi: curveAbi,
+          functionName: 'raffleToken',
+          args: []
+        }).catch(() => null);
         
         if (!cancelled) {
           setRaffleTokenAddress(tokenAddr);
-          setTotalParticipants(Number(participants || 0n));
         }
       } catch (error) {
         if (!cancelled) {
           setRaffleTokenAddress(null);
-          setTotalParticipants(0);
         }
       }
     }
@@ -161,9 +155,10 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
 
 TokenInfoTab.propTypes = {
   bondingCurveAddress: PropTypes.string,
-  curveSupply: PropTypes.any,
+  seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  curveSupply: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
   allBondSteps: PropTypes.array,
-  curveReserves: PropTypes.any,
+  curveReserves: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
 };
 
 export default TokenInfoTab;

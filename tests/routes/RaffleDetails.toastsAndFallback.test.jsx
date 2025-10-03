@@ -33,6 +33,11 @@ vi.mock('@/hooks/useRaffleState', () => ({
   }),
 }));
 
+// Mock the chunked query utility
+vi.mock('@/utils/blockRangeQuery', () => ({
+  queryLogsInChunks: vi.fn(() => Promise.resolve([])),
+}));
+
 // Force curve mapping to fail to exercise ERC20 fallback path
 vi.mock('viem', async () => {
   const actual = await vi.importActual('viem');
@@ -48,8 +53,11 @@ vi.mock('viem', async () => {
         return 0n;
       }),
       getBlock: vi.fn(async () => ({ timestamp: BigInt(Math.floor(Date.now() / 1000)) })),
+      getBlockNumber: vi.fn(async () => 1000n),
+      getLogs: vi.fn(async () => []),
     })),
     http: vi.fn(() => ({})),
+    parseAbiItem: vi.fn(() => ({})),
   };
 });
 
@@ -96,14 +104,23 @@ vi.mock('@/components/curve/CurveGraph', () => ({ __esModule: true, default: () 
 
 import RaffleDetails from '@/routes/RaffleDetails.jsx';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+  
   return render(
-    <MemoryRouter initialEntries={["/raffles/1"]}>
-      <Routes>
-        <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/raffles/1"]}>
+        <Routes>
+          <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

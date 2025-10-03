@@ -4,16 +4,31 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRaffleHolders } from '@/hooks/useRaffleHolders';
 
+// Create mock client that we can control
+const mockGetLogs = vi.fn(() => Promise.resolve([]));
+const mockGetBlockNumber = vi.fn(() => Promise.resolve(1000n));
+const mockGetBlock = vi.fn(() => Promise.resolve({ timestamp: 1234567890n }));
+
 // Mock viem
 vi.mock('viem', () => ({
   createPublicClient: vi.fn(() => ({
-    getBlockNumber: vi.fn(() => Promise.resolve(1000n)),
-    getLogs: vi.fn(() => Promise.resolve([])),
-    getBlock: vi.fn(() => Promise.resolve({ timestamp: 1234567890n })),
+    getBlockNumber: mockGetBlockNumber,
+    getLogs: mockGetLogs,
+    getBlock: mockGetBlock,
   })),
   http: vi.fn(),
   parseAbiItem: vi.fn(() => ({})),
 }));
+
+// Mock blockRangeQuery to just pass through to getLogs (since we're mocking viem anyway)
+vi.mock('@/utils/blockRangeQuery', async () => {
+  return {
+    queryLogsInChunks: async (client, params) => {
+      // Just call getLogs directly - the client is already mocked
+      return await client.getLogs(params);
+    },
+  };
+});
 
 // Mock network config
 vi.mock('@/lib/wagmi', () => ({
@@ -38,6 +53,10 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     });
     vi.clearAllMocks();
+    // Reset mock implementations
+    mockGetLogs.mockResolvedValue([]);
+    mockGetBlockNumber.mockResolvedValue(1000n);
+    mockGetBlock.mockResolvedValue({ timestamp: 1234567890n });
   });
 
   const wrapper = ({ children }) => (
@@ -45,11 +64,8 @@ describe('useRaffleHolders - Probability Recalculation', () => {
   );
 
   it('should recalculate all probabilities when total tickets change', async () => {
-    const { createPublicClient } = await import('viem');
-    const mockClient = createPublicClient();
-
     // Mock events: 3 users with different ticket counts
-    mockClient.getLogs.mockResolvedValue([
+    mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
@@ -94,7 +110,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.holders).toBeDefined();
+      expect(result.current.holders).toHaveLength(3);
     });
 
     const holders = result.current.holders;
@@ -117,10 +133,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
   });
 
   it('should handle single holder correctly', async () => {
-    const { createPublicClient } = await import('viem');
-    const mockClient = createPublicClient();
-
-    mockClient.getLogs.mockResolvedValue([
+    mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
@@ -149,10 +162,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
   });
 
   it('should handle zero tickets correctly', async () => {
-    const { createPublicClient } = await import('viem');
-    const mockClient = createPublicClient();
-
-    mockClient.getLogs.mockResolvedValue([
+    mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
@@ -182,11 +192,8 @@ describe('useRaffleHolders - Probability Recalculation', () => {
   });
 
   it('should use latest event for each player', async () => {
-    const { createPublicClient } = await import('viem');
-    const mockClient = createPublicClient();
-
     // Player 1 has multiple events - should use latest
-    mockClient.getLogs.mockResolvedValue([
+    mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
@@ -228,12 +235,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
   });
 
   it('should maintain correct probabilities after user sells', async () => {
-    const { createPublicClient } = await import('viem');
-    const mockClient = createPublicClient();
-
     // Simulate: User A has 150, User B has 100, User C has 50 (total 300)
     // Then User A sells 50 (total becomes 250)
-    mockClient.getLogs.mockResolvedValue([
+    mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,

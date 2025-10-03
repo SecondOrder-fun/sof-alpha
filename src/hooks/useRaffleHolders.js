@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
+import { queryLogsInChunks } from '@/utils/blockRangeQuery';
 
 /**
  * Fetch current raffle token holders from on-chain data
@@ -35,31 +36,47 @@ export const useRaffleHolders = (bondingCurveAddress, seasonId, options = {}) =>
     queryKey: ['raffleHolders', bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
+        console.log('[useRaffleHolders] Missing client or address:', { client: !!client, bondingCurveAddress });
         return [];
       }
 
       try {
         // Get current block
         const currentBlock = await client.getBlockNumber();
+        console.log('[useRaffleHolders] Current block:', currentBlock);
         
-        // Fetch PositionUpdate events from last ~33 hours (10,000 blocks at 12s/block)
-        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+        // For Base (2s block time): 100k blocks = ~55 hours, 500k blocks = ~11.5 days
+        // Use a large lookback to capture full season history
+        // TODO: Store season creation block in contract for precise queries
+        const LOOKBACK_BLOCKS = 500000n; // ~11.5 days on Base
+        const fromBlock = currentBlock > LOOKBACK_BLOCKS ? currentBlock - LOOKBACK_BLOCKS : 0n;
         
         const positionUpdateEvent = parseAbiItem(
           'event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets, uint256 probabilityBps)'
         );
 
-        const logs = await client.getLogs({
+        // Use chunked query to handle RPC block range limits
+        const logs = await queryLogsInChunks(client, {
           address: bondingCurveAddress,
           event: positionUpdateEvent,
           fromBlock,
           toBlock: 'latest',
+        });
+        
+        console.log('[useRaffleHolders] Fetched logs:', {
+          bondingCurveAddress,
+          fromBlock: fromBlock.toString(),
+          toBlock: 'latest',
+          totalLogs: logs.length,
+          seasonId
         });
 
         // Filter by seasonId if provided
         const filteredLogs = seasonId 
           ? logs.filter(log => Number(log.args.seasonId) === Number(seasonId))
           : logs;
+        
+        console.log('[useRaffleHolders] Filtered logs:', filteredLogs.length);
 
         // Aggregate positions by player (keep only latest position per player)
         const playerPositions = new Map();
@@ -116,8 +133,12 @@ export const useRaffleHolders = (bondingCurveAddress, seasonId, options = {}) =>
           return a.blockNumber - b.blockNumber;
         });
 
-        // Get current total tickets from most recent update
-        const currentTotalTickets = sortedHolders[0]?.totalTicketsAtTime || 0n;
+        // Calculate ACTUAL current total by summing all holder tickets
+        // This is more accurate than using totalTicketsAtTime from any single event
+        const currentTotalTickets = sortedHolders.reduce(
+          (sum, holder) => sum + holder.ticketCount, 
+          0n
+        );
 
         // Recalculate ALL probabilities based on current total
         // This ensures all players' odds update when anyone buys/sells
@@ -157,8 +178,8 @@ export const useRaffleHolders = (bondingCurveAddress, seasonId, options = {}) =>
    */
   const totalTickets = useMemo(() => {
     if (!query.data || query.data.length === 0) return 0n;
-    // Use the totalTicketsAtTime from the most recent holder update
-    return query.data[0]?.totalTicketsAtTime || 0n;
+    // Sum all holder tickets for accurate total
+    return query.data.reduce((sum, holder) => sum + holder.ticketCount, 0n);
   }, [query.data]);
 
   return {
