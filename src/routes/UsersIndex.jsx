@@ -72,17 +72,23 @@ const UsersIndex = () => {
           )}
           {!seasonsLoading && !loading && players.length > 0 && (
             <div className="divide-y rounded border">
-              {pageSlice.map((addr) => (
-                <div key={addr} className="flex items-center justify-between px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="font-mono">{formatAddress(addr)}</div>
-                    {myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase() && (
-                      <Badge variant="secondary">{t('you')}</Badge>
-                    )}
+              {pageSlice.map((addr) => {
+                const isMyAddress = myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase();
+                const linkTo = isMyAddress ? '/account' : `/users/${addr}`;
+                const linkText = isMyAddress ? t('viewYourAccount') : t('viewProfile');
+                
+                return (
+                  <div key={addr} className="flex items-center justify-between px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="font-mono">{formatAddress(addr)}</div>
+                      {isMyAddress && (
+                        <Badge variant="secondary">{t('you')}</Badge>
+                      )}
+                    </div>
+                    <Link to={linkTo} className="text-primary hover:underline">{linkText}</Link>
                   </div>
-                  <Link to={`/users/${addr}`} className="text-primary hover:underline">{t('viewProfile')}</Link>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {/* Pagination Controls */}

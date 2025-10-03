@@ -88,6 +88,7 @@
   "allUserProfiles": "All User Profiles",
   "you": "You",
   "viewProfile": "View Profile",
+  "viewYourAccount": "View Your Account",
   "showingRange": "Showing {{start}}-{{end}} of {{total}}",
   "page": "Page",
   "noUsersFound": "No users found yet."

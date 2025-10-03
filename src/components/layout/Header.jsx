@@ -65,7 +65,7 @@ const Header = () => {
                 </Link>
               </>
             )}
-            <Link to={isConnected && address ? `/users/${address}` : "/account"} className="hover:text-primary transition-colors">
+            <Link to="/account" className="hover:text-primary transition-colors">
               {t('myAccount')}
             </Link>
             <Link to="/faucet" className="hover:text-primary transition-colors">

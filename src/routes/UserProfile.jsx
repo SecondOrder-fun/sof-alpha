@@ -20,8 +20,11 @@ import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 
 const UserProfile = () => {
   const { t } = useTranslation('account');
-  const { address } = useParams();
-  const { address: myAddress } = useAccount();
+  const { address: addressParam } = useParams();
+  const { address: myAddress, isConnected } = useAccount();
+  
+  // If no address param (e.g., /account route), use connected wallet address
+  const address = addressParam || myAddress;
 
   // Build viem public client for current network
   const [client, setClient] = useState(null);
@@ -104,10 +107,30 @@ const UserProfile = () => {
 
   // Debug logs removed for production cleanliness.
 
+  // Determine if this is "My Account" view (no param) or viewing another user
+  const isMyAccount = !addressParam;
+  const pageTitle = isMyAccount ? t('myAccount') : t('userProfile');
+  
+  // Show connect wallet message if viewing /account without connection
+  if (isMyAccount && !isConnected) {
+    return (
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">{t('myAccount')}</h1>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">
+              {t('connectWalletToViewAccount')}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">{t('userProfile')}</h1>
-      <p className="text-sm text-muted-foreground mb-4">{t('address')}: <span className="font-mono">{address}</span></p>
+      <h1 className="text-2xl font-bold mb-4">{pageTitle}</h1>
+      {address && <p className="text-sm text-muted-foreground mb-4">{t('address')}: <span className="font-mono">{address}</span></p>}
 
       <Card className="mb-4">
         <CardHeader>

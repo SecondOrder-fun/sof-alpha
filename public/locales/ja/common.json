@@ -87,7 +87,8 @@
   "users": "ユーザー",
   "allUserProfiles": "すべてのユーザープロフィール",
   "you": "あなた",
-  "viewProfile": "プロフィールを表示",
+  "viewProfile": "プロフィールを見る",
+  "viewYourAccount": "View Your Account",
   "showingRange": "{{start}}-{{end}} / {{total}}件を表示中",
   "page": "ページ",
   "noUsersFound": "まだユーザーが見つかりません。"

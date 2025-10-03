@@ -47,7 +47,6 @@ import NotFound from './routes/NotFound';
 import RaffleList from './routes/RaffleList';
 import RaffleDetails from './routes/RaffleDetails';
 import AdminPanel from './routes/AdminPanel';
-import AccountPage from './routes/AccountPage';
 import MarketsIndex from './routes/MarketsIndex';
 import UsersIndex from './routes/UsersIndex';
 import UserProfile from './routes/UserProfile';
@@ -95,7 +94,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'account',
-        element: <AccountPage />,
+        element: <UserProfile />,
       },
       {
         path: 'faucet',
