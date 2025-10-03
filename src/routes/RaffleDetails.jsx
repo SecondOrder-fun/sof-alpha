@@ -20,6 +20,7 @@ import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useWallet } from '@/hooks/useWallet';
 import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
+import { TreasuryControls } from '@/components/admin/TreasuryControls';
 
 const RaffleDetails = () => {
   const { t, i18n } = useTranslation('raffle');
@@ -379,6 +380,7 @@ const RaffleDetails = () => {
                   </CardContent>
                 </Card>
                 <RaffleAdminControls seasonId={seasonId} />
+                <TreasuryControls seasonId={seasonId} />
               </CardContent>
             </Card>
           );

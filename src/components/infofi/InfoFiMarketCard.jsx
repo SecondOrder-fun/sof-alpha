@@ -315,10 +315,6 @@ DebugInfoFiPanel.propTypes = {
           </Button>
         </div>
 
-        {/* Dev-only debug panel */}
-        {import.meta.env.DEV && (
-          <DebugInfoFiPanel market={market} wallet={address} effectiveMarketId={effectiveMarketId} yesPos={yesPos} noPos={noPos} onRefresh={() => { yesPos.refetch?.(); noPos.refetch?.(); }} />
-        )}
       </CardContent>
     </Card>
   );

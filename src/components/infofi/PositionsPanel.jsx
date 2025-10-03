@@ -137,7 +137,6 @@ const PositionsPanel = ({ address, seasons = [], title, description }) => {
                 </div>
               );
             })()}
-            <DiscoveryDebug address={address} />
           </div>
         )}
       </CardContent>
@@ -150,65 +149,6 @@ PositionsPanel.propTypes = {
   seasons: PropTypes.array,
   title: PropTypes.string,
   description: PropTypes.string,
-};
-
-// Inline discovery panel while stabilizing feature
-const DiscoveryDebug = ({ address }) => {
-  const { t } = useTranslation('market');
-  const netKey = getStoredNetworkKey();
-  const disc = useQuery({
-    queryKey: ['positionsPanel_discovery', netKey],
-    queryFn: async () => {
-      try {
-        const all = await enumerateAllMarkets({ networkKey: netKey });
-        return Array.isArray(all) ? all : [];
-      } catch (e) { return { error: String(e?.message || e) }; }
-    },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
-  // Normalize discovery data to an array to avoid runtime errors when an object like { error } is returned
-  const discData = Array.isArray(disc.data) ? disc.data : [];
-  const firstFew = discData.slice(0, 5);
-  const reads = useQuery({
-    queryKey: ['positionsPanel_discoveryReads', netKey, address, firstFew.map((m) => m.id).join(',')],
-    enabled: !!address && firstFew.length > 0,
-    queryFn: async () => {
-      const rows = [];
-      for (const m of firstFew) {
-        // eslint-disable-next-line no-await-in-loop
-        const yes = await readBet({ marketId: m.id, account: address, prediction: true, networkKey: netKey });
-        // eslint-disable-next-line no-await-in-loop
-        const no = await readBet({ marketId: m.id, account: address, prediction: false, networkKey: netKey });
-        rows.push({ id: m.id, seasonId: m.seasonId, yes: String(yes?.amount ?? 0n), no: String(no?.amount ?? 0n) });
-      }
-      return rows;
-    },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
-
-  return (
-    <div className="mt-2 p-2 border rounded bg-muted/20 text-[11px]">
-      <div className="font-medium mb-1">{t('debugDiscovery')}</div>
-      <div>{t('network')}: <span className="font-mono">{netKey}</span></div>
-      <div>{t('marketsFound')}: <span className="font-mono">{discData.length}</span></div>
-      {Array.isArray(reads.data) && reads.data.length > 0 && (
-        <div className="mt-1 space-y-1">
-          {reads.data.map((r) => (
-            <div key={r.id} className="flex justify-between">
-              <span className="font-mono">ID {String(r.id)}{typeof r.seasonId !== 'undefined' ? ` • S#${r.seasonId}` : ''}</span>
-              <span className="font-mono">YES {r.yes} • NO {r.no}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-DiscoveryDebug.propTypes = {
-  address: PropTypes.string,
 };
 
 export default PositionsPanel;

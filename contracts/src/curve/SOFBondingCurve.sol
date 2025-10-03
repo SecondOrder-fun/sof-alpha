@@ -456,17 +456,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 feesToExtract = accumulatedFees;
         accumulatedFees = 0;
         
-        // Approve SOFToken to collect fees
-        sofToken.approve(address(sofToken), feesToExtract);
+        // Transfer fees directly to SOFToken contract
+        sofToken.safeTransfer(address(sofToken), feesToExtract);
         
-        // Call SOFToken's collectFees function
-        try IERC20(address(sofToken)).transferFrom(address(this), address(sofToken), feesToExtract) {
-            emit FeesExtracted(address(sofToken), feesToExtract);
-        } catch {
-            // If transfer fails, restore accumulated fees
-            accumulatedFees = feesToExtract;
-            revert("Curve: fee extraction failed");
-        }
+        emit FeesExtracted(address(sofToken), feesToExtract);
     }
 
     /**
