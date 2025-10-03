@@ -94,7 +94,7 @@ describe('TransactionsTab', () => {
   it('should render transactions table with data', async () => {
     const mockTransactions = [
       {
-        txHash: '0xabc123',
+        txHash: '0xabc1234567890',
         blockNumber: 100,
         timestamp: 1234567890,
         player: '0x1234567890123456789012345678901234567890',
@@ -117,8 +117,8 @@ describe('TransactionsTab', () => {
     render(<TransactionsTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
     
     await waitFor(() => {
-      // Check for the transaction hash which is unique
-      expect(screen.getByText('0xabc123')).toBeInTheDocument();
+      // Check for the shortened transaction hash (first 10 chars)
+      expect(screen.getByText(/0xabc12345/i)).toBeInTheDocument();
     });
   });
 });

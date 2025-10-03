@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { createConfig, http } from 'wagmi';
 import { WagmiProvider } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
@@ -27,17 +28,28 @@ const createTestQueryClient = () => new QueryClient({
   },
 });
 
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: { language: 'en' },
+  }),
+  Trans: ({ children }) => children, // eslint-disable-line react/prop-types
+}));
+
 // Custom render function that includes providers
 export function renderWithProviders(ui, options = {}) {
   const queryClient = createTestQueryClient();
   
   function Wrapper({ children }) { // eslint-disable-line react/prop-types
     return (
-      <WagmiProvider config={testConfig}>
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      </WagmiProvider>
+      <MemoryRouter>
+        <WagmiProvider config={testConfig}>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </WagmiProvider>
+      </MemoryRouter>
     );
   }
   

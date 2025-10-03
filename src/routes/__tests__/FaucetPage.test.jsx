@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FaucetPage from '../FaucetPage';
@@ -9,6 +10,14 @@ vi.mock('wagmi', () => ({
   useAccount: vi.fn(),
   usePublicClient: vi.fn(),
   useWalletClient: vi.fn(),
+}));
+
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: { language: 'en' },
+  }),
 }));
 
 // Mock contract addresses
@@ -66,16 +75,26 @@ describe('FaucetPage', () => {
   
   test('renders SOF faucet tab by default', () => {
     renderWithProviders(<FaucetPage />);
-    expect(screen.getByText('$SOF Token Faucet')).toBeInTheDocument();
+    // Check for i18n key since mock returns keys
+    expect(screen.getByText(/sofTokenFaucet/i)).toBeInTheDocument();
   });
   
   test('shows Sepolia ETH faucet tab when clicked', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<FaucetPage />);
-    fireEvent.click(screen.getByText('Sepolia ETH Faucet'));
+    
+    // Find the tab trigger button by role and name
+    const ethTab = screen.getByRole('tab', { name: /sepoliaEthFaucet/i });
+    await user.click(ethTab);
     
     await waitFor(() => {
-      expect(screen.getByText('Get Sepolia ETH for testing from external faucets')).toBeInTheDocument();
+      // Check that the ETH tab panel is now active (not hidden)
+      const ethTabPanel = screen.getByRole('tabpanel', { name: /sepoliaEthFaucet/i });
+      expect(ethTabPanel).not.toHaveAttribute('hidden');
     });
+    
+    // Now check for content within the visible tab
+    expect(screen.getByText(/sepoliaEthFaucetDescription/i)).toBeInTheDocument();
   });
   
   test('shows connect wallet message when not connected', () => {
@@ -85,7 +104,8 @@ describe('FaucetPage', () => {
     });
     
     renderWithProviders(<FaucetPage />);
-    expect(screen.getByText('Connect your wallet')).toBeInTheDocument();
+    // The connect wallet message comes from the FaucetWidget component
+    expect(screen.getByText(/raffle:connectWallet/i)).toBeInTheDocument();
   });
   
   test('shows cooldown period when user cannot claim yet', async () => {
@@ -107,7 +127,7 @@ describe('FaucetPage', () => {
     renderWithProviders(<FaucetPage />);
     
     await waitFor(() => {
-      expect(screen.getByText(/Cooldown Period/)).toBeInTheDocument();
+      expect(screen.getByText(/cooldownPeriod/i)).toBeInTheDocument();
     });
   });
   
@@ -132,10 +152,12 @@ describe('FaucetPage', () => {
     renderWithProviders(<FaucetPage />);
     
     await waitFor(() => {
-      expect(screen.getByText('Claim $SOF Tokens')).not.toBeDisabled();
+      const claimButton = screen.getByRole('button', { name: /claimSofTokens/i });
+      expect(claimButton).not.toBeDisabled();
     });
     
-    fireEvent.click(screen.getByText('Claim $SOF Tokens'));
+    const claimButton = screen.getByRole('button', { name: /claimSofTokens/i });
+    fireEvent.click(claimButton);
     
     await waitFor(() => {
       expect(mockWalletClient.writeContract).toHaveBeenCalledWith(expect.objectContaining({

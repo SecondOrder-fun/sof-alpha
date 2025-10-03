@@ -1,10 +1,11 @@
 // tests/hooks/useSettlement.test.jsx
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { useSettlement } from '@/hooks/useSettlement';
 import * as wagmi from 'wagmi';
 import * as wagmiCore from '@wagmi/core';
-import { renderWithProviders } from '../utils/test-utils';
 
 // Mock the wagmi hooks
 vi.mock('wagmi', async () => {
@@ -49,6 +50,24 @@ describe('useSettlement', () => {
     getFilterLogs: vi.fn().mockResolvedValue([]),
   };
   
+  // Create a wrapper component for renderHook
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    
+    // eslint-disable-next-line react/prop-types, react/display-name
+    return ({ children }) => (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  };
+  
   beforeEach(() => {
     vi.clearAllMocks();
     
@@ -67,8 +86,8 @@ describe('useSettlement', () => {
   });
   
   it('returns settlement status and outcome data', async () => {
-    const { result } = renderHook(() => useSettlement(marketId), {
-      wrapper: ({ children }) => renderWithProviders(children),
+    const { result } = renderHook(() => useSettlement(marketId), { 
+      wrapper: createWrapper() 
     });
     
     // Initial state
@@ -99,8 +118,8 @@ describe('useSettlement', () => {
       return null;
     });
     
-    const { result } = renderHook(() => useSettlement(marketId), {
-      wrapper: ({ children }) => renderWithProviders(children),
+    const { result } = renderHook(() => useSettlement(marketId), { 
+      wrapper: createWrapper() 
     });
     
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -118,8 +137,8 @@ describe('useSettlement', () => {
     // Mock error
     wagmiCore.readContract.mockRejectedValue(new Error('Test error'));
     
-    const { result } = renderHook(() => useSettlement(marketId), {
-      wrapper: ({ children }) => renderWithProviders(children),
+    const { result } = renderHook(() => useSettlement(marketId), { 
+      wrapper: createWrapper() 
     });
     
     await waitFor(() => expect(result.current.isLoading).toBe(false));
