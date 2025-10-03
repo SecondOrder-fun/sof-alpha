@@ -7,13 +7,13 @@ import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+// MerkleProof import removed - no longer needed
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 
 /**
  * @title RafflePrizeDistributor
  * @notice Holds SOF funds for each season and enables claims for the grand winner and
- *         consolation recipients via a Merkle root (index, account, amount).
+ *         consolation recipients via direct equal distribution.
  *         Also manages sponsored ERC-20 and ERC-721 prizes.
  */
 contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, ReentrancyGuard, ERC721Holder {
@@ -38,9 +38,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         address grandWinner;          // grand prize winner
         uint256 grandAmount;          // SOF allocated to grand winner
         uint256 consolationAmount;    // SOF allocated to consolation receivers
-        uint256 totalTicketsSnapshot; // snapshot of total tickets at end
-        uint256 grandWinnerTickets;   // tickets of grand winner (excluded from consolation denominator off-chain)
-        bytes32 merkleRoot;           // Merkle root over (index, account, amount)
+        uint256 totalParticipants;    // total number of participants (including grand winner)
         bool funded;                  // whether `expected = grand + consolation` has been funded
         bool grandClaimed;            // whether grand was claimed
         bool sponsorshipsLocked;      // whether sponsorships are locked (season ended)
@@ -49,8 +47,8 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
     // seasonId => season
     mapping(uint256 => Season) private _seasons;
 
-    // seasonId => bitmap (wordIndex => bits) to track leaf claims
-    mapping(uint256 => mapping(uint256 => uint256)) private _claimedBitMap;
+    // seasonId => participant => claimed status
+    mapping(uint256 => mapping(address => bool)) private _consolationClaimed;
 
     // seasonId => array of sponsored ERC-20 tokens
     mapping(uint256 => SponsoredERC20[]) private _sponsoredERC20;
@@ -119,23 +117,20 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         address grandWinner,
         uint256 grandAmount,
         uint256 consolationAmount,
-        uint256 totalTicketsSnapshot,
-        uint256 grandWinnerTickets
+        uint256 totalParticipants
     ) external override onlyRole(RAFFLE_ROLE) {
         require(token != address(0), "Distributor: token zero");
         require(grandWinner != address(0), "Distributor: winner zero");
         require(grandAmount > 0, "Distributor: grand 0");
-        require(totalTicketsSnapshot > 0, "Distributor: snapshot 0");
+        require(totalParticipants > 0, "Distributor: participants 0");
         Season storage s = _seasons[seasonId];
-        // require(!s.funded, "Distributor: funded"); // Allow root to be set after funding // freeze after funding
 
         s.token = token;
         s.grandWinner = grandWinner;
         s.grandAmount = grandAmount;
         s.consolationAmount = consolationAmount;
-        s.totalTicketsSnapshot = totalTicketsSnapshot;
-        s.grandWinnerTickets = grandWinnerTickets;
-        // keep existing root/funded/grandClaimed as-is
+        s.totalParticipants = totalParticipants;
+        // keep existing funded/grandClaimed as-is
 
         emit SeasonConfigured(
             seasonId,
@@ -143,17 +138,11 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
             grandWinner,
             grandAmount,
             consolationAmount,
-            totalTicketsSnapshot,
-            grandWinnerTickets
+            totalParticipants
         );
     }
 
-    function setMerkleRoot(uint256 seasonId, bytes32 merkleRoot) external override onlyRole(RAFFLE_ROLE) {
-        Season storage s = _seasons[seasonId];
-        // require(!s.funded, "Distributor: funded"); // Allow setting root after funding
-        s.merkleRoot = merkleRoot;
-        emit MerkleRootUpdated(seasonId, merkleRoot);
-    }
+    // Merkle root system removed - using direct claim instead
 
     function fundSeason(uint256 seasonId, uint256 amount) external override onlyRole(RAFFLE_ROLE) {
         Season storage s = _seasons[seasonId];
@@ -177,30 +166,25 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         emit GrandClaimed(seasonId, msg.sender, s.grandAmount);
     }
 
-    function claimConsolation(
-        uint256 seasonId,
-        uint256 index,
-        address account,
-        uint256 amount,
-        bytes32[] calldata merkleProof
-    ) external override nonReentrant {
+    function claimConsolation(uint256 seasonId) external override nonReentrant {
         Season storage s = _seasons[seasonId];
         require(s.funded, "Distributor: not funded");
-        require(s.merkleRoot != bytes32(0), "Distributor: root unset");
-        require(!_isClaimed(seasonId, index), "Distributor: already claimed");
-        require(account == msg.sender, "Distributor: only self");
+        require(msg.sender != s.grandWinner, "Distributor: winner cannot claim consolation");
+        require(!_consolationClaimed[seasonId][msg.sender], "Distributor: already claimed");
+        require(s.totalParticipants > 1, "Distributor: no other participants");
 
-        // Verify proof: leaf = keccak256(abi.encodePacked(index, account, amount))
-        bytes32 node = keccak256(abi.encodePacked(index, account, amount));
-        require(MerkleProof.verify(merkleProof, s.merkleRoot, node), "Distributor: bad proof");
+        // Calculate equal share for each loser
+        uint256 loserCount = s.totalParticipants - 1; // Exclude grand winner
+        uint256 amount = s.consolationAmount / loserCount;
+        require(amount > 0, "Distributor: amount zero");
 
-        _setClaimed(seasonId, index);
-        IERC20(s.token).safeTransfer(account, amount);
-        emit ConsolationClaimed(seasonId, account, amount);
+        _consolationClaimed[seasonId][msg.sender] = true;
+        IERC20(s.token).safeTransfer(msg.sender, amount);
+        emit ConsolationClaimed(seasonId, msg.sender, amount);
     }
 
-    function isClaimed(uint256 seasonId, uint256 index) external view override returns (bool) {
-        return _isClaimed(seasonId, index);
+    function isConsolationClaimed(uint256 seasonId, address account) external view override returns (bool) {
+        return _consolationClaimed[seasonId][account];
     }
 
     function getSeason(uint256 seasonId) external view override returns (SeasonPayouts memory) {
@@ -210,29 +194,14 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
             grandWinner: s.grandWinner,
             grandAmount: s.grandAmount,
             consolationAmount: s.consolationAmount,
-            totalTicketsSnapshot: s.totalTicketsSnapshot,
-            grandWinnerTickets: s.grandWinnerTickets,
-            merkleRoot: s.merkleRoot,
+            totalParticipants: s.totalParticipants,
             funded: s.funded,
             grandClaimed: s.grandClaimed
         });
     }
 
     // ----------------------- internal helpers --------------------
-
-    function _isClaimed(uint256 seasonId, uint256 index) internal view returns (bool) {
-        uint256 wordIndex = index / 256;
-        uint256 bitIndex = index % 256;
-        uint256 word = _claimedBitMap[seasonId][wordIndex];
-        uint256 mask = (1 << bitIndex);
-        return word & mask == mask;
-    }
-
-    function _setClaimed(uint256 seasonId, uint256 index) internal {
-        uint256 wordIndex = index / 256;
-        uint256 bitIndex = index % 256;
-        _claimedBitMap[seasonId][wordIndex] = _claimedBitMap[seasonId][wordIndex] | (1 << bitIndex);
-    }
+    // (Merkle bitmap helpers removed - using simple mapping instead)
 
     // ----------------------- Sponsorship functions --------------------
 

@@ -117,6 +117,9 @@ contract ConfigureDistributorSimple is Script {
             console2.log("- Grand prize amount:", grandPrizeAmount);
             console2.log("- Consolation amount:", consolationAmount);
             
+            // Get total participants from raffle
+            (, , uint256 totalParticipants, ,) = raffle.getSeasonDetails(seasonId);
+            
             // Configure the distributor
             try distributor.configureSeason(
                 seasonId,
@@ -124,19 +127,10 @@ contract ConfigureDistributorSimple is Script {
                 winner,
                 grandPrizeAmount,
                 consolationAmount,
-                totalTickets,
-                winner != address(0) ? 1000 : 0 // Placeholder for winner's tickets or 0 if no winner
+                totalParticipants
             ) {
                 console2.log("Successfully configured distributor for season", seasonId);
-                
-                // Set merkle root if available
-                if (merkleRoot != bytes32(0)) {
-                    try distributor.setMerkleRoot(seasonId, merkleRoot) {
-                        console2.log("Successfully set merkle root");
-                    } catch {
-                        console2.log("Failed to set merkle root");
-                    }
-                }
+                console2.log("Total participants:", totalParticipants);
                 
                 // 4. Try to fund the distributor for this season
                 try raffle.fundPrizeDistributor(seasonId) {

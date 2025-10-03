@@ -93,10 +93,18 @@ contract EndToEndResolveAndClaim is Script {
             vm.stopBroadcast();
             console2.log("[E2E-Resolve] Deployer claimed grand prize. +SOF:", balAfterGrand - balBeforeGrand);
         } else {
-            console2.log("[E2E-Resolve] Deployer was not the winner.");
+            console2.log("[E2E-Resolve] Deployer was not the winner. Claiming consolation...");
+            
+            // Claim consolation prize
+            vm.startBroadcast(adminPk);
+            uint256 balBeforeConsolation = sof.balanceOf(deployer);
+            distributor.claimConsolation(seasonId);
+            uint256 balAfterConsolation = sof.balanceOf(deployer);
+            vm.stopBroadcast();
+            console2.log("[E2E-Resolve] Deployer claimed consolation prize. +SOF:", balAfterConsolation - balBeforeConsolation);
         }
 
-        console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, payout claimed.");
+        console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, payouts claimed.");
     }
 
     function _extractRequestIdFromLogs(Vm.Log[] memory entries) internal pure returns (uint256) {

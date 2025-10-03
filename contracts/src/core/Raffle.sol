@@ -535,9 +535,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         address grandWinner = state.winners.length > 0 ? state.winners[0] : address(0);
         require(grandWinner != address(0), "Raffle: winner zero");
 
-        // Snapshot tickets
-        uint256 totalTicketsSnapshot = state.totalTickets;
-        uint256 grandWinnerTickets = state.participantPositions[grandWinner].ticketCount;
+        // Snapshot participant count
+        uint256 totalParticipants = state.totalParticipants;
 
         // Move funds from curve to distributor
         address curveAddr = cfg.bondingCurve;
@@ -550,8 +549,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             grandWinner,
             grandAmount,
             consolationAmount,
-            totalTicketsSnapshot,
-            grandWinnerTickets
+            totalParticipants
         );
 
         // 2. Extract funds from the curve directly to the prize distributor
@@ -566,13 +564,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         emit PrizeDistributionSetup(seasonId, prizeDistributor);
     }
 
-    /**
-     * @notice Set the Merkle root for consolation claims for a season (admin only)
-     */
-    function setSeasonMerkleRoot(uint256 seasonId, bytes32 merkleRoot) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(prizeDistributor != address(0), "Raffle: distributor not set");
-        IRafflePrizeDistributor(prizeDistributor).setMerkleRoot(seasonId, merkleRoot);
-    }
+    // Merkle root function removed - consolation now uses direct claim
 
     function fundPrizeDistributor(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(prizeDistributor != address(0), "Raffle: distributor not set");
