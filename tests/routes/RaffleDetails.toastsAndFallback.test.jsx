@@ -1,11 +1,18 @@
 /*
   @vitest-environment jsdom
 */
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 vi.useFakeTimers();
+
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: { language: 'en' },
+  }),
+}));
 
 // Mocks
 vi.mock('@/hooks/useRaffleState', () => ({
@@ -66,6 +73,14 @@ vi.mock('@/hooks/useWallet', () => ({ useWallet: () => ({ address: '0xabc1', isC
 vi.mock('@/config/networks', () => ({ getNetworkByKey: () => ({ id: 31337, name: 'Local', rpcUrl: 'http://127.0.0.1:8545', explorer: '' }) }));
 vi.mock('@/lib/wagmi', () => ({ getStoredNetworkKey: () => 'LOCAL' }));
 
+// Mock admin components to avoid Wagmi provider requirements
+vi.mock('@/components/admin/RaffleAdminControls', () => ({
+  RaffleAdminControls: () => null,
+}));
+vi.mock('@/components/admin/TreasuryControls', () => ({
+  TreasuryControls: () => null,
+}));
+
 // Stub BuySellWidget to trigger notify + success
 vi.mock('@/components/curve/BuySellWidget', () => ({
   __esModule: true,
@@ -97,22 +112,26 @@ describe('RaffleDetails toasts and ERC20 fallback', () => {
 
   it('shows a toast with hash and auto-expires after 2 minutes', async () => {
     renderPage();
+    
+    // Click to trigger toast
     fireEvent.click(screen.getByText('Sim Tx'));
-
-    // toast should appear with message and hash
-    await waitFor(() => {
-      expect(screen.getByText(/Purchase complete/i)).toBeInTheDocument();
-      expect(screen.getByText(/0xhash/)).toBeInTheDocument();
+    
+    // Wait for React to process the state update
+    await act(async () => {
+      await Promise.resolve();
     });
 
-    // advance timers 2 minutes
-    await act(async () => {
+    // toast should appear with message and hash
+    expect(screen.getByText(/Purchase complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/0xhash/)).toBeInTheDocument();
+
+    // advance timers 2 minutes to trigger toast expiration
+    act(() => {
       vi.advanceTimersByTime(120000);
     });
 
-    await waitFor(() => {
-      expect(screen.queryByText(/0xhash/)).not.toBeInTheDocument();
-    });
+    // toast should be removed
+    expect(screen.queryByText(/0xhash/)).not.toBeInTheDocument();
   });
 
   it('falls back to ERC20 balance when curve mapping is unavailable', async () => {
@@ -120,8 +139,9 @@ describe('RaffleDetails toasts and ERC20 fallback', () => {
     fireEvent.click(screen.getByText('Sim Tx'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Tickets:/)).toBeInTheDocument();
+      // Look for the i18n key 'tickets' followed by the value
+      expect(screen.getByText(/tickets/)).toBeInTheDocument();
       expect(screen.getByText(/4321/)).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 });

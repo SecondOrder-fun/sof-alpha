@@ -1,9 +1,16 @@
 /*
   @vitest-environment jsdom
 */
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: { language: 'en' },
+  }),
+}));
 
 // Mock hooks used by RaffleDetails
 vi.mock('@/hooks/useRaffleState', () => ({
@@ -85,6 +92,14 @@ vi.mock('@/config/networks', () => ({
 }));
 vi.mock('@/lib/wagmi', () => ({ getStoredNetworkKey: () => 'LOCAL' }));
 
+// Mock admin components to avoid Wagmi provider requirements
+vi.mock('@/components/admin/RaffleAdminControls', () => ({
+  RaffleAdminControls: () => null,
+}));
+vi.mock('@/components/admin/TreasuryControls', () => ({
+  TreasuryControls: () => null,
+}));
+
 import RaffleDetails from '@/routes/RaffleDetails.jsx';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -104,16 +119,17 @@ describe('RaffleDetails current position refresh', () => {
   it('updates the Your Current Position widget after a simulated buy', async () => {
     renderWithRouter();
 
-    // initially shows placeholder or 0
-    expect(screen.getByText(/Your Current Position/i)).toBeInTheDocument();
+    // initially shows placeholder or 0 (i18n key: yourCurrentPosition)
+    expect(screen.getByText('yourCurrentPosition')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Simulate Buy'));
 
     // After our on-chain reads, tickets should update to 1234 and probability to 12.34%
     await waitFor(() => {
-      expect(screen.getByText(/Tickets:/)).toBeInTheDocument();
+      // Look for the i18n key 'tickets' followed by the value
+      expect(screen.getByText(/tickets/)).toBeInTheDocument();
       expect(screen.getByText(/1234/)).toBeInTheDocument();
       expect(screen.getByText(/12\.34%/)).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 });

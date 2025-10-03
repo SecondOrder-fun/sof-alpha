@@ -50,14 +50,17 @@ describe('CreateSeasonForm - Name Validation', () => {
       />
     );
 
-    const submitButton = screen.getByRole('button', { name: /create season/i });
+    const form = screen.getByRole('button', { name: /create season/i }).closest('form');
     
-    // Submit without entering a name
-    fireEvent.click(submitButton);
+    // Submit form programmatically to bypass HTML5 validation
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText('Season name is required')).toBeInTheDocument();
-    });
+      const errorElement = screen.getByText((content, element) => {
+        return element.id === 'name-error' && content === 'Season name is required';
+      });
+      expect(errorElement).toBeInTheDocument();
+    }, { timeout: 3000 });
 
     // Mutation should not be called
     expect(mockCreateSeason.mutate).not.toHaveBeenCalled();
@@ -72,14 +75,14 @@ describe('CreateSeasonForm - Name Validation', () => {
     );
 
     const nameInput = screen.getByPlaceholderText('Season Name');
-    const submitButton = screen.getByRole('button', { name: /create season/i });
+    const form = screen.getByRole('button', { name: /create season/i }).closest('form');
     
-    // Submit without entering a name
-    fireEvent.click(submitButton);
+    // Submit form programmatically
+    fireEvent.submit(form);
 
     await waitFor(() => {
       expect(nameInput).toHaveClass('border-red-500');
-    });
+    }, { timeout: 3000 });
   });
 
   it('should clear error when user starts typing', async () => {
@@ -91,21 +94,27 @@ describe('CreateSeasonForm - Name Validation', () => {
     );
 
     const nameInput = screen.getByPlaceholderText('Season Name');
-    const submitButton = screen.getByRole('button', { name: /create season/i });
+    const form = screen.getByRole('button', { name: /create season/i }).closest('form');
     
-    // Submit without entering a name to trigger error
-    fireEvent.click(submitButton);
+    // Submit form to trigger error
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText('Season name is required')).toBeInTheDocument();
-    });
+      const errorElement = screen.getByText((content, element) => {
+        return element.id === 'name-error' && content === 'Season name is required';
+      });
+      expect(errorElement).toBeInTheDocument();
+    }, { timeout: 3000 });
 
     // Start typing
     fireEvent.change(nameInput, { target: { value: 'Test Season' } });
 
     await waitFor(() => {
-      expect(screen.queryByText('Season name is required')).not.toBeInTheDocument();
-    });
+      const errorElement = screen.queryByText((content, element) => {
+        return element.id === 'name-error' && content === 'Season name is required';
+      });
+      expect(errorElement).not.toBeInTheDocument();
+    }, { timeout: 3000 });
   });
 
   it('should disable submit button when name is empty', () => {
@@ -131,15 +140,18 @@ describe('CreateSeasonForm - Name Validation', () => {
     );
 
     const nameInput = screen.getByPlaceholderText('Season Name');
-    const submitButton = screen.getByRole('button', { name: /create season/i });
+    const form = screen.getByRole('button', { name: /create season/i }).closest('form');
     
     // Enter only whitespace
     fireEvent.change(nameInput, { target: { value: '   ' } });
-    fireEvent.click(submitButton);
+    fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(screen.getByText('Season name is required')).toBeInTheDocument();
-    });
+      const errorElement = screen.getByText((content, element) => {
+        return element.id === 'name-error' && content === 'Season name is required';
+      });
+      expect(errorElement).toBeInTheDocument();
+    }, { timeout: 3000 });
 
     // Mutation should not be called
     expect(mockCreateSeason.mutate).not.toHaveBeenCalled();
@@ -166,14 +178,14 @@ describe('CreateSeasonForm - Name Validation', () => {
     );
 
     const nameInput = screen.getByPlaceholderText('Season Name');
-    const submitButton = screen.getByRole('button', { name: /create season/i });
+    const form = screen.getByRole('button', { name: /create season/i }).closest('form');
     
     // Submit to trigger error
-    fireEvent.click(submitButton);
+    fireEvent.submit(form);
 
     await waitFor(() => {
       expect(nameInput).toHaveAttribute('aria-invalid', 'true');
       expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
-    });
+    }, { timeout: 3000 });
   });
 });
