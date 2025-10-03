@@ -765,3 +765,212 @@ contracts/
 │   ├── chainlink/         # Chainlink contracts for VRF coordination
 │   └── infofi-libraries/
 ```
+
+## Documentation Management with GitBook Submodule
+
+### Documentation Repository Structure
+
+All project documentation is maintained in a separate GitBook repository (`sof-docs`) integrated as a git submodule at `/docs/`.
+
+**Repository:** `https://github.com/YOUR_USERNAME/sof-docs`
+
+**Submodule Location:** `/docs/`
+
+### Documentation Categories
+
+```
+docs/
+├── 01-product/              # Product vision & mechanics
+├── 02-architecture/         # Technical architecture
+├── 03-development/          # Development guides
+├── 04-api/                  # API reference
+├── 05-features/             # Feature documentation
+├── 06-technical-analysis/   # Deep technical dives
+├── 07-changelog/            # Implementation history
+├── 08-bug-fixes/            # Bug fix documentation
+└── 09-investigations/       # Debug & investigation logs
+```
+
+### Documentation Guidelines
+
+#### ⚠️ IMPORTANT: All New Documentation Goes in GitBook
+
+**DO NOT create new .md files in the main repository root.**
+
+All documentation must be added to the appropriate section in the `docs/` submodule:
+
+1. **Navigate to docs submodule:**
+   ```bash
+   cd docs
+   ```
+
+2. **Create documentation in appropriate section:**
+   ```bash
+   # Implementation summaries → 07-changelog/features/
+   vim 07-changelog/features/new-feature-implementation.md
+   
+   # Bug fixes → 08-bug-fixes/[category]/
+   vim 08-bug-fixes/display-issues/new-bug-fix.md
+   
+   # Session summaries → 07-changelog/YYYY-MM/
+   vim 07-changelog/2025-10/03-session-summary.md
+   
+   # Technical analysis → 06-technical-analysis/
+   vim 06-technical-analysis/new-analysis.md
+   
+   # Feature docs → 05-features/[feature]/
+   vim 05-features/new-feature/implementation.md
+   ```
+
+3. **Update SUMMARY.md for GitBook navigation:**
+   ```bash
+   vim SUMMARY.md
+   # Add entry in appropriate section
+   ```
+
+4. **Commit and push to docs repo:**
+   ```bash
+   git add .
+   git commit -m "Add [description] documentation"
+   git push
+   ```
+
+5. **Update main repo to reference new docs:**
+   ```bash
+   cd ..  # Back to sof-alpha
+   git add docs
+   git commit -m "Update docs submodule: [description]"
+   git push
+   ```
+
+### When to Use Each Documentation Section
+
+**01-product/** - Product-level documentation
+- Product framework and vision
+- Tokenomics and economics
+- Game mechanics and rules
+- Bonding curve mathematics
+- Winner selection methods
+
+**02-architecture/** - Technical architecture
+- System design documents
+- Technical specifications
+- Data schemas
+- Integration guides (e.g., InfoFi integration parts 1-9)
+
+**03-development/** - Development guides
+- Frontend/backend guidelines
+- Development tasks and roadmap
+- Quick reference guides
+- Development workflows
+
+**04-api/** - API documentation
+- Endpoint documentation
+- Request/response schemas
+- Authentication guides
+- API usage examples
+
+**05-features/** - Feature documentation
+- Feature implementations
+- User guides
+- Configuration documentation
+- Feature-specific technical details
+
+**06-technical-analysis/** - Deep technical dives
+- Performance analysis
+- Gas optimization studies
+- Technical deep dives
+- Benchmarking results
+
+**07-changelog/** - Implementation history
+- **Session summaries** (YYYY-MM/DD-session-*.md)
+- **Implementation summaries** (YYYY-MM/DD-implementation-*.md)
+- **Progress summaries** (YYYY-MM/DD-progress-*.md)
+- **Feature completions** (features/*.md)
+
+**08-bug-fixes/** - Bug documentation
+- **Display issues** (display-issues/*.md)
+- **Trading issues** (trading-issues/*.md)
+- **Test fixes** (test-fixes/*.md)
+- **Other fixes** (other/*.md)
+
+**09-investigations/** - Debug & investigation logs
+- Debug sessions
+- Investigation reports
+- Problem analysis
+- Troubleshooting logs
+
+### Documentation Standards
+
+1. **Use Markdown** for all documentation
+2. **Include blank lines** around headings and code blocks (MD022, MD031)
+3. **Use descriptive titles** that clearly indicate content
+4. **Add dates** to session summaries and changelogs (YYYY-MM-DD format)
+5. **Link related documents** using relative paths
+6. **Include code examples** where applicable
+7. **Keep files focused** - split large docs into multiple files
+8. **Update SUMMARY.md** when adding new documents
+
+### Submodule Management
+
+#### Clone Project with Documentation
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/YOUR_USERNAME/sof-alpha.git
+
+# Or if already cloned
+git submodule update --init --recursive
+```
+
+#### Update Documentation Submodule
+
+```bash
+# Pull latest docs
+cd docs
+git pull origin main
+cd ..
+git add docs
+git commit -m "Update docs to latest version"
+git push
+```
+
+#### Sync All Submodules
+
+```bash
+git submodule update --remote --merge
+```
+
+### Migration Scripts
+
+Documentation migration scripts are available in `/scripts/`:
+
+- `setup-docs-repo.sh` - Creates GitBook repository structure
+- `migrate-docs.sh` - Migrates documentation files
+- `create-gitbook-summary.sh` - Generates GitBook navigation
+- `complete-docs-migration.sh` - Runs all migration steps
+- `DOCS_MIGRATION_GUIDE.md` - Complete migration guide
+
+### GitBook Integration
+
+The documentation is published as a GitBook site:
+
+- **GitBook Site:** `https://your-gitbook-url.gitbook.io/sof-docs`
+- **GitHub Repository:** `https://github.com/YOUR_USERNAME/sof-docs`
+
+GitBook automatically syncs with the GitHub repository and provides:
+- Professional documentation UI
+- Full-text search
+- Version control
+- Collaboration features
+- Mobile-responsive design
+
+### Key Benefits
+
+1. **Separation of Concerns** - Code and docs in separate repos
+2. **Independent Versioning** - Docs can update without code changes
+3. **Professional Presentation** - GitBook provides beautiful UI
+4. **Better Collaboration** - Easier for non-developers to contribute
+5. **Improved Organization** - Clear structure and navigation
+6. **Enhanced Searchability** - GitBook's built-in search
+7. **Multi-Project Support** - Can share docs across related projects
