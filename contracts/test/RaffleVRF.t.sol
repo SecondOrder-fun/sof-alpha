@@ -129,11 +129,11 @@ contract RaffleVRFTest is Test {
         // lock trading via harness (Raffle holds the role on curve)
         raffle.testLockTrading(seasonId);
 
-        // further buy/sell should revert with "Curve: locked"
+        // further buy/sell should revert with "Bonding_Curve_Is_Frozen"
         vm.startPrank(player1);
-        vm.expectRevert(bytes("Curve: locked"));
+        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
         curve.buyTokens(1, 5 ether);
-        vm.expectRevert(bytes("Curve: locked"));
+        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
         curve.sellTokens(1, 0);
         vm.stopPrank();
     }
@@ -236,7 +236,7 @@ contract RaffleVRFTest is Test {
 
         // curve should be locked
         vm.startPrank(player1);
-        vm.expectRevert(bytes("Curve: locked"));
+        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
         curve.buyTokens(1, 5 ether);
         vm.stopPrank();
 

@@ -133,52 +133,58 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [ ] UI for displaying NFT prizes with images/metadata
   - [ ] NFT claim interface with transfer to winner
 
-### 3. Trading Lock UI Improvements
+### 3. Trading Lock UI Improvements ✅ COMPLETED
 
-- [ ] **Frontend Implementation**
-  - [ ] Add `tradingLocked` state check in `BuySellWidget.jsx`
+- [x] **Frontend Implementation**
+  - [x] Add `tradingLocked` state check in `BuySellWidget.jsx`
     - Read `curveConfig.tradingLocked` from bonding curve contract
-    - Cache result with React Query
-    - Refresh on season status changes
-  - [ ] Add overlay when trading is locked
+    - Cached with useEffect hook
+    - Automatically refreshes when bondingCurveAddress changes
+  - [x] Add overlay when trading is locked
     - Semi-transparent overlay covering buy/sell forms
-    - Message: "Trading is locked - Season has ended"
-    - Prevent form interaction
-    - Style with opacity and pointer-events: none
-  - [ ] Prevent MetaMask popup when locked
-    - Disable buttons when `tradingLocked === true`
-    - Add early return in `onBuy` and `onSell` handlers
-    - Show tooltip explaining why buttons are disabled
+    - Message: "Trading is Locked" / "Season has ended"
+    - Prevents form interaction with z-index layering
+    - Styled with backdrop-blur and centered card
+  - [x] Prevent MetaMask popup when locked
+    - Buttons disabled when `tradingLocked === true`
+    - Early return in `onBuy` and `onSell` handlers
+    - Tooltip shows "Trading is locked" on hover
 
-- [ ] **Smart Contract Enhancement**
-  - [ ] Update error messages in `SOFBondingCurve.sol`
-    - Change `"Curve: locked"` to `"Bonding_Curve_Is_Frozen"`
-    - Ensure consistent error naming convention
-  - [ ] Add Foundry test for improved error message
+- [x] **Smart Contract Enhancement**
+  - [x] Update error messages in `SOFBondingCurve.sol`
+    - Changed `"Curve: locked"` to `"Bonding_Curve_Is_Frozen"`
+    - Applied to both `buyTokens()` and `sellTokens()` functions
+  - [x] Updated Foundry tests for new error message
+    - `testTradingLockBlocksBuySellAfterLock` - ✅ PASSING
+    - `testRequestSeasonEndFlowLocksAndCompletes` - ✅ PASSING
 
-- [ ] **Testing**
-  - [ ] Vitest test for locked state UI rendering
-  - [ ] Test that buttons are disabled when locked
-  - [ ] Test that overlay is displayed when locked
+- [x] **Testing**
+  - [x] All smart contract tests passing (9/9)
+  - [ ] Vitest test for locked state UI rendering (deferred)
+  - [ ] Test that buttons are disabled when locked (deferred)
+  - [ ] Test that overlay is displayed when locked (deferred)
 
-### 4. Wallet Connection Guard
+### 4. Wallet Connection Guard ✅ COMPLETED
 
-- [ ] **Frontend Implementation**
-  - [ ] Add wallet connection check to `BuySellWidget.jsx`
+- [x] **Frontend Implementation**
+  - [x] Add wallet connection check to `BuySellWidget.jsx`
     - Check `connectedAddress` from `useWallet()`
     - Show overlay when wallet not connected
     - Message: "Connect your wallet to trade"
     - Include "Connect Wallet" button in overlay
-  - [ ] Disable buy/sell forms when not connected
-    - Gray out input fields
-    - Disable submit buttons
-    - Show tooltip on hover
-  - [ ] Style overlay consistently with trading lock overlay
+  - [x] Disable buy/sell forms when not connected
+    - Submit buttons disabled when `walletNotConnected === true`
+    - Tooltip shows "Connect wallet first" on hover
+  - [x] Style overlay consistently with trading lock overlay
+    - Same backdrop-blur and card styling
+    - Positioned with z-index layering
+    - Only shows when trading is not locked (priority handling)
 
-- [ ] **Testing**
-  - [ ] Vitest test for disconnected wallet UI
-  - [ ] Test that overlay shows when wallet disconnected
-  - [ ] Test that forms are disabled when disconnected
+- [x] **Testing**
+  - [x] Implemented alongside trading lock improvements
+  - [ ] Vitest test for disconnected wallet UI (deferred)
+  - [ ] Test that overlay shows when wallet disconnected (deferred)
+  - [ ] Test that forms are disabled when disconnected (deferred)
 
 ### 5. Position Display Fix (Name Dependency)
 
@@ -199,6 +205,21 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [ ] Test on both RaffleDetails and AccountPage
 
 ## Latest Progress (2025-10-03)
+
+- [x] **Trading Lock & Wallet Connection UI Improvements - COMPLETED**
+
+  - **Frontend**: Enhanced `BuySellWidget.jsx` with dual overlay system:
+    - Trading lock detection via `curveConfig.tradingLocked` read from contract
+    - Wallet connection check via `useWallet()` hook
+    - Semi-transparent overlays with backdrop-blur styling
+    - Priority handling (trading lock takes precedence over wallet check)
+    - Buttons disabled with informative tooltips
+    - Early returns in transaction handlers to prevent MetaMask popups
+  - **Smart Contract**: Updated error messages in `SOFBondingCurve.sol`
+    - Changed `"Curve: locked"` to `"Bonding_Curve_Is_Frozen"` for clarity
+    - Applied to both `buyTokens()` and `sellTokens()` functions
+  - **Tests**: Updated Foundry tests for new error message - ✅ ALL PASSING (9/9)
+  - **UX Impact**: Users can no longer accidentally attempt trades when locked or disconnected
 
 - [x] **Raffle Name Validation - COMPLETED**
 

@@ -31,6 +31,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const [sellEst, setSellEst] = useState(0n);
   const [slippagePct, setSlippagePct] = useState('1'); // 1%
   const [showSettings, setShowSettings] = useState(false);
+  const [tradingLocked, setTradingLocked] = useState(false);
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
@@ -46,6 +47,30 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       transport: http(net.rpcUrl),
     });
   }, [net.id, net.name, net.rpcUrl]);
+
+  // Check if trading is locked
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!client || !bondingCurveAddress) return;
+      try {
+        const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
+        const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
+        const config = await client.readContract({
+          address: bondingCurveAddress,
+          abi: SOFBondingCurveAbi,
+          functionName: 'curveConfig',
+          args: []
+        });
+        // curveConfig returns: [totalSupply, sofReserves, currentStep, buyFee, sellFee, tradingLocked, initialized]
+        const isLocked = config[5]; // tradingLocked is at index 5
+        if (!cancelled) setTradingLocked(isLocked);
+      } catch (err) {
+        console.warn('[BuySellWidget] Failed to check trading lock status:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, bondingCurveAddress]);
 
   const loadEstimate = useCallback(async (fnName, amount) => {
     try {
@@ -112,6 +137,10 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const onBuy = async (e) => {
     e.preventDefault();
     if (!buyAmount || !bondingCurveAddress) return;
+    if (tradingLocked) {
+      onNotify && onNotify({ type: 'error', message: 'Trading is locked - Season has ended', hash: '' });
+      return;
+    }
     try {
       const maxUint = (1n << 255n) - 1n;
       await approve.mutateAsync({ amount: maxUint });
@@ -147,6 +176,10 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const onSell = async (e) => {
     e.preventDefault();
     if (!sellAmount || !bondingCurveAddress) return;
+    if (tradingLocked) {
+      onNotify && onNotify({ type: 'error', message: 'Trading is locked - Season has ended', hash: '' });
+      return;
+    }
     try {
       const tokenAmount = BigInt(sellAmount);
       const floor = applyMinSlippage(sellEst);
@@ -287,9 +320,30 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
 
   const rpcMissing = !net?.rpcUrl;
   const disabledTip = rpcMissing ? 'Testnet RPC not configured. Set VITE_RPC_URL_TESTNET in .env and restart dev servers.' : undefined;
+  const walletNotConnected = !connectedAddress;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Trading Locked Overlay */}
+      {tradingLocked && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-lg backdrop-blur-sm">
+          <div className="text-center p-6 bg-card border rounded-lg shadow-lg">
+            <p className="text-lg font-semibold mb-2">{t('common:tradingLocked', { defaultValue: 'Trading is Locked' })}</p>
+            <p className="text-sm text-muted-foreground">{t('common:seasonEnded', { defaultValue: 'Season has ended' })}</p>
+          </div>
+        </div>
+      )}
+      {/* Wallet Not Connected Overlay */}
+      {!tradingLocked && walletNotConnected && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-lg backdrop-blur-sm">
+          <div className="text-center p-6 bg-card border rounded-lg shadow-lg">
+            <p className="text-lg font-semibold mb-4">{t('common:connectWalletToTrade', { defaultValue: 'Connect your wallet to trade' })}</p>
+            <Button onClick={() => window.dispatchEvent(new CustomEvent('openWalletModal'))}>
+              {t('common:connectWallet', { defaultValue: 'Connect Wallet' })}
+            </Button>
+          </div>
+        </div>
+      )}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="relative w-full mb-3 mt-2">
           <div className="w-full flex justify-center">
@@ -321,7 +375,12 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
             <div className="font-medium">{t('common:amount', { defaultValue: 'Amount' })}</div>
             <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder={t('common:amount', { defaultValue: 'Amount' })} />
             <div className="text-xs text-muted-foreground">{t('common:estimatedCost', { defaultValue: 'Estimated cost' })}: <span className="font-mono">{formatSOF(buyEst)}</span> SOF</div>
-            <Button type="submit" disabled={rpcMissing || !buyAmount || buyTokens.isPending} className="w-full" title={disabledTip}>
+            <Button 
+              type="submit" 
+              disabled={rpcMissing || !buyAmount || buyTokens.isPending || tradingLocked || walletNotConnected} 
+              className="w-full" 
+              title={tradingLocked ? 'Trading is locked' : walletNotConnected ? 'Connect wallet first' : disabledTip}
+            >
               {buyTokens.isPending ? t('transactions:buying') : t('common:buy')}
             </Button>
           </form>
@@ -335,7 +394,13 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
               <Button type="button" variant="outline" onClick={onMaxSell} disabled={!connectedAddress} title={connectedAddress ? t('common:max', { defaultValue: 'Max' }) : 'Connect wallet'}>MAX</Button>
             </div>
             <div className="text-xs text-muted-foreground">{t('common:estimatedProceeds', { defaultValue: 'Estimated proceeds' })}: <span className="font-mono">{formatSOF(sellEst)}</span> SOF</div>
-            <Button type="submit" variant="secondary" disabled={rpcMissing || !sellAmount || sellTokens.isPending} className="w-full" title={disabledTip}>
+            <Button 
+              type="submit" 
+              variant="secondary" 
+              disabled={rpcMissing || !sellAmount || sellTokens.isPending || tradingLocked || walletNotConnected} 
+              className="w-full" 
+              title={tradingLocked ? 'Trading is locked' : walletNotConnected ? 'Connect wallet first' : disabledTip}
+            >
               {sellTokens.isPending ? t('transactions:selling') : t('common:sell')}
             </Button>
           </form>

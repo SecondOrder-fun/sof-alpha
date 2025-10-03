@@ -175,7 +175,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      */
     function buyTokens(uint256 tokenAmount, uint256 maxSofAmount) external nonReentrant whenNotPaused {
         require(curveConfig.initialized, "Curve: not init");
-        require(!curveConfig.tradingLocked, "Curve: locked");
+        require(!curveConfig.tradingLocked, "Bonding_Curve_Is_Frozen");
         require(tokenAmount > 0, "Curve: amount 0");
 
         // Guardrail: prevent addition overflow when computing target supply inside price calc
@@ -265,7 +265,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      */
     function sellTokens(uint256 tokenAmount, uint256 minSofAmount) external nonReentrant whenNotPaused {
         require(curveConfig.initialized, "Curve: not init");
-        require(!curveConfig.tradingLocked, "Curve: locked");
+        require(!curveConfig.tradingLocked, "Bonding_Curve_Is_Frozen");
         require(tokenAmount > 0, "Curve: amount 0");
         require(tokenAmount <= curveConfig.totalSupply, "Curve: > supply");
 
