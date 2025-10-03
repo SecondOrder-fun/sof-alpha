@@ -50,6 +50,8 @@
   "subtotal": "Subtotal",
   "side": "Side",
   "contractAddress": "Contract Address",
+  "bondingCurveAddress": "Bonding Curve Address",
+  "raffleTokenAddress": "Raffle Token Address",
   "totalValueLocked": "Total Value Locked (SOF)",
   "currentSupply": "Current Supply",
   "maxSupply": "Max Supply",
