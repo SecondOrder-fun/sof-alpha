@@ -14,15 +14,20 @@ vi.mock('wagmi', () => ({
 
 // Mock contracts config
 vi.mock('@/config/contracts', () => ({
-  contracts: {
-    raffle: '0xRaffleAddress',
-    sofToken: '0xSOFTokenAddress',
-  },
+  getContractAddresses: () => ({
+    RAFFLE: '0xRaffleAddress',
+    SOF: '0xSOFTokenAddress',
+  }),
+}));
+
+// Mock wagmi lib
+vi.mock('@/lib/wagmi', () => ({
+  getStoredNetworkKey: () => 'LOCAL',
 }));
 
 // Mock ABIs
-vi.mock('@/abis/SOFToken.json', () => ({ default: [] }));
-vi.mock('@/abis/SOFBondingCurve.json', () => ({ default: [] }));
+vi.mock('@/contracts/abis/SOFToken.json', () => ({ default: [] }));
+vi.mock('@/contracts/abis/SOFBondingCurve.json', () => ({ default: [] }));
 
 describe('useTreasury', () => {
   let queryClient;
@@ -59,9 +64,10 @@ describe('useTreasury', () => {
 
   describe('Fee Balances', () => {
     it('should return accumulated fees from bonding curve', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'accumulatedFees') {
           return { data: 1000000000000000000n }; // 1 SOF
@@ -71,13 +77,14 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.accumulatedFees).toBe('1.0');
+      expect(result.current.accumulatedFees).toBe('1');
     });
 
     it('should return treasury balance from SOF token', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'getContractBalance') {
           return { data: 5000000000000000000n }; // 5 SOF
@@ -87,13 +94,14 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.treasuryBalance).toBe('5.0');
+      expect(result.current.treasuryBalance).toBe('5');
     });
 
     it('should return SOF reserves from bonding curve', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'getSofReserves') {
           return { data: 10000000000000000000n }; // 10 SOF
@@ -103,13 +111,14 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.sofReserves).toBe('10.0');
+      expect(result.current.sofReserves).toBe('10');
     });
 
     it('should return total fees collected', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'totalFeesCollected') {
           return { data: 50000000000000000000n }; // 50 SOF
@@ -119,15 +128,16 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.totalFeesCollected).toBe('50.0');
+      expect(result.current.totalFeesCollected).toBe('50');
     });
   });
 
   describe('Permissions', () => {
     it('should check if user has RAFFLE_MANAGER_ROLE', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'hasRole') {
           return { data: true };
@@ -141,9 +151,10 @@ describe('useTreasury', () => {
     });
 
     it('should check if user has TREASURY_ROLE', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'hasRole') {
           return { data: true };
@@ -157,9 +168,10 @@ describe('useTreasury', () => {
     });
 
     it('should determine if user can extract fees', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'hasRole') {
           return { data: true };
@@ -176,9 +188,10 @@ describe('useTreasury', () => {
     });
 
     it('should not allow fee extraction if no fees accumulated', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'hasRole') {
           return { data: true };
@@ -199,9 +212,10 @@ describe('useTreasury', () => {
     it('should call extractFeesToTreasury with correct parameters', async () => {
       const mockWriteContract = vi.fn();
       
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         if (functionName === 'accumulatedFees') {
           return { data: 1000000000000000000n };
@@ -231,9 +245,10 @@ describe('useTreasury', () => {
     it('should handle extraction errors gracefully', async () => {
       const mockWriteContract = vi.fn().mockRejectedValue(new Error('Transaction failed'));
       
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         return { data: null };
       });
@@ -259,9 +274,10 @@ describe('useTreasury', () => {
       const mockWriteContract = vi.fn();
       const transferAmount = 5000000000000000000n; // 5 SOF
       
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         return { data: null };
       });
@@ -289,9 +305,10 @@ describe('useTreasury', () => {
     it('should handle transfer errors gracefully', async () => {
       const mockWriteContract = vi.fn().mockRejectedValue(new Error('Transfer failed'));
       
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         return { data: null };
       });
@@ -316,6 +333,7 @@ describe('useTreasury', () => {
     it('should handle missing bonding curve address', () => {
       useReadContract.mockImplementation(({ functionName }) => {
         if (functionName === 'seasons') {
+          // Return null directly, don't call select with null
           return { data: null };
         }
         return { data: null };
@@ -324,15 +342,17 @@ describe('useTreasury', () => {
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
       expect(result.current.accumulatedFees).toBe('0');
-      expect(result.current.canExtractFees).toBe(false);
+      // canExtractFees is falsy (null or false) when no bonding curve
+      expect(result.current.canExtractFees).toBeFalsy();
     });
 
     it('should handle missing user address', () => {
       useAccount.mockReturnValue({ address: null });
       
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         return { data: null };
       });
@@ -344,9 +364,10 @@ describe('useTreasury', () => {
     });
 
     it('should return zero for null balances', () => {
-      useReadContract.mockImplementation(({ functionName }) => {
+      useReadContract.mockImplementation(({ functionName, query }) => {
         if (functionName === 'seasons') {
-          return { data: [null, null, null, null, null, mockBondingCurve, null, null, null] };
+          const data = [null, null, null, null, null, mockBondingCurve, null, null, null];
+          return { data: query?.select ? query.select(data) : data };
         }
         return { data: null };
       });

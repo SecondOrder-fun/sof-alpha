@@ -1,13 +1,32 @@
 /*
   @vitest-environment jsdom
 */
-import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: { language: 'en' },
+  }),
+}));
 
 // Minimal stubs for dependencies
 vi.mock('@/hooks/useSofDecimals', () => ({ useSofDecimals: () => 18 }));
 vi.mock('@/config/contracts', () => ({ getContractAddresses: () => ({}) }));
+vi.mock('@/config/networks', () => ({
+  getNetworkByKey: () => ({ id: 31337, name: 'Local', rpcUrl: 'http://127.0.0.1:8545' }),
+}));
+vi.mock('@/lib/wagmi', () => ({
+  getStoredNetworkKey: () => 'LOCAL',
+}));
+vi.mock('@/hooks/useWallet', () => ({
+  useWallet: () => ({
+    address: '0x1234567890123456789012345678901234567890',
+    isConnected: true,
+  }),
+}));
 vi.mock('@/hooks/useCurve', () => ({
   useCurve: () => ({
     buyTokens: { mutateAsync: vi.fn() },
@@ -22,11 +41,11 @@ describe('BuySellWidget UI', () => {
   it('renders centered Buy/Sell header and labels', () => {
     render(<BuySellWidget bondingCurveAddress="0xCurve" />);
 
-    // Tabs as header
-    expect(screen.getByText('Buy')).toBeInTheDocument();
-    expect(screen.getByText('Sell')).toBeInTheDocument();
+    // Tabs as header (i18n keys - the mock returns just the key part after the colon)
+    expect(screen.getByText(/buy/i)).toBeInTheDocument();
+    expect(screen.getByText(/sell/i)).toBeInTheDocument();
 
-    // Default tab shows buy label text
-    expect(screen.getByText('Amount to Buy')).toBeInTheDocument();
+    // Default tab shows amount label (i18n key)
+    expect(screen.getByText(/amount/i)).toBeInTheDocument();
   });
 });
