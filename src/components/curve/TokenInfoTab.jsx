@@ -11,6 +11,7 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
   const { t } = useTranslation('common');
   const sofDecimals = useSofDecimals();
   const [raffleTokenAddress, setRaffleTokenAddress] = useState(null);
+  const [totalParticipants, setTotalParticipants] = useState(0);
   
   const formatSOF = (v) => { try { return Number(formatUnits(v ?? 0n, sofDecimals)).toFixed(4); } catch { return '0.0000'; } };
   const maxSupply = useMemo(() => {
@@ -20,10 +21,10 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
     } catch { return 0n; }
   }, [allBondSteps]);
 
-  // Fetch raffle token address from bonding curve
+  // Fetch raffle token address and total participants from bonding curve
   useEffect(() => {
     let cancelled = false;
-    async function fetchRaffleToken() {
+    async function fetchCurveData() {
       if (!bondingCurveAddress) return;
       
       try {
@@ -42,33 +43,75 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
         });
         
         const abi = [
-          { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] }
+          { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+          { type: 'function', name: 'totalParticipants', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] }
         ];
         
-        const tokenAddr = await client.readContract({
-          address: bondingCurveAddress,
-          abi,
-          functionName: 'raffleToken',
-          args: []
-        });
+        const [tokenAddr, participants] = await Promise.all([
+          client.readContract({
+            address: bondingCurveAddress,
+            abi,
+            functionName: 'raffleToken',
+            args: []
+          }).catch(() => null),
+          client.readContract({
+            address: bondingCurveAddress,
+            abi,
+            functionName: 'totalParticipants',
+            args: []
+          }).catch(() => 0n)
+        ]);
         
         if (!cancelled) {
           setRaffleTokenAddress(tokenAddr);
+          setTotalParticipants(Number(participants || 0n));
         }
       } catch (error) {
-        // If raffleToken() doesn't exist or fails, the bonding curve might be the token itself
         if (!cancelled) {
           setRaffleTokenAddress(null);
+          setTotalParticipants(0);
         }
       }
     }
     
-    fetchRaffleToken();
+    fetchCurveData();
     return () => { cancelled = true; };
   }, [bondingCurveAddress]);
 
+  // Calculate prize distribution (65% grand prize, 35% consolation by default)
+  // Note: grandPrizeBps can be configured per season, defaulting to 6500 (65%)
+  const grandPrize = useMemo(() => {
+    try {
+      const reserves = curveReserves ?? 0n;
+      const grandPrizeBps = 6500n; // Default from contract
+      return (reserves * grandPrizeBps) / 10000n;
+    } catch { return 0n; }
+  }, [curveReserves]);
+
+  const consolationPool = useMemo(() => {
+    try {
+      const reserves = curveReserves ?? 0n;
+      const grandPrizeBps = 6500n; // Default from contract
+      const grand = (reserves * grandPrizeBps) / 10000n;
+      return reserves - grand;
+    } catch { return 0n; }
+  }, [curveReserves]);
+
+  const consolationPerUser = useMemo(() => {
+    try {
+      if (totalParticipants <= 1) return 0n; // Need at least 2 participants (1 winner, 1+ losers)
+      const reserves = curveReserves ?? 0n;
+      const grandPrizeBps = 6500n;
+      const grand = (reserves * grandPrizeBps) / 10000n;
+      const consolation = reserves - grand;
+      // Divide by (totalParticipants - 1) since winner doesn't get consolation
+      return consolation / BigInt(totalParticipants - 1);
+    } catch { return 0n; }
+  }, [curveReserves, totalParticipants]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Contract Addresses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="p-3 border rounded">
           <div className="text-sm text-muted-foreground">{t('bondingCurveAddress')}</div>
@@ -78,10 +121,31 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
           <div className="text-sm text-muted-foreground">{t('raffleTokenAddress')}</div>
           <div className="font-mono break-all text-xs">{raffleTokenAddress || bondingCurveAddress || '—'}</div>
         </div>
-        <div className="p-3 border rounded">
-          <div className="text-sm text-muted-foreground">{t('totalValueLocked')}</div>
-          <div className="font-mono">{formatSOF(curveReserves ?? 0n)} SOF</div>
+      </div>
+
+      {/* Prize Pool Distribution */}
+      <div className="border rounded p-4 bg-muted/30">
+        <h3 className="font-semibold mb-3">{t('prizePoolDistribution')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-3 border rounded bg-background">
+            <div className="text-sm text-muted-foreground">{t('grandPrize')} (65%)</div>
+            <div className="font-mono text-lg font-bold text-green-600">{formatSOF(grandPrize)} SOF</div>
+          </div>
+          <div className="p-3 border rounded bg-background">
+            <div className="text-sm text-muted-foreground">{t('consolationPerUser')} (35% ÷ {totalParticipants > 1 ? totalParticipants - 1 : '?'})</div>
+            <div className="font-mono text-lg font-bold text-blue-600">
+              {totalParticipants > 1 ? `${formatSOF(consolationPerUser)} SOF` : t('waitingForParticipants')}
+            </div>
+          </div>
         </div>
+        <div className="mt-3 p-3 border rounded bg-background">
+          <div className="text-sm text-muted-foreground">{t('totalPrizePool')}</div>
+          <div className="font-mono text-xl font-bold">{formatSOF(curveReserves ?? 0n)} SOF</div>
+        </div>
+      </div>
+
+      {/* Token Supply Info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="p-3 border rounded">
           <div className="text-sm text-muted-foreground">{t('currentSupply')}</div>
           <div className="font-mono">{curveSupply?.toString?.() ?? '0'}</div>
@@ -91,7 +155,6 @@ const TokenInfoTab = ({ bondingCurveAddress, curveSupply, allBondSteps, curveRes
           <div className="font-mono">{maxSupply?.toString?.() ?? '0'}</div>
         </div>
       </div>
-      {/* Progress meter removed to avoid duplication; the graph above already shows progress */}
     </div>
   );
 };

@@ -4,14 +4,19 @@
 /*
   scripts/generate-merkle-consolation.js
   Usage (env inline recommended):
-  RPC_URL=... RAFFLE_ADDRESS=0x... SEASON_ID=1 node scripts/generate-merkle-consolation.js
+  RPC_URL=... RAFFLE_ADDRESS=0x... PRIZE_DISTRIBUTOR_ADDRESS=0x... SEASON_ID=1 node scripts/generate-merkle-consolation.js
 
   This script builds a Merkle tree for consolation payouts using:
   - Participants from Raffle.getParticipants(seasonId)
   - Ticket counts from Raffle.getParticipantPosition(seasonId, addr)
   - Grand winner and amounts from Distributor.getSeason(seasonId)
+  
+  IMPORTANT: Creates ONE LEAF PER TICKET (not per participant)
+  - Each ticket held by a non-winner gets equal consolation amount
+  - Users with multiple tickets will have multiple leaves to claim
+  - This ensures fair distribution: consolation per ticket, not per user
 
-  Output: public/merkle/season-<id>.json with fields { merkleRoot, leaves: [{ index, account, amount }], seasonId }
+  Output: public/merkle/season-<id>.json with fields { merkleRoot, leaves: [{ index, account, amount, ticketNumber }], seasonId }
 */
 
 import fs from 'fs';
@@ -137,18 +142,29 @@ async function main() {
     return;
   }
 
+  // Calculate consolation per ticket
+  const consolationPerTicket = BigInt(consolationAmount) / denom;
+  
   const leaves = [];
   let runningSum = 0n;
   let index = 0;
+  
+  // Create one leaf per ticket for each participant (excluding grand winner)
   for (const addr of participants) {
     if (addr.toLowerCase() === grandWinner.toLowerCase()) continue;
     const pos = await client.readContract({ address: RAFFLE_ADDRESS, abi: RaffleAbi, functionName: 'getParticipantPosition', args: [SEASON_ID, addr] });
     const tickets = BigInt(pos.ticketCount ?? (Array.isArray(pos) ? pos[0] : 0));
     if (tickets === 0n) continue;
-    const raw = (BigInt(consolationAmount) * tickets) / denom;
-    if (raw > 0n) {
-      leaves.push({ index, account: addr, amount: raw.toString() });
-      runningSum += raw;
+    
+    // Create one leaf per ticket
+    for (let ticketNum = 0; ticketNum < tickets; ticketNum++) {
+      leaves.push({ 
+        index, 
+        account: addr, 
+        amount: consolationPerTicket.toString(),
+        ticketNumber: ticketNum // Track which ticket this is for the user
+      });
+      runningSum += consolationPerTicket;
       index += 1;
     }
   }
