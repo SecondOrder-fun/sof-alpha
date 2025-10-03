@@ -38,6 +38,7 @@ export default defineConfig({
       'contracts/**',
       'contracts/**/*',
       'contracts/lib/**',
+      'tests/e2e/**', // E2E tests use Playwright, not Vitest
     ],
     coverage: {
       provider: 'v8',

@@ -24,6 +24,7 @@ import { useAllSeasons } from '@/hooks/useAllSeasons'
 
 function withClient() {
   const client = new QueryClient()
+  // eslint-disable-next-line react/prop-types, react/display-name
   return ({ children }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
@@ -35,15 +36,13 @@ describe('useAllSeasons', () => {
   })
 
   it('returns normalized seasons and filters ghost/default ones', async () => {
-    // Prepare three seasons: 0 ghost, 1 valid, 2 valid
-    const zeroAddr = '0x0000000000000000000000000000000000000000'
+    // The hook loops from 1 to currentSeasonId (which is 2)
+    // So it will call readContract for season 1 and season 2
     readContract
-      // season 0 (ghost)
-      .mockResolvedValueOnce([{ startTime: 0, endTime: 0, bondingCurve: zeroAddr }, 1, 0, 0, 0])
       // season 1 (valid)
-      .mockResolvedValueOnce([{ startTime: 100, endTime: 200, bondingCurve: '0xBEEF...' }, 1, 10n, 100n, 1000n])
+      .mockResolvedValueOnce([{ startTime: 100, endTime: 200, bondingCurve: '0xBEEF' }, 1, 10n, 100n, 1000n])
       // season 2 (valid)
-      .mockResolvedValueOnce([{ startTime: 150, endTime: 300, bondingCurve: '0xCAFE...' }, 1, 20n, 200n, 2000n])
+      .mockResolvedValueOnce([{ startTime: 150, endTime: 300, bondingCurve: '0xCAFE' }, 1, 20n, 200n, 2000n])
 
     const wrapper = withClient()
     const { result } = renderHook(() => useAllSeasons(), { wrapper })

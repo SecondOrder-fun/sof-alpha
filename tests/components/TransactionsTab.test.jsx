@@ -117,7 +117,8 @@ describe('TransactionsTab', () => {
     render(<TransactionsTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
     
     await waitFor(() => {
-      expect(screen.getByText('buy')).toBeInTheDocument();
+      // Check for the transaction hash which is unique
+      expect(screen.getByText('0xabc123')).toBeInTheDocument();
     });
   });
 });

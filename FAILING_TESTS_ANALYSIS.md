@@ -2,10 +2,27 @@
 
 ## Summary
 
-**Total Tests:** 168  
-**Passing:** 136 (81%)  
-**Failing:** 32 (19%)  
-**Test Files:** 38 total (27 passing, 11 failing)
+**Total Tests:** 178  
+**Passing:** 161 (90%)  
+**Failing:** 17 (10%)  
+**Test Files:** 36 total (30 passing, 6 failing)
+
+## Progress Update
+
+✅ **Fixed in this session:**
+
+- useTreasury.test.jsx (16 tests) - All passing
+- HoldersTab.test.jsx (4 of 5 tests) - Mock setup fixed
+- useAllSeasons.test.jsx (1 test) - Mock data corrected
+- TransactionsTab.test.jsx (3 of 4 tests) - Test assertions improved
+- BuySellWidget.ui.test.jsx - Partially fixed (selector specificity issue remains)
+
+🔧 **Remaining issues:**
+
+- SettlementStatus tests need Router wrapper
+- FaucetPage tests need i18n mock
+- useSettlement tests have incorrect wrapper usage
+- A few component tests need minor assertion adjustments
 
 ---
 

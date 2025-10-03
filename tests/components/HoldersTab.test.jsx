@@ -3,18 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Mock hooks - must be before imports
-const mockUseRaffleHolders = vi.fn(() => ({
-  holders: [],
-  totalHolders: 0,
-  totalTickets: 0n,
-  isLoading: false,
-  error: null,
-}));
-
-const mockUseWallet = vi.fn(() => ({
-  address: null,
-}));
+// Mock hooks - use vi.hoisted() to ensure proper hoisting
+const mockUseRaffleHolders = vi.hoisted(() => vi.fn());
+const mockUseWallet = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/useRaffleHolders', () => ({
   useRaffleHolders: mockUseRaffleHolders,
@@ -57,6 +48,19 @@ describe('HoldersTab', () => {
       },
     });
     vi.clearAllMocks();
+    
+    // Set default mock return values
+    mockUseRaffleHolders.mockReturnValue({
+      holders: [],
+      totalHolders: 0,
+      totalTickets: 0n,
+      isLoading: false,
+      error: null,
+    });
+    
+    mockUseWallet.mockReturnValue({
+      address: null,
+    });
   });
 
   const wrapper = ({ children }) => (

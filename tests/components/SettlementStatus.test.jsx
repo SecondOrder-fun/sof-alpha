@@ -4,15 +4,20 @@
 import * as React from 'react';
 import { screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import SettlementStatus from '@/components/infofi/SettlementStatus';
 import { renderWithProviders } from '../utils/test-utils';
 
-// Mock the useSettlement hook
-vi.mock('@/hooks/useSettlement', async () => {
-  const actual = await vi.importActual('@/hooks/useSettlement');
-  return {
-    ...actual,
-    useSettlement: vi.fn().mockImplementation(() => ({
+// Mock the useSettlement hook - must be hoisted
+const mockUseSettlement = vi.hoisted(() => vi.fn());
+
+vi.mock('@/hooks/useSettlement', () => ({
+  useSettlement: mockUseSettlement,
+}));
+
+import SettlementStatus from '@/components/infofi/SettlementStatus';
+
+describe('SettlementStatus', () => {
+  it('renders the component with settled status', () => {
+    mockUseSettlement.mockReturnValue({
       outcome: {
         winner: '0xabcdef1234567890abcdef1234567890abcdef12',
         settled: true,
@@ -24,12 +29,8 @@ vi.mock('@/hooks/useSettlement', async () => {
       isLoading: false,
       error: null,
       refetch: vi.fn(),
-    })),
-  };
-});
-
-describe('SettlementStatus', () => {
-  it('renders the component with settled status', () => {
+    });
+    
     renderWithProviders(
       <SettlementStatus 
         marketId="0x123" 
@@ -46,6 +47,20 @@ describe('SettlementStatus', () => {
   });
   
   it('renders compact version', () => {
+    mockUseSettlement.mockReturnValue({
+      outcome: {
+        winner: '0xabcdef1234567890abcdef1234567890abcdef12',
+        settled: true,
+        settledAt: 1632312345,
+      },
+      events: [],
+      isSettled: true,
+      settlementStatus: 'settled',
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    
     renderWithProviders(
       <SettlementStatus 
         marketId="0x123" 
@@ -60,8 +75,7 @@ describe('SettlementStatus', () => {
   });
   
   it('shows loading state', () => {
-    // Override the mock for this test
-    vi.mocked(vi.importActual('@/hooks/useSettlement')).useSettlement.mockReturnValueOnce({
+    mockUseSettlement.mockReturnValue({
       outcome: null,
       events: [],
       isSettled: false,
@@ -82,8 +96,7 @@ describe('SettlementStatus', () => {
   });
   
   it('shows error state', () => {
-    // Override the mock for this test
-    vi.mocked(vi.importActual('@/hooks/useSettlement')).useSettlement.mockReturnValueOnce({
+    mockUseSettlement.mockReturnValue({
       outcome: null,
       events: [],
       isSettled: false,
@@ -104,8 +117,7 @@ describe('SettlementStatus', () => {
   });
   
   it('shows pending settlement state', () => {
-    // Override the mock for this test
-    vi.mocked(vi.importActual('@/hooks/useSettlement')).useSettlement.mockReturnValueOnce({
+    mockUseSettlement.mockReturnValue({
       outcome: {
         winner: '0x0000000000000000000000000000000000000000',
         settled: false,
@@ -131,8 +143,7 @@ describe('SettlementStatus', () => {
   });
   
   it('shows settling state', () => {
-    // Override the mock for this test
-    vi.mocked(vi.importActual('@/hooks/useSettlement')).useSettlement.mockReturnValueOnce({
+    mockUseSettlement.mockReturnValue({
       outcome: {
         winner: '0x0000000000000000000000000000000000000000',
         settled: false,

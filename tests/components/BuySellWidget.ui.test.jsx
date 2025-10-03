@@ -42,10 +42,10 @@ describe('BuySellWidget UI', () => {
     render(<BuySellWidget bondingCurveAddress="0xCurve" />);
 
     // Tabs as header (i18n keys - the mock returns just the key part after the colon)
-    expect(screen.getByText(/buy/i)).toBeInTheDocument();
-    expect(screen.getByText(/sell/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /common:buy/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /common:sell/i })).toBeInTheDocument();
 
     // Default tab shows amount label (i18n key)
-    expect(screen.getByText(/amount/i)).toBeInTheDocument();
+    expect(screen.getByText(/common:amount/i)).toBeInTheDocument();
   });
 });

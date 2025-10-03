@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FaucetPage from '../FaucetPage';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 
@@ -24,6 +25,21 @@ vi.mock('@/lib/wagmi', () => ({
 }));
 
 describe('FaucetPage', () => {
+  let queryClient;
+  
+  const renderWithProviders = (component) => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        {component}
+      </QueryClientProvider>
+    );
+  };
+  
   beforeEach(() => {
     // Reset mocks
     vi.resetAllMocks();
@@ -49,12 +65,12 @@ describe('FaucetPage', () => {
   });
   
   test('renders SOF faucet tab by default', () => {
-    render(<FaucetPage />);
+    renderWithProviders(<FaucetPage />);
     expect(screen.getByText('$SOF Token Faucet')).toBeInTheDocument();
   });
   
   test('shows Sepolia ETH faucet tab when clicked', async () => {
-    render(<FaucetPage />);
+    renderWithProviders(<FaucetPage />);
     fireEvent.click(screen.getByText('Sepolia ETH Faucet'));
     
     await waitFor(() => {
@@ -68,7 +84,7 @@ describe('FaucetPage', () => {
       isConnected: false,
     });
     
-    render(<FaucetPage />);
+    renderWithProviders(<FaucetPage />);
     expect(screen.getByText('Connect your wallet')).toBeInTheDocument();
   });
   
@@ -88,7 +104,7 @@ describe('FaucetPage', () => {
     // Mock current time
     vi.spyOn(Date, 'now').mockImplementation(() => 10000);
     
-    render(<FaucetPage />);
+    renderWithProviders(<FaucetPage />);
     
     await waitFor(() => {
       expect(screen.getByText(/Cooldown Period/)).toBeInTheDocument();
@@ -113,7 +129,7 @@ describe('FaucetPage', () => {
     };
     useWalletClient.mockReturnValue({ data: mockWalletClient });
     
-    render(<FaucetPage />);
+    renderWithProviders(<FaucetPage />);
     
     await waitFor(() => {
       expect(screen.getByText('Claim $SOF Tokens')).not.toBeDisabled();

@@ -49,12 +49,6 @@ describe('useSettlement', () => {
     getFilterLogs: vi.fn().mockResolvedValue([]),
   };
   
-  const mockContract = {
-    createEventFilter: {
-      MarketsSettled: vi.fn().mockResolvedValue({}),
-    },
-  };
-  
   beforeEach(() => {
     vi.clearAllMocks();
     
@@ -70,9 +64,6 @@ describe('useSettlement', () => {
       }
       return null;
     });
-    
-    // Mock getContract
-    vi.spyOn(wagmi, 'getContract').mockReturnValue(mockContract);
   });
   
   it('returns settlement status and outcome data', async () => {
