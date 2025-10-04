@@ -1,8 +1,7 @@
 // src/routes/MarketsIndex.jsx
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
 import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useOnchainInfoFiMarkets } from '@/hooks/useOnchainInfoFiMarkets';
@@ -41,110 +40,122 @@ const MarketsIndex = () => {
   // Markets loaded via React Query (useOnchainInfoFiMarkets)
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold">{t('title')}</h1>
-        {!seasonsLoading && activeSeasonId !== '0' && (
-          <div className="text-xs border rounded px-2 py-1 bg-muted/30">{t('activeSeason')}: <span className="font-mono">#{activeSeasonId}</span></div>
-        )}
-      </div>
-      {/* Admin-only market creation UI moved to Admin page */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('activeMarkets')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {seasonsLoading && <p className="text-muted-foreground">Loading seasons…</p>}
-          {!seasonsLoading && activeSeasonId === '0' && (
-            <p className="text-muted-foreground">No active season found.</p>
-          )}
-          {isLoading && <p className="text-muted-foreground">Loading markets from chain...</p>}
-          {error && <p className="text-red-500">Failed to load markets</p>}
-          {!isLoading && !error && (
-            <div className="space-y-4">
-              {winners.length === 0 && positionSize.length === 0 && behavioral.length === 0 && others.length === 0 && (
-                <p className="text-muted-foreground">No on-chain markets found for this season.</p>
-              )}
-
-              {winners.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium mb-2">{t('winnerPredictionCount', { count: winners.length })}</div>
-                  <div className="space-y-2">
-                    {winners.map((m) => (
-                      <div key={m.id} className="relative">
-                        <InfoFiMarketCard market={m} />
-                        {m.raffle_id && (
-                          <div className="absolute top-2 right-3 text-xs">
-                            <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {positionSize.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium mb-2">{t('positionSizeCount', { count: positionSize.length })}</div>
-                  <div className="space-y-2">
-                    {positionSize.map((m) => (
-                      <div key={m.id} className="relative">
-                        <InfoFiMarketCard market={m} />
-                        {m.raffle_id && (
-                          <div className="absolute top-2 right-3 text-xs">
-                            <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {behavioral.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium mb-2">{t('behavioralCount', { count: behavioral.length })}</div>
-                  <div className="space-y-2">
-                    {behavioral.map((m) => (
-                      <div key={m.id} className="relative">
-                        <InfoFiMarketCard market={m} />
-                        {m.raffle_id && (
-                          <div className="absolute top-2 right-3 text-xs">
-                            <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {others.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium mb-2">{t('otherCount', { count: others.length })}</div>
-                  <div className="space-y-2">
-                    {others.map((m) => (
-                      <div key={m.id} className="relative">
-                        <InfoFiMarketCard market={m} />
-                        {m.raffle_id && (
-                          <div className="absolute top-2 right-3 text-xs">
-                            <Link to={`/raffles/${m.raffle_id}`} className="text-primary hover:underline">View Raffle</Link>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+    <div className="max-w-7xl mx-auto">
+      {/* Polymarket-style header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-bold">{t('title')}</h1>
+          {!seasonsLoading && activeSeasonId !== '0' && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{t('activeSeason')}:</span>
+              <span className="font-mono font-semibold">#{activeSeasonId}</span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+        <p className="text-muted-foreground">{t('browseActiveMarkets')}</p>
+      </div>
+
+      {/* Loading and error states */}
+      {seasonsLoading && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading seasons…</p>
+        </div>
+      )}
+      
+      {!seasonsLoading && activeSeasonId === '0' && (
+        <Card className="text-center py-12">
+          <CardContent>
+            <p className="text-muted-foreground">No active season found.</p>
+          </CardContent>
+        </Card>
+      )}
+      
+      {isLoading && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading markets from chain...</p>
+        </div>
+      )}
+      
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-6">
+            <p className="text-red-600 text-center">Failed to load markets</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Markets grid - Polymarket style */}
+      {!isLoading && !error && (
+        <div className="space-y-8">
+          {winners.length === 0 && positionSize.length === 0 && behavioral.length === 0 && others.length === 0 && (
+            <Card className="text-center py-12">
+              <CardContent>
+                <p className="text-muted-foreground">No on-chain markets found for this season.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {winners.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">{t('winnerPrediction')}</h2>
+                <span className="text-sm text-muted-foreground">{winners.length} {t('markets')}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {winners.map((m) => (
+                  <InfoFiMarketCard key={m.id} market={m} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {positionSize.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">{t('positionSize')}</h2>
+                <span className="text-sm text-muted-foreground">{positionSize.length} {t('markets')}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {positionSize.map((m) => (
+                  <InfoFiMarketCard key={m.id} market={m} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {behavioral.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">{t('behavioral')}</h2>
+                <span className="text-sm text-muted-foreground">{behavioral.length} {t('markets')}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {behavioral.map((m) => (
+                  <InfoFiMarketCard key={m.id} market={m} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {others.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">{t('other')}</h2>
+                <span className="text-sm text-muted-foreground">{others.length} {t('markets')}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {others.map((m) => (
+                  <InfoFiMarketCard key={m.id} market={m} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Arbitrage Opportunities - On-chain only */}
       {!seasonsLoading && activeSeasonId !== '0' && bondingCurveAddress && (
-        <div className="mt-6">
+        <div className="mt-8">
           <ArbitrageOpportunityDisplay
             seasonId={activeSeasonId}
             bondingCurveAddress={bondingCurveAddress}

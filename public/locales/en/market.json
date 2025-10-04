@@ -134,5 +134,10 @@
   "behavioralCount": "Behavioral ({{count}})",
   "otherCount": "Other ({{count}})",
   "buyInfoFiPosition": "Buy InfoFi position at {{price}} SOF, exit raffle at {{exitPrice}} SOF",
-  "buyRaffleTickets": "Buy raffle tickets at {{price}} SOF, sell InfoFi position at {{sellPrice}} SOF"
+  "buyRaffleTickets": "Buy raffle tickets at {{price}} SOF, sell InfoFi position at {{sellPrice}} SOF",
+  "browseActiveMarkets": "Browse and trade on active prediction markets",
+  "positionSize": "Position Size",
+  "behavioral": "Behavioral",
+  "other": "Other",
+  "trade": "Trade"
 }

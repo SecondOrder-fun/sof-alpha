@@ -43,7 +43,9 @@ export function useOnchainInfoFiMarkets(seasonId, networkKey = 'LOCAL') {
           // Refresh list on new market
           load()
         }
-      } catch (_) {}
+      } catch {
+        // Ignore event parsing errors
+      }
     }})
     return () => { cancelled = true; unsub?.() }
   }, [sid, networkKey])

@@ -2,6 +2,7 @@
 // Read InfoFi oracle price on-chain and subscribe to PriceUpdated events (no backend)
 import { useEffect, useMemo, useState } from 'react'
 import { readOraclePrice, subscribeOraclePriceUpdated } from '@/services/onchainInfoFi'
+import { useQueryClient } from '@tanstack/react-query'
 
 /**
  * useOraclePriceLive
@@ -10,6 +11,7 @@ import { readOraclePrice, subscribeOraclePriceUpdated } from '@/services/onchain
  */
 export function useOraclePriceLive(marketId, networkKey = 'LOCAL') {
   const id = useMemo(() => (marketId ? String(marketId) : null), [marketId])
+  const queryClient = useQueryClient()
   const [state, setState] = useState({
     hybridPriceBps: null,
     raffleProbabilityBps: null,
@@ -18,6 +20,18 @@ export function useOraclePriceLive(marketId, networkKey = 'LOCAL') {
     active: false,
   })
   const [live, setLive] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Listen to position snapshot changes to trigger price refresh
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // When position snapshots update, trigger a price refresh
+      if (event?.query?.queryKey?.[0] === 'playerSnapshot') {
+        setRefreshTrigger(prev => prev + 1)
+      }
+    })
+    return () => unsubscribe()
+  }, [queryClient])
 
   // Initial fetch and on-change refetch
   useEffect(() => {
@@ -42,7 +56,7 @@ export function useOraclePriceLive(marketId, networkKey = 'LOCAL') {
     }
     load()
     return () => { cancelled = true }
-  }, [id, networkKey])
+  }, [id, networkKey, refreshTrigger])
 
   // Subscribe to on-chain PriceUpdated via WS when available
   useEffect(() => {

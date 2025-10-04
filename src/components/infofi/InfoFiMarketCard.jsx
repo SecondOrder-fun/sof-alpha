@@ -46,17 +46,6 @@ const InfoFiMarketCard = ({ market }) => {
     const market = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
     
     setBps({ hybrid, raffle, market });
-    
-    // Debug: log invalid data
-    if (priceData.hybridPriceBps > 10000 || priceData.raffleProbabilityBps > 10000) {
-      console.error('[InfoFi] Invalid probability data:', {
-        marketId: market?.id,
-        player: market?.player,
-        hybrid: priceData.hybridPriceBps,
-        raffle: priceData.raffleProbabilityBps,
-        market: priceData.marketSentimentBps
-      });
-    }
   }, [priceData, market?.id, market?.player]);
 
   // Derive preferred uint256 market id if listing supplied a bytes32 id
@@ -207,6 +196,36 @@ const InfoFiMarketCard = ({ market }) => {
     return (clamped / 100).toFixed(1);
   }, [bps.hybrid]);
 
+  // Calculate payout for a given bet amount
+  const calculatePayout = React.useCallback((betAmount, isYes) => {
+    const amount = Number(betAmount || 0);
+    if (amount <= 0) return 0;
+    
+    const yesPercent = Number(percent);
+    const noPercent = 100 - yesPercent;
+    
+    // Payout = (bet amount / probability) if you win
+    // This gives you back your stake plus profit
+    if (isYes) {
+      return yesPercent > 0 ? (amount / (yesPercent / 100)) : 0;
+    } else {
+      return noPercent > 0 ? (amount / (noPercent / 100)) : 0;
+    }
+  }, [percent]);
+
+  // Calculate profit (payout minus stake)
+  const calculateProfit = React.useCallback((betAmount, isYes) => {
+    const payout = calculatePayout(betAmount, isYes);
+    return Math.max(0, payout - Number(betAmount || 0));
+  }, [calculatePayout]);
+
+  // Format payout display
+  const formatPayout = (amount) => {
+    if (amount >= 1000) return `${(amount / 1000).toFixed(2)}k`;
+    if (amount >= 100) return amount.toFixed(0);
+    return amount.toFixed(2);
+  };
+
   const formatVolume = (v) => {
     const n = Number(v || 0);
     if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}m ${t('volume')}`;
@@ -241,99 +260,190 @@ DebugInfoFiPanel.propTypes = {
 
 
   return (
-    <Card className="border rounded p-3">
-      <CardHeader className="p-0 mb-2">
-        <div className="flex items-start justify-between gap-3">
-          <CardTitle className="text-base leading-snug">
-            {isWinnerPrediction ? (
-              <span>
-                {parts.prefix} {" "}
+    <Card className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+      {/* Polymarket-style header with market question */}
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium leading-tight">
+          {isWinnerPrediction ? (
+            <span className="flex flex-col gap-1">
+              <span className="text-base">
+                {parts.prefix}{" "}
                 <UsernameDisplay 
                   address={market.player}
                   linkTo={`/users/${market.player}`}
-                />{" "}
-                <Link to={`/raffles/${seasonId}`} className="text-primary hover:underline">
-                  {parts.seasonLabel}
-                </Link>
+                  className="font-semibold"
+                />
               </span>
-            ) : (
-              title
-            )}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <div
-              aria-label={t('chance')}
-              className="relative w-12 h-12 rounded-full"
-              style={{
-                background: `conic-gradient(var(--primary) ${Math.max(0, Math.min(100, Number(percent))) * 3.6}deg, rgba(0,0,0,0.08) 0deg)`
-              }}
-            >
-              <div className="absolute inset-1 rounded-full bg-card flex items-center justify-center">
-                <div className="text-sm font-semibold">{percent}%</div>
+              <Link to={`/raffles/${seasonId}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                {parts.seasonLabel}
+              </Link>
+            </span>
+          ) : (
+            title
+          )}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="pt-0 space-y-4">
+        {/* Polymarket-style outcome buttons with percentages and payouts */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setForm({ ...form, side: 'YES' })}
+            className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+              form.side === 'YES' 
+                ? 'border-emerald-500 bg-emerald-50' 
+                : 'border-gray-200 hover:border-emerald-300 bg-white'
+            }`}
+          >
+            <div className="absolute inset-0 bg-emerald-100" style={{ width: `${percent}%` }} />
+            <div className="relative px-4 py-3 flex flex-col items-center">
+              <span className="text-2xl font-bold text-emerald-700">{percent}%</span>
+              <span className="text-xs font-medium text-emerald-900 mt-1">{t('yes')}</span>
+              <div className="mt-2 text-xs text-emerald-600">
+                {form.amount && Number(form.amount) > 0 ? (
+                  <>
+                    <div className="font-semibold">{formatPayout(calculatePayout(form.amount, true))} SOF</div>
+                    <div className="text-[10px] opacity-75">+{formatPayout(calculateProfit(form.amount, true))} profit</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-semibold">{formatPayout(calculatePayout(1, true))} SOF</div>
+                    <div className="text-[10px] opacity-75">per 1 SOF bet</div>
+                  </>
+                )}
               </div>
             </div>
+          </button>
+          
+          <button
+            onClick={() => setForm({ ...form, side: 'NO' })}
+            className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+              form.side === 'NO' 
+                ? 'border-rose-500 bg-rose-50' 
+                : 'border-gray-200 hover:border-rose-300 bg-white'
+            }`}
+          >
+            <div className="absolute inset-0 bg-rose-100" style={{ width: `${100 - Number(percent)}%` }} />
+            <div className="relative px-4 py-3 flex flex-col items-center">
+              <span className="text-2xl font-bold text-rose-700">{(100 - Number(percent)).toFixed(1)}%</span>
+              <span className="text-xs font-medium text-rose-900 mt-1">{t('no')}</span>
+              <div className="mt-2 text-xs text-rose-600">
+                {form.amount && Number(form.amount) > 0 ? (
+                  <>
+                    <div className="font-semibold">{formatPayout(calculatePayout(form.amount, false))} SOF</div>
+                    <div className="text-[10px] opacity-75">+{formatPayout(calculateProfit(form.amount, false))} profit</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-semibold">{formatPayout(calculatePayout(1, false))} SOF</div>
+                    <div className="text-[10px] opacity-75">per 1 SOF bet</div>
+                  </>
+                )}
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Volume and market info */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
+          <div className="flex items-center gap-3">
+            <span className="font-medium">
+              {(() => {
+                try {
+                  const yes = marketInfo.data?.totalYesPool ?? 0n;
+                  const no = marketInfo.data?.totalNoPool ?? 0n;
+                  const sof = formatUnits((yes + no), 18);
+                  return formatVolume(Number(sof));
+                } catch { return '$0.00 Vol.'; }
+              })()}
+            </span>
+          </div>
+          <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>
+        </div>
+
+        {/* Your positions (collapsible) */}
+        {isConnected && (() => {
+          const yesAmt = (() => { try { const v = yesPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+          const noAmt = (() => { try { const v = noPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+          const hasPosition = yesAmt > 0n || noAmt > 0n;
+          
+          if (!hasPosition) return null;
+          
+          return (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">{t('yourPositions')}</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {yesAmt > 0n && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-700">{t('yes')}</span>
+                    <span className="font-mono font-medium">{formatSof(yesAmt)} SOF</span>
+                  </div>
+                )}
+                {noAmt > 0n && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-rose-700">{t('no')}</span>
+                    <span className="font-mono font-medium">{formatSof(noAmt)} SOF</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Trade input - Polymarket style */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              placeholder={t('amountSof')}
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              className="flex-1"
+            />
+            <Button
+              onClick={() => betMutation.mutate()}
+              disabled={!isConnected || !form.amount || betMutation.isPending}
+              className={`min-w-[100px] ${
+                form.side === 'YES' 
+                  ? 'bg-emerald-600 hover:bg-emerald-700' 
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
+            >
+              {betMutation.isPending ? t('submitting') : t('trade')}
+            </Button>
           </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          {subtitle}
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {(() => {
-            try {
-              const yes = marketInfo.data?.totalYesPool ?? 0n;
-              const no = marketInfo.data?.totalNoPool ?? 0n;
-              const sof = formatUnits((yes + no), 18);
-              return formatVolume(Number(sof));
-            } catch { return '$0.00 Vol.'; }
-          })()}
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        {/* Positions mini-row */}
-        <div className="flex justify-between text-xs text-muted-foreground mb-2">
-          <div>{t('myYes')}: <span className="font-mono">{(() => { try { const v = yesPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
-          <div>{t('myNo')}: <span className="font-mono">{(() => { try { const v = noPos.data; const amt = (typeof v === 'bigint') ? v : (v?.amount ?? 0n); return formatSof(amt); } catch { return '0'; } })()}</span> SOF</div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <Button
-            className="h-10 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            variant="outline"
-            onClick={() => setForm({ ...form, side: 'YES' })}
-          >{t('yes')}</Button>
-          <Button
-            className="h-10 bg-rose-50 text-rose-700 hover:bg-rose-100"
-            variant="outline"
-            onClick={() => setForm({ ...form, side: 'NO' })}
-          >{t('no')}</Button>
-        </div>
-        {/* Amount + submit row (kept for now) */}
-        <div className="mt-2 grid grid-cols-3 gap-2 items-end">
-          <Input
-            className="mt-2"
-            placeholder={t('amountSof')}
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          />
-          <div />
-          <Button
-            className="col-span-2"
-            onClick={() => betMutation.mutate()}
-            disabled={!isConnected || !form.amount || betMutation.isPending}
-          >{betMutation.isPending ? t('submitting') : (form.side === 'YES' ? t('placeYes') : t('placeNo'))}</Button>
-        </div>
 
-        {/* Footer meta removed: avoid duplicate volume display (we already render live on-chain volume above) */}
-
-        {/* Claims retained below fold (optional) */}
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <Button variant="outline" disabled={claimYes.isPending} onClick={() => claimYes.mutate()}>
-            {claimYes.isPending ? t('claimingYes') : t('claimYes')}
-          </Button>
-          <Button variant="outline" disabled={claimNo.isPending} onClick={() => claimNo.mutate()}>
-            {claimNo.isPending ? t('claimingNo') : t('claimNo')}
-          </Button>
-        </div>
-
+        {/* Claims - only show if there are claimable positions */}
+        {isConnected && (() => {
+          const yesAmt = (() => { try { const v = yesPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+          const noAmt = (() => { try { const v = noPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+          const hasPosition = yesAmt > 0n || noAmt > 0n;
+          
+          if (!hasPosition) return null;
+          
+          return (
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={claimYes.isPending || yesAmt === 0n} 
+                onClick={() => claimYes.mutate()}
+                className="text-xs"
+              >
+                {claimYes.isPending ? t('claimingYes') : t('claimYes')}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                disabled={claimNo.isPending || noAmt === 0n} 
+                onClick={() => claimNo.mutate()}
+                className="text-xs"
+              >
+                {claimNo.isPending ? t('claimingNo') : t('claimNo')}
+              </Button>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
