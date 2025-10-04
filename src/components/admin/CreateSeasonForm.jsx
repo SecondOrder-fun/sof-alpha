@@ -10,6 +10,7 @@ import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { safeStringify } from "@/lib/jsonUtils";
 import TransactionStatus from "./TransactionStatus";
+import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
 const fmtLocalDatetime = (sec) => {
@@ -316,6 +317,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 
   return (
     <form onSubmit={handleCreateSeason} className="space-y-4">
+      {/* Show circuit breaker alert if error detected */}
+      <MetaMaskCircuitBreakerAlert 
+        error={createSeason?.error} 
+        onDismiss={() => createSeason.reset()} 
+      />
+      
       <div className="space-y-1">
         <Input
           placeholder="Season Name"

@@ -36,6 +36,11 @@ function useContractWriteWithFeedback(mutationOptions) {
   };
 
   const buildFriendlyMessage = (abi, err, fallback = 'Transaction failed') => {
+    // Check for MetaMask circuit breaker error
+    if (err?.message?.includes('circuit breaker') || err?.data?.cause?.isBrokenCircuitError) {
+      return 'MetaMask circuit breaker tripped. Please switch to another network and back to reset the connection, or restart MetaMask.';
+    }
+    
     const decoded = decodeRevert(abi, err);
     if (decoded) return decoded;
     // viem provides shortMessage/metaMessages frequently
@@ -121,6 +126,19 @@ export function useRaffleWrite() {
     // Preflight check: ensure RAFFLE address has code on current chain
     onMutate: async () => {
       if (publicClient && raffleContractConfig.address) {
+        try {
+          // First check if we can connect to the RPC
+          await publicClient.getBlockNumber();
+        } catch (rpcErr) {
+          if (rpcErr?.message?.includes('circuit breaker') || rpcErr?.data?.cause?.isBrokenCircuitError) {
+            throw new Error('MetaMask circuit breaker tripped. Please switch to another network and back to reset the connection.');
+          }
+          if (rpcErr?.message?.includes('fetch') || rpcErr?.message?.includes('ECONNREFUSED')) {
+            throw new Error('Cannot connect to RPC. Make sure Anvil is running on http://127.0.0.1:8545');
+          }
+          throw rpcErr;
+        }
+        
         const code = await publicClient.getCode({ address: raffleContractConfig.address });
         if (!code || code === '0x') {
           throw new Error(
