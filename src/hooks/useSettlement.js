@@ -2,10 +2,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { usePublicClient } from 'wagmi';
 import { readContract } from '@wagmi/core';
-import { getContract } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getContractAddress } from '@/config/contracts';
 import InfoFiSettlementAbi from '@/contracts/abis/InfoFiSettlement.json';
+import { queryLogsInChunks } from '@/utils/blockRangeQuery';
 
 /**
  * Hook to interact with the InfoFiSettlement contract
@@ -59,23 +59,31 @@ export function useSettlement(marketId) {
       if (!settlementAddress || !marketIdBytes32 || !publicClient) return [];
       
       try {
-        const contract = getContract({
-          address: settlementAddress,
-          abi: InfoFiSettlementAbi,
+        // Get current block for lookback range
+        const currentBlock = await publicClient.getBlockNumber();
+        const lookbackBlocks = 100000n; // Last 100k blocks
+        const fromBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
+        
+        // Get MarketsSettled events using chunked query
+        const eventAbi = InfoFiSettlementAbi.find(e => e.type === 'event' && e.name === 'MarketsSettled');
+        const events = await queryLogsInChunks(
           publicClient,
-        });
-        
-        // Get MarketsSettled events for this market
-        const filter = await contract.createEventFilter.MarketsSettled({
-          fromBlock: 'earliest',
-          toBlock: 'latest',
-        });
-        
-        const events = await publicClient.getFilterLogs({ filter });
+          {
+            address: settlementAddress,
+            event: {
+              name: 'MarketsSettled',
+              type: 'event',
+              inputs: eventAbi?.inputs || [],
+            },
+            fromBlock,
+            toBlock: 'latest',
+          },
+          10000n
+        );
         
         // Filter events that include this market ID
         return events.filter(event => {
-          const marketIds = event.args.marketIds || [];
+          const marketIds = event.args?.marketIds || [];
           return marketIds.includes(marketIdBytes32);
         });
       } catch (error) {

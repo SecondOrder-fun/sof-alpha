@@ -26,7 +26,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 63109,
+    port: 5173,
+    strictPort: true, // Fail if port is already in use instead of trying next available
     host: '127.0.0.1',
     open: true,
     proxy: {

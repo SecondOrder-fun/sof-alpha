@@ -8,6 +8,7 @@ import InfoFiMarketABI from '@/contracts/abis/InfoFiMarket.json';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
+import { queryLogsInChunks, estimateBlockFromTimestamp } from '@/utils/blockRangeQuery';
 
 // Build a public client (HTTP) and optional WS client for subscriptions
 function buildClients(networkKey) {
@@ -305,25 +306,87 @@ export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }
   }));
 }
 
+// Helper to get season start block for efficient log queries
+async function getSeasonStartBlock({ seasonId, networkKey = 'LOCAL' }) {
+  const { publicClient } = buildClients(networkKey);
+  const addrs = getContractAddresses(networkKey);
+  
+  // Try to get season start time from Raffle contract
+  try {
+    const RaffleMinimalAbi = [
+      {
+        type: 'function',
+        name: 'getSeasonDetails',
+        stateMutability: 'view',
+        inputs: [{ name: 'seasonId', type: 'uint256' }],
+        outputs: [
+          { name: 'config', type: 'tuple', components: [
+            { name: 'startTime', type: 'uint256' },
+            { name: 'endTime', type: 'uint256' },
+            { name: 'bondingCurve', type: 'address' },
+            { name: 'isActive', type: 'bool' }
+          ]},
+          { name: 'status', type: 'uint8' },
+          { name: 'totalParticipants', type: 'uint256' },
+          { name: 'totalTickets', type: 'uint256' },
+          { name: 'totalPrizePool', type: 'uint256' }
+        ]
+      }
+    ];
+    
+    const result = await publicClient.readContract({
+      address: addrs.RAFFLE,
+      abi: RaffleMinimalAbi,
+      functionName: 'getSeasonDetails',
+      args: [BigInt(seasonId)]
+    });
+    
+    const config = result[0] || result?.config;
+    const startTime = Number(config?.startTime || config?.[0] || 0);
+    
+    if (startTime > 0) {
+      // Estimate block from timestamp (Base has ~2 sec block time)
+      const avgBlockTime = networkKey?.toUpperCase() === 'LOCAL' ? 1 : 2;
+      return await estimateBlockFromTimestamp(publicClient, startTime, avgBlockTime);
+    }
+  } catch (e) {
+    // Failed to get season start time, will use fallback
+    // Error details: e.message
+  }
+  
+  // Fallback: use a reasonable recent block (last 100k blocks for Base, 10k for local)
+  const currentBlock = await publicClient.getBlockNumber();
+  const lookbackBlocks = networkKey?.toUpperCase() === 'LOCAL' ? 10000n : 100000n;
+  return currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
+}
+
 // Retrieve winner markets via factory events (real uint256 ids)
 export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = 'LOCAL' }) {
   const { publicClient } = buildClients(networkKey);
   const { factory } = getContracts(networkKey);
   if (!factory.address) throw new Error('INFOFI_FACTORY address missing');
 
-  // Build a filter for MarketCreated events; rely on ABI signature
-  const logs = await publicClient.getLogs({
-    address: factory.address,
-    event: {
-      // Minimal ABI fragment for MarketCreated(seasonId,uint256 or bytes32 marketId,address player,string marketType,...)
-      // Use the compiled ABI instead to ensure correct types
-      name: 'MarketCreated',
-      type: 'event',
-      inputs: InfoFiMarketFactoryABI.find((e) => e.type === 'event' && e.name === 'MarketCreated').inputs,
+  // Get season start block for efficient querying
+  const fromBlock = await getSeasonStartBlock({ seasonId, networkKey });
+  
+  // Build event filter
+  const eventAbi = InfoFiMarketFactoryABI.find((e) => e.type === 'event' && e.name === 'MarketCreated');
+  
+  // Use chunked query to avoid RPC limits
+  const logs = await queryLogsInChunks(
+    publicClient,
+    {
+      address: factory.address,
+      event: {
+        name: 'MarketCreated',
+        type: 'event',
+        inputs: eventAbi.inputs,
+      },
+      fromBlock,
+      toBlock: 'latest',
     },
-    fromBlock: 'earliest',
-    // toBlock: 'latest' (default)
-  });
+    10000n // Max 10k blocks per chunk (safe for most RPC providers)
+  );
 
   const out = [];
   for (const log of logs) {

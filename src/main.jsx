@@ -186,7 +186,8 @@ RainbowKitWrapper.propTypes = {
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+  // StrictMode disabled to prevent WalletConnect double initialization
+  // <React.StrictMode>
     <ProviderErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <WagmiConfigProvider>
@@ -214,5 +215,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* ReactQueryDevtools outside of provider errors */}
       </QueryClientProvider>
     </ProviderErrorBoundary>
-  </React.StrictMode>,
+  // </React.StrictMode>,
 );

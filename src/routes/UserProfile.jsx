@@ -21,6 +21,7 @@ import { useUsername } from '@/hooks/useUsername';
 import { useUsernameContext } from '@/context/UsernameContext';
 import { Badge } from '@/components/ui/badge';
 import { SOFTransactionHistory } from '@/components/user/SOFTransactionHistory';
+import { queryLogsInChunks } from '@/utils/blockRangeQuery';
 
 const UserProfile = () => {
   const { t } = useTranslation('account');
@@ -341,31 +342,45 @@ const RaffleHoldingRow = ({ row, address, client }) => {
   const inQuery = useQuery({
     queryKey: ['raffleTransfersIn_profile', row.token, address],
     enabled: open && !!client && !!row?.token && !!address,
-    queryFn: async () => client.getLogs({
-      address: row.token,
-      event: { type: 'event', name: 'Transfer', inputs: [
-        { indexed: true, name: 'from', type: 'address' },
-        { indexed: true, name: 'to', type: 'address' },
-        { indexed: false, name: 'value', type: 'uint256' },
-      ] },
-      args: { to: address },
-      fromBlock: 'earliest', toBlock: 'latest',
-    }),
+    queryFn: async () => {
+      const currentBlock = await client.getBlockNumber();
+      const lookbackBlocks = 100000n; // Last 100k blocks
+      const fromBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
+      
+      return queryLogsInChunks(client, {
+        address: row.token,
+        event: { type: 'event', name: 'Transfer', inputs: [
+          { indexed: true, name: 'from', type: 'address' },
+          { indexed: true, name: 'to', type: 'address' },
+          { indexed: false, name: 'value', type: 'uint256' },
+        ] },
+        args: { to: address },
+        fromBlock,
+        toBlock: 'latest',
+      }, 10000n);
+    },
   });
 
   const outQuery = useQuery({
     queryKey: ['raffleTransfersOut_profile', row.token, address],
     enabled: open && !!client && !!row?.token && !!address,
-    queryFn: async () => client.getLogs({
-      address: row.token,
-      event: { type: 'event', name: 'Transfer', inputs: [
-        { indexed: true, name: 'from', type: 'address' },
-        { indexed: true, name: 'to', type: 'address' },
-        { indexed: false, name: 'value', type: 'uint256' },
-      ] },
-      args: { from: address },
-      fromBlock: 'earliest', toBlock: 'latest',
-    }),
+    queryFn: async () => {
+      const currentBlock = await client.getBlockNumber();
+      const lookbackBlocks = 100000n; // Last 100k blocks
+      const fromBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
+      
+      return queryLogsInChunks(client, {
+        address: row.token,
+        event: { type: 'event', name: 'Transfer', inputs: [
+          { indexed: true, name: 'from', type: 'address' },
+          { indexed: true, name: 'to', type: 'address' },
+          { indexed: false, name: 'value', type: 'uint256' },
+        ] },
+        args: { from: address },
+        fromBlock,
+        toBlock: 'latest',
+      }, 10000n);
+    },
   });
 
   const decimals = Number(row.decimals || 0);

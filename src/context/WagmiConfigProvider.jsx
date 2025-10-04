@@ -5,7 +5,15 @@ import { WagmiProvider, createConfig } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 import { getChainConfig, getStoredNetworkKey } from '@/lib/wagmi';
 
+// Cache config to prevent re-initialization
+let cachedConfig = null;
+let cachedNetworkKey = null;
+
 const buildWagmiConfig = (networkKey) => {
+  // Return cached config if network hasn't changed
+  if (cachedConfig && cachedNetworkKey === networkKey) {
+    return cachedConfig;
+  }
   try {
     const { chain, transport } = getChainConfig(networkKey);
     
@@ -29,7 +37,7 @@ const buildWagmiConfig = (networkKey) => {
       });
     }
     
-    return createConfig({
+    const config = createConfig({
       chains: [chain],
       connectors: [
         injected({ shimDisconnect: true }),
@@ -42,6 +50,11 @@ const buildWagmiConfig = (networkKey) => {
         [chain.id]: transport,
       },
     });
+    
+    // Cache the config
+    cachedConfig = config;
+    cachedNetworkKey = networkKey;
+    return config;
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error building Wagmi config:', error);
@@ -93,7 +106,7 @@ export const WagmiConfigProvider = ({ children }) => {
   const config = useMemo(() => buildWagmiConfig(networkKey), [networkKey]);
 
   return (
-    <WagmiProvider config={config} reconnectOnMount={true}>
+    <WagmiProvider config={config}>
       {children}
     </WagmiProvider>
   );

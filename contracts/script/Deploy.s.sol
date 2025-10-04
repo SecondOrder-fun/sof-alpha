@@ -24,10 +24,10 @@ contract DeployScript is Script {
             deployerAddr = vm.addr(deployerPrivateKey);
             vm.startBroadcast(deployerPrivateKey);
         } else {
-            // When no key is provided, Foundry uses DefaultSender (0x1804...). Use that as admin.
+            // When using mnemonics, get the actual broadcaster address
             vm.startBroadcast();
-            // Align admin with the script sender in this branch
-            deployerAddr = msg.sender;
+            // The actual broadcaster when using mnemonics is tx.origin
+            deployerAddr = tx.origin;
         }
 
         // Deploy VRF Mock for local development
@@ -53,7 +53,7 @@ contract DeployScript is Script {
         vrfCoordinator.addConsumer(subscriptionId, address(raffle));
         console2.log("Raffle contract added as VRF consumer.");
 
-        // Deploy RafflePositionTracker
+        // Deploy RafflePositionTracker with deployerAddr as admin
         RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
         console2.log("RafflePositionTracker deployed at:", address(tracker));
 

@@ -28,16 +28,7 @@ app.addHook('onRoute', (routeOptions) => {
 await app.register(cors, {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://secondorder.fun', 'https://www.secondorder.fun']
-    : [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:63109',
-        'http://localhost:63110',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:63109',
-        'http://127.0.0.1:63110'
-      ],
+    : true, // Allow all origins in development
   credentials: true
 });
 
