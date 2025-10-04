@@ -139,5 +139,7 @@
   "positionSize": "Position Size",
   "behavioral": "Behavioral",
   "other": "Other",
-  "trade": "Trade"
+  "trade": "Trade",
+  "playerHasNoPosition": "Player has no raffle position",
+  "playerCannotWinUnlessReentry": "Cannot win unless they buy back in before season ends"
 }

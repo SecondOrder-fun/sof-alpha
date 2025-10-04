@@ -11,7 +11,8 @@ interface IInfoFiPriceOracleMinimal {
 /// @dev Minimal interface to the InfoFiMarket for creating markets and reading roles
 interface IInfoFiMarketOps {
     function OPERATOR_ROLE() external view returns (bytes32);
-    function createMarket(uint256 raffleId, address player, string calldata question, address tokenAddress) external;
+    function createMarket(uint256 raffleId, address player, string calldata question, address tokenAddress) external returns (uint256 marketId);
+    function resolveMarket(uint256 marketId, bool outcome) external;
 }
 
 /// @dev Minimal read-only interface to Raffle for on-chain validation
@@ -72,6 +73,9 @@ contract InfoFiMarketFactory is AccessControl {
 
     // seasonId => player => created flag (idempotency without requiring address)
     mapping(uint256 => mapping(address => bool)) public winnerPredictionCreated;
+
+    // seasonId => player => uint256 marketId (for resolution)
+    mapping(uint256 => mapping(address => uint256)) public winnerPredictionMarketIds;
 
     // Simple enumeration support: seasonId => players[] that have markets
     mapping(uint256 => address[]) private _seasonPlayers;
@@ -140,6 +144,14 @@ contract InfoFiMarketFactory is AccessControl {
         // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
         oracle.updateRaffleProbability(marketId, newBps);
 
+        // NOTE: We do NOT auto-resolve when position goes to 0
+        // Markets remain active until terminal event (season end)
+        // This allows:
+        // 1. Speculation on whether player will re-enter
+        // 2. Player can buy back in and regain win probability
+        // 3. All markets resolve together at season end via VRF
+        // Oracle correctly shows 0% when position = 0, UI should warn users
+
         // Upward crossing of 1% threshold and not created yet
         if (newBps >= 100 && oldBps < 100 && !winnerPredictionCreated[seasonId][player]) {
             winnerPredictionCreated[seasonId][player] = true;
@@ -148,12 +160,14 @@ contract InfoFiMarketFactory is AccessControl {
             // Requires OPERATOR_ROLE to be granted to this factory
             string memory q = "Will this player win the raffle season?";
             address marketAddr = address(infoFiMarket);
-            try infoFiMarket.createMarket(seasonId, player, q, betToken) {
+            try infoFiMarket.createMarket(seasonId, player, q, betToken) returns (uint256 marketIdU256) {
                 // store reference to the shared market host (not a unique market per player address)
                 winnerPredictionMarkets[seasonId][player] = marketAddr;
+                winnerPredictionMarketIds[seasonId][player] = marketIdU256;
             } catch {
                 // If creation fails, still mark as created to avoid spamming, but leave address zero
                 winnerPredictionMarkets[seasonId][player] = address(0);
+                winnerPredictionMarketIds[seasonId][player] = 0;
             }
             _seasonPlayers[seasonId].push(player);
 

@@ -285,6 +285,21 @@ DebugInfoFiPanel.propTypes = {
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
+        {/* Warning when player has 0 position */}
+        {Number(percent) === 0 && (
+          <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-600">⚠️</span>
+              <span className="text-amber-900 font-medium">
+                {t('playerHasNoPosition')}
+              </span>
+            </div>
+            <p className="text-amber-700 mt-1">
+              {t('playerCannotWinUnlessReentry')}
+            </p>
+          </div>
+        )}
+
         {/* Polymarket-style outcome buttons with percentages and payouts */}
         <div className="grid grid-cols-2 gap-2">
           <button

@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { WagmiProvider, createConfig } from 'wagmi';
+import { injected, walletConnect } from 'wagmi/connectors';
 import { getChainConfig, getStoredNetworkKey } from '@/lib/wagmi';
 
 const buildWagmiConfig = (networkKey) => {
@@ -15,6 +16,13 @@ const buildWagmiConfig = (networkKey) => {
       const fallback = getChainConfig('LOCAL');
       return createConfig({
         chains: [fallback.chain],
+        connectors: [
+          injected({ shimDisconnect: true }),
+          walletConnect({
+            projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+            showQrModal: true,
+          }),
+        ],
         transports: {
           [fallback.chain.id]: fallback.transport,
         },
@@ -23,6 +31,13 @@ const buildWagmiConfig = (networkKey) => {
     
     return createConfig({
       chains: [chain],
+      connectors: [
+        injected({ shimDisconnect: true }),
+        walletConnect({
+          projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+          showQrModal: true,
+        }),
+      ],
       transports: {
         [chain.id]: transport,
       },
@@ -34,6 +49,13 @@ const buildWagmiConfig = (networkKey) => {
     const { chain, transport } = getChainConfig('LOCAL');
     return createConfig({
       chains: [chain],
+      connectors: [
+        injected({ shimDisconnect: true }),
+        walletConnect({
+          projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+          showQrModal: true,
+        }),
+      ],
       transports: {
         [chain.id]: transport,
       },
@@ -70,7 +92,11 @@ export const WagmiConfigProvider = ({ children }) => {
 
   const config = useMemo(() => buildWagmiConfig(networkKey), [networkKey]);
 
-  return <WagmiProvider config={config}>{children}</WagmiProvider>;
+  return (
+    <WagmiProvider config={config} reconnectOnMount={true}>
+      {children}
+    </WagmiProvider>
+  );
 };
 
 WagmiConfigProvider.propTypes = {

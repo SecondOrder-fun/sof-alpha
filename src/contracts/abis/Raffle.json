@@ -1004,24 +1004,6 @@
   },
   {
     "type": "function",
-    "name": "setSeasonMerkleRoot",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "merkleRoot",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setupPrizeDistributionManually",
     "inputs": [
       {
