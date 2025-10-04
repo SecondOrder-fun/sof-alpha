@@ -9,6 +9,7 @@ import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
 import { pricingService } from '../shared/pricingService.js';
 import { loadChainEnv } from '../src/config/chain.js';
+import { redisClient } from '../shared/redisClient.js';
 
 // Create Fastify instance
 const app = fastify({ logger: true });
@@ -27,7 +28,16 @@ app.addHook('onRoute', (routeOptions) => {
 await app.register(cors, {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://secondorder.fun', 'https://www.secondorder.fun']
-    : ['http://localhost:3000', 'http://localhost:5173'],
+    : [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:63109',
+        'http://localhost:63110',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:63109',
+        'http://127.0.0.1:63110'
+      ],
   credentials: true
 });
 
@@ -64,6 +74,11 @@ try {
   await app.register((await import('./routes/userRoutes.js')).default, { prefix: '/api/users' });
   app.log.info('Mounted /api/users');
 } catch (err) { app.log.error({ err }, 'Failed to mount /api/users'); }
+
+try {
+  await app.register((await import('./routes/usernameRoutes.js')).default, { prefix: '/api/usernames' });
+  app.log.info('Mounted /api/usernames');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/usernames'); }
 
 try {
   await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
@@ -152,6 +167,19 @@ try {
   app.log.info(`HTTP server listening on port ${PORT}`);
   app.log.info(`WebSocket server bound on the same port ${PORT}`);
 
+  // Initialize Redis connection
+  try {
+    redisClient.connect();
+    const pingResult = await redisClient.ping();
+    if (pingResult) {
+      app.log.info('Redis connection established and verified');
+    } else {
+      app.log.warn('Redis connection established but ping failed');
+    }
+  } catch (e) {
+    app.log.error({ e }, 'Failed to connect to Redis - username features may not work');
+  }
+
   // Start InfoFi listeners for networks that have factory configured
   try {
     const chains = loadChainEnv();
@@ -208,6 +236,8 @@ process.on('SIGINT', async () => {
     for (const stop of stopListeners) {
       try { stop(); } catch (_) { /* ignore */ }
     }
+    // Disconnect Redis
+    await redisClient.disconnect();
     // app.server is closed by app.close()
   } finally {
     app.log.info('Server closed');

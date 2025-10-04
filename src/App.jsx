@@ -4,8 +4,12 @@ import { Outlet } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Toaster } from '@/components/ui/toaster';
+import UsernameDialog from '@/components/user/UsernameDialog';
+import { useUsernameContext } from '@/context/UsernameContext';
 
 const App = () => {
+  const { showDialog, setShowDialog } = useUsernameContext();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -14,6 +18,7 @@ const App = () => {
       </main>
       <Footer />
       <Toaster />
+      <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
     </div>
   );
 };

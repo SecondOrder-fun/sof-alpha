@@ -99,5 +99,29 @@
   "viewYourAccount": "View Your Account",
   "showingRange": "{{start}}-{{end}} / {{total}}件を表示中",
   "page": "ページ",
-  "noUsersFound": "まだユーザーが見つかりません。"
+  "noUsersFound": "まだユーザーが見つかりません。",
+  "username": "ユーザー名",
+  "setUsername": "ユーザー名を設定",
+  "editUsername": "ユーザー名を編集",
+  "changeUsername": "ユーザー名を変更",
+  "usernameDialogDescription": "プロフィールをパーソナライズするためのユニークなユーザー名を選択してください。後で変更できます。",
+  "usernamePlaceholder": "ユーザー名を入力（3〜20文字）",
+  "skipForNow": "今はスキップ",
+  "usernameSet": "ユーザー名を{{username}}に設定しました",
+  "usernameTooShort": "ユーザー名は3文字以上である必要があります",
+  "usernameTooLong": "ユーザー名は20文字以下である必要があります",
+  "usernameInvalidChars": "ユーザー名には英数字とアンダースコアのみ使用できます",
+  "usernameAvailable": "このユーザー名は利用可能です！",
+  "usernameNotAvailable": "このユーザー名は利用できません",
+  "checkingAvailability": "利用可能性を確認中...",
+  "usernameError": {
+    "USERNAME_REQUIRED": "ユーザー名は必須です",
+    "USERNAME_TOO_SHORT": "ユーザー名は3文字以上である必要があります",
+    "USERNAME_TOO_LONG": "ユーザー名は20文字以下である必要があります",
+    "USERNAME_INVALID_CHARS": "ユーザー名には英数字とアンダースコアのみ使用できます",
+    "USERNAME_RESERVED": "このユーザー名は予約されています",
+    "USERNAME_TAKEN": "このユーザー名は既に使用されています",
+    "INTERNAL_ERROR": "エラーが発生しました。もう一度お試しください。",
+    "UNKNOWN_ERROR": "不明なエラーが発生しました"
+  }
 }

@@ -20,6 +20,7 @@ import ErrorPage from './components/common/ErrorPage';
 import { WalletProvider } from './context/WalletProvider';
 import { FarcasterProvider } from './context/FarcasterProvider';
 import { SSEProvider } from './context/SSEProvider';
+import { UsernameProvider } from './context/UsernameContext';
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -197,8 +198,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     <WalletProvider>
                       <FarcasterProvider>
                         <SSEProvider>
-                          <RouterProvider router={router} />
-                          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+                          <UsernameProvider>
+                            <RouterProvider router={router} />
+                            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+                          </UsernameProvider>
                         </SSEProvider>
                       </FarcasterProvider>
                     </WalletProvider>

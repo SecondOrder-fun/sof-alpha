@@ -206,6 +206,95 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - Name validation prevents future occurrences
   - No code changes required
 
+## Latest Progress (2025-10-04)
+
+- [x] **Redis-Based Username Storage System - COMPLETED**
+  - **Backend Infrastructure**:
+    - Installed `ioredis` package for Redis client
+    - Created `backend/shared/redisClient.js` with singleton pattern supporting local (Homebrew) and production (Upstash) Redis
+    - Created `backend/shared/usernameService.js` with full username CRUD operations
+    - Implemented username validation (3-20 chars, alphanumeric + underscore, reserved words check)
+    - Added reverse lookup for uniqueness checking (username → address mapping)
+    - Created `backend/fastify/routes/usernameRoutes.js` with REST API endpoints:
+      - `GET /api/usernames/:address` - Get username for address
+      - `POST /api/usernames` - Set username
+      - `GET /api/usernames/check/:username` - Check availability
+      - `GET /api/usernames/batch` - Batch lookup for multiple addresses
+      - `GET /api/usernames/all` - Admin endpoint for all mappings
+    - Integrated Redis connection lifecycle with Fastify server (connect on start, disconnect on shutdown)
+    - Updated `.env.example` with Redis configuration (local and Upstash)
+  - **Frontend Infrastructure**:
+    - Created `src/hooks/useUsername.js` with React Query hooks for username operations
+    - Created `src/hooks/useBatchUsernames.js` for efficient multi-address lookups
+    - Created `src/context/UsernameContext.jsx` for global username state management
+    - Integrated UsernameProvider into main app provider tree
+  - **UI Components**:
+    - Created `src/components/user/UsernameDialog.jsx` with full i18n support:
+      - Real-time availability checking with debouncing
+      - Character counter and validation feedback
+      - "Skip for now" option for optional username setting
+      - Error handling with translated error messages
+    - Created `src/components/user/UsernameDisplay.jsx` reusable component:
+      - Displays username or falls back to formatted address
+      - Optional link wrapper
+      - Optional "You" badge for current user
+      - Loading state handling
+    - Integrated UsernameDialog into App.jsx with automatic trigger on first wallet connection
+  - **UI Updates**:
+    - Updated `src/routes/UsersIndex.jsx` to display usernames instead of addresses
+    - Updated `src/components/infofi/InfoFiMarketCard.jsx` to show usernames in market titles (e.g., "Will alice.eth win Raffle Season #1?")
+    - Updated `src/components/wallet/WalletConnection.jsx` to show username in header
+    - Updated `src/routes/UserProfile.jsx` (Account page) to:
+      - Display username prominently with "You" badge
+      - Show wallet address as subtitle
+      - Add "Edit Username" / "Set Username" button for own account
+  - **i18n Support**:
+    - Added comprehensive translations to `public/locales/en/common.json`:
+      - Dialog text (title, description, placeholders)
+      - Button labels (Set Username, Edit Username, Skip for now)
+      - Validation messages (too short, too long, invalid chars, available, taken)
+      - Error codes with user-friendly messages
+    - All UI text is translatable (username values themselves are not translated)
+  - **Documentation**:
+    - Redis setup guide already exists at `docs/03-development/redis-setup-guide.md`
+    - Covers local development (Homebrew) and production (Upstash) setup
+    - Includes Windsurf MCP integration instructions
+
+## Optional Username Enhancements (Future Work)
+
+The following enhancements were identified during username feature implementation but are deferred for future development:
+
+- [ ] **Username History Tracking**
+  - Store username change history: `wallet:{address}:history` → array of `{username, timestamp}`
+  - Display previous usernames on profile page
+  - Useful for moderation and user trust
+
+- [ ] **Username Search**
+  - Implement search endpoint: `GET /api/usernames/search?q=alice`
+  - Use Redis SCAN for pattern matching
+  - Add search UI to Users page
+
+- [ ] **Username Verification/Badges**
+  - Store verification status: `wallet:{address}:verified` → `true/false`
+  - Display verified badge next to username
+  - Admin interface for managing verification
+
+- [ ] **Username Expiry/Reclamation**
+  - Set TTL on inactive usernames (e.g., 1 year of no activity)
+  - Reclaim usernames for reuse
+  - Notify users before expiry
+
+- [ ] **ENS Integration**
+  - Auto-populate username from ENS if available
+  - Fallback to Redis username if no ENS
+  - Display ENS badge for ENS-based usernames
+  - Sync ENS changes automatically
+
+- [ ] **Username Analytics**
+  - Track username adoption rate
+  - Monitor most popular usernames
+  - Analyze username patterns
+
 ## Latest Progress (2025-10-03)
 
 - [x] **Prize Pool Sponsorship Feature - COMPLETED**

@@ -12,9 +12,9 @@ export function buildMarketTitleParts(market) {
   const seasonId = market?.raffle_id ?? market?.seasonId;
   if (market.market_type === 'WINNER_PREDICTION' && market.player && seasonId != null) {
     return {
-      prefix: 'Will User',
+      prefix: 'Will',
       userAddr: formatAddress(market.player),
-      seasonLabel: `Raffle Season ${seasonId}`,
+      seasonLabel: `win Raffle Season ${seasonId}?`,
     };
   }
   return { prefix: market.question || market.market_type || 'Market', userAddr: '', seasonLabel: '' };

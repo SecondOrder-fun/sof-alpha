@@ -17,14 +17,21 @@ import { useAccount } from 'wagmi';
 import { listSeasonWinnerMarkets, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
 import { Button } from '@/components/ui/button';
 import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
+import { useUsername } from '@/hooks/useUsername';
+import { useUsernameContext } from '@/context/UsernameContext';
+import { Badge } from '@/components/ui/badge';
 
 const UserProfile = () => {
   const { t } = useTranslation('account');
   const { address: addressParam } = useParams();
   const { address: myAddress, isConnected } = useAccount();
+  const { setShowDialog } = useUsernameContext();
   
   // If no address param (e.g., /account route), use connected wallet address
   const address = addressParam || myAddress;
+  
+  // Fetch username for this address
+  const { data: username } = useUsername(address);
 
   // Build viem public client for current network
   const [client, setClient] = useState(null);
@@ -129,8 +136,33 @@ const UserProfile = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">{pageTitle}</h1>
-      {address && <p className="text-sm text-muted-foreground mb-4">{t('address')}: <span className="font-mono">{address}</span></p>}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            {username ? (
+              <>
+                {username}
+                {isMyAccount && <Badge variant="secondary">{t('common:you')}</Badge>}
+              </>
+            ) : (
+              pageTitle
+            )}
+          </h1>
+          {address && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {t('address')}: <span className="font-mono">{address}</span>
+            </p>
+          )}
+        </div>
+        {isMyAccount && (
+          <Button 
+            variant="outline" 
+            onClick={() => setShowDialog(true)}
+          >
+            {username ? t('common:editUsername') : t('common:setUsername')}
+          </Button>
+        )}
+      </div>
 
       <Card className="mb-4">
         <CardHeader>

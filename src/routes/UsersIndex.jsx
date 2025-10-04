@@ -4,11 +4,10 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import { getSeasonPlayersOnchain } from '@/services/onchainInfoFi';
-import { formatAddress } from '@/lib/utils';
+import UsernameDisplay from '@/components/user/UsernameDisplay';
 
 const UsersIndex = () => {
   const { t } = useTranslation('common');
@@ -79,12 +78,10 @@ const UsersIndex = () => {
                 
                 return (
                   <div key={addr} className="flex items-center justify-between px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="font-mono">{formatAddress(addr)}</div>
-                      {isMyAddress && (
-                        <Badge variant="secondary">{t('you')}</Badge>
-                      )}
-                    </div>
+                    <UsernameDisplay 
+                      address={addr} 
+                      showBadge={true}
+                    />
                     <Link to={linkTo} className="text-primary hover:underline">{linkText}</Link>
                   </div>
                 );

@@ -99,5 +99,29 @@
   "viewYourAccount": "View Your Account",
   "showingRange": "Showing {{start}}-{{end}} of {{total}}",
   "page": "Page",
-  "noUsersFound": "No users found yet."
+  "noUsersFound": "No users found yet.",
+  "username": "Benutzername",
+  "setUsername": "Benutzername festlegen",
+  "editUsername": "Benutzername bearbeiten",
+  "changeUsername": "Benutzername ändern",
+  "usernameDialogDescription": "Wählen Sie einen eindeutigen Benutzernamen, um Ihr Profil zu personalisieren. Sie können ihn später ändern.",
+  "usernamePlaceholder": "Benutzername eingeben (3-20 Zeichen)",
+  "skipForNow": "Vorerst überspringen",
+  "usernameSet": "Benutzername auf {{username}} gesetzt",
+  "usernameTooShort": "Benutzername muss mindestens 3 Zeichen lang sein",
+  "usernameTooLong": "Benutzername darf höchstens 20 Zeichen lang sein",
+  "usernameInvalidChars": "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
+  "usernameAvailable": "Benutzername ist verfügbar!",
+  "usernameNotAvailable": "Benutzername ist nicht verfügbar",
+  "checkingAvailability": "Verfügbarkeit wird geprüft...",
+  "usernameError": {
+    "USERNAME_REQUIRED": "Benutzername ist erforderlich",
+    "USERNAME_TOO_SHORT": "Benutzername muss mindestens 3 Zeichen lang sein",
+    "USERNAME_TOO_LONG": "Benutzername darf höchstens 20 Zeichen lang sein",
+    "USERNAME_INVALID_CHARS": "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
+    "USERNAME_RESERVED": "Dieser Benutzername ist reserviert",
+    "USERNAME_TAKEN": "Dieser Benutzername ist bereits vergeben",
+    "INTERNAL_ERROR": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "UNKNOWN_ERROR": "Ein unbekannter Fehler ist aufgetreten"
+  }
 }

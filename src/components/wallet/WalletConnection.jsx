@@ -2,6 +2,8 @@ import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
+import { useUsername } from '@/hooks/useUsername';
+import { formatAddress } from '@/lib/utils';
 
 const WalletConnection = () => {
   const { t } = useTranslation('common');
@@ -9,6 +11,7 @@ const WalletConnection = () => {
   const { connect, connectors, isLoading, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { toast } = useToast();
+  const { data: username } = useUsername(address);
 
   // Handle connection errors
   if (error) {
@@ -20,10 +23,12 @@ const WalletConnection = () => {
   }
 
   if (isConnected) {
+    const displayText = username || formatAddress(address);
+    
     return (
       <div className="flex items-center gap-4">
-        <span className="text-sm font-medium">
-          {address?.slice(0, 6)}...{address?.slice(-4)}
+        <span className={`text-sm ${username ? 'font-semibold' : 'font-mono font-medium'}`}>
+          {displayText}
         </span>
         <Button onClick={() => disconnect()} variant="outline">
           {t('disconnect')}

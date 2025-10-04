@@ -17,6 +17,7 @@ import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import { createPublicClient, http, getAddress, formatUnits } from 'viem';
 import { computeWinnerMarketId } from '@/services/onchainInfoFi';
+import UsernameDisplay from '@/components/user/UsernameDisplay';
 
 /**
  * InfoFiMarketCard
@@ -247,14 +248,13 @@ DebugInfoFiPanel.propTypes = {
             {isWinnerPrediction ? (
               <span>
                 {parts.prefix} {" "}
-                <Link to={`/users/${market.player}`} className="text-primary hover:underline font-mono">
-                  {parts.userAddr}
-                </Link>{" "}
-                {t('willWin')} {" "}
+                <UsernameDisplay 
+                  address={market.player}
+                  linkTo={`/users/${market.player}`}
+                />{" "}
                 <Link to={`/raffles/${seasonId}`} className="text-primary hover:underline">
                   {parts.seasonLabel}
                 </Link>
-                ?
               </span>
             ) : (
               title

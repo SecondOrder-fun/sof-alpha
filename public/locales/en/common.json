@@ -99,5 +99,29 @@
   "viewYourAccount": "View Your Account",
   "showingRange": "Showing {{start}}-{{end}} of {{total}}",
   "page": "Page",
-  "noUsersFound": "No users found yet."
+  "noUsersFound": "No users found yet.",
+  "username": "Username",
+  "setUsername": "Set Username",
+  "editUsername": "Edit Username",
+  "changeUsername": "Change Username",
+  "usernameDialogDescription": "Choose a unique username to personalize your profile. You can change it later.",
+  "usernamePlaceholder": "Enter username (3-20 characters)",
+  "skipForNow": "Skip for now",
+  "usernameSet": "Username set to {{username}}",
+  "usernameTooShort": "Username must be at least 3 characters",
+  "usernameTooLong": "Username must be 20 characters or less",
+  "usernameInvalidChars": "Username can only contain letters, numbers, and underscores",
+  "usernameAvailable": "Username is available!",
+  "usernameNotAvailable": "Username is not available",
+  "checkingAvailability": "Checking availability...",
+  "usernameError": {
+    "USERNAME_REQUIRED": "Username is required",
+    "USERNAME_TOO_SHORT": "Username must be at least 3 characters",
+    "USERNAME_TOO_LONG": "Username must be 20 characters or less",
+    "USERNAME_INVALID_CHARS": "Username can only contain letters, numbers, and underscores",
+    "USERNAME_RESERVED": "This username is reserved",
+    "USERNAME_TAKEN": "Username is already taken",
+    "INTERNAL_ERROR": "An error occurred. Please try again.",
+    "UNKNOWN_ERROR": "An unknown error occurred"
+  }
 }
