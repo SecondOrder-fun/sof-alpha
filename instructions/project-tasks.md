@@ -208,6 +208,42 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Latest Progress (2025-10-04)
 
+- [x] **$SOF Transaction History Feature - COMPLETED**
+  - **Hook Implementation**:
+    - Created `src/hooks/useSOFTransactions.js` comprehensive transaction fetching hook
+    - Uses chunked block range queries via `queryLogsInChunks` utility to prevent RPC timeouts
+    - Configurable lookback period (default: 500k blocks ~11.5 days on Base, ~57 days on Ethereum)
+    - Fetches all Transfer events (incoming and outgoing) from $SOF token contract
+    - Fetches TokensPurchased and TokensSold events from bonding curve contracts
+    - Fetches GrandPrizeClaimed and ConsolationClaimed events from prize distributor
+    - Fetches FeesCollected events for admin/treasury addresses
+    - **Smart categorization**: Distinguishes between bonding curve purchases and regular transfers
+    - Outgoing transfers to bonding curve addresses are marked as "Purchase" instead of "Sent"
+    - Returns unified transaction list with type, direction, amount, timestamp, and metadata
+    - Includes automatic refetching every 60 seconds for real-time updates
+    - Handles RPC block range limits gracefully with automatic chunk size reduction
+  - **UI Component**:
+    - Created `src/components/user/SOFTransactionHistory.jsx` comprehensive transaction display
+    - Summary statistics: Total Received, Total Sent, Net Flow, Total Transactions
+    - Filter buttons: All, Received, Sent, Trades (buy/sell), Prizes
+    - Transaction list with icons, badges, descriptions, and amounts
+    - Color-coded amounts (green for IN, red for OUT)
+    - Links to block explorer for each transaction
+    - Pagination support (20 items per page)
+    - Responsive design with mobile-friendly layout
+  - **Integration**:
+    - Integrated SOFTransactionHistory component into UserProfile page
+    - Positioned below $SOF balance card for logical flow
+    - Works for both own account view and viewing other users
+  - **i18n Support**:
+    - Added comprehensive translations to `public/locales/en/account.json`
+    - Includes labels for all transaction types, filters, and UI elements
+  - **Impact**: Users can now see complete $SOF transaction history including:
+    - Direct transfers (sent/received)
+    - Bonding curve trades (buy tickets, sell tickets)
+    - Prize claims (grand prize, consolation)
+    - Fee collections (for admins/treasury)
+
 - [x] **Redis-Based Username Storage System - COMPLETED**
   - **Backend Infrastructure**:
     - Installed `ioredis` package for Redis client

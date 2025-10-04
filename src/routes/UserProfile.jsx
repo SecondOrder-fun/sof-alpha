@@ -20,6 +20,7 @@ import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 import { useUsername } from '@/hooks/useUsername';
 import { useUsernameContext } from '@/context/UsernameContext';
 import { Badge } from '@/components/ui/badge';
+import { SOFTransactionHistory } from '@/components/user/SOFTransactionHistory';
 
 const UserProfile = () => {
   const { t } = useTranslation('account');
@@ -186,6 +187,9 @@ const UserProfile = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* SOF Transaction History */}
+      {address && <SOFTransactionHistory address={address} />}
 
       <Card className="mb-4">
         <CardHeader>
