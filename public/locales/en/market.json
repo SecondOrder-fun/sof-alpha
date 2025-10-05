@@ -68,6 +68,7 @@
   "tradeFailed": "Trade Failed",
   "transactionError": "Transaction error",
   "volume": "Vol.",
+  "totalVolume": "Total Volume",
   "willWin": "win",
   "marketId": "Market ID: {{id}}",
   "infoFiMarkets": "InfoFi Markets",

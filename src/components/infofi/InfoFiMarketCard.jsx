@@ -30,7 +30,6 @@ const InfoFiMarketCard = ({ market }) => {
   const isWinnerPrediction = market.market_type === 'WINNER_PREDICTION' && market.player && seasonId != null;
   const parts = buildMarketTitleParts(market);
   const title = market?.question || market?.market_type || t('market');
-  const subtitle = t('marketId', { id: market?.id ?? '—' });
   const { isConnected, address } = useAccount();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -44,6 +43,8 @@ const InfoFiMarketCard = ({ market }) => {
     const hybrid = Math.max(0, Math.min(10000, Number(priceData.hybridPriceBps ?? 0)));
     const raffle = Math.max(0, Math.min(10000, Number(priceData.raffleProbabilityBps ?? 0)));
     const market = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
+    
+    console.log('[InfoFiMarketCard] Price data for player:', market?.player, '- hybrid:', hybrid, 'raffle:', raffle, 'market:', market);
     
     setBps({ hybrid, raffle, market });
   }, [priceData, market?.id, market?.player]);
@@ -177,6 +178,13 @@ const InfoFiMarketCard = ({ market }) => {
     return (clamped / 100).toFixed(1);
   }, [bps.hybrid]);
 
+  const rafflePercent = React.useMemo(() => {
+    const v = Number(bps.raffle ?? 0);
+    // Clamp to 0-10000 range, then convert to percentage with 1 decimal
+    const clamped = Math.max(0, Math.min(10000, v));
+    return (clamped / 100).toFixed(1);
+  }, [bps.raffle]);
+
   // Calculate payout for a given bet amount
   const calculatePayout = React.useCallback((betAmount, isYes) => {
     const amount = Number(betAmount || 0);
@@ -205,13 +213,6 @@ const InfoFiMarketCard = ({ market }) => {
     if (amount >= 1000) return `${(amount / 1000).toFixed(2)}k`;
     if (amount >= 100) return amount.toFixed(0);
     return amount.toFixed(2);
-  };
-
-  const formatVolume = (v) => {
-    const n = Number(v || 0);
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}m ${t('volume')}`;
-    if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}k ${t('volume')}`;
-    return `$${n.toFixed(2)} ${t('volume')}`;
   };
 
   const formatSof = (amount) => {
@@ -266,8 +267,8 @@ DebugInfoFiPanel.propTypes = {
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
-        {/* Warning when player has 0 position */}
-        {Number(percent) === 0 && (
+        {/* Warning when player has 0 raffle position - only show for winner prediction markets when raffle probability is actually 0 */}
+        {isWinnerPrediction && bps.raffle !== null && Number(bps.raffle) === 0 && (
           <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs">
             <div className="flex items-center gap-2">
               <span className="text-amber-600">⚠️</span>
@@ -340,51 +341,54 @@ DebugInfoFiPanel.propTypes = {
           </button>
         </div>
 
-        {/* Volume and market info */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
-          <div className="flex items-center gap-3">
+        {/* Market stats: Total volume and user positions */}
+        <div className="border-t pt-3 space-y-2">
+          {/* Total Volume */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{t('totalVolume')}</span>
             <span className="font-medium">
               {(() => {
                 try {
                   const yes = marketInfo.data?.totalYesPool ?? 0n;
                   const no = marketInfo.data?.totalNoPool ?? 0n;
-                  const sof = formatUnits((yes + no), 18);
-                  return formatVolume(Number(sof));
-                } catch { return '$0.00 Vol.'; }
+                  const totalSof = formatUnits((yes + no), 18);
+                  const num = Number(totalSof);
+                  if (num >= 1000) return `${(num / 1000).toFixed(2)}k SOF`;
+                  return `${num.toFixed(2)} SOF`;
+                } catch { return '0 SOF'; }
               })()}
             </span>
           </div>
-          <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>
-        </div>
 
-        {/* Your positions (collapsible) */}
-        {isConnected && (() => {
-          const yesAmt = (() => { try { const v = yesPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
-          const noAmt = (() => { try { const v = noPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
-          const hasPosition = yesAmt > 0n || noAmt > 0n;
-          
-          if (!hasPosition) return null;
-          
-          return (
-            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">{t('yourPositions')}</div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {yesAmt > 0n && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-emerald-700">{t('yes')}</span>
-                    <span className="font-mono font-medium">{formatSof(yesAmt)} SOF</span>
-                  </div>
-                )}
-                {noAmt > 0n && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-rose-700">{t('no')}</span>
-                    <span className="font-mono font-medium">{formatSof(noAmt)} SOF</span>
-                  </div>
-                )}
+          {/* User positions - always show if connected, even if zero */}
+          {isConnected && (() => {
+            const yesAmt = (() => { try { const v = yesPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+            const noAmt = (() => { try { const v = noPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
+            const hasPosition = yesAmt > 0n || noAmt > 0n;
+            
+            if (!hasPosition) return null;
+            
+            return (
+              <div className="space-y-1.5">
+                <div className="text-xs font-medium text-muted-foreground">{t('yourPositions')}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {yesAmt > 0n && (
+                    <div className="flex items-center justify-between text-xs bg-emerald-50 rounded px-2 py-1.5">
+                      <span className="text-emerald-700 font-medium">{t('yes')}</span>
+                      <span className="font-mono font-semibold text-emerald-900">{formatSof(yesAmt)}</span>
+                    </div>
+                  )}
+                  {noAmt > 0n && (
+                    <div className="flex items-center justify-between text-xs bg-rose-50 rounded px-2 py-1.5">
+                      <span className="text-rose-700 font-medium">{t('no')}</span>
+                      <span className="font-mono font-semibold text-rose-900">{formatSof(noAmt)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
+        </div>
 
         {/* Trade input - Polymarket style */}
         <div className="space-y-2">

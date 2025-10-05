@@ -19,10 +19,11 @@
   "api": "API",
   "guides": "ガイド",
   "faq": "よくある質問",
-  "legal": "法的情報",
+  "legal": "法的事項",
   "termsOfService": "利用規約",
   "privacyPolicy": "プライバシーポリシー",
   "disclaimer": "免責事項",
   "copyright": "© {{year}} SecondOrder.fun. All rights reserved.",
-  "tagline": "InfoFiを活用したラッフルプラットフォーム。暗号資産の投機を構造化されたゲームに変革します。"
+  "tagline": "InfoFiを活用したラッフルプラットフォームで、暗号資産の投機を構造化されたゲームに変革します。",
+  "connectWallet": "ウォレット接続"
 }

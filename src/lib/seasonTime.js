@@ -4,9 +4,10 @@
 /**
  * Buffer applied when auto-starting a season so the on-chain check
  * `startTime > block.timestamp` in `Raffle.createSeason()` is satisfied.
+ * Increased to 120 seconds to account for transaction mining delays.
  * @type {number}
  */
-export const AUTO_START_BUFFER_SECONDS = 60;
+export const AUTO_START_BUFFER_SECONDS = 120;
 
 /**
  * Derive the unix timestamp (seconds) for a season start.

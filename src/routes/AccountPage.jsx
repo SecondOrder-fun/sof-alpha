@@ -19,10 +19,12 @@ import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
 import { queryLogsInChunks } from '@/utils/blockRangeQuery';
+import { useUsername } from '@/hooks/useUsername';
 // onchainInfoFi is now used by the shared PositionsPanel component
 
 const AccountPage = () => {
   const { address, isConnected } = useAccount();
+  const { data: username } = useUsername(address);
 
   // Build viem public client for current network
   const [client, setClient] = useState(null);
@@ -123,7 +125,9 @@ const AccountPage = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">My Account</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        {username ? username : 'My Account'}
+      </h1>
       {/* Completed Season Prizes – moved to top */}
       {Array.isArray(allSeasonsQuery.data) && (allSeasonsQuery.data || []).length > 0 && (
         <div className="mb-4">
@@ -348,5 +352,7 @@ RaffleEntryRow.propTypes = {
   address: PropTypes.string,
   client: PropTypes.shape({
     getLogs: PropTypes.func,
+    getBlockNumber: PropTypes.func,
+    readContract: PropTypes.func,
   }),
 };

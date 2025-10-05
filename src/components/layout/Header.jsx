@@ -11,10 +11,12 @@ import NetworkToggle from '@/components/common/NetworkToggle';
 import LanguageToggle from '@/components/common/LanguageToggle';
 import { useAccessControl } from '@/hooks/useAccessControl';
 import { Globe } from 'lucide-react';
+import { useUsername } from '@/hooks/useUsername';
 
 const Header = () => {
   const { t } = useTranslation('navigation');
   const { address, isConnected } = useAccount();
+  const { data: username } = useUsername(address);
   const { hasRole } = useAccessControl();
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -90,11 +92,55 @@ const Header = () => {
           </div>
           <LanguageToggle />
           <NetworkToggle />
-          <ConnectButton
-            showBalance={false}
-            chainStatus="icon"
-            accountStatus="avatar"
-          />
+          <ConnectButton.Custom>
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openConnectModal,
+              mounted,
+            }) => {
+              const ready = mounted;
+              const connected = ready && account && chain;
+
+              return (
+                <div
+                  {...(!ready && {
+                    'aria-hidden': true,
+                    style: {
+                      opacity: 0,
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                    },
+                  })}
+                >
+                  {(() => {
+                    if (!connected) {
+                      return (
+                        <button
+                          onClick={openConnectModal}
+                          type="button"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                        >
+                          {t('connectWallet')}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        onClick={openAccountModal}
+                        type="button"
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors font-medium"
+                      >
+                        {username || account.displayName}
+                      </button>
+                    );
+                  })()}
+                </div>
+              );
+            }}
+          </ConnectButton.Custom>
         </div>
       </div>
     </header>

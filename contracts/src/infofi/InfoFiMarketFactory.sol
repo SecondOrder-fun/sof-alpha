@@ -84,6 +84,7 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 indexed seasonId,
         address indexed player,
         bytes32 indexed marketType,
+        uint256 marketId,
         uint256 probabilityBps,
         address marketAddress
     );
@@ -160,10 +161,12 @@ contract InfoFiMarketFactory is AccessControl {
             // Requires OPERATOR_ROLE to be granted to this factory
             string memory q = "Will this player win the raffle season?";
             address marketAddr = address(infoFiMarket);
+            uint256 createdMarketId = 0;
             try infoFiMarket.createMarket(seasonId, player, q, betToken) returns (uint256 marketIdU256) {
                 // store reference to the shared market host (not a unique market per player address)
                 winnerPredictionMarkets[seasonId][player] = marketAddr;
                 winnerPredictionMarketIds[seasonId][player] = marketIdU256;
+                createdMarketId = marketIdU256;
             } catch {
                 // If creation fails, still mark as created to avoid spamming, but leave address zero
                 winnerPredictionMarkets[seasonId][player] = address(0);
@@ -171,7 +174,7 @@ contract InfoFiMarketFactory is AccessControl {
             }
             _seasonPlayers[seasonId].push(player);
 
-            emit MarketCreated(seasonId, player, WINNER_PREDICTION, newBps, marketAddr);
+            emit MarketCreated(seasonId, player, WINNER_PREDICTION, createdMarketId, newBps, marketAddr);
         }
     }
 
@@ -197,10 +200,12 @@ contract InfoFiMarketFactory is AccessControl {
 
         winnerPredictionCreated[seasonId][player] = true;
         address marketAddr = address(0);
+        uint256 marketId = 0;
         winnerPredictionMarkets[seasonId][player] = marketAddr;
+        winnerPredictionMarketIds[seasonId][player] = marketId;
         _seasonPlayers[seasonId].push(player);
 
-        emit MarketCreated(seasonId, player, WINNER_PREDICTION, bps, marketAddr);
+        emit MarketCreated(seasonId, player, WINNER_PREDICTION, marketId, bps, marketAddr);
     }
 
     // Views
@@ -293,11 +298,13 @@ contract InfoFiMarketFactory is AccessControl {
         if (marketType == WINNER_PREDICTION && !winnerPredictionCreated[seasonId][player]) {
             winnerPredictionCreated[seasonId][player] = true;
             address marketAddr = address(infoFiMarket);
+            uint256 marketId = 0;
             winnerPredictionMarkets[seasonId][player] = marketAddr;
+            winnerPredictionMarketIds[seasonId][player] = marketId;
             _seasonPlayers[seasonId].push(player);
             
             // We don't know the probability here, so use 0 as a placeholder
-            emit MarketCreated(seasonId, player, WINNER_PREDICTION, 0, marketAddr);
+            emit MarketCreated(seasonId, player, WINNER_PREDICTION, marketId, 0, marketAddr);
         }
     }
 }

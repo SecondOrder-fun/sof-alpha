@@ -1,96 +1,47 @@
 // src/context/WagmiConfigProvider.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { WagmiProvider, createConfig } from 'wagmi';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { WagmiProvider } from 'wagmi';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { getChainConfig, getStoredNetworkKey } from '@/lib/wagmi';
 
-// Cache config to prevent re-initialization
-let cachedConfig = null;
-let cachedNetworkKey = null;
-
-const buildWagmiConfig = (networkKey) => {
-  // Return cached config if network hasn't changed
-  if (cachedConfig && cachedNetworkKey === networkKey) {
-    return cachedConfig;
-  }
+// Get initial network configuration
+const initialNetworkKey = (() => {
   try {
-    const { chain, transport } = getChainConfig(networkKey);
-    
-    if (!chain || !transport) {
-      // eslint-disable-next-line no-console
-      console.error('Invalid chain configuration for network key:', networkKey);
-      // Fallback to default configuration
-      const fallback = getChainConfig('LOCAL');
-      return createConfig({
-        chains: [fallback.chain],
-        connectors: [
-          injected({ shimDisconnect: true }),
-          walletConnect({
-            projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
-            showQrModal: true,
-          }),
-        ],
-        transports: {
-          [fallback.chain.id]: fallback.transport,
-        },
-      });
-    }
-    
-    const config = createConfig({
-      chains: [chain],
-      connectors: [
-        injected({ shimDisconnect: true }),
-        walletConnect({
-          projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
-          showQrModal: true,
-        }),
-      ],
-      transports: {
-        [chain.id]: transport,
-      },
-    });
-    
-    // Cache the config
-    cachedConfig = config;
-    cachedNetworkKey = networkKey;
-    return config;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Error building Wagmi config:', error);
-    // Return a minimal working config for Anvil/localhost
-    const { chain, transport } = getChainConfig('LOCAL');
-    return createConfig({
-      chains: [chain],
-      connectors: [
-        injected({ shimDisconnect: true }),
-        walletConnect({
-          projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
-          showQrModal: true,
-        }),
-      ],
-      transports: {
-        [chain.id]: transport,
-      },
-    });
+    return getStoredNetworkKey();
+  } catch {
+    return 'LOCAL';
   }
-};
+})();
+
+const { chain: initialChain, transport: initialTransport } = getChainConfig(initialNetworkKey);
+
+// Export initial chain for RainbowKitProvider
+export const getInitialChain = () => initialChain;
+
+// Create config ONCE at module load - this prevents re-initialization
+const config = getDefaultConfig({
+  appName: 'SecondOrder.fun',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+  chains: [initialChain],
+  transports: {
+    [initialChain.id]: initialTransport,
+  },
+  ssr: false, // Client-only app, prevents SSR-related re-initialization
+  multiInjectedProviderDiscovery: false, // Prevent provider re-discovery on mount
+});
 
 export const WagmiConfigProvider = ({ children }) => {
-  const [networkKey, setNetworkKey] = useState(() => {
-    try {
-      return getStoredNetworkKey();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Error getting stored network key:', error);
-      return 'LOCAL';
-    }
-  });
-
   useEffect(() => {
     const handleNetworkChange = (event) => {
       try {
-        setNetworkKey(event.detail.key);
+        // Store the new network key
+        const newNetworkKey = event.detail.key;
+        // Note: Network changes require page reload to apply new chain config
+        // This is intentional to prevent MetaMask provider re-initialization
+        if (newNetworkKey !== initialNetworkKey) {
+          window.location.reload();
+        }
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error handling network change:', error);
@@ -102,8 +53,6 @@ export const WagmiConfigProvider = ({ children }) => {
       window.removeEventListener('sof:network-changed', handleNetworkChange);
     };
   }, []);
-
-  const config = useMemo(() => buildWagmiConfig(networkKey), [networkKey]);
 
   return (
     <WagmiProvider config={config}>

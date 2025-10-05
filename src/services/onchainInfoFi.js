@@ -295,15 +295,55 @@ export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }
   // Prefer real market ids from MarketCreated events (uint256), fallback to synthetic if needed
   const byEvents = await listSeasonWinnerMarketsByEvents({ seasonId, networkKey });
   if (byEvents.length > 0) return byEvents;
-  // Fallback: derive from players (synthetic bytes32 ids)
+  
+  // Fallback: derive from players and read uint256 IDs from factory mapping
+  const { publicClient } = buildClients(networkKey);
+  const addrs = getContractAddresses(networkKey);
   const players = await getSeasonPlayersOnchain({ seasonId, networkKey });
-  return players.map((p) => ({
-    id: computeWinnerMarketId({ seasonId, player: p }),
-    seasonId: Number(seasonId),
-    raffle_id: Number(seasonId),
-    player: getAddress(p),
-    market_type: 'WINNER_PREDICTION',
-  }));
+  
+  // Minimal ABI to read winnerPredictionMarketIds mapping
+  const MarketIdMappingAbi = [{
+    type: 'function',
+    name: 'winnerPredictionMarketIds',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'seasonId', type: 'uint256' },
+      { name: 'player', type: 'address' }
+    ],
+    outputs: [{ name: 'marketId', type: 'uint256' }]
+  }];
+  
+  const markets = [];
+  for (const p of players) {
+    try {
+      // Read the actual uint256 market ID from the factory mapping
+      const marketId = await publicClient.readContract({
+        address: addrs.INFOFI_FACTORY,
+        abi: MarketIdMappingAbi,
+        functionName: 'winnerPredictionMarketIds',
+        args: [BigInt(seasonId), getAddress(p)]
+      });
+      
+      markets.push({
+        id: marketId.toString(), // Use uint256 ID
+        seasonId: Number(seasonId),
+        raffle_id: Number(seasonId),
+        player: getAddress(p),
+        market_type: 'WINNER_PREDICTION',
+      });
+    } catch (e) {
+      // If reading fails, fall back to bytes32 ID
+      markets.push({
+        id: computeWinnerMarketId({ seasonId, player: p }),
+        seasonId: Number(seasonId),
+        raffle_id: Number(seasonId),
+        player: getAddress(p),
+        market_type: 'WINNER_PREDICTION',
+      });
+    }
+  }
+  
+  return markets;
 }
 
 // Helper to get season start block for efficient log queries
@@ -411,19 +451,22 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
     if (mtype !== 'WINNER_PREDICTION') continue;
     const player = args.player || args._player || '0x0000000000000000000000000000000000000000';
     
-    // Read the actual marketId from the factory's storage mapping
-    // since the event doesn't emit it
-    let marketId;
-    try {
-      marketId = await publicClient.readContract({
-        address: factory.address,
-        abi: MarketIdMappingAbi,
-        functionName: 'winnerPredictionMarketIds',
-        args: [BigInt(sid), getAddress(player)]
-      });
-    } catch (e) {
-      // Fallback: try to extract from event args (in case contract was updated)
-      marketId = args.marketId ?? args._marketId;
+    // Extract marketId from event (now emitted in the event)
+    let marketId = args.marketId ?? args._marketId;
+    
+    // If not in event, read from factory's storage mapping as fallback
+    if (!marketId || marketId === 0n || marketId === '0') {
+      try {
+        marketId = await publicClient.readContract({
+          address: factory.address,
+          abi: MarketIdMappingAbi,
+          functionName: 'winnerPredictionMarketIds',
+          args: [BigInt(sid), getAddress(player)]
+        });
+      } catch (e) {
+        // Last resort: use 0
+        marketId = 0n;
+      }
     }
     
     // Normalize id to a plain decimal string when bigint, otherwise hex string

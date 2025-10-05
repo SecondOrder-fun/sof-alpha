@@ -576,6 +576,12 @@
         "internalType": "bytes32"
       },
       {
+        "name": "marketId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "probabilityBps",
         "type": "uint256",
         "indexed": false,

@@ -136,7 +136,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     ) external onlyRole(SEASON_CREATOR_ROLE) nonReentrant returns (uint256 seasonId) {
         require(address(seasonFactory) != address(0), "Raffle: factory not set");
         require(bytes(config.name).length > 0, "Raffle: name empty");
-        require(config.startTime > block.timestamp, "Raffle: start in future");
+        require(config.startTime > block.timestamp, "Raffle: start must be in future");
         require(config.endTime > config.startTime, "Raffle: bad end");
         require(config.winnerCount > 0, "Raffle: winners 0");
         require(config.grandPrizeBps <= 10000, "Raffle: grand bps > 100%");

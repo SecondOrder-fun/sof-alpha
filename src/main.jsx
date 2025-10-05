@@ -6,7 +6,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { WagmiConfigProvider } from './context/WagmiConfigProvider';
+import { WagmiConfigProvider, getInitialChain } from './context/WagmiConfigProvider';
 import { AuthKitProvider } from '@farcaster/auth-kit';
 import '@rainbow-me/rainbowkit/styles.css';
 import './styles/tailwind.css';
@@ -16,6 +16,7 @@ import ErrorPage from './components/common/ErrorPage';
 import { WalletProvider } from './context/WalletProvider';
 import { FarcasterProvider } from './context/FarcasterProvider';
 import { SSEProvider } from './context/SSEProvider';
+import { UsernameProvider } from './context/UsernameContext';
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ import MarketsIndex from './routes/MarketsIndex';
 import UsersIndex from './routes/UsersIndex';
 import UserProfile from './routes/UserProfile';
 import FaucetPage from './routes/FaucetPage';
+import LocalizationAdmin from './routes/LocalizationAdmin';
 
 // Create router
 const router = createBrowserRouter([
@@ -87,6 +89,10 @@ const router = createBrowserRouter([
       {
         path: 'admin',
         element: <AdminPanel />,
+      },
+      {
+        path: 'admin/localization',
+        element: <LocalizationAdmin />,
       },
       {
         path: 'account',
@@ -141,36 +147,50 @@ class ProviderErrorBoundary extends React.Component {
   }
 }
 
-ProviderErrorBoundary.propTypes = {
+ ProviderErrorBoundary.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ProviderErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <WagmiConfigProvider>
-          <ProviderErrorBoundary>
-            <AuthKitProvider config={farcasterConfig}>
-              <ProviderErrorBoundary>
-                <RainbowKitProvider>
-                  <ProviderErrorBoundary>
-                    <WalletProvider>
-                      <FarcasterProvider>
-                        <SSEProvider>
-                          <RouterProvider router={router} />
-                          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-                        </SSEProvider>
-                      </FarcasterProvider>
-                    </WalletProvider>
-                  </ProviderErrorBoundary>
-                </RainbowKitProvider>
-              </ProviderErrorBoundary>
-            </AuthKitProvider>
-          </ProviderErrorBoundary>
-        </WagmiConfigProvider>
-        {/* ReactQueryDevtools outside of provider errors */}
-      </QueryClientProvider>
-    </ProviderErrorBoundary>
-  </React.StrictMode>,
-);
+// Version-based cache clearing to fix MetaMask reload issue
+const CACHE_VERSION = '1.0.5';
+const CURRENT_VERSION = localStorage.getItem('app_version');
+if (CURRENT_VERSION !== CACHE_VERSION) {
+  localStorage.setItem('app_version', CACHE_VERSION);
+  if (CURRENT_VERSION) {
+    window.location.reload(true);
+  }
+}
+
+// Initialize i18n asynchronously (safe now that reconnectOnMount={false})
+import('./i18n').then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <ProviderErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <WagmiConfigProvider>
+            <ProviderErrorBoundary>
+              <AuthKitProvider config={farcasterConfig}>
+                <ProviderErrorBoundary>
+                  <RainbowKitProvider locale="en" initialChain={getInitialChain()}>
+                    <ProviderErrorBoundary>
+                      <WalletProvider>
+                        <FarcasterProvider>
+                          <SSEProvider>
+                            <UsernameProvider>
+                              <RouterProvider router={router} />
+                              {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+                            </UsernameProvider>
+                          </SSEProvider>
+                        </FarcasterProvider>
+                      </WalletProvider>
+                    </ProviderErrorBoundary>
+                  </RainbowKitProvider>
+                </ProviderErrorBoundary>
+              </AuthKitProvider>
+            </ProviderErrorBoundary>
+          </WagmiConfigProvider>
+        </QueryClientProvider>
+      </ProviderErrorBoundary>
+    </React.StrictMode>,
+  );
+});
