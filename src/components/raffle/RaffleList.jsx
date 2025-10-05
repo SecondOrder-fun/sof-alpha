@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/useToast';
 
 const RaffleList = () => {
   const { t } = useTranslation(['raffle', 'common', 'errors']);
-  const { isConnected } = useWallet();
+  const { isConnected } = useAccount();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { formatMarketId, isValidMarketId } from '@/lib/marketId';
 
 const MarketList = () => {
   const { t } = useTranslation('market');
-  const { isConnected } = useWallet();
+  const { isConnected } = useAccount();
   const { toast } = useToast();
   
   // State for creating a new market

@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Copy, Trophy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useRaffleHolders } from '@/hooks/useRaffleHolders';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount } from 'wagmi';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { DataTable, DataTableColumnHeader, DataTablePagination, DataTableToolbar } from '@/components/common/DataTable';
 
@@ -17,7 +17,7 @@ import { DataTable, DataTableColumnHeader, DataTablePagination, DataTableToolbar
 const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
   const { t } = useTranslation('raffle');
   const queryClient = useQueryClient();
-  const { address: connectedAddress } = useWallet();
+  const { address: connectedAddress } = useAccount();
   const { holders, totalHolders, totalTickets, isLoading, error } = useRaffleHolders(bondingCurveAddress, seasonId);
   
   // Real-time updates: invalidate query when new PositionUpdate events occur

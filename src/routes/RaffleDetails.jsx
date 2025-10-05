@@ -18,7 +18,7 @@ import HoldersTab from '@/components/curve/HoldersTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount } from 'wagmi';
 import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
 import { TreasuryControls } from '@/components/admin/TreasuryControls';
 
@@ -45,7 +45,7 @@ const RaffleDetails = () => {
   });
 
   // Tracker snapshot for the connected wallet
-  const { address, isConnected } = useWallet();
+  const { address, isConnected } = useAccount();
   const { usePlayerSnapshot, usePlayerSnapshotLive } = useRaffleTracker();
   const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
   // Live invalidation on PositionSnapshot events for this player

@@ -1,10 +1,10 @@
-import WalletConnection from '@/components/wallet/WalletConnection';
 import FarcasterAuth from '@/components/auth/FarcasterAuth';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount, useBalance } from 'wagmi';
 import { useFarcaster } from '@/hooks/useFarcaster';
 
 const TestPage = () => {
-  const { address, isConnected, balance } = useWallet();
+  const { address, isConnected } = useAccount();
+  const { data: balance } = useBalance({ address });
   const { isAuthenticated, profile } = useFarcaster();
 
   return (
@@ -15,7 +15,9 @@ const TestPage = () => {
         {/* Wallet Connection Section */}
         <div className="bg-card p-6 rounded-lg shadow">
           <h2 className="text-2xl font-semibold mb-4">Wallet Connection</h2>
-          <WalletConnection />
+          <p className="text-sm text-muted-foreground mb-4">
+            Wallet connection is handled by RainbowKit in the header.
+          </p>
           
           {isConnected && (
             <div className="mt-4 p-4 bg-muted rounded">

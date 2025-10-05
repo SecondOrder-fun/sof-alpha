@@ -13,7 +13,6 @@ import './styles/tailwind.css';
 
 import App from './App';
 import ErrorPage from './components/common/ErrorPage';
-import { WalletProvider } from './context/WalletProvider';
 import { FarcasterProvider } from './context/FarcasterProvider';
 import { SSEProvider } from './context/SSEProvider';
 import { UsernameProvider } from './context/UsernameContext';
@@ -173,16 +172,14 @@ import('./i18n').then(() => {
                 <ProviderErrorBoundary>
                   <RainbowKitProvider locale="en" initialChain={getInitialChain()}>
                     <ProviderErrorBoundary>
-                      <WalletProvider>
-                        <FarcasterProvider>
-                          <SSEProvider>
-                            <UsernameProvider>
-                              <RouterProvider router={router} />
-                              {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-                            </UsernameProvider>
-                          </SSEProvider>
-                        </FarcasterProvider>
-                      </WalletProvider>
+                      <FarcasterProvider>
+                        <SSEProvider>
+                          <UsernameProvider>
+                            <RouterProvider router={router} />
+                            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+                          </UsernameProvider>
+                        </SSEProvider>
+                      </FarcasterProvider>
                     </ProviderErrorBoundary>
                   </RainbowKitProvider>
                 </ProviderErrorBoundary>

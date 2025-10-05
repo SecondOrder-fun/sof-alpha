@@ -9,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Ta
 import { useCurve } from '@/hooks/useCurve';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
+import { useAccount } from 'wagmi';
 import { useSofDecimals } from '@/hooks/useSofDecimals';
-import { useWallet } from '@/hooks/useWallet';
 
 function useFormatSOF() {
   const decimals = useSofDecimals();
@@ -23,7 +23,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const { t } = useTranslation(['common', 'transactions']);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
   const formatSOF = useFormatSOF();
-  const { address: connectedAddress } = useWallet();
+  const { address: connectedAddress } = useAccount();
   const [activeTab, setActiveTab] = useState('buy');
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
