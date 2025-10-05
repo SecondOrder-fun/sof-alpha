@@ -11,16 +11,11 @@ import { AuthKitProvider } from '@farcaster/auth-kit';
 import '@rainbow-me/rainbowkit/styles.css';
 import './styles/tailwind.css';
 
-// Initialize i18n
-import './i18n';
-import { useTranslation } from 'react-i18next';
-
 import App from './App';
 import ErrorPage from './components/common/ErrorPage';
 import { WalletProvider } from './context/WalletProvider';
 import { FarcasterProvider } from './context/FarcasterProvider';
 import { SSEProvider } from './context/SSEProvider';
-import { UsernameProvider } from './context/UsernameContext';
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -48,11 +43,11 @@ import NotFound from './routes/NotFound';
 import RaffleList from './routes/RaffleList';
 import RaffleDetails from './routes/RaffleDetails';
 import AdminPanel from './routes/AdminPanel';
+import AccountPage from './routes/AccountPage';
 import MarketsIndex from './routes/MarketsIndex';
 import UsersIndex from './routes/UsersIndex';
 import UserProfile from './routes/UserProfile';
 import FaucetPage from './routes/FaucetPage';
-import LocalizationAdmin from './routes/LocalizationAdmin';
 
 // Create router
 const router = createBrowserRouter([
@@ -95,15 +90,11 @@ const router = createBrowserRouter([
       },
       {
         path: 'account',
-        element: <UserProfile />,
+        element: <AccountPage />,
       },
       {
         path: 'faucet',
         element: <FaucetPage />,
-      },
-      {
-        path: 'admin/localization',
-        element: <LocalizationAdmin />,
       },
       {
         path: '*',
@@ -154,60 +145,26 @@ ProviderErrorBoundary.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-// Wrapper component to provide RainbowKit with current locale
-const RainbowKitWrapper = ({ children }) => {
-  const { i18n } = useTranslation();
-  
-  // Map our language codes to RainbowKit supported locales
-  // RainbowKit supports: en, zh, ja, fr, es, pt, ru
-  const localeMap = {
-    en: 'en',
-    ja: 'ja',
-    fr: 'fr',
-    es: 'es',
-    de: 'en', // German not supported by RainbowKit, fallback to English
-    pt: 'pt',
-    it: 'en', // Italian not supported by RainbowKit, fallback to English
-    zh: 'zh',
-    ru: 'ru',
-  };
-  
-  const locale = localeMap[i18n.language] || 'en';
-  
-  return (
-    <RainbowKitProvider locale={locale}>
-      {children}
-    </RainbowKitProvider>
-  );
-};
-
-RainbowKitWrapper.propTypes = {
-  children: PropTypes.node.isRequired,
-};
-
 ReactDOM.createRoot(document.getElementById('root')).render(
-  // StrictMode disabled to prevent WalletConnect double initialization
-  // <React.StrictMode>
+  <React.StrictMode>
     <ProviderErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <WagmiConfigProvider>
           <ProviderErrorBoundary>
             <AuthKitProvider config={farcasterConfig}>
               <ProviderErrorBoundary>
-                <RainbowKitWrapper>
+                <RainbowKitProvider>
                   <ProviderErrorBoundary>
                     <WalletProvider>
                       <FarcasterProvider>
                         <SSEProvider>
-                          <UsernameProvider>
-                            <RouterProvider router={router} />
-                            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-                          </UsernameProvider>
+                          <RouterProvider router={router} />
+                          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
                         </SSEProvider>
                       </FarcasterProvider>
                     </WalletProvider>
                   </ProviderErrorBoundary>
-                </RainbowKitWrapper>
+                </RainbowKitProvider>
               </ProviderErrorBoundary>
             </AuthKitProvider>
           </ProviderErrorBoundary>
@@ -215,5 +172,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* ReactQueryDevtools outside of provider errors */}
       </QueryClientProvider>
     </ProviderErrorBoundary>
-  // </React.StrictMode>,
+  </React.StrictMode>,
 );
