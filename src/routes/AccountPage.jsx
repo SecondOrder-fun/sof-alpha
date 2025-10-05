@@ -16,6 +16,7 @@ import ClaimCenter from '@/components/infofi/ClaimCenter';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
 import { queryLogsInChunks } from '@/utils/blockRangeQuery';
+import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 import { useUsername } from '@/hooks/useUsername';
 
 const AccountPage = () => {
