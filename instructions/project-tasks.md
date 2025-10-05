@@ -4,7 +4,7 @@
 
 SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency speculation into structured, fair finite games through applied game theory enhanced with InfoFi (Information Finance) integration. The platform combines transparent raffle mechanics with sophisticated prediction markets to create a multi-layer system enabling cross-layer strategies, real-time arbitrage opportunities, and information-based value creation.
 
-## Known Issues (2025-10-03)
+## Known Issues (2025-10-05)
 
 - [x] Cannot buy tickets in the active raffle (Resolved 2025-08-20; see Latest Progress).
 
@@ -21,6 +21,14 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Root Cause: Two issues: (1) Discrete bonding curve's `calculateSellPrice()` could return a value slightly higher than actual reserves due to rounding in step-based pricing, and (2) InfoFiMarketFactory would revert when totalTickets became 0.
   - Resolution: Fixed `SOFBondingCurve.sol` to cap baseReturn to available reserves when selling all tokens. Fixed `InfoFiMarketFactory.sol` to return early instead of reverting when totalTickets is 0. Removed frontend workaround. See `SELL_MAX_FIX.md` for full details.
   - Verified: Confirmed working on local Anvil deployment.
+
+- [x] InfoFi positions showing on wrong markets (Resolved 2025-10-05)
+
+  - Symptom: Buying a NO position on one InfoFi market would display the same position on ALL markets for that season.
+  - Scope: InfoFi market position display in `InfoFiMarketCard.jsx`.
+  - Root Cause: The `MarketCreated` event doesn't emit the `marketId` (uint256), causing all markets to derive the same "effective" market ID (`nextMarketId - 1`), which made them all query positions for the same market.
+  - Resolution: Modified `listSeasonWinnerMarketsByEvents()` to read actual market IDs from the `winnerPredictionMarketIds` mapping in the factory contract. Simplified market ID derivation in `InfoFiMarketCard.jsx` to use the ID directly from props. See `docs/03-development/infofi-position-bug-fix.md` for full details.
+  - Verified: Each market now correctly displays only its own position data.
 
 - [ ] Skipped tests that need deeper fixes (Reported 2025-09-29)
   - Symptom: Three tests temporarily skipped as they require deeper changes to the Raffle contract.

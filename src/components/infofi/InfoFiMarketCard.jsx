@@ -54,14 +54,6 @@ const InfoFiMarketCard = ({ market }) => {
   const addrs = getContractAddresses(netKey);
   const publicClient = React.useMemo(() => createPublicClient({ chain: { id: net.id }, transport: http(net.rpcUrl) }), [net.id, net.rpcUrl]);
   const [derivedMid, setDerivedMid] = React.useState(null);
-  // Minimal ABI to read nextMarketId without dynamic imports
-  const MarketMiniAbi = React.useMemo(() => ([{
-    type: 'function',
-    name: 'nextMarketId',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }]
-  }]), []);
 
   // Minimal ABI for getMarket -> MarketInfo with totalYesPool/totalNoPool
   const MarketInfoMiniAbi = React.useMemo(() => ([{
@@ -87,25 +79,14 @@ const InfoFiMarketCard = ({ market }) => {
   }]), []);
 
   React.useEffect(() => {
-    let cancelled = false;
-    async function derive() {
-      try {
-        if (!addrs.INFOFI_MARKET) return;
-        const looksBytes32 = typeof market?.id === 'string' && market.id.startsWith('0x') && market.id.length === 66;
-        if (!looksBytes32) {
-          setDerivedMid(market?.id ?? null);
-          return;
-        }
-        const nextId = await publicClient.readContract({ address: addrs.INFOFI_MARKET, abi: MarketMiniAbi, functionName: 'nextMarketId' });
-        const lastId = (typeof nextId === 'bigint' && nextId > 0n) ? (nextId - 1n) : 0n;
-        if (!cancelled) setDerivedMid(lastId.toString());
-      } catch (_) {
-        if (!cancelled) setDerivedMid(market?.id ?? null);
-      }
+    // Simply use the market.id directly - it should now be a proper uint256 string
+    // from listSeasonWinnerMarketsByEvents which reads winnerPredictionMarketIds mapping
+    if (market?.id != null) {
+      setDerivedMid(String(market.id));
+    } else {
+      setDerivedMid(null);
     }
-    derive();
-    return () => { cancelled = true };
-  }, [market?.id, addrs.INFOFI_MARKET, publicClient, MarketMiniAbi]);
+  }, [market?.id]);
 
   const effectiveMarketId = derivedMid ?? market?.id;
 

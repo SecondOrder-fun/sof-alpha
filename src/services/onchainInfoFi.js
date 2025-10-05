@@ -388,6 +388,18 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
     10000n // Max 10k blocks per chunk (safe for most RPC providers)
   );
 
+  // Minimal ABI to read winnerPredictionMarketIds mapping
+  const MarketIdMappingAbi = [{
+    type: 'function',
+    name: 'winnerPredictionMarketIds',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'seasonId', type: 'uint256' },
+      { name: 'player', type: 'address' }
+    ],
+    outputs: [{ name: 'marketId', type: 'uint256' }]
+  }];
+
   const out = [];
   for (const log of logs) {
     const args = log.args || {};
@@ -398,12 +410,28 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
     const mtype = String(args.marketType || args._marketType || 'WINNER_PREDICTION');
     if (mtype !== 'WINNER_PREDICTION') continue;
     const player = args.player || args._player || '0x0000000000000000000000000000000000000000';
-    const marketId = args.marketId ?? args._marketId;
+    
+    // Read the actual marketId from the factory's storage mapping
+    // since the event doesn't emit it
+    let marketId;
+    try {
+      marketId = await publicClient.readContract({
+        address: factory.address,
+        abi: MarketIdMappingAbi,
+        functionName: 'winnerPredictionMarketIds',
+        args: [BigInt(sid), getAddress(player)]
+      });
+    } catch (e) {
+      // Fallback: try to extract from event args (in case contract was updated)
+      marketId = args.marketId ?? args._marketId;
+    }
+    
     // Normalize id to a plain decimal string when bigint, otherwise hex string
     let idNorm;
     if (typeof marketId === 'bigint') idNorm = marketId.toString();
     else if (typeof marketId === 'string') idNorm = marketId;
-    else idNorm = String(marketId);
+    else idNorm = String(marketId ?? '0');
+    
     out.push({
       id: idNorm,
       seasonId: sid,
