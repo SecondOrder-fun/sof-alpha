@@ -25,12 +25,12 @@ contract InfoFiPriceOracle is AccessControl {
         uint256 marketWeightBps;
     }
 
-    // marketId => price data
-    mapping(bytes32 => PriceData) public prices;
+    // marketId => price data (using uint256 to match InfoFiMarket)
+    mapping(uint256 => PriceData) public prices;
 
     Weights public weights;
 
-    event PriceUpdated(bytes32 indexed marketId, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp);
+    event PriceUpdated(uint256 indexed marketId, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp);
     event WeightsUpdated(uint256 raffleWeightBps, uint256 marketWeightBps);
 
     constructor(address _admin, uint256 raffleWeightBps, uint256 marketWeightBps) {
@@ -49,7 +49,7 @@ contract InfoFiPriceOracle is AccessControl {
         emit WeightsUpdated(raffleWeightBps, marketWeightBps);
     }
 
-    function updateRaffleProbability(bytes32 marketId, uint256 raffleProbabilityBps) external onlyRole(PRICE_UPDATER_ROLE) {
+    function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps) external onlyRole(PRICE_UPDATER_ROLE) {
         PriceData storage p = prices[marketId];
         p.raffleProbabilityBps = raffleProbabilityBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);
@@ -58,7 +58,7 @@ contract InfoFiPriceOracle is AccessControl {
         emit PriceUpdated(marketId, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
     }
 
-    function updateMarketSentiment(bytes32 marketId, uint256 marketSentimentBps) external onlyRole(PRICE_UPDATER_ROLE) {
+    function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps) external onlyRole(PRICE_UPDATER_ROLE) {
         PriceData storage p = prices[marketId];
         p.marketSentimentBps = marketSentimentBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);
@@ -71,7 +71,7 @@ contract InfoFiPriceOracle is AccessControl {
         return (weights.raffleWeightBps * raffleBps + weights.marketWeightBps * marketBps) / 10000;
     }
 
-    function getPrice(bytes32 marketId) external view returns (PriceData memory) {
+    function getPrice(uint256 marketId) external view returns (PriceData memory) {
         return prices[marketId];
     }
 }

@@ -13,9 +13,11 @@ import "../src/core/RafflePositionTracker.sol";
 // Mock InfoFi market for testing
 contract InfoFiMarketMock {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    uint256 private nextMarketId = 1;
 
-    function createMarket(uint256 raffleId, address player, string calldata question, address tokenAddress) external {
-        // Mock implementation that does nothing
+    function createMarket(uint256 raffleId, address player, string calldata question, address tokenAddress) external returns (uint256) {
+        // Mock implementation that returns an incrementing market ID
+        return nextMarketId++;
     }
 }
 
@@ -213,8 +215,8 @@ contract InfoFiThresholdTest is Test {
         // We only need the marketTypeCode for the getMarketId call
         (, bytes32 marketTypeCode,) = marketFactory.getMarketInfo(seasonId, 0);
 
-        // Get the market ID
-        bytes32 marketId = marketFactory.getMarketId(seasonId, player1, marketTypeCode);
+        // Get the market ID (now returns uint256)
+        uint256 marketId = marketFactory.getMarketId(seasonId, player1, marketTypeCode);
 
         // Check initial oracle price
         InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(marketId);

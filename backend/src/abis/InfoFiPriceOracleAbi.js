@@ -5,7 +5,7 @@ export default [
     "type": "function",
     "stateMutability": "view",
     "name": "getPrice",
-    "inputs": [{ "name": "marketId", "type": "bytes32" }],
+    "inputs": [{ "name": "marketId", "type": "uint256" }],
     "outputs": [
       {
         "name": "",
@@ -24,7 +24,7 @@ export default [
     "type": "event",
     "name": "PriceUpdated",
     "inputs": [
-      { "name": "marketId", "type": "bytes32", "indexed": true },
+      { "name": "marketId", "type": "uint256", "indexed": true },
       { "name": "raffleBps", "type": "uint256", "indexed": false },
       { "name": "marketBps", "type": "uint256", "indexed": false },
       { "name": "hybridBps", "type": "uint256", "indexed": false },

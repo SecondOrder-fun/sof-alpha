@@ -424,11 +424,6 @@
             "name": "player",
             "type": "address",
             "internalType": "address"
-          },
-          {
-            "name": "marketKey",
-            "type": "bytes32",
-            "internalType": "bytes32"
           }
         ]
       }
@@ -603,11 +598,6 @@
         "name": "player",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "marketKey",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -982,10 +972,10 @@
     "name": "OracleUpdated",
     "inputs": [
       {
-        "name": "marketKey",
-        "type": "bytes32",
+        "name": "marketId",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "bytes32"
+        "internalType": "uint256"
       },
       {
         "name": "sentimentBps",

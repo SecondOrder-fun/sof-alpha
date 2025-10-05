@@ -8,9 +8,9 @@ import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 
 /// @dev Oracle surface for pushing sentiment and reading hybrid pricing for a given marketId
 interface IInfoFiPriceOracle {
-    function updateMarketSentiment(bytes32 marketId, uint256 marketSentimentBps) external;
+    function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps) external;
     /// Returns (raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active)
-    function getPrice(bytes32 marketId)
+    function getPrice(uint256 marketId)
         external
         view
         returns (
@@ -38,7 +38,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     event MarketResolved(uint256 indexed marketId, bool outcome, uint256 totalYesPool, uint256 totalNoPool);
     event MarketLocked(uint256 indexed marketId, uint256 indexed raffleId);
     event PayoutClaimed(address indexed better, uint256 indexed marketId, bool prediction, uint256 amount);
-    event OracleUpdated(bytes32 indexed marketKey, uint256 sentimentBps);
+    event OracleUpdated(uint256 indexed marketId, uint256 sentimentBps);
 
     // Structs
     struct MarketInfo {
@@ -55,7 +55,6 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         bool outcome; // true = YES wins, false = NO wins
         address tokenAddress; // ERC20 used for betting
         address player;      // for per-player markets
-        bytes32 marketKey;   // keccak256(raffleId, player, WINNER_PREDICTION)
     }
 
     struct BetInfo {
@@ -101,7 +100,6 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         require(player != address(0), "InfoFiMarket: player zero");
 
         marketId = nextMarketId++;
-        bytes32 marketKey = keccak256(abi.encodePacked(raffleId, player, WINNER_PREDICTION));
         
         markets[marketId] = MarketInfo({
             id: marketId,
@@ -116,8 +114,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
             resolved: false,
             outcome: false,
             tokenAddress: token,
-            player: player,
-            marketKey: marketKey
+            player: player
         });
 
         marketsByRaffle[raffleId].push(marketId);
@@ -287,12 +284,11 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * Falls back to local sentiment if oracle is unset.
      */
     function getYesPriceBps(uint256 marketId) public view returns (uint256) {
-        MarketInfo storage market = markets[marketId];
         if (address(oracle) == address(0)) {
             // Fallback to current sentiment ratio if oracle not configured
             return sentimentBps(marketId);
         }
-        ( , , uint256 hybridPriceBps, , bool active) = oracle.getPrice(market.marketKey);
+        ( , , uint256 hybridPriceBps, , bool active) = oracle.getPrice(marketId);
         // If oracle hasn't marked this market active yet, expose 0 to signal unavailable
         return active ? hybridPriceBps : 0;
     }
@@ -323,7 +319,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         bool isActive;
 
         if (address(oracle) != address(0)) {
-            (raffleBps, oracleSentimentBps, hybridBps, ts, isActive) = oracle.getPrice(market.marketKey);
+            (raffleBps, oracleSentimentBps, hybridBps, ts, isActive) = oracle.getPrice(marketId);
         }
 
         return (
@@ -343,10 +339,9 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      */
     function _updateOracle(uint256 marketId) internal {
         if (address(oracle) == address(0)) return; // optional wiring
-        MarketInfo storage market = markets[marketId];
         uint256 sBps = sentimentBps(marketId);
-        oracle.updateMarketSentiment(market.marketKey, sBps);
-        emit OracleUpdated(market.marketKey, sBps);
+        oracle.updateMarketSentiment(marketId, sBps);
+        emit OracleUpdated(marketId, sBps);
     }
 
     /**

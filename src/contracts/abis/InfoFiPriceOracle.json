@@ -65,8 +65,8 @@
     "inputs": [
       {
         "name": "marketId",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -172,8 +172,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -284,8 +284,8 @@
     "inputs": [
       {
         "name": "marketId",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "marketSentimentBps",
@@ -302,8 +302,8 @@
     "inputs": [
       {
         "name": "marketId",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "raffleProbabilityBps",
@@ -338,9 +338,9 @@
     "inputs": [
       {
         "name": "marketId",
-        "type": "bytes32",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "bytes32"
+        "internalType": "uint256"
       },
       {
         "name": "raffleBps",

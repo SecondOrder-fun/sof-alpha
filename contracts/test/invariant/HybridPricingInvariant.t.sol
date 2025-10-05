@@ -22,8 +22,8 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Maximum allowed deviation in hybrid price (basis points)
     uint256 constant MAX_DEVIATION = 500; // 5%
     
-    // Test market ID
-    bytes32 internal testMarketId;
+    // Test market ID (now uint256 instead of bytes32)
+    uint256 internal testMarketId;
     
     function setUp() public {
         admin = address(this);
@@ -35,8 +35,8 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
         // Grant updater role to the updater address
         oracle.grantRole(oracle.PRICE_UPDATER_ROLE(), updater);
         
-        // Create a test market
-        testMarketId = keccak256("test_market");
+        // Create a test market (using uint256 instead of bytes32)
+        testMarketId = uint256(keccak256("test_market"));
         vm.startPrank(updater);
         oracle.updateRaffleProbability(testMarketId, 5000); // 50%
         oracle.updateMarketSentiment(testMarketId, 6000); // 60%

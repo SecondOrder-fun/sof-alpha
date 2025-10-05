@@ -5,7 +5,7 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "../lib/RaffleTypes.sol";
 
 interface IInfoFiPriceOracleMinimal {
-    function updateRaffleProbability(bytes32 marketId, uint256 raffleProbabilityBps) external;
+    function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps) external;
 }
 
 /// @dev Minimal interface to the InfoFiMarket for creating markets and reading roles
@@ -139,11 +139,13 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newBps = (newTickets * 10000) / totalTickets;
         emit ProbabilityUpdated(seasonId, player, oldBps, newBps);
 
-        // Push probability to oracle for the corresponding marketId (seasonId, player, type)
-        // marketId = keccak256(seasonId, player, WINNER_PREDICTION)
-        bytes32 marketId = keccak256(abi.encodePacked(seasonId, player, WINNER_PREDICTION));
-        // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
-        oracle.updateRaffleProbability(marketId, newBps);
+        // Push probability to oracle using the uint256 marketId
+        // Get the marketId from storage (if market exists)
+        uint256 marketId = winnerPredictionMarketIds[seasonId][player];
+        if (marketId > 0 || winnerPredictionCreated[seasonId][player]) {
+            // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
+            oracle.updateRaffleProbability(marketId, newBps);
+        }
 
         // NOTE: We do NOT auto-resolve when position goes to 0
         // Markets remain active until terminal event (season end)
@@ -261,14 +263,17 @@ contract InfoFiMarketFactory is AccessControl {
     }
     
     /**
-     * @notice Get the market ID for a player and market type
+     * @notice Get the uint256 market ID for a player and market type
      * @param seasonId The season ID
      * @param player The player address
      * @param marketType The market type
-     * @return bytes32 The market ID
+     * @return uint256 The market ID (0 if not found)
      */
-    function getMarketId(uint256 seasonId, address player, bytes32 marketType) external pure returns (bytes32) {
-        return keccak256(abi.encodePacked(seasonId, player, marketType));
+    function getMarketId(uint256 seasonId, address player, bytes32 marketType) external view returns (uint256) {
+        if (marketType == WINNER_PREDICTION) {
+            return winnerPredictionMarketIds[seasonId][player];
+        }
+        return 0;
     }
     
     /**

@@ -192,10 +192,54 @@ contract DeployScript is Script {
         console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
         console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
         
-        if (createSeason) {
-            // This logic is now handled in a separate script
-        } else {
-            console2.log("Skipping season creation (CREATE_SEASON not set to true).");
+        // Create a default Season 1 for testing (always create for E2E testing)
+        console2.log("Creating default season for testing...");
+
+        uint256 startTime = block.timestamp + 60 seconds;
+        uint256 endTime = startTime + 14 days;
+
+        RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
+            name: "Season 1",
+            startTime: startTime,
+            endTime: endTime,
+            winnerCount: 3,
+            grandPrizeBps: 6500, // 65% of total pool to grand winner
+            raffleToken: address(0), // Will be set by factory
+            bondingCurve: address(0), // Will be set by factory
+            isActive: false,
+            isCompleted: false
+        });
+
+        RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](10);
+        bondSteps[0] = RaffleTypes.BondStep({rangeTo: 100_000, price: 0.1 ether});
+        bondSteps[1] = RaffleTypes.BondStep({rangeTo: 200_000, price: 0.2 ether});
+        bondSteps[2] = RaffleTypes.BondStep({rangeTo: 300_000, price: 0.3 ether});
+        bondSteps[3] = RaffleTypes.BondStep({rangeTo: 400_000, price: 0.4 ether});
+        bondSteps[4] = RaffleTypes.BondStep({rangeTo: 500_000, price: 0.5 ether});
+        bondSteps[5] = RaffleTypes.BondStep({rangeTo: 600_000, price: 0.6 ether});
+        bondSteps[6] = RaffleTypes.BondStep({rangeTo: 700_000, price: 0.7 ether});
+        bondSteps[7] = RaffleTypes.BondStep({rangeTo: 800_000, price: 0.8 ether});
+        bondSteps[8] = RaffleTypes.BondStep({rangeTo: 900_000, price: 0.9 ether});
+        bondSteps[9] = RaffleTypes.BondStep({rangeTo: 1_000_000, price: 1.0 ether});
+
+        uint16 buyFeeBps = 10; // 0.1%
+        uint16 sellFeeBps = 70; // 0.7%
+
+        uint256 seasonId = raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
+        console2.log("Season created with ID:", seasonId);
+
+        // Wire position tracker to the new season's curve
+        try raffle.setPositionTrackerForSeason(seasonId, address(tracker)) {
+            console2.log("Wired position tracker for season", seasonId);
+        } catch {
+            console2.log("Failed to wire position tracker (may not be needed)");
+        }
+
+        // Grant FEE_COLLECTOR_ROLE to the Raffle contract for treasury system
+        try sof.grantRole(sof.FEE_COLLECTOR_ROLE(), address(raffle)) {
+            console2.log("Granted FEE_COLLECTOR_ROLE to Raffle contract");
+        } catch {
+            console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
         }
         
         vm.stopBroadcast();

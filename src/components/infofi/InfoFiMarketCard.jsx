@@ -15,9 +15,11 @@ import { useToast } from '@/hooks/useToast';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
+import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { createPublicClient, http, getAddress, formatUnits } from 'viem';
 import { computeWinnerMarketId } from '@/services/onchainInfoFi';
 import UsernameDisplay from '@/components/user/UsernameDisplay';
+import { useSeasonDetailsQuery } from '@/hooks/useRaffleRead';
 
 /**
  * InfoFiMarketCard
@@ -90,6 +92,46 @@ const InfoFiMarketCard = ({ market }) => {
   }, [market?.id]);
 
   const effectiveMarketId = derivedMid ?? market?.id;
+
+  // Get season details to access bonding curve
+  const seasonDetailsQuery = useSeasonDetailsQuery(seasonId);
+  // getSeasonDetails returns [config, status, totalParticipants, totalTickets, totalPrizePool]
+  // config is [startTime, endTime, bondingCurve, isActive]
+  const bondingCurveAddress = seasonDetailsQuery?.data?.[0]?.[2] || seasonDetailsQuery?.data?.config?.bondingCurve;
+
+  // Check if player has any raffle tickets (for winner prediction markets)
+  const playerTicketBalance = useQuery({
+    queryKey: ['playerTicketBalance', seasonId, market?.player, bondingCurveAddress],
+    enabled: isWinnerPrediction && !!bondingCurveAddress && !!market?.player,
+    queryFn: async () => {
+      try {
+        // Get the raffle token address from the bonding curve
+        const raffleTokenAddr = await publicClient.readContract({
+          address: bondingCurveAddress,
+          abi: SOFBondingCurveAbi,
+          functionName: 'raffleToken',
+          args: [],
+        });
+        
+        // Get the player's balance of raffle tickets
+        const balance = await publicClient.readContract({
+          address: raffleTokenAddr,
+          abi: ERC20Abi.abi,
+          functionName: 'balanceOf',
+          args: [market.player],
+        });
+        
+        return balance;
+      } catch (error) {
+        console.error('Failed to fetch player ticket balance:', error);
+        return 0n;
+      }
+    },
+    staleTime: 10_000,
+    refetchInterval: 10_000,
+  });
+
+  const playerHasTickets = playerTicketBalance?.data ? playerTicketBalance.data > 0n : null;
 
   // Read my current YES/NO positions
   const yesPos = useQuery({
@@ -171,12 +213,30 @@ const InfoFiMarketCard = ({ market }) => {
     }
   });
 
+  // Calculate probability directly from ticket balances when oracle is unavailable
+  const directProbabilityBps = React.useMemo(() => {
+    if (!isWinnerPrediction || !playerTicketBalance?.data || !totalTicketSupply?.data) return null;
+    if (totalTicketSupply.data === 0n) return 0;
+    
+    const playerBalance = playerTicketBalance.data;
+    const totalSupply = totalTicketSupply.data;
+    
+    // Calculate basis points: (playerBalance / totalSupply) * 10000
+    const bps = Number((playerBalance * 10000n) / totalSupply);
+    return Math.max(0, Math.min(10000, bps));
+  }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply?.data]);
+
   const percent = React.useMemo(() => {
     const v = Number(bps.hybrid ?? 0);
-    // Clamp to 0-10000 range, then convert to percentage with 1 decimal
     const clamped = Math.max(0, Math.min(10000, v));
+    
+    // Fallback: Use direct calculation from ticket balances if oracle returns 0
+    if (clamped === 0 && directProbabilityBps !== null && directProbabilityBps > 0) {
+      return (directProbabilityBps / 100).toFixed(1);
+    }
+    
     return (clamped / 100).toFixed(1);
-  }, [bps.hybrid]);
+  }, [bps.hybrid, directProbabilityBps]);
 
   const rafflePercent = React.useMemo(() => {
     const v = Number(bps.raffle ?? 0);
@@ -267,8 +327,8 @@ DebugInfoFiPanel.propTypes = {
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
-        {/* Warning when player has 0 raffle position - only show for winner prediction markets when raffle probability is actually 0 */}
-        {isWinnerPrediction && bps.raffle !== null && Number(bps.raffle) === 0 && (
+        {/* Warning when player has 0 raffle tickets - check actual ticket balance */}
+        {isWinnerPrediction && playerHasTickets === false && (
           <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs">
             <div className="flex items-center gap-2">
               <span className="text-amber-600">⚠️</span>
