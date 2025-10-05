@@ -1,26 +1,26 @@
 // src/components/infofi/ClaimCenter.jsx
 import PropTypes from 'prop-types';
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { enumerateAllMarkets, readBetFull, claimPayoutTx } from '@/services/onchainInfoFi';
+import { getPrizeDistributor, getSeasonPayouts, claimGrand } from '@/services/onchainRaffleDistributor';
 import { formatUnits } from 'viem';
 
 /**
  * ClaimCenter
- * Groups claimable InfoFi market payouts by season.
- * No placeholders; reads strictly from chain.
+ * Unified interface for claiming both InfoFi market winnings and raffle prizes.
+ * Organized into discrete sections for clarity.
  */
 const ClaimCenter = ({ address, title, description }) => {
   const { t } = useTranslation(['market', 'raffle', 'common']);
   const netKey = getStoredNetworkKey();
   const qc = useQueryClient();
-  const [claimingAll, setClaimingAll] = useState(false);
 
-  // Discover all markets; we keep this simple and robust
+  // InfoFi Market Claims
   const discovery = useQuery({
     queryKey: ['claimcenter_discovery', netKey],
     queryFn: async () => enumerateAllMarkets({ networkKey: netKey }),
@@ -28,7 +28,6 @@ const ClaimCenter = ({ address, title, description }) => {
     refetchInterval: 5_000,
   });
 
-  // For each market, read YES and NO bet info to find claimables
   const claimsQuery = useQuery({
     queryKey: ['claimcenter_claimables', address, netKey, (discovery.data || []).length],
     enabled: !!address && Array.isArray(discovery.data),
@@ -36,12 +35,10 @@ const ClaimCenter = ({ address, title, description }) => {
       const out = [];
       for (const m of (discovery.data || [])) {
         const marketId = m.id;
-        // eslint-disable-next-line no-await-in-loop
         const yes = await readBetFull({ marketId, account: address, prediction: true, networkKey: netKey });
-        // eslint-disable-next-line no-await-in-loop
         const no = await readBetFull({ marketId, account: address, prediction: false, networkKey: netKey });
-        if (yes.amount > 0n && yes.payout > 0n && !yes.claimed) out.push({ seasonId: Number(m.seasonId), marketId, prediction: true, payout: yes.payout });
-        if (no.amount > 0n && no.payout > 0n && !no.claimed) out.push({ seasonId: Number(m.seasonId), marketId, prediction: false, payout: no.payout });
+        if (yes.amount > 0n && yes.payout > 0n && !yes.claimed) out.push({ seasonId: Number(m.seasonId), marketId, prediction: true, payout: yes.payout, type: 'infofi' });
+        if (no.amount > 0n && no.payout > 0n && !no.claimed) out.push({ seasonId: Number(m.seasonId), marketId, prediction: false, payout: no.payout, type: 'infofi' });
       }
       return out;
     },
@@ -49,28 +46,59 @@ const ClaimCenter = ({ address, title, description }) => {
     refetchInterval: 5_000,
   });
 
-  const claimOne = useMutation({
+  // Raffle Prize Claims
+  const distributorQuery = useQuery({
+    queryKey: ['rewards_distributor', netKey],
+    queryFn: () => getPrizeDistributor({ networkKey: netKey }),
+    staleTime: 10000,
+    refetchInterval: 10000,
+  });
+
+  const raffleClaimsQuery = useQuery({
+    queryKey: ['raffle_claims', address, netKey],
+    enabled: !!address && !!distributorQuery.data,
+    queryFn: async () => {
+      const out = [];
+      // Get all seasons to check for raffle prizes
+      const seasons = await enumerateAllMarkets({ networkKey: netKey });
+      for (const season of seasons) {
+        const seasonId = Number(season.seasonId);
+        const payout = await getSeasonPayouts({ seasonId, networkKey: netKey }).catch(() => null);
+        if (payout && payout.data.funded && !payout.data.grandClaimed) {
+          const isGrandWinner = address.toLowerCase() === payout.data.grandWinner?.toLowerCase();
+          if (isGrandWinner) {
+            out.push({
+              seasonId,
+              type: 'raffle',
+              amount: payout.data.grandAmount,
+              claimed: payout.data.grandClaimed
+            });
+          }
+        }
+      }
+      return out;
+    },
+    staleTime: 10000,
+    refetchInterval: 10000,
+  });
+
+  // Mutations for claiming
+  const claimInfoFiOne = useMutation({
     mutationFn: async ({ marketId, prediction }) => claimPayoutTx({ marketId, prediction, networkKey: netKey }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['claimcenter_claimables'] });
     },
   });
 
-  const claimAll = async () => {
-    if (!claimsQuery.data || claimsQuery.data.length === 0) return;
-    setClaimingAll(true);
-    try {
-      for (const c of claimsQuery.data) {
-        // eslint-disable-next-line no-await-in-loop
-        await claimPayoutTx({ marketId: c.marketId, prediction: c.prediction, networkKey: netKey });
-      }
-      qc.invalidateQueries({ queryKey: ['claimcenter_claimables'] });
-    } finally {
-      setClaimingAll(false);
-    }
-  };
+  const claimRaffleGrand = useMutation({
+    mutationFn: ({ seasonId }) => claimGrand({ seasonId, networkKey: netKey }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['raffle_claims'] });
+    },
+  });
 
-  const grouped = (() => {
+  // Group InfoFi claims by season
+  const infoFiGrouped = (() => {
     const out = new Map();
     for (const c of (claimsQuery.data || [])) {
       const key = String(c.seasonId ?? '—');
@@ -89,25 +117,26 @@ const ClaimCenter = ({ address, title, description }) => {
       <CardContent>
         {!address && <p className="text-muted-foreground">{t('errors:notConnected')}</p>}
         {address && (
-          <div className="space-y-3">
-            {(discovery.isLoading || claimsQuery.isLoading) && (
-              <p className="text-muted-foreground">{t('common:loading')}</p>
-            )}
-            {claimsQuery.error && (
-              <p className="text-red-500">{t('common:error')}: {String(claimsQuery.error?.message || claimsQuery.error)}</p>
-            )}
-            {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length === 0 && (
-              <p className="text-muted-foreground">{t('raffle:nothingToClaim')}</p>
-            )}
-            {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length > 0 && (
-              <>
-                <div className="flex justify-end">
-                  <Button onClick={claimAll} disabled={claimingAll}>
-                    {claimingAll ? t('transactions:claiming') : t('raffle:claimAll')}
-                  </Button>
-                </div>
+          <Tabs defaultValue="markets" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="markets">Prediction Markets</TabsTrigger>
+              <TabsTrigger value="raffles">Raffle Prizes</TabsTrigger>
+            </TabsList>
+
+            {/* InfoFi Market Claims Tab */}
+            <TabsContent value="markets" className="space-y-4">
+              {(discovery.isLoading || claimsQuery.isLoading) && (
+                <p className="text-muted-foreground">{t('common:loading')}</p>
+              )}
+              {claimsQuery.error && (
+                <p className="text-red-500">{t('common:error')}: {String(claimsQuery.error?.message || claimsQuery.error)}</p>
+              )}
+              {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length === 0 && (
+                <p className="text-muted-foreground">{t('raffle:nothingToClaim')}</p>
+              )}
+              {!claimsQuery.isLoading && !claimsQuery.error && (claimsQuery.data || []).length > 0 && (
                 <div className="space-y-3">
-                  {Array.from(grouped.entries()).map(([season, rows]) => (
+                  {Array.from(infoFiGrouped.entries()).map(([season, rows]) => (
                     <div key={season} className="border rounded">
                       <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
                         <div className="text-sm font-medium">{t('raffle:seasonNumber', { number: season })}</div>
@@ -125,8 +154,8 @@ const ClaimCenter = ({ address, title, description }) => {
                             <div className="text-xs text-muted-foreground">
                               {t('market:market')}: <span className="font-mono">{String(r.marketId)}</span> • {t('common:side', { defaultValue: 'Side' })}: {r.prediction ? 'YES' : 'NO'} • {t('market:potentialPayout')}: <span className="font-mono">{formatUnits(r.payout ?? 0n, 18)}</span> SOF
                             </div>
-                            <Button variant="outline" onClick={() => claimOne.mutate({ marketId: r.marketId, prediction: r.prediction })} disabled={claimOne.isPending}>
-                              {claimOne.isPending ? t('transactions:claiming') : t('common:claim')}
+                            <Button variant="outline" onClick={() => claimInfoFiOne.mutate({ marketId: r.marketId, prediction: r.prediction })} disabled={claimInfoFiOne.isPending}>
+                              {claimInfoFiOne.isPending ? t('transactions:claiming') : t('common:claim')}
                             </Button>
                           </div>
                         ))}
@@ -134,9 +163,43 @@ const ClaimCenter = ({ address, title, description }) => {
                     </div>
                   ))}
                 </div>
-              </>
-            )}
-          </div>
+              )}
+            </TabsContent>
+
+            {/* Raffle Prize Claims Tab */}
+            <TabsContent value="raffles" className="space-y-4">
+              {raffleClaimsQuery.isLoading && <p className="text-muted-foreground">{t('common:loading')}</p>}
+              {raffleClaimsQuery.error && (
+                <p className="text-red-500">{t('common:error')}: {String(raffleClaimsQuery.error?.message || raffleClaimsQuery.error)}</p>
+              )}
+              {!raffleClaimsQuery.isLoading && !raffleClaimsQuery.error && (raffleClaimsQuery.data || []).length === 0 && (
+                <p className="text-muted-foreground">{t('raffle:noActiveSeasons')}</p>
+              )}
+              {!raffleClaimsQuery.isLoading && !raffleClaimsQuery.error && (raffleClaimsQuery.data || []).length > 0 && (
+                <div className="space-y-3">
+                  {(raffleClaimsQuery.data || []).map((row) => (
+                    <div key={String(row.seasonId)} className="border rounded p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">{t('raffle:season')} #{String(row.seasonId)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {t('raffle:grandPrize')}: <span className="font-mono">{formatUnits(row.amount ?? 0n, 18)}</span> SOF
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          onClick={() => claimRaffleGrand.mutate({ seasonId: row.seasonId })}
+                          disabled={claimRaffleGrand.isPending}
+                          className="w-full"
+                        >
+                          {claimRaffleGrand.isPending ? t('transactions:claiming') : t('raffle:claimPrize')}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </CardContent>
     </Card>

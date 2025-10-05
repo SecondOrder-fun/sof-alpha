@@ -13,14 +13,10 @@ import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 import PositionsPanel from '@/components/infofi/PositionsPanel';
 import ClaimCenter from '@/components/infofi/ClaimCenter';
-import RewardsDebug from '@/components/infofi/RewardsDebug';
-import RewardsPanel from '@/components/infofi/RewardsPanel';
-import { ClaimPrizeWidget } from '@/components/prizes/ClaimPrizeWidget';
 import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useRaffleRead } from '@/hooks/useRaffleRead';
 import { queryLogsInChunks } from '@/utils/blockRangeQuery';
 import { useUsername } from '@/hooks/useUsername';
-// onchainInfoFi is now used by the shared PositionsPanel component
 
 const AccountPage = () => {
   const { address, isConnected } = useAccount();
@@ -162,8 +158,11 @@ const AccountPage = () => {
               </div>
               <div>
                 <p className="font-semibold">Current Raffle Snapshot</p>
-                {currentSeasonQuery.isSuccess && (
+                {currentSeasonQuery.isSuccess && currentSeasonQuery.data > 0 && (
                   <p className="text-xs text-muted-foreground mb-1">Season #{currentSeasonQuery.data}</p>
+                )}
+                {currentSeasonQuery.isSuccess && currentSeasonQuery.data === 0 && (
+                  <p className="text-xs text-muted-foreground mb-1">No active season</p>
                 )}
                 {snapshotQuery.isLoading && <p className="text-muted-foreground">Loading snapshot…</p>}
                 {snapshotQuery.error && <p className="text-red-500">Error loading snapshot</p>}
@@ -212,10 +211,6 @@ const AccountPage = () => {
       <PositionsPanel address={address} seasons={(allSeasonsQuery.data || [])} />
       {/* Claims */}
       <ClaimCenter address={address} />
-      {/* Rewards (Grand & Consolation) */}
-      <RewardsPanel readOnly={false} />
-      {/* Debug: Rewards (Distributor) */}
-      <RewardsDebug />
     </div>
   );
 };
