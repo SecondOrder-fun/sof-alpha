@@ -237,6 +237,19 @@
   },
   {
     "type": "function",
+    "name": "getCoordinatorAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getCurrentSeason",
     "inputs": [],
     "outputs": [

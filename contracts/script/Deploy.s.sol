@@ -38,7 +38,7 @@ contract DeployScript is Script {
         bytes32 keyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
         console2.log("VRF Mock deployed at:", address(vrfCoordinator));
         console2.log("VRF Subscription created with ID:", subscriptionId);
-        
+
         // Deploy SOF token with a 100,000,000 SOF premint to the deployer (18 decimals)
         // Treasury address set to deployer (account[0]) for testing; change to multisig for production
         uint256 initialSupply = 100_000_000 ether; // 100,000,000 * 1e18
@@ -80,12 +80,8 @@ contract DeployScript is Script {
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         raffle.grantRole(seasonCreatorRole, deployerAddr);
 
-
-        
         // Deploy InfoFiMarket contract
         InfoFiMarket infoFiMarket = new InfoFiMarket();
-
-
 
         // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
         console2.log("Deploying InfoFiPriceOracle (weights 70/30) with deployer as admin...");
@@ -108,11 +104,7 @@ contract DeployScript is Script {
         // Deploy InfoFiMarketFactory with raffle read addr, oracle, shared market, and SOF bet token; admin = deployer
         console2.log("Deploying InfoFiMarketFactory...");
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
-            address(raffle),
-            address(infoFiOracle),
-            address(infoFiMarket),
-            address(sof),
-            deployerAddr
+            address(raffle), address(infoFiOracle), address(infoFiMarket), address(sof), deployerAddr
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
@@ -158,32 +150,18 @@ contract DeployScript is Script {
             console2.log("Raffle.setPrizeDistributor failed or already set (skipping)");
         }
 
-        // Optional: Create a default Season 0 (disabled by default)
-        // Control via env var CREATE_SEASON=true to enable.
-        bool createSeason;
-        try vm.envBool("CREATE_SEASON") returns (bool vCreate) {
-            createSeason = vCreate;
-        } catch {
-            createSeason = false; // default: do NOT create a season during deployment
-        }
-
         // Deploy SOF Faucet
         console2.log("Deploying SOF Faucet...");
-        uint256 amountPerRequest = 10_000 * 10**18; // 10,000 SOF tokens
+        uint256 amountPerRequest = 10_000 * 10 ** 18; // 10,000 SOF tokens
         uint256 cooldownPeriod = 6 * 60 * 60; // 6 hours
-        
+
         // Allowed chain IDs: Anvil (31337) and Sepolia (11155111)
         uint256[] memory allowedChainIds = new uint256[](2);
         allowedChainIds[0] = 31337;
         allowedChainIds[1] = 11155111;
-        
-        SOFFaucet faucet = new SOFFaucet(
-            address(sof),
-            amountPerRequest,
-            cooldownPeriod,
-            allowedChainIds
-        );
-        
+
+        SOFFaucet faucet = new SOFFaucet(address(sof), amountPerRequest, cooldownPeriod, allowedChainIds);
+
         // Keep 1,000,000 SOF for the deployer and transfer the rest to the faucet
         uint256 deployerKeeps = 1_000_000 ether; // 1 million SOF
         uint256 faucetAmount = initialSupply - deployerKeeps; // 99 million SOF
@@ -191,49 +169,6 @@ contract DeployScript is Script {
         console2.log("SOF Faucet deployed at:", address(faucet));
         console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
         console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
-        
-        // Create a default Season 1 for testing (always create for E2E testing)
-        console2.log("Creating default season for testing...");
-
-        uint256 startTime = block.timestamp + 60 seconds;
-        uint256 endTime = startTime + 14 days;
-
-        RaffleTypes.SeasonConfig memory config = RaffleTypes.SeasonConfig({
-            name: "Season 1",
-            startTime: startTime,
-            endTime: endTime,
-            winnerCount: 3,
-            grandPrizeBps: 6500, // 65% of total pool to grand winner
-            raffleToken: address(0), // Will be set by factory
-            bondingCurve: address(0), // Will be set by factory
-            isActive: false,
-            isCompleted: false
-        });
-
-        RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](10);
-        bondSteps[0] = RaffleTypes.BondStep({rangeTo: 100_000, price: 0.1 ether});
-        bondSteps[1] = RaffleTypes.BondStep({rangeTo: 200_000, price: 0.2 ether});
-        bondSteps[2] = RaffleTypes.BondStep({rangeTo: 300_000, price: 0.3 ether});
-        bondSteps[3] = RaffleTypes.BondStep({rangeTo: 400_000, price: 0.4 ether});
-        bondSteps[4] = RaffleTypes.BondStep({rangeTo: 500_000, price: 0.5 ether});
-        bondSteps[5] = RaffleTypes.BondStep({rangeTo: 600_000, price: 0.6 ether});
-        bondSteps[6] = RaffleTypes.BondStep({rangeTo: 700_000, price: 0.7 ether});
-        bondSteps[7] = RaffleTypes.BondStep({rangeTo: 800_000, price: 0.8 ether});
-        bondSteps[8] = RaffleTypes.BondStep({rangeTo: 900_000, price: 0.9 ether});
-        bondSteps[9] = RaffleTypes.BondStep({rangeTo: 1_000_000, price: 1.0 ether});
-
-        uint16 buyFeeBps = 10; // 0.1%
-        uint16 sellFeeBps = 70; // 0.7%
-
-        uint256 seasonId = raffle.createSeason(config, bondSteps, buyFeeBps, sellFeeBps);
-        console2.log("Season created with ID:", seasonId);
-
-        // Wire position tracker to the new season's curve
-        try raffle.setPositionTrackerForSeason(seasonId, address(tracker)) {
-            console2.log("Wired position tracker for season", seasonId);
-        } catch {
-            console2.log("Failed to wire position tracker (may not be needed)");
-        }
 
         // Grant FEE_COLLECTOR_ROLE to the Raffle contract for treasury system
         try sof.grantRole(sof.FEE_COLLECTOR_ROLE(), address(raffle)) {
@@ -241,9 +176,9 @@ contract DeployScript is Script {
         } catch {
             console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
         }
-        
+
         vm.stopBroadcast();
-        
+
         // Output deployed addresses
         console2.log("SOF token deployed at:", address(sof));
         console2.log("SeasonFactory contract deployed at:", address(seasonFactory));

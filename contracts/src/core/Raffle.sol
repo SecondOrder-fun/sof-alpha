@@ -34,6 +34,11 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     bytes32 public vrfKeyHash;
     uint64 public vrfSubscriptionId;
     uint32 public vrfCallbackGasLimit = 500000;
+
+    // Public getter for the VRF coordinator address
+    function getCoordinatorAddress() external view returns (address) {
+        return address(COORDINATOR);
+    }
     uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
 
     // Core
@@ -130,7 +135,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
      */
     function createSeason(
         RaffleTypes.SeasonConfig memory config,
-        RaffleTypes.BondStep[] calldata bondSteps,
+        RaffleTypes.BondStep[] memory bondSteps,
         uint16 buyFeeBps,
         uint16 sellFeeBps
     ) external onlyRole(SEASON_CREATOR_ROLE) nonReentrant returns (uint256 seasonId) {
