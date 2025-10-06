@@ -40,15 +40,13 @@ const InfoFiMarketCard = ({ market }) => {
   const { data: priceData } = useOraclePriceLive(market?.id);
   React.useEffect(() => {
     if (!priceData) return;
-    
+
     // Validate and clamp probability data to 0-10000 range
-    const hybrid = Math.max(0, Math.min(10000, Number(priceData.hybridPriceBps ?? 0)));
-    const raffle = Math.max(0, Math.min(10000, Number(priceData.raffleProbabilityBps ?? 0)));
-    const market = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
-    
-    console.log('[InfoFiMarketCard] Price data for player:', market?.player, '- hybrid:', hybrid, 'raffle:', raffle, 'market:', market);
-    
-    setBps({ hybrid, raffle, market });
+    const hybridProbabilityBps = Math.max(0, Math.min(10000, Number(priceData.hybridPriceBps ?? 0)));
+    const raffleProbabilityBps = Math.max(0, Math.min(10000, Number(priceData.raffleProbabilityBps ?? 0)));
+    const marketSentimentBps = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
+
+    setBps({ hybrid: hybridProbabilityBps, raffle: raffleProbabilityBps, market: marketSentimentBps });
   }, [priceData, market?.id, market?.player]);
 
   // Derive preferred uint256 market id if listing supplied a bytes32 id
@@ -99,6 +97,19 @@ const InfoFiMarketCard = ({ market }) => {
   // config is [startTime, endTime, bondingCurve, isActive]
   const bondingCurveAddress = seasonDetailsQuery?.data?.[0]?.[2] || seasonDetailsQuery?.data?.config?.bondingCurve;
 
+  const totalTicketSupply = React.useMemo(() => {
+    if (!seasonDetailsQuery?.data) return null;
+    const raw = Array.isArray(seasonDetailsQuery.data)
+      ? seasonDetailsQuery.data[3] ?? seasonDetailsQuery.data.totalTickets
+      : seasonDetailsQuery.data?.totalTickets;
+    if (raw == null) return null;
+    try {
+      return typeof raw === 'bigint' ? raw : BigInt(raw);
+    } catch {
+      return null;
+    }
+  }, [seasonDetailsQuery?.data]);
+
   // Check if player has any raffle tickets (for winner prediction markets)
   const playerTicketBalance = useQuery({
     queryKey: ['playerTicketBalance', seasonId, market?.player, bondingCurveAddress],
@@ -123,7 +134,10 @@ const InfoFiMarketCard = ({ market }) => {
         
         return balance;
       } catch (error) {
-        console.error('Failed to fetch player ticket balance:', error);
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to fetch player ticket balance:', error);
+        }
         return 0n;
       }
     },
@@ -215,16 +229,18 @@ const InfoFiMarketCard = ({ market }) => {
 
   // Calculate probability directly from ticket balances when oracle is unavailable
   const directProbabilityBps = React.useMemo(() => {
-    if (!isWinnerPrediction || !playerTicketBalance?.data || !totalTicketSupply?.data) return null;
-    if (totalTicketSupply.data === 0n) return 0;
-    
+    if (!isWinnerPrediction || playerTicketBalance?.data == null || totalTicketSupply == null) {
+      return null;
+    }
+    if (totalTicketSupply === 0n) return 0;
+
     const playerBalance = playerTicketBalance.data;
-    const totalSupply = totalTicketSupply.data;
-    
+    const totalSupply = totalTicketSupply;
+
     // Calculate basis points: (playerBalance / totalSupply) * 10000
     const bps = Number((playerBalance * 10000n) / totalSupply);
     return Math.max(0, Math.min(10000, bps));
-  }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply?.data]);
+  }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply]);
 
   const percent = React.useMemo(() => {
     const v = Number(bps.hybrid ?? 0);
@@ -237,13 +253,6 @@ const InfoFiMarketCard = ({ market }) => {
     
     return (clamped / 100).toFixed(1);
   }, [bps.hybrid, directProbabilityBps]);
-
-  const rafflePercent = React.useMemo(() => {
-    const v = Number(bps.raffle ?? 0);
-    // Clamp to 0-10000 range, then convert to percentage with 1 decimal
-    const clamped = Math.max(0, Math.min(10000, v));
-    return (clamped / 100).toFixed(1);
-  }, [bps.raffle]);
 
   // Calculate payout for a given bet amount
   const calculatePayout = React.useCallback((betAmount, isYes) => {
