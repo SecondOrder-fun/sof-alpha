@@ -220,7 +220,7 @@ export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
       address: oracle.address,
       abi: oracle.abi,
       functionName: 'getPrice',
-      args: [idB32],
+      args: [idU256],
     });
     // Expect struct PriceData { raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active }
     return price;

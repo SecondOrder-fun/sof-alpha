@@ -139,14 +139,6 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newBps = (newTickets * 10000) / totalTickets;
         emit ProbabilityUpdated(seasonId, player, oldBps, newBps);
 
-        // Push probability to oracle using the uint256 marketId
-        // Get the marketId from storage (if market exists)
-        uint256 marketId = winnerPredictionMarketIds[seasonId][player];
-        if (marketId > 0 || winnerPredictionCreated[seasonId][player]) {
-            // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
-            oracle.updateRaffleProbability(marketId, newBps);
-        }
-
         // NOTE: We do NOT auto-resolve when position goes to 0
         // Markets remain active until terminal event (season end)
         // This allows:
@@ -177,6 +169,13 @@ contract InfoFiMarketFactory is AccessControl {
             _seasonPlayers[seasonId].push(player);
 
             emit MarketCreated(seasonId, player, WINNER_PREDICTION, createdMarketId, newBps, marketAddr);
+        }
+
+        // Push probability to oracle using the uint256 marketId (after ensuring market bookkeeping is updated)
+        uint256 marketId = winnerPredictionMarketIds[seasonId][player];
+        if (marketId > 0 || winnerPredictionCreated[seasonId][player]) {
+            // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
+            oracle.updateRaffleProbability(marketId, newBps);
         }
     }
 
