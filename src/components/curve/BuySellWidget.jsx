@@ -1,7 +1,7 @@
 // src/components/curve/BuySellWidget.jsx
 import PropTypes from 'prop-types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPublicClient, formatUnits, http } from 'viem';
+import { createPublicClient, formatUnits, http, parseUnits } from 'viem';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,19 +11,25 @@ import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { useAccount } from 'wagmi';
 import { useSofDecimals } from '@/hooks/useSofDecimals';
+import { useSOFToken } from '@/hooks/useSOFToken';
+import { buildFriendlyContractError } from '@/lib/contractErrors';
+import SOFBondingCurveJson from '@/contracts/abis/SOFBondingCurve.json';
 
-function useFormatSOF() {
-  const decimals = useSofDecimals();
-  return (amountWei) => {
+function useFormatSOF(decimals) {
+  return useCallback((amountWei) => {
     try { return Number(formatUnits(amountWei ?? 0n, decimals)).toFixed(4); } catch { return '0.0000'; }
-  };
+  }, [decimals]);
 }
 
 const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const { t } = useTranslation(['common', 'transactions']);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
-  const formatSOF = useFormatSOF();
+  const sofDecimalsState = useSofDecimals();
+  const decimalsReady = typeof sofDecimalsState === 'number' && !Number.isNaN(sofDecimalsState);
+  const sofDecimals = decimalsReady ? sofDecimalsState : 18;
+  const formatSOF = useFormatSOF(sofDecimals);
   const { address: connectedAddress } = useAccount();
+  const { balance: sofBalance = '0', isLoading: isBalanceLoading, refetchBalance } = useSOFToken();
   const [activeTab, setActiveTab] = useState('buy');
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
@@ -37,6 +43,7 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
+  const curveAbi = useMemo(() => (SOFBondingCurveJson?.abi ?? SOFBondingCurveJson), []);
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
     return createPublicClient({
@@ -56,11 +63,9 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     (async () => {
       if (!client || !bondingCurveAddress) return;
       try {
-        const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-        const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
         const config = await client.readContract({
           address: bondingCurveAddress,
-          abi: SOFBondingCurveAbi,
+          abi: curveAbi,
           functionName: 'curveConfig',
           args: []
         });
@@ -76,18 +81,16 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, [client, bondingCurveAddress]);
+  }, [client, bondingCurveAddress, curveAbi]);
 
   const loadEstimate = useCallback(async (fnName, amount) => {
     try {
       if (!client) return 0n;
-      const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-      const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-      return await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: fnName, args: [BigInt(amount || '0')] });
+      return await client.readContract({ address: bondingCurveAddress, abi: curveAbi, functionName: fnName, args: [BigInt(amount || '0')] });
     } catch {
       return 0n;
     }
-  }, [client, bondingCurveAddress]);
+  }, [client, bondingCurveAddress, curveAbi]);
 
   // Persist active tab in localStorage
   useEffect(() => {
@@ -152,11 +155,36 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     } catch { return amountWei; }
   };
 
+  const sofBalanceBigInt = useMemo(() => {
+    try {
+      return parseUnits(sofBalance ?? '0', sofDecimals);
+    } catch {
+      return 0n;
+    }
+  }, [sofBalance, sofDecimals]);
+
+  const requiresBalance = estBuyWithFees > 0n;
+  const hasInsufficientBalance = !isBalanceLoading && requiresBalance && sofBalanceBigInt < estBuyWithFees;
+  const hasZeroBalance = !isBalanceLoading && requiresBalance && sofBalanceBigInt === 0n;
+
+  const getReadableError = (err) => {
+    return buildFriendlyContractError(curveAbi, err, t('transactions:genericFailure', { defaultValue: 'Transaction failed' }));
+  };
+
   const onBuy = async (e) => {
     e.preventDefault();
     if (!buyAmount || !bondingCurveAddress) return;
     if (tradingLocked) {
       onNotify && onNotify({ type: 'error', message: 'Trading is locked - Season has ended', hash: '' });
+      return;
+    }
+    if (hasZeroBalance) {
+      onNotify && onNotify({ type: 'error', message: t('transactions:insufficientSOF', { defaultValue: 'You need $SOF to buy tickets. Visit the faucet or acquire tokens first.' }), hash: '' });
+      return;
+    }
+    if (hasInsufficientBalance) {
+      const needed = formatSOF(estBuyWithFees);
+      onNotify && onNotify({ type: 'error', message: t('transactions:insufficientSOFWithAmount', { defaultValue: 'You need at least {{amount}} $SOF to complete this purchase.', amount: needed }), hash: '' });
       return;
     }
     try {
@@ -188,7 +216,15 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       }
       
       setBuyAmount('');
-    } catch { /* surfaced by mutate */ }
+      void refetchBalance?.();
+    } catch (err) {
+      try {
+        const message = getReadableError(err);
+        onNotify && onNotify({ type: 'error', message, hash: '' });
+      } catch {
+        onNotify && onNotify({ type: 'error', message: t('transactions:genericFailure', { defaultValue: 'Transaction failed' }), hash: '' });
+      }
+    }
   };
 
   const onSell = async (e) => {
@@ -205,11 +241,9 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       // Check curve reserves before selling
       if (client) {
         try {
-          const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-          const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
           const cfg = await client.readContract({
             address: bondingCurveAddress,
-            abi: SOFBondingCurveAbi,
+            abi: curveAbi,
             functionName: 'curveConfig',
             args: []
           });
@@ -265,16 +299,13 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       }
       
       setSellAmount('');
+      void refetchBalance?.();
     } catch (err) {
-      // Show error notification
       try {
-        onNotify && onNotify({ 
-          type: 'error', 
-          message: t('transactions:sellFailed', { defaultValue: 'Sell failed' }),
-          hash: '' 
-        });
+        const message = getReadableError(err);
+        onNotify && onNotify({ type: 'error', message, hash: '' });
       } catch {
-        /* no-op */
+        onNotify && onNotify({ type: 'error', message: t('transactions:sellFailed', { defaultValue: 'Sell failed' }), hash: '' });
       }
     }
   };
@@ -283,11 +314,9 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const onMaxSell = async () => {
     try {
       if (!client || !connectedAddress) return;
-      const SOFBondingCurveJson = (await import('@/contracts/abis/SOFBondingCurve.json')).default;
-      const SOFBondingCurveAbi = SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
       const bal = await client.readContract({ 
         address: bondingCurveAddress, 
-        abi: SOFBondingCurveAbi, 
+        abi: curveAbi, 
         functionName: 'playerTickets', 
         args: [connectedAddress] 
       });
@@ -358,9 +387,17 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
             <div className="text-xs text-muted-foreground">{t('common:estimatedCost', { defaultValue: 'Estimated cost' })}: <span className="font-mono">{formatSOF(estBuyWithFees)}</span> SOF</div>
             <Button 
               type="submit" 
-              disabled={rpcMissing || !buyAmount || buyTokens.isPending || tradingLocked || walletNotConnected} 
+              disabled={rpcMissing || !buyAmount || buyTokens.isPending || tradingLocked || walletNotConnected || hasZeroBalance || hasInsufficientBalance} 
               className="w-full" 
-              title={tradingLocked ? 'Trading is locked' : walletNotConnected ? 'Connect wallet first' : disabledTip}
+              title={tradingLocked
+                ? 'Trading is locked'
+                : walletNotConnected
+                  ? 'Connect wallet first'
+                  : hasZeroBalance
+                    ? t('transactions:insufficientSOFShort', { defaultValue: 'Insufficient $SOF balance' })
+                    : hasInsufficientBalance
+                      ? t('transactions:insufficientSOFShort', { defaultValue: 'Insufficient $SOF balance' })
+                      : disabledTip}
             >
               {buyTokens.isPending ? t('transactions:buying') : t('common:buy')}
             </Button>
