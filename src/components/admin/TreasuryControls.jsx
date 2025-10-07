@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTreasury } from "@/hooks/useTreasury";
 import { useCurveState } from "@/hooks/useCurveState";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,8 @@ import {
   Info,
 } from "lucide-react";
 import PropTypes from "prop-types";
-import { parseEther } from "viem";
+import { formatEther, parseEther } from "viem";
+import { useToast } from "@/hooks/useToast";
 
 export function TreasuryControls({ seasonId, bondingCurveAddress }) {
   const {
@@ -83,8 +84,12 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
   );
 
   const [transferAmount, setTransferAmount] = useState("");
+  const [lastExtractAmount, setLastExtractAmount] = useState(null);
+  const [lastTransferAmount, setLastTransferAmount] = useState(null);
+  const { toast } = useToast();
 
   const handleExtract = async () => {
+    setLastExtractAmount(liveAccumulatedFees);
     await extractFees();
   };
 
@@ -93,6 +98,7 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
 
     try {
       const amount = parseEther(transferAmount);
+      setLastTransferAmount(parseFloat(transferAmount));
       await transferToTreasury(amount);
       setTransferAmount("");
     } catch (error) {
@@ -103,8 +109,49 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
 
   const handleTransferAll = async () => {
     if (!treasuryBalanceRaw) return;
+    setLastTransferAmount(parseFloat(formatEther(treasuryBalanceRaw)));
     await transferToTreasury(treasuryBalanceRaw);
   };
+
+  useEffect(() => {
+    if (isExtractConfirmed && lastExtractAmount !== null) {
+      toast({
+        title: "Fees extracted",
+        description: `Moved ${lastExtractAmount.toFixed(2)} SOF into the SOF token contract.`,
+      });
+      setLastExtractAmount(null);
+    }
+  }, [isExtractConfirmed, lastExtractAmount, toast]);
+
+  useEffect(() => {
+    if (extractError) {
+      toast({
+        title: "Extraction failed",
+        description: extractError?.shortMessage || extractError?.message || "Transaction reverted.",
+        variant: "destructive",
+      });
+    }
+  }, [extractError, toast]);
+
+  useEffect(() => {
+    if (isTransferConfirmed && lastTransferAmount !== null) {
+      toast({
+        title: "Fees sent to treasury",
+        description: `Transferred ${lastTransferAmount.toFixed(2)} SOF to ${treasuryAddress}.`,
+      });
+      setLastTransferAmount(null);
+    }
+  }, [isTransferConfirmed, lastTransferAmount, toast, treasuryAddress]);
+
+  useEffect(() => {
+    if (transferError) {
+      toast({
+        title: "Treasury transfer failed",
+        description: transferError?.shortMessage || transferError?.message || "Transaction reverted.",
+        variant: "destructive",
+      });
+    }
+  }, [transferError, toast]);
 
   if (!hasManagerRole && !hasTreasuryRole) {
     return null; // Don't show treasury controls if user doesn't have permissions
