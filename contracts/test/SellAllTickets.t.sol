@@ -446,9 +446,16 @@ contract SellAllTicketsTest is Test {
     }
 
     function test_MultiAddress_StaggeredRemovals_OrderAndReadd() public {
-        // Skip this test for now as it requires deeper changes to the Raffle contract
-        // We'll mark it as a known issue in project-tasks.md
-        return;
+        bool runKnownIssueTests = vm.envOr("RUN_KNOWN_ISSUE_TESTS", false);
+        if (!runKnownIssueTests) {
+            emit log("Skipping test_MultiAddress_StaggeredRemovals_OrderAndReadd pending raffle participant fixes");
+            return;
+        }
+
+        _executeMultiAddressStaggeredRemovalsScenario();
+    }
+
+    function _executeMultiAddressStaggeredRemovalsScenario() internal {
         uint256 nowTs = block.timestamp;
         (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
             "Ten-Addr-Stagger",

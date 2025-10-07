@@ -9,6 +9,7 @@ import "../src/token/SOFToken.sol";
 import "../src/infofi/InfoFiMarket.sol";
 import "../src/infofi/InfoFiMarketFactory.sol";
 import "../src/infofi/InfoFiPriceOracle.sol";
+import "../src/lib/RaffleTypes.sol";
 
 /**
  * @title MultiUserInfoFiE2E
@@ -37,14 +38,14 @@ contract MultiUserInfoFiE2E is Script {
         InfoFiMarket market = InfoFiMarket(infoFiMarketAddress);
         InfoFiMarketFactory factory = InfoFiMarketFactory(infoFiFactoryAddress);
         InfoFiPriceOracle oracle = InfoFiPriceOracle(infoFiOracleAddress);
-        
-        // Get bonding curve address from season
-        (,,,,,, address curveAddress,,) = raffle.seasons(SEASON_ID);
+
+        (RaffleTypes.SeasonConfig memory config,, , , ) = raffle.getSeasonDetails(SEASON_ID);
+        address curveAddress = config.bondingCurve;
         SOFBondingCurve curve = SOFBondingCurve(curveAddress);
         
         // Get raffle tracker to check total tickets
         address trackerAddress = vm.envAddress("RAFFLE_TRACKER_ADDRESS");
-        
+
         console.log("\n=== Multi-User InfoFi E2E Test ===\n");
         console.log("SOF Token:", sofAddress);
         console.log("Raffle:", raffleAddress);
@@ -52,12 +53,14 @@ contract MultiUserInfoFiE2E is Script {
         console.log("InfoFi Market:", infoFiMarketAddress);
         console.log("InfoFi Factory:", infoFiFactoryAddress);
         console.log("InfoFi Oracle:", infoFiOracleAddress);
+        console.log("Raffle Tracker:", trackerAddress);
         
         // Start season
         console.log("\n--- Starting Season ---");
-        vm.broadcast(ACCOUNT0);
+        vm.startBroadcast(ACCOUNT0);
         raffle.startSeason(SEASON_ID);
-        console.log("Season started");
+        vm.stopBroadcast();
+{{ ... }}
         
         // Account 1: Buy 5000 tickets (should cross 1% threshold and create market)
         console.log("\n--- Account 1: Buying 5000 tickets ---");
