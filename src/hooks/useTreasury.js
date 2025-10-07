@@ -166,25 +166,10 @@ export function useTreasury(seasonId) {
         account: address,
       });
 
-      const [feesResult, treasuryResult] = await Promise.all([
-        refetchAccumulatedFees(),
-        refetchTreasuryBalance(),
-        queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
-      ]);
-
-      if (feesResult?.data !== undefined) {
-        queryClient.setQueryData(
-          ['readContract', { address: bondingCurveAddress, functionName: 'accumulatedFees' }],
-          feesResult.data,
-        );
-      }
-
-      if (treasuryResult?.data !== undefined) {
-        queryClient.setQueryData(
-          ['readContract', { address: contracts.SOF, functionName: 'getContractBalance' }],
-          treasuryResult.data,
-        );
-      }
+      queryClient.setQueryData(
+        ['readContract', { address: bondingCurveAddress, functionName: 'accumulatedFees' }],
+        0n,
+      );
     } catch (error) {
       // Error is handled by wagmi
       return;
@@ -204,20 +189,33 @@ export function useTreasury(seasonId) {
         account: address,
       });
 
-      const [treasuryResult] = await Promise.all([
-        refetchTreasuryBalance(),
-        refetchAccumulatedFees(),
-        queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
-      ]);
-
-      if (treasuryResult?.data !== undefined) {
-        queryClient.setQueryData(['readContract', { address: contracts.SOF, functionName: 'getContractBalance' }], treasuryResult.data);
-      }
+      queryClient.setQueryData(
+        ['readContract', { address: contracts.SOF, functionName: 'getContractBalance' }],
+        0n,
+      );
     } catch (error) {
       // Error is handled by wagmi
       return;
     }
   };
+
+  useEffect(() => {
+    if (!isExtractConfirmed) return;
+    void Promise.all([
+      refetchAccumulatedFees(),
+      refetchTreasuryBalance(),
+      queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
+    ]);
+  }, [isExtractConfirmed, refetchAccumulatedFees, refetchTreasuryBalance, queryClient]);
+
+  useEffect(() => {
+    if (!isTransferConfirmed) return;
+    void Promise.all([
+      refetchTreasuryBalance(),
+      refetchAccumulatedFees(),
+      queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
+    ]);
+  }, [isTransferConfirmed, refetchTreasuryBalance, refetchAccumulatedFees, queryClient]);
 
   useEffect(() => {
     if (!bondingCurveAddress) return;
