@@ -1,16 +1,30 @@
-import { useState } from 'react';
-import { useTreasury } from '@/hooks/useTreasury';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { AlertCircle, CheckCircle2, Wallet, TrendingUp, DollarSign } from 'lucide-react';
-import PropTypes from 'prop-types';
-import { parseEther } from 'viem';
+import { useMemo, useState } from "react";
+import { useTreasury } from "@/hooks/useTreasury";
+import { useCurveState } from "@/hooks/useCurveState";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Wallet,
+  TrendingUp,
+  DollarSign,
+  Info,
+} from "lucide-react";
+import PropTypes from "prop-types";
+import { parseEther } from "viem";
 
-export function TreasuryControls({ seasonId }) {
+export function TreasuryControls({ seasonId, bondingCurveAddress }) {
   const {
     accumulatedFees,
     accumulatedFeesRaw,
@@ -21,7 +35,6 @@ export function TreasuryControls({ seasonId }) {
     treasuryAddress,
     hasManagerRole,
     hasTreasuryRole,
-    canExtractFees,
     canTransferToTreasury,
     extractFees,
     transferToTreasury,
@@ -33,7 +46,43 @@ export function TreasuryControls({ seasonId }) {
     transferError,
   } = useTreasury(seasonId);
 
-  const [transferAmount, setTransferAmount] = useState('');
+  const { curveReserves, curveFees } = useCurveState(bondingCurveAddress, {
+    isActive: true,
+    pollMs: 12000,
+  });
+
+  const liveAccumulatedFees = useMemo(() => {
+    if (curveFees && curveFees > 0n) {
+      return Number(curveFees) / 1e18;
+    }
+    return parseFloat(accumulatedFees);
+  }, [curveFees, accumulatedFees]);
+
+  const liveReserves = useMemo(() => {
+    if (curveReserves && curveReserves > 0n) {
+      return Number(curveReserves) / 1e18;
+    }
+    return parseFloat(sofReserves);
+  }, [curveReserves, sofReserves]);
+
+  const pendingFeesRaw = accumulatedFeesRaw ?? 0n;
+  const hasExtractPermission = Boolean(hasManagerRole);
+  const canExtractNow = hasExtractPermission && pendingFeesRaw > 0n;
+
+  const liveAccumulatedFeesFormatted = useMemo(
+    () => liveAccumulatedFees.toFixed(4),
+    [liveAccumulatedFees]
+  );
+  const liveReservesFormatted = useMemo(
+    () => liveReserves.toFixed(4),
+    [liveReserves]
+  );
+  const liveTotalCurveHoldingsFormatted = useMemo(
+    () => (liveAccumulatedFees + liveReserves).toFixed(4),
+    [liveAccumulatedFees, liveReserves]
+  );
+
+  const [transferAmount, setTransferAmount] = useState("");
 
   const handleExtract = async () => {
     await extractFees();
@@ -41,11 +90,11 @@ export function TreasuryControls({ seasonId }) {
 
   const handleTransfer = async () => {
     if (!transferAmount || parseFloat(transferAmount) <= 0) return;
-    
+
     try {
       const amount = parseEther(transferAmount);
       await transferToTreasury(amount);
-      setTransferAmount('');
+      setTransferAmount("");
     } catch (error) {
       // Error is handled by wagmi
       return;
@@ -80,77 +129,131 @@ export function TreasuryControls({ seasonId }) {
               <TrendingUp className="h-4 w-4" />
               Accumulated Fees
             </p>
-            <p className="text-2xl font-bold">{parseFloat(accumulatedFees).toFixed(4)} SOF</p>
+            <p className="text-2xl font-bold">
+              {liveAccumulatedFeesFormatted} SOF
+            </p>
             <p className="text-xs text-muted-foreground">In bonding curve</p>
           </div>
-          
+
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <DollarSign className="h-4 w-4" />
               Treasury Balance
             </p>
-            <p className="text-2xl font-bold">{parseFloat(treasuryBalance).toFixed(4)} SOF</p>
-            <p className="text-xs text-muted-foreground">In SOF token contract</p>
+            <p className="text-2xl font-bold">
+              {parseFloat(treasuryBalance).toFixed(4)} SOF
+            </p>
+            <p className="text-xs text-muted-foreground">
+              In SOF token contract
+            </p>
           </div>
-          
+
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <CheckCircle2 className="h-4 w-4" />
               Total Collected
             </p>
-            <p className="text-2xl font-bold">{parseFloat(totalFeesCollected).toFixed(4)} SOF</p>
-            <p className="text-xs text-muted-foreground">All-time platform revenue</p>
+            <p className="text-2xl font-bold">
+              {parseFloat(totalFeesCollected).toFixed(4)} SOF
+            </p>
+            <p className="text-xs text-muted-foreground">
+              All-time platform revenue
+            </p>
+          </div>
+        </div>
+
+        <div className="border border-amber-200 bg-amber-50 rounded-md p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Info className="h-4 w-4" />
+              Pending Treasury Fees
+            </p>
+            <p className="text-xl font-semibold text-amber-700">
+              {liveAccumulatedFeesFormatted} SOF
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Waiting to be extracted from the bonding curve.
+            </p>
+          </div>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              Total SOF on curve:{" "}
+              <span className="font-semibold">
+                {liveTotalCurveHoldingsFormatted} SOF
+              </span>
+            </p>
+            <p>
+              Reserves backing tickets:{" "}
+              <span className="font-semibold">{liveReservesFormatted} SOF</span>
+            </p>
+            <p>
+              Fees awaiting extraction:{" "}
+              <span className="font-semibold">
+                {liveAccumulatedFeesFormatted} SOF
+              </span>
+            </p>
           </div>
         </div>
 
         <Separator />
 
         {/* Fee Extraction Section */}
-        {hasManagerRole && (
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Step 1: Extract Fees</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Transfer accumulated fees from bonding curve to SOF token contract
-              </p>
-            </div>
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Step 1: Extract Fees</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Transfer accumulated fees from bonding curve to SOF token
+              contract
+            </p>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleExtract}
-                disabled={!canExtractFees || isExtracting}
-                variant="default"
-                data-testid="extract-fees-button"
-              >
-                {isExtracting ? 'Extracting...' : `Extract ${parseFloat(accumulatedFees).toFixed(2)} SOF`}
-              </Button>
-              
-              {isExtractConfirmed && (
-                <Alert className="flex-1 py-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertDescription>
-                    Fees extracted successfully!
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleExtract}
+              disabled={!canExtractNow || isExtracting}
+              variant="default"
+              data-testid="extract-fees-button"
+            >
+              {isExtracting
+                ? "Extracting..."
+                : `Extract ${liveAccumulatedFees.toFixed(2)} SOF`}
+            </Button>
 
-            {extractError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+            {isExtractConfirmed && (
+              <Alert className="flex-1 py-2">
+                <CheckCircle2 className="h-4 w-4" />
                 <AlertDescription>
-                  {extractError.message || 'Failed to extract fees'}
+                  Fees extracted successfully!
                 </AlertDescription>
               </Alert>
             )}
-
-            {!canExtractFees && accumulatedFeesRaw === 0n && (
-              <p className="text-sm text-muted-foreground">
-                No fees to extract. Fees accumulate as users buy/sell tickets.
-              </p>
-            )}
           </div>
-        )}
+
+          {!hasExtractPermission && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Wallet is missing RAFFLE_MANAGER_ROLE. Ask a factory admin to
+                grant it before extracting fees.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {extractError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {extractError.message || "Failed to extract fees"}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {pendingFeesRaw === 0n && (
+            <p className="text-sm text-muted-foreground">
+              No fees to extract. Fees accumulate as users buy/sell tickets.
+            </p>
+          )}
+        </div>
 
         {hasManagerRole && hasTreasuryRole && <Separator />}
 
@@ -158,7 +261,9 @@ export function TreasuryControls({ seasonId }) {
         {hasTreasuryRole && (
           <div className="space-y-3">
             <div>
-              <h3 className="text-lg font-semibold mb-1">Step 2: Distribute to Treasury</h3>
+              <h3 className="text-lg font-semibold mb-1">
+                Step 2: Distribute to Treasury
+              </h3>
               <p className="text-sm text-muted-foreground mb-3">
                 Transfer fees from SOF token contract to treasury address
               </p>
@@ -192,13 +297,15 @@ export function TreasuryControls({ seasonId }) {
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleTransfer}
-                  disabled={!canTransferToTreasury || !transferAmount || isTransferring}
+                  disabled={
+                    !canTransferToTreasury || !transferAmount || isTransferring
+                  }
                   variant="default"
                   data-testid="transfer-to-treasury-button"
                 >
-                  {isTransferring ? 'Transferring...' : 'Transfer to Treasury'}
+                  {isTransferring ? "Transferring..." : "Transfer to Treasury"}
                 </Button>
-                
+
                 <Button
                   onClick={handleTransferAll}
                   disabled={!canTransferToTreasury || isTransferring}
@@ -222,7 +329,7 @@ export function TreasuryControls({ seasonId }) {
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    {transferError.message || 'Failed to transfer to treasury'}
+                    {transferError.message || "Failed to transfer to treasury"}
                   </AlertDescription>
                 </Alert>
               )}
@@ -230,7 +337,9 @@ export function TreasuryControls({ seasonId }) {
               {treasuryAddress && (
                 <div className="text-sm text-muted-foreground">
                   <p className="font-medium">Treasury Address:</p>
-                  <p className="font-mono text-xs break-all">{treasuryAddress}</p>
+                  <p className="font-mono text-xs break-all">
+                    {treasuryAddress}
+                  </p>
                 </div>
               )}
             </div>
@@ -243,20 +352,26 @@ export function TreasuryControls({ seasonId }) {
         <div className="space-y-2 text-sm text-muted-foreground">
           <p className="font-medium">How it works:</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Fees accumulate in bonding curve as users trade (0.1% buy, 0.7% sell)</li>
+            <li>
+              Fees accumulate in bonding curve as users trade (0.1% buy, 0.7%
+              sell)
+            </li>
             <li>Admin extracts fees to SOF token contract (Step 1)</li>
-            <li>Treasury manager distributes fees to treasury address (Step 2)</li>
+            <li>
+              Treasury manager distributes fees to treasury address (Step 2)
+            </li>
           </ol>
-          
+
           <p className="text-xs mt-3">
-            <strong>Note:</strong> For production, treasury address should be a multisig wallet.
+            <strong>Note:</strong> For production, treasury address should be a
+            multisig wallet.
           </p>
         </div>
 
         {/* Reserves Info */}
         <div className="p-3 bg-muted rounded-lg">
           <p className="text-sm font-medium mb-1">Bonding Curve Reserves</p>
-          <p className="text-lg font-bold">{parseFloat(sofReserves).toFixed(4)} SOF</p>
+          <p className="text-lg font-bold">{liveReservesFormatted} SOF</p>
           <p className="text-xs text-muted-foreground">
             Reserves backing raffle tokens (not extractable)
           </p>
@@ -267,5 +382,7 @@ export function TreasuryControls({ seasonId }) {
 }
 
 TreasuryControls.propTypes = {
-  seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    .isRequired,
+  bondingCurveAddress: PropTypes.string,
 };

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,7 +44,12 @@ export function useTreasury(seasonId) {
     args: [BigInt(seasonId)],
     query: {
       enabled: !!seasonId,
-      select: (data) => data[5], // bondingCurve is at index 5
+      select: (data) => {
+        if (!data) return undefined;
+        if (typeof data.bondingCurve === 'string') return data.bondingCurve;
+        if (Array.isArray(data) && data.length > 6) return data[6];
+        return undefined;
+      },
     },
   });
 
@@ -99,7 +105,10 @@ export function useTreasury(seasonId) {
     ],
     query: {
       enabled: !!(bondingCurveAddress && address),
+      staleTime: 0,
+      refetchInterval: 5000,
     },
+    watch: true,
   });
 
   // Check if user has TREASURY_ROLE on SOF token
@@ -113,7 +122,10 @@ export function useTreasury(seasonId) {
     ],
     query: {
       enabled: !!address,
+      staleTime: 0,
+      refetchInterval: 5000,
     },
+    watch: true,
   });
 
   // Extract fees from bonding curve to SOF token
@@ -154,12 +166,25 @@ export function useTreasury(seasonId) {
         account: address,
       });
 
-      // Refetch balances after successful extraction
-      setTimeout(() => {
-        refetchAccumulatedFees();
-        refetchTreasuryBalance();
-        queryClient.invalidateQueries({ queryKey: ['sofBalance'] });
-      }, 2000);
+      const [feesResult, treasuryResult] = await Promise.all([
+        refetchAccumulatedFees(),
+        refetchTreasuryBalance(),
+        queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
+      ]);
+
+      if (feesResult?.data !== undefined) {
+        queryClient.setQueryData(
+          ['readContract', { address: bondingCurveAddress, functionName: 'accumulatedFees' }],
+          feesResult.data,
+        );
+      }
+
+      if (treasuryResult?.data !== undefined) {
+        queryClient.setQueryData(
+          ['readContract', { address: contracts.SOF, functionName: 'getContractBalance' }],
+          treasuryResult.data,
+        );
+      }
     } catch (error) {
       // Error is handled by wagmi
       return;
@@ -179,23 +204,43 @@ export function useTreasury(seasonId) {
         account: address,
       });
 
-      // Refetch balances after successful transfer
-      setTimeout(() => {
-        refetchTreasuryBalance();
-        queryClient.invalidateQueries({ queryKey: ['sofBalance'] });
-      }, 2000);
+      const [treasuryResult] = await Promise.all([
+        refetchTreasuryBalance(),
+        refetchAccumulatedFees(),
+        queryClient.invalidateQueries({ queryKey: ['sofBalance'] }),
+      ]);
+
+      if (treasuryResult?.data !== undefined) {
+        queryClient.setQueryData(['readContract', { address: contracts.SOF, functionName: 'getContractBalance' }], treasuryResult.data);
+      }
     } catch (error) {
       // Error is handled by wagmi
       return;
     }
   };
 
+  useEffect(() => {
+    if (!bondingCurveAddress) return;
+    if (import.meta?.env?.DEV) {
+      // Reason: surface live on-chain fee/reserve readings for debugging discrepancies in UI
+      // eslint-disable-next-line no-console
+      console.debug('[Treasury] season', seasonId, {
+        bondingCurveAddress,
+        accumulatedFees: accumulatedFees?.toString?.() ?? '0',
+        sofReserves: sofReserves?.toString?.() ?? '0',
+        treasuryBalance: treasuryBalance?.toString?.() ?? '0',
+        totalFeesCollected: totalFeesCollected?.toString?.() ?? '0',
+      });
+    }
+  }, [seasonId, bondingCurveAddress, accumulatedFees, sofReserves, treasuryBalance, totalFeesCollected]);
+
   return {
     // Balances
     accumulatedFees: accumulatedFees ? formatEther(accumulatedFees) : '0',
     accumulatedFeesRaw: accumulatedFees,
     sofReserves: sofReserves ? formatEther(sofReserves) : '0',
-    treasuryBalance: treasuryBalance ? formatEther(treasuryBalance) : '0',
+    sofReservesRaw: sofReserves,
+    treasuryBalance: treasuryBalance !== undefined ? formatEther(treasuryBalance) : '0',
     treasuryBalanceRaw: treasuryBalance,
     totalFeesCollected: totalFeesCollected ? formatEther(totalFeesCollected) : '0',
     treasuryAddress,
@@ -221,5 +266,6 @@ export function useTreasury(seasonId) {
     // Refetch functions
     refetchAccumulatedFees,
     refetchTreasuryBalance,
+    bondingCurveAddress,
   };
 }

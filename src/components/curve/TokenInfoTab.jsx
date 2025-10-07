@@ -8,7 +8,7 @@ import { useRaffleHolders } from '@/hooks/useRaffleHolders';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 
-const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps, curveReserves }) => {
+const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps, curveReserves, seasonStatus, totalPrizePool }) => {
   const { t } = useTranslation('common');
   const sofDecimals = useSofDecimals();
   const [raffleTokenAddress, setRaffleTokenAddress] = useState(null);
@@ -82,15 +82,6 @@ const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps
     } catch { return 0n; }
   }, [curveReserves]);
 
-  const consolationPool = useMemo(() => {
-    try {
-      const reserves = curveReserves ?? 0n;
-      const grandPrizeBps = 6500n; // Default from contract
-      const grand = (reserves * grandPrizeBps) / 10000n;
-      return reserves - grand;
-    } catch { return 0n; }
-  }, [curveReserves]);
-
   const consolationPerUser = useMemo(() => {
     try {
       if (totalParticipants <= 1) return 0n; // Need at least 2 participants (1 winner, 1+ losers)
@@ -102,6 +93,9 @@ const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps
       return consolation / BigInt(totalParticipants - 1);
     } catch { return 0n; }
   }, [curveReserves, totalParticipants]);
+
+  const isSeasonActive = seasonStatus === 1; // SeasonStatus.Active (see `SeasonStatus` enum in `contracts/src/core/RaffleStorage.sol`)
+  const displayedPrizePool = isSeasonActive ? (curveReserves ?? 0n) : (totalPrizePool ?? curveReserves ?? 0n);
 
   return (
     <div className="space-y-4">
@@ -134,7 +128,12 @@ const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps
         </div>
         <div className="mt-3 p-3 border rounded bg-background">
           <div className="text-sm text-muted-foreground">{t('totalPrizePool')}</div>
-          <div className="font-mono text-xl font-bold">{formatSOF(curveReserves ?? 0n)} SOF</div>
+          <div className="font-mono text-xl font-bold">{formatSOF(displayedPrizePool)} SOF</div>
+          {!isSeasonActive && totalPrizePool != null && (
+            <div className="text-xs text-muted-foreground">
+              {t('seasonLockedSnapshot')}
+            </div>
+          )}
         </div>
       </div>
 
@@ -159,6 +158,8 @@ TokenInfoTab.propTypes = {
   curveSupply: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
   allBondSteps: PropTypes.array,
   curveReserves: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
+  seasonStatus: PropTypes.number,
+  totalPrizePool: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
 };
 
 export default TokenInfoTab;

@@ -181,7 +181,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Guardrail: prevent addition overflow when computing target supply inside price calc
         require(tokenAmount <= type(uint256).max - curveConfig.totalSupply, "Curve: amount too large");
         uint256 baseCost = calculateBuyPrice(tokenAmount);
-        uint256 fee = (baseCost * curveConfig.buyFee) / 10000;
+        uint256 fee = (baseCost * curveConfig.buyFee) / 10000; // fee accrues to accumulatedFees
         uint256 totalCost = baseCost + fee; // fee on top to keep reserves consistent with pricing
         require(totalCost <= maxSofAmount, "Curve: slippage");
         // Track old values prior to state mutation
@@ -279,7 +279,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             baseReturn = curveConfig.sofReserves;
         }
         
-        uint256 fee = (baseReturn * curveConfig.sellFee) / 10000;
+        uint256 fee = (baseReturn * curveConfig.sellFee) / 10000; // fee accrues to accumulatedFees
         uint256 payout = baseReturn - fee;
 
         require(payout >= minSofAmount, "Curve: slippage");

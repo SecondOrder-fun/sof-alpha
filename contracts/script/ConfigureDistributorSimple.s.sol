@@ -101,9 +101,6 @@ contract ConfigureDistributorSimple is Script {
                 winner = address(0);
             }
             
-            // Initialize merkleRoot
-            bytes32 merkleRoot = bytes32(0);
-            
             // Get the SOF token address
             address sofToken = config.raffleToken;
             console2.log("- SOF token:", sofToken);

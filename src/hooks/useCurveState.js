@@ -15,6 +15,7 @@ export function useCurveState(bondingCurveAddress, { isActive = false, pollMs = 
   const [curveStep, setCurveStep] = useState(null); // { step, price, rangeTo }
   const [bondStepsPreview, setBondStepsPreview] = useState([]);
   const [allBondSteps, setAllBondSteps] = useState([]);
+  const [curveFees, setCurveFees] = useState(0n);
 
   const refreshTimerRef = useRef(null);
 
@@ -63,6 +64,16 @@ export function useCurveState(bondingCurveAddress, { isActive = false, pollMs = 
       setCurveStep({ step: stepInfo?.[0] ?? 0n, price: stepInfo?.[1] ?? 0n, rangeTo: stepInfo?.[2] ?? 0n });
       setBondStepsPreview(steps.slice(Math.max(0, steps.length - 3)));
       setAllBondSteps(steps);
+      try {
+        const fees = await client.readContract({
+          address: bondingCurveAddress,
+          abi: SOFBondingCurveAbi,
+          functionName: 'accumulatedFees',
+        });
+        setCurveFees(fees ?? 0n);
+      } catch (_err) {
+        setCurveFees(0n);
+      }
     } catch (_e) {
       // silent
     }
@@ -91,6 +102,7 @@ export function useCurveState(bondingCurveAddress, { isActive = false, pollMs = 
   return {
     curveSupply,
     curveReserves,
+    curveFees,
     curveStep,
     bondStepsPreview,
     allBondSteps,

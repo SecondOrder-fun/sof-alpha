@@ -165,6 +165,24 @@
   },
   {
     "type": "function",
+    "name": "grantCurveManagerRole",
+    "inputs": [
+      {
+        "name": "curveAddr",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "grantRole",
     "inputs": [
       {

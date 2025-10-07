@@ -55,6 +55,7 @@ contract SeasonFactory is AccessControl {
 
         // Grant Raffle contract manager role on curve and initialize
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
+        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), msg.sender);
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
@@ -65,5 +66,11 @@ contract SeasonFactory is AccessControl {
 
 
         emit SeasonContractsDeployed(seasonId, raffleTokenAddr, curveAddr);
+    }
+
+    function grantCurveManagerRole(address curveAddr, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(curveAddr != address(0), "Factory: curve zero");
+        require(account != address(0), "Factory: account zero");
+        SOFBondingCurve(curveAddr).grantRole(SOFBondingCurve(curveAddr).RAFFLE_MANAGER_ROLE(), account);
     }
 }
