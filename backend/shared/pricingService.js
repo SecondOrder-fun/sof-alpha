@@ -9,10 +9,15 @@ import { db } from './supabaseClient.js';
  * and provides Server-Sent Events (SSE) functionality.
  */
 export class PricingService extends EventEmitter {
-  constructor() {
+  constructor(logger = console) {
     super();
     this.pricingCache = new Map();
     this.subscribers = new Map();
+    this.logger = logger;
+  }
+
+  setLogger(logger) {
+    this.logger = logger || console;
   }
   
   /**
@@ -92,6 +97,27 @@ export class PricingService extends EventEmitter {
         market_weight: (typeof cache.market_weight_bps === 'number' ? cache.market_weight_bps : (cache.market_weight ?? 3000)),
         last_updated: new Date().toISOString()
       });
+
+      // Sync core market row so UI queries stay consistent with live odds
+      const numericMarketId = Number(marketId);
+      if (Number.isFinite(numericMarketId) && Number.isInteger(numericMarketId)) {
+        const yesPrice = hybridPriceBps / 10000;
+        const noPrice = Math.max(0, 1 - yesPrice);
+        try {
+          await db.updateInfoFiMarket(numericMarketId, {
+            current_probability: raffleProbBps,
+            yes_price: Number(yesPrice.toFixed(4)),
+            no_price: Number(noPrice.toFixed(4)),
+            updated_at: new Date().toISOString(),
+          });
+        } catch (updateErr) {
+          // Swallow update errors so pricing stream continues; surfaced via logs when backend logger attached
+          const log = this.logger;
+          if (log && typeof log.warn === 'function') {
+            log.warn('[pricingService] Failed to sync infofi_market odds', updateErr);
+          }
+        }
+      }
 
       // Cache the updated pricing (store both normalized and schema keys for compatibility)
       const cachedPayload = {

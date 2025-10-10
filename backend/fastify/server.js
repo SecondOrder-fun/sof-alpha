@@ -14,6 +14,9 @@ import { redisClient } from '../shared/redisClient.js';
 // Create Fastify instance
 const app = fastify({ logger: true });
 
+// Ensure pricing service shares Fastify logger for consistent structured logs
+pricingService.setLogger?.(app.log);
+
 // Log every route as it is registered to diagnose mounting issues
 app.addHook('onRoute', (routeOptions) => {
   try {

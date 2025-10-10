@@ -33,14 +33,18 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
           // marketType is bytes32; we treat winner prediction as constant string
           const MARKET_TYPE = 'WINNER_PREDICTION';
 
+          // Ensure we have a canonical player id for downstream lookups
+          const playerId = await db.getOrCreatePlayerIdByAddress(player);
+
           // Idempotency: skip if exists
-          const exists = await db.hasInfoFiMarket(seasonId, player, MARKET_TYPE);
+          const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
           if (exists) {
             continue;
           }
 
           const market = await db.createInfoFiMarket({
             season_id: seasonId,
+            player_id: playerId,
             player_address: player,
             market_type: MARKET_TYPE,
             initial_probability_bps: probabilityBps,
@@ -59,7 +63,7 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
             last_updated: new Date().toISOString()
           });
 
-          logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
+          logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player} (id ${playerId}), bps=${probabilityBps}`);
         } catch (e) {
           logger.error('[infofiListener] Failed to handle MarketCreated log', e);
         }

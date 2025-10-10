@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
 import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
-import { useOnchainInfoFiMarkets } from '@/hooks/useOnchainInfoFiMarkets';
+import { useInfoFiMarkets } from '@/hooks/useInfoFiMarkets';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 
 const MarketsIndex = () => {
@@ -17,7 +17,7 @@ const MarketsIndex = () => {
     return active ? String(active.id ?? active.seasonId ?? '0') : '0';
   }, [seasons]);
 
-  const { markets, isLoading, error } = useOnchainInfoFiMarkets(activeSeasonId, 'LOCAL');
+  const { markets, isLoading: marketsLoading, error, refetch } = useInfoFiMarkets();
 
   // Get bonding curve address from active season
   const bondingCurveAddress = useMemo(() => {
@@ -27,17 +27,27 @@ const MarketsIndex = () => {
   }, [seasons]);
 
   // Group markets by SecondOrder.fun plan types
-  const { winners, positionSize, behavioral, others } = useMemo(() => {
+  const filteredBySeason = useMemo(() => {
     const list = Array.isArray(markets) ? markets : [];
+    if (!activeSeasonId || activeSeasonId === '0') return list;
+    return list.filter((m) => {
+      const rid = m?.raffle_id ?? m?.seasonId ?? m?.season_id;
+      if (rid == null) return true;
+      return String(rid) === String(activeSeasonId);
+    });
+  }, [markets, activeSeasonId]);
+
+  const grouped = useMemo(() => {
+    const list = filteredBySeason;
     const winners = list.filter((m) => (m.market_type || m.type) === 'WINNER_PREDICTION');
     const positionSize = list.filter((m) => (m.market_type || m.type) === 'POSITION_SIZE');
     const behavioral = list.filter((m) => (m.market_type || m.type) === 'BEHAVIORAL');
     const known = new Set(['WINNER_PREDICTION', 'POSITION_SIZE', 'BEHAVIORAL']);
     const others = list.filter((m) => !known.has((m.market_type || m.type) || ''));
     return { winners, positionSize, behavioral, others };
-  }, [markets]);
+  }, [filteredBySeason]);
 
-  // Markets loaded via React Query (useOnchainInfoFiMarkets)
+  const isLoading = seasonsLoading || marketsLoading;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -65,21 +75,28 @@ const MarketsIndex = () => {
       {!seasonsLoading && activeSeasonId === '0' && (
         <Card className="text-center py-12">
           <CardContent>
-            <p className="text-muted-foreground">No active season found.</p>
           </CardContent>
         </Card>
       )}
-      
       {isLoading && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading markets from chain...</p>
+          <p className="text-muted-foreground">Loading markets from backend...</p>
         </div>
       )}
-      
+
       {error && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="py-6">
             <p className="text-red-600 text-center">Failed to load markets</p>
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                className="px-3 py-1 text-sm rounded bg-red-100 hover:bg-red-200 text-red-700"
+                onClick={() => refetch?.()}
+              >
+                Retry
+              </button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -87,7 +104,7 @@ const MarketsIndex = () => {
       {/* Markets grid - Polymarket style */}
       {!isLoading && !error && (
         <div className="space-y-8">
-          {winners.length === 0 && positionSize.length === 0 && behavioral.length === 0 && others.length === 0 && (
+          {grouped.winners.length === 0 && grouped.positionSize.length === 0 && grouped.behavioral.length === 0 && grouped.others.length === 0 && (
             <Card className="text-center py-12">
               <CardContent>
                 <p className="text-muted-foreground">No on-chain markets found for this season.</p>
@@ -95,56 +112,56 @@ const MarketsIndex = () => {
             </Card>
           )}
 
-          {winners.length > 0 && (
+          {grouped.winners.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">{t('winnerPrediction')}</h2>
-                <span className="text-sm text-muted-foreground">{winners.length} {t('markets')}</span>
+                <span className="text-sm text-muted-foreground">{grouped.winners.length} {t('markets')}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {winners.map((m) => (
+                {grouped.winners.map((m) => (
                   <InfoFiMarketCard key={m.id} market={m} />
                 ))}
               </div>
             </div>
           )}
 
-          {positionSize.length > 0 && (
+          {grouped.positionSize.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">{t('positionSize')}</h2>
-                <span className="text-sm text-muted-foreground">{positionSize.length} {t('markets')}</span>
+                <span className="text-sm text-muted-foreground">{grouped.positionSize.length} {t('markets')}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {positionSize.map((m) => (
+                {grouped.positionSize.map((m) => (
                   <InfoFiMarketCard key={m.id} market={m} />
                 ))}
               </div>
             </div>
           )}
 
-          {behavioral.length > 0 && (
+          {grouped.behavioral.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">{t('behavioral')}</h2>
-                <span className="text-sm text-muted-foreground">{behavioral.length} {t('markets')}</span>
+                <span className="text-sm text-muted-foreground">{grouped.behavioral.length} {t('markets')}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {behavioral.map((m) => (
+                {grouped.behavioral.map((m) => (
                   <InfoFiMarketCard key={m.id} market={m} />
                 ))}
               </div>
             </div>
           )}
 
-          {others.length > 0 && (
+          {grouped.others.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">{t('other')}</h2>
-                <span className="text-sm text-muted-foreground">{others.length} {t('markets')}</span>
+                <span className="text-sm text-muted-foreground">{grouped.others.length} {t('markets')}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {others.map((m) => (
+                {grouped.others.map((m) => (
                   <InfoFiMarketCard key={m.id} market={m} />
                 ))}
               </div>

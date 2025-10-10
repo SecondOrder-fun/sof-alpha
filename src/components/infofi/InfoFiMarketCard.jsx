@@ -3,7 +3,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useOraclePriceLive } from '@/hooks/useOraclePriceLive';
+import { useHybridPriceLive } from '@/hooks/useHybridPriceLive';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,19 +35,56 @@ const InfoFiMarketCard = ({ market }) => {
   const { isConnected, address } = useAccount();
   const qc = useQueryClient();
   const { toast } = useToast();
-  // Live price
-  const [bps, setBps] = React.useState({ hybrid: null, raffle: null, market: null });
-  const { data: priceData } = useOraclePriceLive(market?.id);
+  // Live price (hybrid feed via backend listeners)
+  const normalizeBps = React.useCallback((value) => {
+    if (value == null) return null;
+    const num = Number(value);
+    if (Number.isNaN(num)) return null;
+    return Math.max(0, Math.min(10000, Math.round(num)));
+  }, []);
+
+  const initialHybrid = normalizeBps(market?.current_probability);
+  const [bps, setBps] = React.useState({ hybrid: initialHybrid, raffle: null, market: null });
+  const { data: priceData } = useHybridPriceLive(market?.id);
   React.useEffect(() => {
-    if (!priceData) return;
+    const fallbackHybrid = normalizeBps(market?.current_probability);
 
-    // Validate and clamp probability data to 0-10000 range
-    const hybridProbabilityBps = Math.max(0, Math.min(10000, Number(priceData.hybridPriceBps ?? 0)));
-    const raffleProbabilityBps = Math.max(0, Math.min(10000, Number(priceData.raffleProbabilityBps ?? 0)));
-    const marketSentimentBps = Math.max(0, Math.min(10000, Number(priceData.marketSentimentBps ?? 0)));
+    if (!priceData) {
+      if (fallbackHybrid !== null) {
+        setBps((prev) => ({ ...prev, hybrid: fallbackHybrid }));
+      }
+      return;
+    }
 
-    setBps({ hybrid: hybridProbabilityBps, raffle: raffleProbabilityBps, market: marketSentimentBps });
-  }, [priceData, market?.id, market?.player]);
+    const nextHybridRaw = priceData.hybridPriceBps;
+    const nextRaffleRaw = priceData.raffleProbabilityBps;
+    const nextMarketRaw = priceData.marketSentimentBps;
+
+    const normalizedHybrid = normalizeBps(nextHybridRaw);
+    const normalizedRaffle = normalizeBps(nextRaffleRaw);
+    const normalizedMarket = normalizeBps(nextMarketRaw);
+
+    setBps((prev) => {
+      const currentHybrid = typeof prev.hybrid === 'number' ? prev.hybrid : null;
+      let hybrid = currentHybrid;
+      if (normalizedHybrid !== null && normalizedHybrid > 0) {
+        hybrid = normalizedHybrid;
+      } else if (normalizedHybrid !== null) {
+        hybrid = fallbackHybrid ?? normalizedHybrid;
+      } else if ((hybrid == null || hybrid === 0) && fallbackHybrid !== null) {
+        hybrid = fallbackHybrid;
+      }
+
+      const raffle = normalizedRaffle !== null ? normalizedRaffle : prev.raffle;
+      const marketProb = normalizedMarket !== null ? normalizedMarket : prev.market;
+
+      return {
+        hybrid,
+        raffle,
+        market: marketProb,
+      };
+    });
+  }, [priceData, market?.current_probability, normalizeBps]);
 
   // Derive preferred uint256 market id if listing supplied a bytes32 id
   const netKey = (import.meta.env.VITE_DEFAULT_NETWORK || 'LOCAL').toUpperCase();
@@ -243,16 +280,36 @@ const InfoFiMarketCard = ({ market }) => {
   }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply]);
 
   const percent = React.useMemo(() => {
-    const v = Number(bps.hybrid ?? 0);
-    const clamped = Math.max(0, Math.min(10000, v));
-    
-    // Fallback: Use direct calculation from ticket balances if oracle returns 0
-    if (clamped === 0 && directProbabilityBps !== null && directProbabilityBps > 0) {
-      return (directProbabilityBps / 100).toFixed(1);
+    const directBps = (() => {
+      if (totalTicketSupply && totalTicketSupply > 0n) {
+        const playerBal = playerTicketBalance?.data;
+        if (typeof playerBal === 'bigint') {
+          return Number((playerBal * 10000n) / totalTicketSupply);
+        }
+        if (typeof playerBal === 'number' && playerBal > 0) {
+          return Math.round((playerBal / Number(totalTicketSupply)) * 10000);
+        }
+      }
+      return null;
+    })();
+
+    const fallbackBps = normalizeBps(market?.current_probability)
+      ?? (normalizeBps(Number(market?.yes_price) * 10000));
+    const candidates = [bps.hybrid, fallbackBps, directProbabilityBps, directBps]
+      .filter((val) => typeof val === 'number' && !Number.isNaN(val));
+
+    const preferred = candidates.find((val) => val > 0);
+    if (typeof preferred === 'number') {
+      return (Math.max(0, Math.min(10000, preferred)) / 100).toFixed(1);
     }
-    
-    return (clamped / 100).toFixed(1);
-  }, [bps.hybrid, directProbabilityBps]);
+
+    // If we only have zeros, respect that but format nicely
+    if (candidates.some((val) => val === 0)) {
+      return '0.0';
+    }
+
+    return '0.0';
+  }, [bps.hybrid, directProbabilityBps, market?.current_probability, market?.yes_price, playerTicketBalance?.data, totalTicketSupply, normalizeBps]);
 
   // Calculate payout for a given bet amount
   const calculatePayout = React.useCallback((betAmount, isYes) => {
@@ -528,6 +585,9 @@ InfoFiMarketCard.propTypes = {
     player: PropTypes.string,
     volume24h: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     volume: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    current_probability: PropTypes.number,
+    yes_price: PropTypes.number,
+    no_price: PropTypes.number,
   }).isRequired,
 };
 
