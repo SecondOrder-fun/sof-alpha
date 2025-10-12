@@ -46,7 +46,7 @@ Transform memecoins into finite games with InfoFi integration providing four key
 **Season Structure:**
 
 - 2-week seasons with seasonal tokens (ticket-coins) tracked via sliding window system
-- Pre-set winner pools (3/5/10 winners based on initial rules) with VRF-triggered settlement
+- Pre-set winner pools (winner takes between 55% and 75% of the total pool locked in the bonding curve, with the remainder distributed to the other participants) with VRF-triggered settlement
 - Clear start/end dates known upfront with automated InfoFi market resolution
 - Custom bonding curve denominated in $SOF protocol token with extractable prize pools
 
