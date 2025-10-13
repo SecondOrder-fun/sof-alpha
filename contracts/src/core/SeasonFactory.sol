@@ -17,6 +17,7 @@ contract SeasonFactory is AccessControl {
 
     address public immutable raffleAddress;
     address public immutable trackerAddress;
+    address public infoFiFactory;
 
     event SeasonContractsDeployed(
         uint256 indexed seasonId,
@@ -29,6 +30,10 @@ contract SeasonFactory is AccessControl {
         trackerAddress = _trackerAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
+    }
+
+    function setInfoFiFactory(address _factory) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        infoFiFactory = _factory;
     }
 
     function createSeasonContracts(
@@ -59,18 +64,19 @@ contract SeasonFactory is AccessControl {
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
+        // Set InfoFi factory on curve if configured
+        if (infoFiFactory != address(0)) {
+            curve.setInfoFiFactory(infoFiFactory);
+        }
+
         // Grant curve rights on raffle token
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), curveAddr);
         raffleToken.grantRole(raffleToken.BURNER_ROLE(), curveAddr);
-
-
 
         emit SeasonContractsDeployed(seasonId, raffleTokenAddr, curveAddr);
     }
 
     function grantCurveManagerRole(address curveAddr, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(curveAddr != address(0), "Factory: curve zero");
-        require(account != address(0), "Factory: account zero");
         SOFBondingCurve(curveAddr).grantRole(SOFBondingCurve(curveAddr).RAFFLE_MANAGER_ROLE(), account);
     }
 }

@@ -19,7 +19,7 @@ import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { createPublicClient, http, getAddress, formatUnits } from 'viem';
 import { computeWinnerMarketId } from '@/services/onchainInfoFi';
 import UsernameDisplay from '@/components/user/UsernameDisplay';
-import { useSeasonDetailsQuery } from '@/hooks/useRaffleRead';
+import { useRaffleRead, useSeasonDetailsQuery } from '@/hooks/useRaffleRead';
 
 /**
  * InfoFiMarketCard
@@ -28,7 +28,9 @@ import { useSeasonDetailsQuery } from '@/hooks/useRaffleRead';
 const InfoFiMarketCard = ({ market }) => {
   const { t } = useTranslation('market');
   // Safe defaults so hooks are not conditional
-  const seasonId = market?.raffle_id ?? market?.seasonId;
+  const { currentSeasonQuery } = useRaffleRead();
+  const fallbackSeasonId = currentSeasonQuery?.data ?? null;
+  const seasonId = market?.raffle_id ?? market?.seasonId ?? fallbackSeasonId;
   const isWinnerPrediction = market.market_type === 'WINNER_PREDICTION' && market.player && seasonId != null;
   const parts = buildMarketTitleParts(market);
   const title = market?.question || market?.market_type || t('market');
@@ -38,6 +40,13 @@ const InfoFiMarketCard = ({ market }) => {
   // Live price (hybrid feed via backend listeners)
   const normalizeBps = React.useCallback((value) => {
     if (value == null) return null;
+    // Handle BigInt
+    if (typeof value === 'bigint') {
+      const num = Number(value);
+      if (Number.isNaN(num)) return null;
+      return Math.max(0, Math.min(10000, Math.round(num)));
+    }
+    // Handle Number or String
     const num = Number(value);
     if (Number.isNaN(num)) return null;
     return Math.max(0, Math.min(10000, Math.round(num)));
@@ -51,7 +60,13 @@ const InfoFiMarketCard = ({ market }) => {
 
     if (!priceData) {
       if (fallbackHybrid !== null) {
-        setBps((prev) => ({ ...prev, hybrid: fallbackHybrid }));
+        setBps((prev) => {
+          // Only update if value actually changed
+          if (prev.hybrid !== fallbackHybrid) {
+            return { ...prev, hybrid: fallbackHybrid };
+          }
+          return prev;
+        });
       }
       return;
     }
@@ -77,6 +92,11 @@ const InfoFiMarketCard = ({ market }) => {
 
       const raffle = normalizedRaffle !== null ? normalizedRaffle : prev.raffle;
       const marketProb = normalizedMarket !== null ? normalizedMarket : prev.market;
+
+      // Only update if values actually changed
+      if (prev.hybrid === hybrid && prev.raffle === raffle && prev.market === marketProb) {
+        return prev;
+      }
 
       return {
         hybrid,
@@ -132,7 +152,13 @@ const InfoFiMarketCard = ({ market }) => {
   const seasonDetailsQuery = useSeasonDetailsQuery(seasonId);
   // getSeasonDetails returns [config, status, totalParticipants, totalTickets, totalPrizePool]
   // config is [startTime, endTime, bondingCurve, isActive]
-  const bondingCurveAddress = seasonDetailsQuery?.data?.[0]?.[2] || seasonDetailsQuery?.data?.config?.bondingCurve;
+  const bondingCurveAddressRaw = seasonDetailsQuery?.data?.[0]?.[2] || seasonDetailsQuery?.data?.config?.bondingCurve;
+  const bondingCurveAddress = React.useMemo(() => {
+    if (!bondingCurveAddressRaw) return null;
+    const addr = getAddress ? getAddress(bondingCurveAddressRaw) : bondingCurveAddressRaw;
+    const zero = '0x0000000000000000000000000000000000000000';
+    return addr?.toLowerCase() === zero ? null : addr;
+  }, [bondingCurveAddressRaw]);
 
   const totalTicketSupply = React.useMemo(() => {
     if (!seasonDetailsQuery?.data) return null;
@@ -150,7 +176,7 @@ const InfoFiMarketCard = ({ market }) => {
   // Check if player has any raffle tickets (for winner prediction markets)
   const playerTicketBalance = useQuery({
     queryKey: ['playerTicketBalance', seasonId, market?.player, bondingCurveAddress],
-    enabled: isWinnerPrediction && !!bondingCurveAddress && !!market?.player,
+    enabled: isWinnerPrediction && Boolean(bondingCurveAddress) && !!market?.player,
     queryFn: async () => {
       try {
         // Get the raffle token address from the bonding curve
@@ -280,36 +306,38 @@ const InfoFiMarketCard = ({ market }) => {
   }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply]);
 
   const percent = React.useMemo(() => {
-    const directBps = (() => {
-      if (totalTicketSupply && totalTicketSupply > 0n) {
-        const playerBal = playerTicketBalance?.data;
-        if (typeof playerBal === 'bigint') {
-          return Number((playerBal * 10000n) / totalTicketSupply);
-        }
-        if (typeof playerBal === 'number' && playerBal > 0) {
-          return Math.round((playerBal / Number(totalTicketSupply)) * 10000);
-        }
+    // Priority 1: Hybrid price from oracle (most accurate, includes market sentiment)
+    // Accept 0 as valid probability (player could have 0% chance)
+    if (bps.hybrid != null) {
+      const normalized = Math.max(0, Math.min(10000, bps.hybrid));
+      return (normalized / 100).toFixed(1);
+    }
+    
+    // Priority 2: Current probability from market data (fetched from oracle during discovery)
+    if (market?.current_probability != null) {
+      const bpsValue = normalizeBps(market.current_probability);
+      if (bpsValue != null) {
+        return (Math.max(0, Math.min(10000, bpsValue)) / 100).toFixed(1);
       }
-      return null;
-    })();
-
-    const fallbackBps = normalizeBps(market?.current_probability)
-      ?? (normalizeBps(Number(market?.yes_price) * 10000));
-    const candidates = [bps.hybrid, fallbackBps, directProbabilityBps, directBps]
-      .filter((val) => typeof val === 'number' && !Number.isNaN(val));
-
-    const preferred = candidates.find((val) => val > 0);
-    if (typeof preferred === 'number') {
-      return (Math.max(0, Math.min(10000, preferred)) / 100).toFixed(1);
     }
-
-    // If we only have zeros, respect that but format nicely
-    if (candidates.some((val) => val === 0)) {
-      return '0.0';
+    
+    // Priority 3: Direct calculation from player balance (fallback when oracle unavailable)
+    if (directProbabilityBps != null) {
+      return (Math.max(0, Math.min(10000, directProbabilityBps)) / 100).toFixed(1);
     }
-
+    
+    // Priority 4: Inline calculation as last resort
+    if (totalTicketSupply && totalTicketSupply > 0n) {
+      const playerBal = playerTicketBalance?.data;
+      if (typeof playerBal === 'bigint' && playerBal >= 0n) {
+        const bpsValue = Number((playerBal * 10000n) / totalTicketSupply);
+        return (Math.max(0, Math.min(10000, bpsValue)) / 100).toFixed(1);
+      }
+    }
+    
+    // Fallback: 0%
     return '0.0';
-  }, [bps.hybrid, directProbabilityBps, market?.current_probability, market?.yes_price, playerTicketBalance?.data, totalTicketSupply, normalizeBps]);
+  }, [bps.hybrid, market?.current_probability, directProbabilityBps, playerTicketBalance?.data, totalTicketSupply, normalizeBps]);
 
   // Calculate payout for a given bet amount
   const calculatePayout = React.useCallback((betAmount, isYes) => {

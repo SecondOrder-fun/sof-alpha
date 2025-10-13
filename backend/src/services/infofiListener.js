@@ -33,18 +33,16 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
           // marketType is bytes32; we treat winner prediction as constant string
           const MARKET_TYPE = 'WINNER_PREDICTION';
 
-          // Ensure we have a canonical player id for downstream lookups
-          const playerId = await db.getOrCreatePlayerIdByAddress(player);
-
-          // Idempotency: skip if exists
-          const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
+          // Idempotency: skip if exists (using player_address as primary identifier)
+          const exists = await db.hasInfoFiMarket(seasonId, player, MARKET_TYPE);
           if (exists) {
+            logger.debug(`[infofiListener] Market already exists for season ${seasonId}, player ${player}`);
             continue;
           }
 
+          // Create market using player_address as primary identifier
           const market = await db.createInfoFiMarket({
             season_id: seasonId,
-            player_id: playerId,
             player_address: player,
             market_type: MARKET_TYPE,
             initial_probability_bps: probabilityBps,
@@ -52,6 +50,14 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
             is_active: true,
             is_settled: false
           });
+
+          // Optionally create player record for future features (non-blocking)
+          try {
+            await db.getOrCreatePlayerIdByAddress(player);
+          } catch (playerErr) {
+            logger.warn(`[infofiListener] Failed to create player record for ${player}:`, playerErr.message);
+            // Non-critical: continue even if player record creation fails
+          }
 
           await db.upsertMarketPricingCache({
             market_id: market.id,
@@ -63,7 +69,7 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
             last_updated: new Date().toISOString()
           });
 
-          logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player} (id ${playerId}), bps=${probabilityBps}`);
+          logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
         } catch (e) {
           logger.error('[infofiListener] Failed to handle MarketCreated log', e);
         }

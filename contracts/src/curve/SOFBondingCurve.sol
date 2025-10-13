@@ -241,8 +241,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             }
         }
 
-        // Trigger InfoFi market creation when crossing 1% upward
-        if (infoFiFactory != address(0) && newBps >= 100 && oldBps < 100) {
+        // Notify InfoFi factory on EVERY position change for odds updates
+        // Factory handles market creation idempotency and threshold logic internally
+        if (infoFiFactory != address(0)) {
             // Best-effort call; do not revert the buy on external failure
             try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
                 raffleSeasonId,
@@ -320,7 +321,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             }
         }
 
-        // Emit position update (no threshold check on sells for now)
+        // Emit position update
         uint256 totalTickets = curveConfig.totalSupply;
         uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
         emit PositionUpdate(
@@ -331,6 +332,23 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             totalTickets,
             newBps
         );
+
+        // Always notify InfoFi factory of position changes (including sells)
+        // Factory handles market updates and can track position reductions
+        if (infoFiFactory != address(0)) {
+            // Best-effort call; do not revert the sell on external failure
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+                raffleSeasonId,
+                msg.sender,
+                oldTickets,
+                newTickets,
+                totalTickets
+            ) {
+                // no-op
+            } catch {
+                // swallow error to avoid impacting user sell
+            }
+        }
     }
 
     /**

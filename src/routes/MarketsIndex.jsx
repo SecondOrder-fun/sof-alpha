@@ -17,7 +17,12 @@ const MarketsIndex = () => {
     return active ? String(active.id ?? active.seasonId ?? '0') : '0';
   }, [seasons]);
 
-  const { markets, isLoading: marketsLoading, error, refetch } = useInfoFiMarkets();
+  // Pass seasons to useInfoFiMarkets so it can query markets for each season
+  const seasonsArray = useMemo(() => {
+    return Array.isArray(seasons) ? seasons : [];
+  }, [seasons]);
+
+  const { markets, isLoading: marketsLoading, error, refetch } = useInfoFiMarkets(seasonsArray);
 
   // Get bonding curve address from active season
   const bondingCurveAddress = useMemo(() => {
@@ -26,26 +31,25 @@ const MarketsIndex = () => {
     return active?.config?.bondingCurve || null;
   }, [seasons]);
 
-  // Group markets by SecondOrder.fun plan types
-  const filteredBySeason = useMemo(() => {
-    const list = Array.isArray(markets) ? markets : [];
-    if (!activeSeasonId || activeSeasonId === '0') return list;
-    return list.filter((m) => {
-      const rid = m?.raffle_id ?? m?.seasonId ?? m?.season_id;
-      if (rid == null) return true;
-      return String(rid) === String(activeSeasonId);
-    });
-  }, [markets, activeSeasonId]);
+  // Group markets by season and market type
+  const groupedBySeason = useMemo(() => {
+    if (!markets || typeof markets !== 'object') return {};
 
-  const grouped = useMemo(() => {
-    const list = filteredBySeason;
-    const winners = list.filter((m) => (m.market_type || m.type) === 'WINNER_PREDICTION');
-    const positionSize = list.filter((m) => (m.market_type || m.type) === 'POSITION_SIZE');
-    const behavioral = list.filter((m) => (m.market_type || m.type) === 'BEHAVIORAL');
-    const known = new Set(['WINNER_PREDICTION', 'POSITION_SIZE', 'BEHAVIORAL']);
-    const others = list.filter((m) => !known.has((m.market_type || m.type) || ''));
-    return { winners, positionSize, behavioral, others };
-  }, [filteredBySeason]);
+    const result = {};
+
+    Object.entries(markets).forEach(([seasonId, seasonMarkets]) => {
+      const marketArray = Array.isArray(seasonMarkets) ? seasonMarkets : [];
+      const winners = marketArray.filter((m) => (m.market_type || m.type) === 'WINNER_PREDICTION');
+      const positionSize = marketArray.filter((m) => (m.market_type || m.type) === 'POSITION_SIZE');
+      const behavioral = marketArray.filter((m) => (m.market_type || m.type) === 'BEHAVIORAL');
+      const known = new Set(['WINNER_PREDICTION', 'POSITION_SIZE', 'BEHAVIORAL']);
+      const others = marketArray.filter((m) => !known.has((m.market_type || m.type) || ''));
+
+      result[seasonId] = { winners, positionSize, behavioral, others };
+    });
+
+    return result;
+  }, [markets]);
 
   const isLoading = seasonsLoading || marketsLoading;
 
@@ -71,7 +75,7 @@ const MarketsIndex = () => {
           <p className="text-muted-foreground">Loading seasons…</p>
         </div>
       )}
-      
+
       {!seasonsLoading && activeSeasonId === '0' && (
         <Card className="text-center py-12">
           <CardContent>
@@ -104,7 +108,7 @@ const MarketsIndex = () => {
       {/* Markets grid - Polymarket style */}
       {!isLoading && !error && (
         <div className="space-y-8">
-          {grouped.winners.length === 0 && grouped.positionSize.length === 0 && grouped.behavioral.length === 0 && grouped.others.length === 0 && (
+          {Object.keys(groupedBySeason).length === 0 && (
             <Card className="text-center py-12">
               <CardContent>
                 <p className="text-muted-foreground">No on-chain markets found for this season.</p>
@@ -112,61 +116,74 @@ const MarketsIndex = () => {
             </Card>
           )}
 
-          {grouped.winners.length > 0 && (
-            <div>
+          {Object.entries(groupedBySeason).map(([seasonId, seasonGrouped]) => (
+            <div key={seasonId}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">{t('winnerPrediction')}</h2>
-                <span className="text-sm text-muted-foreground">{grouped.winners.length} {t('markets')}</span>
+                <h2 className="text-xl font-semibold">Season #{seasonId}</h2>
+                <span className="text-sm text-muted-foreground">
+                  {Object.values(seasonGrouped).flat().length} {t('markets')}
+                </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {grouped.winners.map((m) => (
-                  <InfoFiMarketCard key={m.id} market={m} />
-                ))}
-              </div>
-            </div>
-          )}
 
-          {grouped.positionSize.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">{t('positionSize')}</h2>
-                <span className="text-sm text-muted-foreground">{grouped.positionSize.length} {t('markets')}</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {grouped.positionSize.map((m) => (
-                  <InfoFiMarketCard key={m.id} market={m} />
-                ))}
-              </div>
-            </div>
-          )}
+              <div className="space-y-6">
+                {seasonGrouped.winners.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{t('winnerPrediction')}</h3>
+                      <span className="text-sm text-muted-foreground">{seasonGrouped.winners.length} {t('markets')}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {seasonGrouped.winners.map((m) => (
+                        <InfoFiMarketCard key={m.id} market={m} />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-          {grouped.behavioral.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">{t('behavioral')}</h2>
-                <span className="text-sm text-muted-foreground">{grouped.behavioral.length} {t('markets')}</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {grouped.behavioral.map((m) => (
-                  <InfoFiMarketCard key={m.id} market={m} />
-                ))}
-              </div>
-            </div>
-          )}
+                {seasonGrouped.positionSize.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{t('positionSize')}</h3>
+                      <span className="text-sm text-muted-foreground">{seasonGrouped.positionSize.length} {t('markets')}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {seasonGrouped.positionSize.map((m) => (
+                        <InfoFiMarketCard key={m.id} market={m} />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-          {grouped.others.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">{t('other')}</h2>
-                <span className="text-sm text-muted-foreground">{grouped.others.length} {t('markets')}</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {grouped.others.map((m) => (
-                  <InfoFiMarketCard key={m.id} market={m} />
-                ))}
+                {seasonGrouped.behavioral.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{t('behavioral')}</h3>
+                      <span className="text-sm text-muted-foreground">{seasonGrouped.behavioral.length} {t('markets')}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {seasonGrouped.behavioral.map((m) => (
+                        <InfoFiMarketCard key={m.id} market={m} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {seasonGrouped.others.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{t('other')}</h3>
+                      <span className="text-sm text-muted-foreground">{seasonGrouped.others.length} {t('markets')}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {seasonGrouped.others.map((m) => (
+                        <InfoFiMarketCard key={m.id} market={m} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
 

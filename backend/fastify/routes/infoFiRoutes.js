@@ -110,16 +110,34 @@ export async function infoFiRoutes(fastify, options) {
   fastify.get('/markets', async (request, reply) => {
     try {
       const { raffleId } = request.query || {};
-      const markets = raffleId
-        ? await db.getInfoFiMarketsByRaffleId(raffleId)
-        : await db.getActiveInfoFiMarkets();
-      return reply.send({ markets });
+      let markets;
+
+      if (raffleId) {
+        markets = await db.getInfoFiMarketsByRaffleId(raffleId);
+      } else {
+        markets = await db.getActiveInfoFiMarkets();
+      }
+
+      // Group markets by season ID
+      const groupedMarkets = markets.reduce((acc, market) => {
+        const seasonId = market.season_id || market.seasonId || market.raffle_id;
+        if (seasonId) {
+          if (!acc[seasonId]) {
+            acc[seasonId] = [];
+          }
+          acc[seasonId].push(market);
+        }
+        return acc;
+      }, {});
+
+      fastify.log.info({ marketCount: markets.length, groupCount: Object.keys(groupedMarkets).length }, 'Returning grouped markets');
+      return reply.send({ markets: groupedMarkets });
     } catch (error) {
       fastify.log.error(error);
       const msg = String(error?.message || '');
       // If table doesn't exist yet in Supabase, return empty list instead of 500
       if (msg.includes('does not exist') || msg.includes('relation') || error?.code === '42P01') {
-        return reply.send({ markets: [] });
+        return reply.send({ markets: {} });
       }
       return reply.status(500).send({ error: 'Failed to fetch InfoFi markets' });
     }

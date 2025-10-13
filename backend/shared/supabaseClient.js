@@ -50,12 +50,12 @@ export class DatabaseService {
     return data;
   }
 
-  async getInfoFiMarketByComposite(raffleId, playerId, marketType) {
-    const { data, error } = await this.client
+  async getInfoFiMarketByComposite(seasonId, playerAddress, marketType) {
+    const { data, error} = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('raffle_id', raffleId)
-      .eq('player_id', playerId)
+      .eq('season_id', seasonId)
+      .eq('player_address', playerAddress)
       .eq('market_type', marketType)
       .limit(1)
       .maybeSingle();
@@ -65,8 +65,8 @@ export class DatabaseService {
     return data || null;
   }
 
-  async hasInfoFiMarket(raffleId, playerId, marketType) {
-    const existing = await this.getInfoFiMarketByComposite(raffleId, playerId, marketType);
+  async hasInfoFiMarket(seasonId, playerAddress, marketType) {
+    const existing = await this.getInfoFiMarketByComposite(seasonId, playerAddress, marketType);
     return Boolean(existing);
   }
 
@@ -116,14 +116,19 @@ export class DatabaseService {
     return data;
   }
 
-  async getInfoFiMarketsByRaffleId(raffleId) {
+  async getInfoFiMarketsBySeasonId(seasonId) {
     const { data, error } = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('raffle_id', raffleId)
+      .eq('season_id', seasonId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data;
+  }
+
+  // Backward compatibility alias
+  async getInfoFiMarketsByRaffleId(raffleId) {
+    return this.getInfoFiMarketsBySeasonId(raffleId);
   }
 
   async createInfoFiMarket(marketData) {

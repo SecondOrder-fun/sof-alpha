@@ -206,6 +206,20 @@ export function subscribeMarketCreated({ networkKey = 'LOCAL', onEvent }) {
   return () => {};
 }
 
+// Helper to safely convert BigInt to Number for basis points
+function bpsToNumber(value) {
+  if (value == null) return null;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'bigint') {
+    const num = Number(value);
+    // Sanity check: basis points should be 0-10000
+    return (num >= 0 && num <= 10000) ? num : null;
+  }
+  // Try parsing string
+  const parsed = Number(value);
+  return (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 10000) ? parsed : null;
+}
+
 // Oracle: read full price struct for a marketId (bytes32)
 export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
   const { publicClient } = buildClients(networkKey);
@@ -223,7 +237,15 @@ export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
       args: [idU256],
     });
     // Expect struct PriceData { raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active }
-    return price;
+    // Normalize BigInt values to Numbers
+    const normalized = {
+      raffleProbabilityBps: bpsToNumber(price.raffleProbabilityBps ?? price[0]),
+      marketSentimentBps: bpsToNumber(price.marketSentimentBps ?? price[1]),
+      hybridPriceBps: bpsToNumber(price.hybridPriceBps ?? price[2]),
+      lastUpdate: Number(price.lastUpdate ?? price[3] ?? 0),
+      active: Boolean(price.active ?? price[4] ?? false),
+    };
+    return normalized;
   } catch (_) {
     // Fallback: some oracles expose only getMarketPrice(bytes32) returning hybrid price
     try {
@@ -236,7 +258,7 @@ export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
       return {
         raffleProbabilityBps: null,
         marketSentimentBps: null,
-        hybridPriceBps: Number(hybrid),
+        hybridPriceBps: bpsToNumber(hybrid),
         lastUpdate: 0,
         active: true,
       };
@@ -249,7 +271,14 @@ export async function readOraclePrice({ marketId, networkKey = 'LOCAL' }) {
           functionName: 'getPriceU256', // optional alternative
           args: [idU256],
         });
-        return price;
+        const normalized = {
+          raffleProbabilityBps: bpsToNumber(price.raffleProbabilityBps ?? price[0]),
+          marketSentimentBps: bpsToNumber(price.marketSentimentBps ?? price[1]),
+          hybridPriceBps: bpsToNumber(price.hybridPriceBps ?? price[2]),
+          lastUpdate: Number(price.lastUpdate ?? price[3] ?? 0),
+          active: Boolean(price.active ?? price[4] ?? false),
+        };
+        return normalized;
       } catch (_) { /* no-op */ }
       // Last resort: return an inactive struct
       return {
@@ -294,7 +323,32 @@ export function computeWinnerMarketId({ seasonId, player }) {
 export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }) {
   // Prefer real market ids from MarketCreated events (uint256), fallback to synthetic if needed
   const byEvents = await listSeasonWinnerMarketsByEvents({ seasonId, networkKey });
-  if (byEvents.length > 0) return byEvents;
+  
+  // Enrich markets with oracle probability data
+  if (byEvents.length > 0) {
+    const marketsWithProbability = await Promise.all(
+      byEvents.map(async (market) => {
+        try {
+          const priceData = await readOraclePrice({ 
+            marketId: market.id, 
+            networkKey 
+          });
+          
+          return {
+            ...market,
+            current_probability: priceData.hybridPriceBps,
+            raffle_probability: priceData.raffleProbabilityBps,
+            market_sentiment: priceData.marketSentimentBps,
+          };
+        } catch (_error) {
+          // If oracle read fails, return market without probability
+          return market;
+        }
+      })
+    );
+    
+    return marketsWithProbability;
+  }
   
   // Fallback: derive from players and read uint256 IDs from factory mapping
   const { publicClient } = buildClients(networkKey);

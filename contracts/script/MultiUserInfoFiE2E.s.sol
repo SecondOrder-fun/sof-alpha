@@ -60,7 +60,6 @@ contract MultiUserInfoFiE2E is Script {
         vm.startBroadcast(ACCOUNT0);
         raffle.startSeason(SEASON_ID);
         vm.stopBroadcast();
-{{ ... }}
         
         // Account 1: Buy 5000 tickets (should cross 1% threshold and create market)
         console.log("\n--- Account 1: Buying 5000 tickets ---");

@@ -129,6 +129,13 @@ contract DeployScript is Script {
             console2.log("Raffle.setInfoFiFactory failed or already set (skipping)");
         }
 
+        // Wire factory into SeasonFactory so new curves get the factory address
+        try seasonFactory.setInfoFiFactory(address(infoFiFactory)) {
+            console2.log("SeasonFactory setInfoFiFactory:", address(infoFiFactory));
+        } catch {
+            console2.log("SeasonFactory.setInfoFiFactory failed or already set (skipping)");
+        }
+
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
         console2.log("Deploying InfoFiSettlement...");
         InfoFiSettlement infoFiSettlement = new InfoFiSettlement(deployerAddr, address(raffle));

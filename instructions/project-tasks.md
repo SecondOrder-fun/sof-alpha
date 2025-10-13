@@ -30,6 +30,24 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Resolution: Modified `listSeasonWinnerMarketsByEvents()` to read actual market IDs from the `winnerPredictionMarketIds` mapping in the factory contract. Simplified market ID derivation in `InfoFiMarketCard.jsx` to use the ID directly from props. See `docs/03-development/infofi-position-bug-fix.md` for full details.
   - Verified: Each market now correctly displays only its own position data.
 
+- [x] InfoFi markets not displaying on frontend (Resolved 2025-10-13)
+
+  - Symptom: Markets created onchain (verified via cast) were not showing on the `/markets` page.
+  - Scope: Frontend market discovery in `useInfoFiMarkets` hook and `MarketsIndex` component.
+  - Root Cause: The `useInfoFiMarkets` hook was calling a non-existent backend API endpoint (`/api/infofi/markets`). Backend has no InfoFi routes - only `raffles.js` exists. Markets were being created successfully onchain but frontend couldn't see them.
+  - Resolution: Completely rewrote `useInfoFiMarkets` hook to query directly from blockchain using `listSeasonWinnerMarkets` and `enumerateAllMarkets` functions. Updated `MarketsIndex` to pass seasons array to the hook. Removed backend API dependency entirely.
+  - Verified: Markets now display correctly by querying blockchain directly. See `INFOFI_FIX_SUMMARY.md` for complete analysis.
+  - Architecture Change: Frontend now queries blockchain directly instead of relying on backend API, making the system more robust and trustless.
+
+- [x] InfoFi probability displaying incorrectly (Resolved 2025-10-13)
+
+  - Symptom: Market showed 15% win probability when player had 100% (15k/15k tickets sold). Additionally, probabilities were showing as 0% or incorrect values due to type mismatches.
+  - Scope: Frontend probability calculation in `useHybridPriceLive` hook, `InfoFiMarketCard` component, and `onchainInfoFi.js` service layer.
+  - Root Cause: Two issues - (1) `useHybridPriceLive` hook was trying to use non-existent backend SSE/WebSocket streams, and (2) Type mismatch between BigInt values returned from contracts and Number types expected by frontend normalization logic.
+  - Resolution: Four-file fix - (1) Enhanced `listSeasonWinnerMarkets` to fetch probability from oracle during market discovery, (2) Rewrote `useHybridPriceLive` to query oracle directly via React Query, (3) Added `bpsToNumber` helper in `onchainInfoFi.js` to safely convert BigInt → Number, (4) Enhanced `normalizeBps` in `InfoFiMarketCard` to handle BigInt types and accept 0 as valid probability.
+  - Verified: Smart contracts unchanged (already correct). Frontend now queries oracle directly, properly converts BigInt types, and displays correct hybrid probability including 0% cases.
+  - Architecture Change: Consistent with market discovery fix - all InfoFi data now queried directly from blockchain with no backend dependencies. See `PROBABILITY_CALCULATION_AUDIT.md`, `PROBABILITY_FIX_PLAN.md`, and `INFOFI_PROBABILITY_FIX.md` for complete analysis.
+
 - [ ] Skipped tests that need deeper fixes (Reported 2025-09-29)
   - Symptom: Three tests temporarily skipped as they require deeper changes to the Raffle contract.
   - Scope: `testPrizePoolCapturedFromCurveReserves` in RaffleVRF.t.sol, `test_MultiAddress_StaggeredRemovals_OrderAndReadd` in SellAllTickets.t.sol, and the entire `FullSeasonFlow.t.sol` test.

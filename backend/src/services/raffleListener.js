@@ -55,21 +55,27 @@ export function startRaffleListener(networkKey = 'LOCAL', broadcastFn = () => {}
             },
           });
 
-          // Resolve InfoFi market by (seasonId -> raffle_id, player -> players.id, market_type)
+          // Resolve InfoFi market by (seasonId, player_address, market_type)
           // Then push raffle probability to pricing cache to update hybrid price
           try {
-            // Ensure player exists in DB and get player_id
-            const playerId = await db.getOrCreatePlayerIdByAddress(player);
-
             // WINNER_PREDICTION market type is used for per-player winner markets
             const marketType = 'WINNER_PREDICTION';
-            const market = await db.getInfoFiMarketByComposite(seasonId, playerId, marketType);
+            const market = await db.getInfoFiMarketByComposite(seasonId, player, marketType);
 
             if (market?.id) {
               await pricingService.updateHybridPricing(market.id, { probabilityBps });
+              logger.debug?.(`[raffleListener] Updated pricing for market ${market.id}, player ${player}, bps=${probabilityBps}`);
             } else {
-              // Not all players will have a market yet; this is expected until threshold-crossing
-              logger.debug?.(`[raffleListener] No market for season ${seasonId}, player ${player} (id ${playerId})`);
+              // Smart contracts should handle market creation automatically via InfoFiMarketFactory
+              // when players cross 1% threshold. If no market exists in DB, it means either:
+              // 1. Player hasn't crossed 1% threshold yet (< 100 bps)
+              // 2. InfoFi system isn't properly deployed/configured
+              // 3. Market creation failed on-chain but wasn't recorded in DB
+              if (probabilityBps >= 100) {
+                logger.warn(`[raffleListener] Player ${player} at ${probabilityBps} bps (>= 1%) but no InfoFi market found for season ${seasonId}. This suggests InfoFi system may not be properly deployed.`);
+              } else {
+                logger.debug?.(`[raffleListener] No market for season ${seasonId}, player ${player}, probability: ${probabilityBps} bps (below 1% threshold)`);
+              }
             }
           } catch (innerErr) {
             // Log and continue; do not break the event stream on DB/pricing errors
