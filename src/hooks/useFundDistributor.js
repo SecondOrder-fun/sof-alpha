@@ -26,14 +26,30 @@ const useFundDistributor = ({
   // Check contract state before proceeding
   async function checkContractState(raffleAddr, seasonId) {
     try {
-      // Get season details
-      const seasonDetails = await publicClient.readContract({
-        address: raffleAddr,
-        abi: RaffleMiniAbi,
-        functionName: "getSeasonDetails",
-        args: [BigInt(seasonId)],
-      });
+      console.log('[checkContractState] Reading contract:', raffleAddr, 'seasonId:', seasonId);
+      console.log('[checkContractState] publicClient:', publicClient);
+      console.log('[checkContractState] RaffleMiniAbi:', RaffleMiniAbi ? 'defined' : 'undefined');
+      
+      if (!publicClient) {
+        throw new Error('publicClient is not available');
+      }
+      
+      // Get season details with timeout
+      console.log('[checkContractState] About to call readContract...');
+      const seasonDetails = await Promise.race([
+        publicClient.readContract({
+          address: raffleAddr,
+          abi: RaffleMiniAbi,
+          functionName: "getSeasonDetails",
+          args: [BigInt(seasonId)],
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('readContract timeout after 10s')), 10000)
+        )
+      ]);
 
+      console.log('[checkContractState] Season details:', seasonDetails);
+      
       // Extract season details for processing
       const [, status, totalParticipants, totalTickets, totalPrizePool] = seasonDetails;
       
@@ -55,6 +71,7 @@ const useFundDistributor = ({
   // Complete end-to-end flow for raffle resolution
   async function fundDistributorManual(targetSeasonId) {
     const idToUse = targetSeasonId || seasonId;
+    console.log('[fundDistributorManual] Called with seasonId:', targetSeasonId, 'Using:', idToUse);
     setEndingE2EId(idToUse);
     setEndStatus("Initializing end-to-end process for season " + idToUse);
     
@@ -63,7 +80,9 @@ const useFundDistributor = ({
     
     try {
       // Check if contract addresses are available
+      console.log('[fundDistributorManual] Contract addresses:', contractAddresses);
       if (!contractAddresses || !contractAddresses.RAFFLE) {
+        console.log('[fundDistributorManual] ERROR: No RAFFLE address');
         setEndStatus(`Could not find RAFFLE contract address for network ${netKey}`);
         return;
       }
@@ -73,12 +92,16 @@ const useFundDistributor = ({
 
       const raffleAddr = contractAddresses.RAFFLE;
       const vrfCoordinatorAddr = contractAddresses.VRF_COORDINATOR;
+      console.log('[fundDistributorManual] Raffle address:', raffleAddr);
+      console.log('[fundDistributorManual] VRF Coordinator:', vrfCoordinatorAddr);
       
       // Step 1: Check initial season state
       setEndStatus("Checking season state...");
+      console.log('[fundDistributorManual] Checking season state...');
       let seasonState;
       try {
         seasonState = await checkContractState(raffleAddr, idToUse);
+        console.log('[fundDistributorManual] Season state:', seasonState);
         setEndStatus(`Season status: ${statusLabels[seasonState.status]}`);
         
         // Add season details to verification data for admin UI
@@ -334,7 +357,9 @@ const useFundDistributor = ({
             args: [BigInt(idToUse)],
           });
           
-          const bondingCurveAddr = seasonDetails[0][8];
+          // seasonDetails[0] is the config tuple
+          // bondingCurve is at index 6 in the config tuple (after name, startTime, endTime, winnerCount, grandPrizeBps, raffleToken)
+          const bondingCurveAddr = seasonDetails[0][6];
           
           // Extract SOF from bonding curve
           setEndStatus("Extracting SOF from bonding curve...");

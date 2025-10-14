@@ -88,16 +88,36 @@ contract CreateSeason is Script {
             console2.log("Wired position tracker for season", seasonId);
         }
 
+        // Get bonding curve address from season
+        (, , , , , address bondingCurveAddr, , , ) = raffle.seasons(seasonId);
+        
         // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
         address sofAddress = vm.envAddress("SOF_ADDRESS");
         if (sofAddress != address(0)) {
             SOFToken sofToken = SOFToken(sofAddress);
-            (, , , , , address bondingCurve, , , ) = raffle.seasons(seasonId);
             
-            try sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), bondingCurve) {
-                console2.log("Granted FEE_COLLECTOR_ROLE to bonding curve:", bondingCurve);
+            try sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), bondingCurveAddr) {
+                console2.log("Granted FEE_COLLECTOR_ROLE to bonding curve:", bondingCurveAddr);
             } catch {
                 console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
+            }
+        }
+
+        // Grant RAFFLE_MANAGER_ROLE to the deployer on the bonding curve
+        // This is needed for extracting fees and managing the curve
+        if (bondingCurveAddr != address(0)) {
+            // Import the bonding curve interface
+            bytes32 raffleManagerRole = keccak256("RAFFLE_MANAGER_ROLE");
+            
+            // Call grantRole on the bonding curve
+            (bool success, ) = bondingCurveAddr.call(
+                abi.encodeWithSignature("grantRole(bytes32,address)", raffleManagerRole, caller)
+            );
+            
+            if (success) {
+                console2.log("Granted RAFFLE_MANAGER_ROLE to deployer on bonding curve:", bondingCurveAddr);
+            } else {
+                console2.log("Failed to grant RAFFLE_MANAGER_ROLE (may not be admin or already granted)");
             }
         }
 

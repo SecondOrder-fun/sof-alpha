@@ -24,6 +24,7 @@ import SeasonList from "@/components/admin/SeasonList";
 import useFundDistributor from "@/hooks/useFundDistributor";
 
 // Minimal ABIs used for local E2E resolution
+// IMPORTANT: This ABI must match the actual Raffle.sol contract interface
 const RaffleMiniAbi = [
   {
     type: "function",
@@ -52,9 +53,7 @@ const RaffleMiniAbi = [
           { name: "name", type: "string" },
           { name: "startTime", type: "uint256" },
           { name: "endTime", type: "uint256" },
-          { name: "winnerCount", type: "uint8" },
-          { name: "prizePercentage", type: "uint8" },
-          { name: "consolationPercentage", type: "uint8" },
+          { name: "winnerCount", type: "uint16" },
           { name: "grandPrizeBps", type: "uint16" },
           { name: "raffleToken", type: "address" },
           { name: "bondingCurve", type: "address" },
@@ -63,9 +62,9 @@ const RaffleMiniAbi = [
         ],
       },
       { name: "status", type: "uint8" },
+      { name: "totalParticipants", type: "uint256" },
       { name: "totalTickets", type: "uint256" },
-      { name: "winner", type: "address" },
-      { name: "merkleRoot", type: "bytes32" },
+      { name: "totalPrizePool", type: "uint256" },
     ],
   },
   {
