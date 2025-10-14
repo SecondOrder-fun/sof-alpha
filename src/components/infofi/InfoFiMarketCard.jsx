@@ -305,28 +305,22 @@ const InfoFiMarketCard = ({ market }) => {
     return Math.max(0, Math.min(10000, bps));
   }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply]);
 
+  // Display percent: Show actual raffle odds (what users see)
   const percent = React.useMemo(() => {
-    // Priority 1: Hybrid price from oracle (most accurate, includes market sentiment)
+    // Priority 1: Raffle probability from oracle (actual win chance, not hybrid price)
+    // Display the actual raffle odds to users, not the hybrid price
     // Accept 0 as valid probability (player could have 0% chance)
-    if (bps.hybrid != null) {
-      const normalized = Math.max(0, Math.min(10000, bps.hybrid));
+    if (bps.raffle != null) {
+      const normalized = Math.max(0, Math.min(10000, bps.raffle));
       return (normalized / 100).toFixed(1);
     }
     
-    // Priority 2: Current probability from market data (fetched from oracle during discovery)
-    if (market?.current_probability != null) {
-      const bpsValue = normalizeBps(market.current_probability);
-      if (bpsValue != null) {
-        return (Math.max(0, Math.min(10000, bpsValue)) / 100).toFixed(1);
-      }
-    }
-    
-    // Priority 3: Direct calculation from player balance (fallback when oracle unavailable)
+    // Priority 2: Direct calculation from player balance (fallback when oracle unavailable)
     if (directProbabilityBps != null) {
       return (Math.max(0, Math.min(10000, directProbabilityBps)) / 100).toFixed(1);
     }
     
-    // Priority 4: Inline calculation as last resort
+    // Priority 3: Inline calculation as last resort
     if (totalTicketSupply && totalTicketSupply > 0n) {
       const playerBal = playerTicketBalance?.data;
       if (typeof playerBal === 'bigint' && playerBal >= 0n) {
@@ -337,14 +331,25 @@ const InfoFiMarketCard = ({ market }) => {
     
     // Fallback: 0%
     return '0.0';
-  }, [bps.hybrid, market?.current_probability, directProbabilityBps, playerTicketBalance?.data, totalTicketSupply, normalizeBps]);
+  }, [bps.raffle, directProbabilityBps, playerTicketBalance?.data, totalTicketSupply]);
 
-  // Calculate payout for a given bet amount
+  // Payout percent: Use hybrid price (determines actual payout odds)
+  const payoutPercent = React.useMemo(() => {
+    // Use hybrid price for payout calculations
+    if (bps.hybrid != null) {
+      const normalized = Math.max(0, Math.min(10000, bps.hybrid));
+      return (normalized / 100).toFixed(1);
+    }
+    // Fallback to display percent if hybrid not available
+    return percent;
+  }, [bps.hybrid, percent]);
+
+  // Calculate payout for a given bet amount (uses hybrid price)
   const calculatePayout = React.useCallback((betAmount, isYes) => {
     const amount = Number(betAmount || 0);
     if (amount <= 0) return 0;
     
-    const yesPercent = Number(percent);
+    const yesPercent = Number(payoutPercent);
     const noPercent = 100 - yesPercent;
     
     // Payout = (bet amount / probability) if you win
@@ -354,7 +359,7 @@ const InfoFiMarketCard = ({ market }) => {
     } else {
       return noPercent > 0 ? (amount / (noPercent / 100)) : 0;
     }
-  }, [percent]);
+  }, [payoutPercent]);
 
   // Calculate profit (payout minus stake)
   const calculateProfit = React.useCallback((betAmount, isYes) => {

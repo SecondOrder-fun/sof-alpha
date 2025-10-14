@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
-import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
+// import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useInfoFiMarkets } from '@/hooks/useInfoFiMarkets';
 import { useAllSeasons } from '@/hooks/useAllSeasons';
 
@@ -24,12 +24,12 @@ const MarketsIndex = () => {
 
   const { markets, isLoading: marketsLoading, error, refetch } = useInfoFiMarkets(seasonsArray);
 
-  // Get bonding curve address from active season
-  const bondingCurveAddress = useMemo(() => {
-    const arr = Array.isArray(seasons) ? seasons : [];
-    const active = arr.find((s) => Number(s?.status) === 1);
-    return active?.config?.bondingCurve || null;
-  }, [seasons]);
+  // Get bonding curve address from active season (commented out - not needed without arbitrage panel)
+  // const bondingCurveAddress = useMemo(() => {
+  //   const arr = Array.isArray(seasons) ? seasons : [];
+  //   const active = arr.find((s) => Number(s?.status) === 1);
+  //   return active?.config?.bondingCurve || null;
+  // }, [seasons]);
 
   // Group markets by season and market type
   const groupedBySeason = useMemo(() => {
@@ -187,8 +187,8 @@ const MarketsIndex = () => {
         </div>
       )}
 
-      {/* Arbitrage Opportunities - On-chain only */}
-      {!seasonsLoading && activeSeasonId !== '0' && bondingCurveAddress && (
+      {/* Arbitrage Opportunities - Hidden for now */}
+      {/* {!seasonsLoading && activeSeasonId !== '0' && bondingCurveAddress && (
         <div className="mt-8">
           <ArbitrageOpportunityDisplay
             seasonId={activeSeasonId}
@@ -196,7 +196,7 @@ const MarketsIndex = () => {
             minProfitability={2}
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 };

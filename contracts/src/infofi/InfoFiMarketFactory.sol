@@ -96,6 +96,13 @@ contract InfoFiMarketFactory is AccessControl {
         uint256 newProbabilityBps
     );
 
+    event MarketCreationFailed(
+        uint256 indexed seasonId,
+        address indexed player,
+        bytes32 indexed marketType,
+        string reason
+    );
+
     constructor(address _raffleRead, address _oracle, address _infoFiMarket, address _betToken, address _admin) {
         require(_raffleRead != address(0), "Factory: raffleRead zero");
         require(_oracle != address(0), "Factory: oracle zero");
@@ -161,8 +168,15 @@ contract InfoFiMarketFactory is AccessControl {
                 winnerPredictionMarkets[seasonId][player] = marketAddr;
                 winnerPredictionMarketIds[seasonId][player] = marketIdU256;
                 createdMarketId = marketIdU256;
-            } catch {
+            } catch Error(string memory reason) {
+                // Emit failure event for monitoring
+                emit MarketCreationFailed(seasonId, player, WINNER_PREDICTION, reason);
                 // If creation fails, still mark as created to avoid spamming, but leave address zero
+                winnerPredictionMarkets[seasonId][player] = address(0);
+                winnerPredictionMarketIds[seasonId][player] = 0;
+            } catch {
+                // Generic failure
+                emit MarketCreationFailed(seasonId, player, WINNER_PREDICTION, "Unknown error");
                 winnerPredictionMarkets[seasonId][player] = address(0);
                 winnerPredictionMarketIds[seasonId][player] = 0;
             }
@@ -173,9 +187,50 @@ contract InfoFiMarketFactory is AccessControl {
 
         // Push probability to oracle using the uint256 marketId (after ensuring market bookkeeping is updated)
         uint256 marketId = winnerPredictionMarketIds[seasonId][player];
-        if (marketId > 0 || winnerPredictionCreated[seasonId][player]) {
+        // Only update oracle if market was successfully created (marketAddr != address(0))
+        // This prevents corrupting oracle when market creation fails
+        if (winnerPredictionMarkets[seasonId][player] != address(0)) {
             // Note: Factory must hold PRICE_UPDATER_ROLE in the oracle.
             oracle.updateRaffleProbability(marketId, newBps);
+        }
+
+        // CRITICAL: Update ALL other players' oracle probabilities when total changes
+        // When any player buys/sells, the total changes, affecting everyone's win probability
+        _updateAllPlayerProbabilities(seasonId, totalTickets, player);
+    }
+
+    /**
+     * @dev Updates oracle probabilities for all players in a season (except the one just updated)
+     * @param seasonId The season ID
+     * @param totalTickets Current total tickets in the season
+     * @param skipPlayer Player to skip (already updated above)
+     */
+    function _updateAllPlayerProbabilities(
+        uint256 seasonId,
+        uint256 totalTickets,
+        address skipPlayer
+    ) internal {
+        if (totalTickets == 0) return;
+
+        address[] memory players = _seasonPlayers[seasonId];
+        for (uint256 i = 0; i < players.length; i++) {
+            address playerAddr = players[i];
+            
+            // Skip the player we just updated
+            if (playerAddr == skipPlayer) continue;
+
+            // Only update if market exists
+            if (winnerPredictionMarkets[seasonId][playerAddr] == address(0)) continue;
+
+            // Get current position from raffle
+            IRaffleRead.ParticipantPosition memory pos = iRaffle.getParticipantPosition(seasonId, playerAddr);
+            
+            // Calculate new probability
+            uint256 playerBps = (pos.ticketCount * 10000) / totalTickets;
+            
+            // Update oracle
+            uint256 marketId = winnerPredictionMarketIds[seasonId][playerAddr];
+            oracle.updateRaffleProbability(marketId, playerBps);
         }
     }
 

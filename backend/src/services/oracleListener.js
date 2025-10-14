@@ -68,26 +68,36 @@ export function startOracleListener(networkKey = 'LOCAL', logger = console) {
     onLogs: async (logs) => {
       for (const log of logs) {
         try {
-          const mk = String(log.args.marketId).toLowerCase();
+          // Oracle emits marketId as uint256, not bytes32
+          const marketIdRaw = log.args.marketId;
+          const marketId = typeof marketIdRaw === 'bigint' 
+            ? Number(marketIdRaw) 
+            : Number(marketIdRaw);
+
+          // Skip invalid or zero marketId (indicates failed market creation)
+          if (!marketId || marketId === 0) {
+            logger.warn({ marketId: marketIdRaw }, '[oracleListener] Skipping marketId 0 (likely failed creation)');
+            continue;
+          }
+
           const raffleBps = Number(log.args.raffleBps);
           const marketBps = Number(log.args.marketBps);
           const hybridBps = Number(log.args.hybridBps);
           const ts = Number(log.args.timestamp) * 1000 || Date.now();
 
-          // Update cache via pricingService using numeric id if available; otherwise store by key
-          const numericId = keyToNumericId.get(mk);
-          const cacheKey = numericId ?? mk;
-
-          // Update pricing cache and fan-out
+          // Use numeric marketId directly (no mapping needed)
           await pricingService.updateHybridPricing(
-            cacheKey,
+            marketId,
             { probabilityBps: raffleBps },
             { sentimentBps: marketBps }
           );
+          
           // Ensure hybrid is set exactly (avoid rounding drift)
-          const cached = pricingService.getCachedPricing(cacheKey) || {};
+          const cached = pricingService.getCachedPricing(marketId) || {};
           cached.hybrid_price_bps = hybridBps;
           cached.last_updated = new Date(ts).toISOString();
+          
+          logger.info({ marketId, raffleBps, marketBps, hybridBps }, '[oracleListener] Price updated');
         } catch (e) {
           logger.error('[oracleListener] Failed handling PriceUpdated', e);
         }
