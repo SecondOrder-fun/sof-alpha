@@ -2,7 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../lib/RaffleTypes.sol";
+import "./SeasonCSMM.sol";
 
 interface IInfoFiPriceOracleMinimal {
     function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps) external;
@@ -80,6 +82,13 @@ contract InfoFiMarketFactory is AccessControl {
     // Simple enumeration support: seasonId => players[] that have markets
     mapping(uint256 => address[]) private _seasonPlayers;
 
+    // SeasonCSMM instances per season
+    mapping(uint256 => SeasonCSMM) public seasonCSMMs;
+    
+    // Liquidity configuration
+    uint256 public constant LIQUIDITY_PER_MARKET = 10e18; // 10 SOF per player market
+    uint256 public liquidityPerSeason = 500e18; // Default 500 SOF for 50 players (adjustable)
+
     event MarketCreated(
         uint256 indexed seasonId,
         address indexed player,
@@ -102,6 +111,9 @@ contract InfoFiMarketFactory is AccessControl {
         bytes32 indexed marketType,
         string reason
     );
+    
+    event SeasonCSMMCreated(uint256 indexed seasonId, address csmmAddress, uint256 initialLiquidity);
+    event SeasonMarketsResolved(uint256 indexed seasonId, address indexed winner, uint256 marketCount);
 
     constructor(address _raffleRead, address _oracle, address _infoFiMarket, address _betToken, address _admin) {
         require(_raffleRead != address(0), "Factory: raffleRead zero");
@@ -355,9 +367,17 @@ contract InfoFiMarketFactory is AccessControl {
         require(player != address(0), "Factory: player zero");
         
         if (marketType == WINNER_PREDICTION && !winnerPredictionCreated[seasonId][player]) {
+            // Ensure SeasonCSMM exists
+            _ensureSeasonCSMM(seasonId);
+            
+            // Create player market in CSMM
+            SeasonCSMM csmm = seasonCSMMs[seasonId];
+            uint256 playerId = uint256(uint160(player));
+            csmm.createPlayerMarket(playerId);
+            
             winnerPredictionCreated[seasonId][player] = true;
-            address marketAddr = address(infoFiMarket);
-            uint256 marketId = 0;
+            address marketAddr = address(csmm);
+            uint256 marketId = playerId; // Use playerId as marketId for CSMM
             winnerPredictionMarkets[seasonId][player] = marketAddr;
             winnerPredictionMarketIds[seasonId][player] = marketId;
             _seasonPlayers[seasonId].push(player);
@@ -365,5 +385,103 @@ contract InfoFiMarketFactory is AccessControl {
             // We don't know the probability here, so use 0 as a placeholder
             emit MarketCreated(seasonId, player, WINNER_PREDICTION, marketId, 0, marketAddr);
         }
+    }
+    
+    /**
+     * @notice Ensure SeasonCSMM exists for a season, create if needed
+     * @param seasonId The season ID
+     * @return csmm The SeasonCSMM instance
+     */
+    function _ensureSeasonCSMM(uint256 seasonId) internal returns (SeasonCSMM csmm) {
+        csmm = seasonCSMMs[seasonId];
+        
+        if (address(csmm) == address(0)) {
+            // Deploy new SeasonCSMM (factory is initial admin)
+            csmm = new SeasonCSMM(
+                seasonId,
+                betToken,
+                address(this), // Factory is treasury for now
+                address(this)  // Factory is admin
+            );
+            
+            // Grant factory the FACTORY_ROLE to create markets
+            csmm.grantRole(csmm.FACTORY_ROLE(), address(this));
+            
+            seasonCSMMs[seasonId] = csmm;
+            
+            // Fund the CSMM with initial liquidity
+            IERC20(betToken).transfer(address(csmm), liquidityPerSeason);
+            
+            emit SeasonCSMMCreated(seasonId, address(csmm), liquidityPerSeason);
+        }
+        
+        return csmm;
+    }
+    
+    /**
+     * @notice Resolve all markets for a season (called by Raffle after VRF)
+     * @param seasonId The season ID
+     * @param winner The winning player address
+     */
+    function resolveSeasonMarkets(uint256 seasonId, address winner) external {
+        // Only allow raffle contract to call this
+        require(msg.sender == address(iRaffle), "Factory: only raffle");
+        require(winner != address(0), "Factory: winner zero");
+        
+        SeasonCSMM csmm = seasonCSMMs[seasonId];
+        if (address(csmm) == address(0)) {
+            // No CSMM for this season, nothing to resolve
+            return;
+        }
+        
+        address[] memory players = _seasonPlayers[seasonId];
+        uint256 resolvedCount = 0;
+        
+        for (uint256 i = 0; i < players.length; i++) {
+            address playerAddr = players[i];
+            
+            // Skip if no market was created
+            if (!winnerPredictionCreated[seasonId][playerAddr]) continue;
+            
+            uint256 playerId = uint256(uint160(playerAddr));
+            bool outcome = (playerAddr == winner);
+            
+            // Resolve market in CSMM
+            try csmm.resolveMarket(playerId, outcome) {
+                resolvedCount++;
+                
+                // Also resolve in InfoFiMarket if it exists
+                uint256 marketId = winnerPredictionMarketIds[seasonId][playerAddr];
+                if (marketId != 0 && winnerPredictionMarkets[seasonId][playerAddr] != address(0)) {
+                    try infoFiMarket.resolveMarket(marketId, outcome) {
+                        // Success
+                    } catch {
+                        // Log but don't revert
+                    }
+                }
+            } catch {
+                // Log but continue with other markets
+            }
+        }
+        
+        emit SeasonMarketsResolved(seasonId, winner, resolvedCount);
+    }
+    
+    /**
+     * @notice Update liquidity per season (admin only)
+     * @param newLiquidity New liquidity amount in wei
+     */
+    function setLiquidityPerSeason(uint256 newLiquidity) external onlyRole(ADMIN_ROLE) {
+        require(newLiquidity > 0, "Factory: zero liquidity");
+        liquidityPerSeason = newLiquidity;
+    }
+    
+    /**
+     * @notice Get SeasonCSMM address for a season
+     * @param seasonId The season ID
+     * @return address The SeasonCSMM address or address(0) if not created
+     */
+    function getSeasonCSMM(uint256 seasonId) external view returns (address) {
+        return address(seasonCSMMs[seasonId]);
     }
 }

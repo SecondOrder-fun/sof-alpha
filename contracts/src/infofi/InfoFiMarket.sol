@@ -64,6 +64,14 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         uint256 payout;
     }
 
+    /**
+     * @dev Struct for batch claim requests
+     */
+    struct ClaimRequest {
+        uint256 marketId;
+        bool prediction;
+    }
+
     // State variables
     uint256 public nextMarketId;
     mapping(uint256 => MarketInfo) public markets;
@@ -261,6 +269,39 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
         
         emit PayoutClaimed(msg.sender, marketId, winning, payout);
+    }
+
+    /**
+     * @dev Calculate potential payout for a bet without claiming
+     * @param marketId ID of the market
+     * @param better Address of the better
+     * @param prediction Which side (true=YES, false=NO)
+     * @return payout Potential payout amount (0 if not winning or already claimed)
+     */
+    function calculatePayout(
+        uint256 marketId,
+        address better,
+        bool prediction
+    ) external view returns (uint256 payout) {
+        MarketInfo storage market = markets[marketId];
+        BetInfo storage bet = bets[marketId][better][prediction];
+        
+        // Return 0 if market not resolved, no bet, already claimed, or wrong side
+        if (!market.resolved || bet.amount == 0 || bet.claimed || bet.prediction != market.outcome) {
+            return 0;
+        }
+        
+        // Zero-division protection
+        uint256 winningPool = market.outcome ? market.totalYesPool : market.totalNoPool;
+        if (winningPool == 0) return 0;
+        
+        // Calculate payout using same formula as claimPayout
+        payout = (bet.amount * market.totalPool) / winningPool;
+        
+        // Cap at total pool (sanity check)
+        if (payout > market.totalPool) {
+            payout = market.totalPool;
+        }
     }
 
     /**

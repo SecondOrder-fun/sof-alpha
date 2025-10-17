@@ -540,6 +540,16 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         address grandWinner = state.winners.length > 0 ? state.winners[0] : address(0);
         require(grandWinner != address(0), "Raffle: winner zero");
 
+        // Resolve InfoFi prediction markets
+        if (infoFiFactory != address(0)) {
+            try IInfoFiMarketFactory(infoFiFactory).resolveSeasonMarkets(seasonId, grandWinner) {
+                // Success - markets resolved
+            } catch {
+                // Log but don't revert raffle completion
+                // InfoFi resolution failure shouldn't block prize distribution
+            }
+        }
+
         // Snapshot participant count
         uint256 totalParticipants = state.totalParticipants;
 
