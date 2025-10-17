@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses } from "@/config/contracts";
-import { getStoredNetworkKey } from "@/lib/wagmi";
-import { safeStringify } from "@/lib/jsonUtils";
-import TransactionStatus from "./TransactionStatus";
+import { getStoredNetworkKey } from '@/lib/wagmi';
+import { getNetworkByKey } from '@/config/networks';
+import { ERC20Abi } from '@/utils/abis';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
@@ -24,15 +24,7 @@ const fmtLocalDatetime = (sec) => {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 };
 
-// Minimal ERC20 ABI for decimals
-const ERC20_DECIMALS_ABI = [
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    outputs: [{ name: "", type: "uint8" }],
-  },
-];
+// ERC20 ABI imported from centralized utility
 
 const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
   const [name, setName] = useState("");
@@ -88,7 +80,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         if (!addresses.SOF || !publicClient) return;
         const dec = await publicClient.readContract({
           address: addresses.SOF,
-          abi: ERC20_DECIMALS_ABI,
+          abi: ERC20Abi,
           functionName: "decimals",
         });
         if (!cancelled && typeof dec === "number") setSofDecimals(dec);

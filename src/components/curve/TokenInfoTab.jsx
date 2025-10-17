@@ -7,6 +7,7 @@ import { useSofDecimals } from '@/hooks/useSofDecimals';
 import { useRaffleHolders } from '@/hooks/useRaffleHolders';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
+import { SOFBondingCurveAbi } from '@/utils/abis';
 
 const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps, curveReserves, seasonStatus, totalPrizePool }) => {
   const { t } = useTranslation('common');
@@ -47,13 +48,9 @@ const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps
         });
         
         // Get raffle token from bonding curve
-        const curveAbi = [
-          { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] }
-        ];
-        
         const tokenAddr = await client.readContract({
           address: bondingCurveAddress,
-          abi: curveAbi,
+          abi: SOFBondingCurveAbi,
           functionName: 'raffleToken',
           args: []
         }).catch(() => null);

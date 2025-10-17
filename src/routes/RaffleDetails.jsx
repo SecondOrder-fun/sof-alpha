@@ -6,9 +6,10 @@ import { useRaffleState } from '@/hooks/useRaffleState';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 // removed inline buy/sell form controls
-import { createPublicClient, http } from 'viem';
-import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
+import { getNetworkByKey } from '@/config/networks';
+import { createPublicClient, http } from 'viem';
+import { SOFBondingCurveAbi, ERC20Abi } from '@/utils/abis';
 import { useCurveState } from '@/hooks/useCurveState';
 import BondingCurvePanel from '@/components/curve/CurveGraph';
 import BuySellWidget from '@/components/curve/BuySellWidget';
@@ -70,22 +71,10 @@ const RaffleDetails = () => {
         transport: http(net.rpcUrl),
       });
       // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
-      const curveAbi = [
-        { type: 'function', name: 'playerTickets', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
-        { type: 'function', name: 'curveConfig', stateMutability: 'view', inputs: [], outputs: [
-          { name: 'totalSupply', type: 'uint256' },
-          { name: 'sofReserves', type: 'uint256' },
-          { name: 'currentStep', type: 'uint256' },
-          { name: 'buyFee', type: 'uint16' },
-          { name: 'sellFee', type: 'uint16' },
-          { name: 'tradingLocked', type: 'bool' },
-          { name: 'initialized', type: 'bool' },
-        ] },
-      ];
       try {
         const [pt, cfg] = await Promise.all([
-          client.readContract({ address: bondingCurveAddress, abi: curveAbi, functionName: 'playerTickets', args: [address] }),
-          client.readContract({ address: bondingCurveAddress, abi: curveAbi, functionName: 'curveConfig', args: [] }),
+          client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'playerTickets', args: [address] }),
+          client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'curveConfig', args: [] }),
         ]);
         const tickets = BigInt(pt ?? 0n);
         const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
@@ -97,13 +86,6 @@ const RaffleDetails = () => {
       }
 
       // 2) Fallback: discover ERC20 tickets token from the curve if the curve is not the token itself
-      const detectTokenAbi = [
-        { type: 'function', name: 'token', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-        { type: 'function', name: 'raffleToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-        { type: 'function', name: 'ticketToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-        { type: 'function', name: 'tickets', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-        { type: 'function', name: 'asset', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-      ];
       // Prefer explicit token from season details if available
       let tokenAddress = (
         seasonDetailsQuery?.data?.ticketToken ||
@@ -114,7 +96,7 @@ const RaffleDetails = () => {
       for (const fn of ['token', 'raffleToken', 'ticketToken', 'tickets', 'asset']) {
         try {
           // eslint-disable-next-line no-await-in-loop
-          const addr = await client.readContract({ address: bondingCurveAddress, abi: detectTokenAbi, functionName: fn, args: [] });
+          const addr = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: fn, args: [] });
           if (typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr) && addr !== '0x0000000000000000000000000000000000000000') {
             tokenAddress = addr;
             break;
@@ -124,13 +106,9 @@ const RaffleDetails = () => {
         }
       }
 
-      const erc20Abi = [
-        { type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
-        { type: 'function', name: 'totalSupply', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
-      ];
       const [bal, supply] = await Promise.all([
-        client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
-        client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'totalSupply', args: [] }),
+        client.readContract({ address: tokenAddress, abi: ERC20Abi, functionName: 'balanceOf', args: [address] }),
+        client.readContract({ address: tokenAddress, abi: ERC20Abi, functionName: 'totalSupply', args: [] }),
       ]);
       const tickets = BigInt(bal ?? 0n);
       const total = BigInt(supply ?? 0n);

@@ -2,10 +2,13 @@
 // Lightweight viem helpers to read/write InfoFi on-chain state without relying on DB.
 
 import { createPublicClient, createWalletClient, getAddress, http, webSocket, custom, keccak256, encodePacked, parseUnits } from 'viem';
-import InfoFiMarketFactoryABI from '@/contracts/abis/InfoFiMarketFactory.json';
-import InfoFiPriceOracleABI from '@/contracts/abis/InfoFiPriceOracle.json';
-import InfoFiMarketABI from '@/contracts/abis/InfoFiMarket.json';
-import ERC20Abi from '@/contracts/abis/ERC20.json';
+import { 
+  InfoFiMarketFactoryAbi, 
+  InfoFiPriceOracleAbi, 
+  InfoFiMarketAbi,
+  RaffleAbi,
+  ERC20Abi 
+} from '@/utils/abis';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 import { queryLogsInChunks, estimateBlockFromTimestamp } from '@/utils/blockRangeQuery';
@@ -30,30 +33,18 @@ export async function readBetFull({ marketId, account, prediction, networkKey = 
   const { market } = getContracts(networkKey);
   if (!market.address) throw new Error('INFOFI_MARKET address missing');
   const idU256 = toUint256Id(marketId);
-  // ABI fragment for getBet overloads
-  const GetBetAbi = [
-    { type: 'function', name: 'getBet', stateMutability: 'view', inputs: [
-      { name: 'marketId', type: 'uint256' }, { name: 'better', type: 'address' }, { name: 'prediction', type: 'bool' }
-    ], outputs: [{ name: '', type: 'tuple', components: [
-      { name: 'prediction', type: 'bool' }, { name: 'amount', type: 'uint256' }, { name: 'claimed', type: 'bool' }, { name: 'payout', type: 'uint256' }
-    ]}] },
-    { type: 'function', name: 'getBet', stateMutability: 'view', inputs: [
-      { name: 'marketId', type: 'uint256' }, { name: 'better', type: 'address' }
-    ], outputs: [{ name: '', type: 'tuple', components: [
-      { name: 'prediction', type: 'bool' }, { name: 'amount', type: 'uint256' }, { name: 'claimed', type: 'bool' }, { name: 'payout', type: 'uint256' }
-    ]}] },
-  ];
+  
   // Try explicit overload when prediction is provided
   if (typeof prediction === 'boolean') {
     try {
-      const bet = await publicClient.readContract({ address: market.address, abi: GetBetAbi, functionName: 'getBet', args: [idU256, getAddress(account), prediction] });
+      const bet = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'getBet', args: [idU256, getAddress(account), prediction] });
       const arr = Array.isArray(bet) ? bet : [bet.prediction, bet.amount, bet.claimed, bet.payout];
       return { prediction: Boolean(arr[0]), amount: BigInt(arr[1] ?? 0), claimed: Boolean(arr[2]), payout: BigInt(arr[3] ?? 0) };
     } catch (_) { /* fall through */ }
   }
   // Fallback to two-arg overload
   try {
-    const bet = await publicClient.readContract({ address: market.address, abi: GetBetAbi, functionName: 'getBet', args: [idU256, getAddress(account)] });
+    const bet = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'getBet', args: [idU256, getAddress(account)] });
     const arr = Array.isArray(bet) ? bet : [bet.prediction, bet.amount, bet.claimed, bet.payout];
     return { prediction: Boolean(arr[0]), amount: BigInt(arr[1] ?? 0), claimed: Boolean(arr[2]), payout: BigInt(arr[3] ?? 0) };
   } catch (e) {
@@ -67,29 +58,14 @@ export async function enumerateAllMarkets({ networkKey = 'LOCAL' }) {
   const { publicClient } = buildClients(networkKey);
   const { market } = getContracts(networkKey);
   if (!market.address) throw new Error('INFOFI_MARKET address missing');
-  // Minimal ABI for nextMarketId and getMarket
-  const abiMini = [
-    { type: 'function', name: 'nextMarketId', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
-    { type: 'function', name: 'getMarket', stateMutability: 'view', inputs: [{ name: 'marketId', type: 'uint256' }], outputs: [{
-      name: '', type: 'tuple', components: [
-        { name: 'id', type: 'uint256' },
-        { name: 'raffleId', type: 'uint256' },
-        { name: 'question', type: 'string' },
-        { name: 'createdAt', type: 'uint256' },
-        { name: 'resolvedAt', type: 'uint256' },
-        { name: 'locked', type: 'bool' },
-        { name: 'totalYesPool', type: 'uint256' },
-        { name: 'totalNoPool', type: 'uint256' },
-      ]
-    }] }
-  ];
-  const nextId = await publicClient.readContract({ address: market.address, abi: abiMini, functionName: 'nextMarketId', args: [] });
+  
+  const nextId = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'nextMarketId', args: [] });
   const count = typeof nextId === 'bigint' ? Number(nextId) : Number(nextId || 0);
   const out = [];
   for (let i = 0; i < count; i += 1) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      const info = await publicClient.readContract({ address: market.address, abi: abiMini, functionName: 'getMarket', args: [BigInt(i)] });
+      const info = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'getMarket', args: [BigInt(i)] });
       const raffleId = Number(info?.raffleId ?? (Array.isArray(info) ? info[1] : 0));
       out.push({ id: String(i), seasonId: raffleId, raffle_id: raffleId });
     } catch (_) { /* skip */ }
@@ -125,15 +101,15 @@ function getContracts(networkKey) {
   return {
     factory: {
       address: addrs.INFOFI_FACTORY,
-      abi: InfoFiMarketFactoryABI,
+      abi: InfoFiMarketFactoryAbi,
     },
     oracle: {
       address: addrs.INFOFI_ORACLE,
-      abi: InfoFiPriceOracleABI,
+      abi: InfoFiPriceOracleAbi,
     },
     market: {
       address: addrs.INFOFI_MARKET,
-      abi: InfoFiMarketABI,
+      abi: InfoFiMarketAbi,
     },
     sof: {
       address: addrs.SOF,
@@ -352,28 +328,16 @@ export async function listSeasonWinnerMarkets({ seasonId, networkKey = 'LOCAL' }
   
   // Fallback: derive from players and read uint256 IDs from factory mapping
   const { publicClient } = buildClients(networkKey);
-  const addrs = getContractAddresses(networkKey);
+  const { factory } = getContracts(networkKey);
   const players = await getSeasonPlayersOnchain({ seasonId, networkKey });
-  
-  // Minimal ABI to read winnerPredictionMarketIds mapping
-  const MarketIdMappingAbi = [{
-    type: 'function',
-    name: 'winnerPredictionMarketIds',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'seasonId', type: 'uint256' },
-      { name: 'player', type: 'address' }
-    ],
-    outputs: [{ name: 'marketId', type: 'uint256' }]
-  }];
   
   const markets = [];
   for (const p of players) {
     try {
       // Read the actual uint256 market ID from the factory mapping
       const marketId = await publicClient.readContract({
-        address: addrs.INFOFI_FACTORY,
-        abi: MarketIdMappingAbi,
+        address: factory.address,
+        abi: factory.abi,
         functionName: 'winnerPredictionMarketIds',
         args: [BigInt(seasonId), getAddress(p)]
       });
@@ -407,30 +371,9 @@ async function getSeasonStartBlock({ seasonId, networkKey = 'LOCAL' }) {
   
   // Try to get season start time from Raffle contract
   try {
-    const RaffleMinimalAbi = [
-      {
-        type: 'function',
-        name: 'getSeasonDetails',
-        stateMutability: 'view',
-        inputs: [{ name: 'seasonId', type: 'uint256' }],
-        outputs: [
-          { name: 'config', type: 'tuple', components: [
-            { name: 'startTime', type: 'uint256' },
-            { name: 'endTime', type: 'uint256' },
-            { name: 'bondingCurve', type: 'address' },
-            { name: 'isActive', type: 'bool' }
-          ]},
-          { name: 'status', type: 'uint8' },
-          { name: 'totalParticipants', type: 'uint256' },
-          { name: 'totalTickets', type: 'uint256' },
-          { name: 'totalPrizePool', type: 'uint256' }
-        ]
-      }
-    ];
-    
     const result = await publicClient.readContract({
       address: addrs.RAFFLE,
-      abi: RaffleMinimalAbi,
+      abi: RaffleAbi,
       functionName: 'getSeasonDetails',
       args: [BigInt(seasonId)]
     });
@@ -464,7 +407,7 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
   const fromBlock = await getSeasonStartBlock({ seasonId, networkKey });
   
   // Build event filter
-  const eventAbi = InfoFiMarketFactoryABI.find((e) => e.type === 'event' && e.name === 'MarketCreated');
+  const eventAbi = InfoFiMarketFactoryAbi.find((e) => e.type === 'event' && e.name === 'MarketCreated');
   
   // Use chunked query to avoid RPC limits
   const logs = await queryLogsInChunks(
@@ -481,18 +424,6 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
     },
     10000n // Max 10k blocks per chunk (safe for most RPC providers)
   );
-
-  // Minimal ABI to read winnerPredictionMarketIds mapping
-  const MarketIdMappingAbi = [{
-    type: 'function',
-    name: 'winnerPredictionMarketIds',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'seasonId', type: 'uint256' },
-      { name: 'player', type: 'address' }
-    ],
-    outputs: [{ name: 'marketId', type: 'uint256' }]
-  }];
 
   const out = [];
   for (const log of logs) {
@@ -513,7 +444,7 @@ export async function listSeasonWinnerMarketsByEvents({ seasonId, networkKey = '
       try {
         marketId = await publicClient.readContract({
           address: factory.address,
-          abi: MarketIdMappingAbi,
+          abi: factory.abi,
           functionName: 'winnerPredictionMarketIds',
           args: [BigInt(sid), getAddress(player)]
         });
@@ -547,42 +478,10 @@ export async function readBet({ marketId, account, prediction, networkKey = 'LOC
   if (!market.address) throw new Error('INFOFI_MARKET address missing');
   const idB32 = toBytes32Id(marketId);
   const idU256 = toUint256Id(marketId);
-  // Minimal ABI exactly matching cast: bets(uint256,address,bool) -> (bool exists, uint256 amount, ...)
-  const BetsMiniAbiU256 = [
-    {
-      type: 'function',
-      name: 'bets',
-      stateMutability: 'view',
-      inputs: [
-        { name: 'marketId', type: 'uint256', internalType: 'uint256' },
-        { name: 'user', type: 'address', internalType: 'address' },
-        { name: 'isYes', type: 'bool', internalType: 'bool' }
-      ],
-      outputs: [
-        { name: 'exists', type: 'bool', internalType: 'bool' },
-        { name: 'amount', type: 'uint256', internalType: 'uint256' }
-      ]
-    }
-  ];
-  const BetsMiniAbiB32 = [
-    {
-      type: 'function',
-      name: 'bets',
-      stateMutability: 'view',
-      inputs: [
-        { name: 'marketId', type: 'bytes32', internalType: 'bytes32' },
-        { name: 'user', type: 'address', internalType: 'address' },
-        { name: 'isYes', type: 'bool', internalType: 'bool' }
-      ],
-      outputs: [
-        { name: 'exists', type: 'bool', internalType: 'bool' },
-        { name: 'amount', type: 'uint256', internalType: 'uint256' }
-      ]
-    }
-  ];
+  
   // Primary mapping name
   try {
-    const out = await publicClient.readContract({ address: market.address, abi: BetsMiniAbiU256, functionName: 'bets', args: [idU256, getAddress(account), Boolean(prediction)] });
+    const out = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'bets', args: [idU256, getAddress(account), Boolean(prediction)] });
     // Normalize return
     if (typeof out === 'bigint') return { amount: out };
     if (out && typeof out === 'object') {
@@ -627,7 +526,7 @@ export async function readBet({ marketId, account, prediction, networkKey = 'LOC
     }
     // Try bytes32 id variants
     try {
-      const res = await publicClient.readContract({ address: market.address, abi: BetsMiniAbiB32, functionName: 'bets', args: [idB32, getAddress(account), Boolean(prediction)] });
+      const res = await publicClient.readContract({ address: market.address, abi: market.abi, functionName: 'bets', args: [idB32, getAddress(account), Boolean(prediction)] });
       if (typeof res === 'bigint') return { amount: res };
       if (res && typeof res === 'object') {
         if (typeof res.amount === 'bigint') return { amount: res.amount };

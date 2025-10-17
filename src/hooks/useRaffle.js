@@ -5,8 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import RaffleAbi from '@/contracts/abis/Raffle.json';
-import ERC20Abi from '@/contracts/abis/ERC20.json';
+import { RaffleAbi, ERC20Abi, RafflePositionTrackerAbi, SOFBondingCurveAbi } from '@/utils/abis';
 
 /**
  * Hook for interacting with the Raffle contract
@@ -247,51 +246,6 @@ export function useRaffle(seasonId) {
   };
 }
 
-// Placeholder for RaffleTrackerAbi - replace with actual ABI
-const RaffleTrackerAbi = [
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "seasonId", "type": "uint256" },
-      { "internalType": "address", "name": "player", "type": "address" }
-    ],
-    "name": "getPosition",
-    "outputs": [
-      {
-        "components": [
-          { "internalType": "uint256", "name": "ticketCount", "type": "uint256" },
-          { "internalType": "uint256", "name": "startRange", "type": "uint256" }
-        ],
-        "internalType": "struct RafflePositionTracker.Position",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "seasonId", "type": "uint256" }
-    ],
-    "name": "getTotalTickets",
-    "outputs": [
-      { "internalType": "uint256", "name": "", "type": "uint256" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
-
-// Placeholder for CurveAbi - replace with actual ABI
-const CurveAbi = [
-  {
-    "inputs": [
-      { "internalType": "uint256", "name": "amount", "type": "uint256" },
-      { "internalType": "uint256", "name": "maxCost", "type": "uint256" }
-    ],
-    "name": "buyTokens",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+// Note: These ABIs are now imported from the centralized utility
+// import { RafflePositionTrackerAbi, SOFBondingCurveAbi } from '@/utils/abis';
+// Keeping placeholder comments for reference during migration

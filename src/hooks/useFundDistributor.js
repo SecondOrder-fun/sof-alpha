@@ -232,7 +232,9 @@ const useFundDistributor = ({
         setEndStatus(`Fulfilling VRF request ${requestId}...`);
         
         try {
-          const vrfAbi = [
+          // Note: VRF Coordinator ABI is external (Chainlink), not part of our contracts
+          // We keep this minimal ABI inline as it's not auto-generated
+          const vrfCoordinatorAbi = [
             {
               type: "function",
               name: "fulfillRandomWords",
@@ -247,7 +249,7 @@ const useFundDistributor = ({
           
           const hash = await walletClient.writeContract({
             address: vrfCoordinatorAddr,
-            abi: vrfAbi,
+            abi: vrfCoordinatorAbi,
             functionName: "fulfillRandomWords",
             args: [requestId, raffleAddr],
             account

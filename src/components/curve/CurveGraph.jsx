@@ -6,6 +6,7 @@ import { createPublicClient, formatUnits, http } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
+import { ERC20Abi } from '@/utils/abis';
 
 /**
  * BondingCurvePanel
@@ -29,9 +30,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
           chain: { id: net.id, name: net.name, nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [net.rpcUrl] } } },
           transport: http(net.rpcUrl),
         });
-        // Minimal ERC20 decimals() ABI fragment
-        const erc20DecimalsAbi = [{ type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint8' }] }];
-        const dec = await client.readContract({ address: SOF, abi: erc20DecimalsAbi, functionName: 'decimals', args: [] });
+        const dec = await client.readContract({ address: SOF, abi: ERC20Abi, functionName: 'decimals', args: [] });
         if (!cancelled) setSofDecimals(Number(dec || 18));
       } catch (_) {
         // fallback to 18

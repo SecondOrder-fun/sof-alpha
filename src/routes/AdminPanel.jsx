@@ -16,79 +16,13 @@ import {
 } from "@/components/ui/card";
 import { keccak256, stringToHex } from "viem";
 import { getContractAddresses } from "@/config/contracts";
+import { RaffleAbi } from "@/utils/abis";
 
 // Import refactored components
 import TransactionStatus from "@/components/admin/TransactionStatus";
 import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
 import SeasonList from "@/components/admin/SeasonList";
 import useFundDistributor from "@/hooks/useFundDistributor";
-
-// Minimal ABIs used for local E2E resolution
-// IMPORTANT: This ABI must match the actual Raffle.sol contract interface
-const RaffleMiniAbi = [
-  {
-    type: "function",
-    name: "requestSeasonEnd",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "requestSeasonEndEarly",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "getSeasonDetails",
-    stateMutability: "view",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [
-      {
-        name: "config",
-        type: "tuple",
-        components: [
-          { name: "name", type: "string" },
-          { name: "startTime", type: "uint256" },
-          { name: "endTime", type: "uint256" },
-          { name: "winnerCount", type: "uint16" },
-          { name: "grandPrizeBps", type: "uint16" },
-          { name: "raffleToken", type: "address" },
-          { name: "bondingCurve", type: "address" },
-          { name: "isActive", type: "bool" },
-          { name: "isCompleted", type: "bool" },
-        ],
-      },
-      { name: "status", type: "uint8" },
-      { name: "totalParticipants", type: "uint256" },
-      { name: "totalTickets", type: "uint256" },
-      { name: "totalPrizePool", type: "uint256" },
-    ],
-  },
-  {
-    type: "function",
-    name: "getVrfRequestForSeason",
-    stateMutability: "view",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "fundPrizeDistributor",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "getWinners",
-    stateMutability: "view",
-    inputs: [{ name: "seasonId", type: "uint256" }],
-    outputs: [{ name: "winners", type: "address[]" }],
-  },
-];
 
 function AdminPanel() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
@@ -197,7 +131,7 @@ function AdminPanel() {
     setEndStatus,
     setVerify,
     allSeasonsQuery,
-    RaffleMiniAbi,
+    raffleAbi: RaffleAbi,
   });
 
   if (isAdminLoading || isCreatorLoading || isEmergencyLoading) {

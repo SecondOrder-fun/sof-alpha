@@ -4,6 +4,7 @@ import { createPublicClient, http } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
+import { ERC20Abi } from '@/utils/abis';
 
 /**
  * useSofDecimals
@@ -24,8 +25,7 @@ export function useSofDecimals() {
           chain: { id: net.id, name: net.name, nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [net.rpcUrl] } } },
           transport: http(net.rpcUrl),
         });
-        const erc20DecimalsAbi = [{ type: 'function', name: 'decimals', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint8' }] }];
-        const d = await client.readContract({ address: SOF, abi: erc20DecimalsAbi, functionName: 'decimals', args: [] });
+        const d = await client.readContract({ address: SOF, abi: ERC20Abi, functionName: 'decimals', args: [] });
         if (mounted) setDecimals(Number(d || 18));
       } catch (_) {
         if (mounted) setDecimals(18);

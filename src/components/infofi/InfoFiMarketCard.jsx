@@ -11,9 +11,10 @@ import { useAccount } from 'wagmi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { placeBetTx, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
 import { buildMarketTitleParts } from '@/lib/marketTitle';
-import { useToast } from '@/hooks/useToast';
+import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
+import { InfoFiMarketAbi } from '@/utils/abis';
 import ERC20Abi from '@/contracts/abis/ERC20.json';
 import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
 import { createPublicClient, http, getAddress, formatUnits } from 'viem';
@@ -113,28 +114,7 @@ const InfoFiMarketCard = ({ market }) => {
   const publicClient = React.useMemo(() => createPublicClient({ chain: { id: net.id }, transport: http(net.rpcUrl) }), [net.id, net.rpcUrl]);
   const [derivedMid, setDerivedMid] = React.useState(null);
 
-  // Minimal ABI for getMarket -> MarketInfo with totalYesPool/totalNoPool
-  const MarketInfoMiniAbi = React.useMemo(() => ([{
-    type: 'function',
-    name: 'getMarket',
-    stateMutability: 'view',
-    inputs: [{ name: 'marketId', type: 'uint256', internalType: 'uint256' }],
-    outputs: [{
-      name: '',
-      type: 'tuple',
-      internalType: 'struct InfoFiMarket.MarketInfo',
-      components: [
-        { name: 'id', type: 'uint256', internalType: 'uint256' },
-        { name: 'raffleId', type: 'uint256', internalType: 'uint256' },
-        { name: 'question', type: 'string', internalType: 'string' },
-        { name: 'createdAt', type: 'uint256', internalType: 'uint256' },
-        { name: 'resolvedAt', type: 'uint256', internalType: 'uint256' },
-        { name: 'locked', type: 'bool', internalType: 'bool' },
-        { name: 'totalYesPool', type: 'uint256', internalType: 'uint256' },
-        { name: 'totalNoPool', type: 'uint256', internalType: 'uint256' }
-      ]
-    }]
-  }]), []);
+  // Use centralized ABI for market info
 
   React.useEffect(() => {
     // Simply use the market.id directly - it should now be a proper uint256 string
@@ -224,7 +204,7 @@ const InfoFiMarketCard = ({ market }) => {
     queryKey: ['infofiMarketInfo', effectiveMarketId],
     enabled: !!effectiveMarketId && !!addrs.INFOFI_MARKET,
     queryFn: async () => {
-      const info = await publicClient.readContract({ address: addrs.INFOFI_MARKET, abi: MarketInfoMiniAbi, functionName: 'getMarket', args: [BigInt(effectiveMarketId)] });
+      const info = await publicClient.readContract({ address: addrs.INFOFI_MARKET, abi: InfoFiMarketAbi, functionName: 'getMarket', args: [BigInt(effectiveMarketId)] });
       // Viem returns tuple as array with named props; normalize
       const yes = info?.totalYesPool ?? (Array.isArray(info) ? info[6] : 0n);
       const no = info?.totalNoPool ?? (Array.isArray(info) ? info[7] : 0n);
