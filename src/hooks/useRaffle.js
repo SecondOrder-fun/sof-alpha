@@ -2,10 +2,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { RaffleAbi, ERC20Abi, RafflePositionTrackerAbi, SOFBondingCurveAbi } from '@/utils/abis';
+
+// Create aliases for consistency with code usage
+const RaffleTrackerAbi = RafflePositionTrackerAbi;
+const CurveAbi = SOFBondingCurveAbi;
 
 /**
  * Hook for interacting with the Raffle contract
@@ -90,7 +93,7 @@ export function useRaffle(seasonId) {
           isResolved: Number(state) === 3
         };
       } catch (err) {
-        console.error('Error fetching season details:', err);
+        // Error fetching season details - return null to allow retry
         return null;
       }
     },
@@ -136,7 +139,7 @@ export function useRaffle(seasonId) {
           probability: totalTicketsNum > 0 ? (ticketCount / totalTicketsNum) * 100 : 0
         };
       } catch (err) {
-        console.error('Error fetching user position:', err);
+        // Error fetching user position - return default values
         return { ticketCount: 0, startRange: 0, probability: 0 };
       }
     },
@@ -173,7 +176,7 @@ export function useRaffle(seasonId) {
         
         return winners;
       } catch (err) {
-        console.error('Error fetching winners:', err);
+        // Error fetching winners - return empty array
         return [];
       }
     },

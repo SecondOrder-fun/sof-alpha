@@ -129,12 +129,12 @@ contract InfoFiCSMMIntegrationTest is Test {
         vm.startPrank(user1);
         sof.approve(address(csmm), 10e18);
         csmm.buyShares(playerId1, true, 2e18, 2e18); // Bet on player1 winning
-        
+        vm.stopPrank();
         
         vm.startPrank(user2);
         sof.approve(address(csmm), 10e18);
         csmm.buyShares(playerId2, true, 1e18, 1e18); // Bet on player2 winning
-        
+        vm.stopPrank();
         
         // Raffle resolves with player1 as winner
         vm.prank(raffle);
@@ -168,7 +168,7 @@ contract InfoFiCSMMIntegrationTest is Test {
         vm.startPrank(user1);
         sof.approve(address(csmm), 3e18);
         csmm.buyShares(playerId1, true, 3e18, 3e18);
-        
+        vm.stopPrank();
         
         // Raffle resolves with player1 as winner
         vm.prank(raffle);
@@ -255,7 +255,7 @@ contract InfoFiCSMMIntegrationTest is Test {
         vm.startPrank(user1);
         sof.approve(address(csmm), 2e18);
         csmm.buyShares(playerId1, true, 2e18, 2e18);
-        
+        vm.stopPrank();
         
         // Check prices changed
         uint256 price1After = csmm.getPrice(playerId1, true);

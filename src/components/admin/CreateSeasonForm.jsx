@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { getNetworkByKey } from '@/config/networks';
 import { ERC20Abi } from '@/utils/abis';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
+import TransactionStatus from "@/components/admin/TransactionStatus";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
 const fmtLocalDatetime = (sec) => {
@@ -128,7 +128,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         priceScaled: priceScaledBig.toString(),
       };
     });
-    setBondStepsText(safeStringify(arr));
+    setBondStepsText(JSON.stringify(arr, null, 2));
   }, [maxTickets, numSteps, basePrice, priceDelta, sofDecimals]);
 
   // Handle form errors from mutation
