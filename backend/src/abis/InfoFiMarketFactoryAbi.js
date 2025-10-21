@@ -7,6 +7,7 @@ export default [
       { indexed: true, internalType: 'uint256', name: 'seasonId', type: 'uint256' },
       { indexed: true, internalType: 'address', name: 'player', type: 'address' },
       { indexed: true, internalType: 'bytes32', name: 'marketType', type: 'bytes32' },
+      { indexed: false, internalType: 'uint256', name: 'marketId', type: 'uint256' },
       { indexed: false, internalType: 'uint256', name: 'probabilityBps', type: 'uint256' },
       { indexed: false, internalType: 'address', name: 'marketAddress', type: 'address' }
     ],

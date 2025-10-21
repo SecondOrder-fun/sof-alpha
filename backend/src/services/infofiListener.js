@@ -33,41 +33,41 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
           // marketType is bytes32; we treat winner prediction as constant string
           const MARKET_TYPE = 'WINNER_PREDICTION';
 
-          // Idempotency: skip if exists (using player_address as primary identifier)
-          const exists = await db.hasInfoFiMarket(seasonId, player, MARKET_TYPE);
+          // Get or create player record FIRST (needed for foreign key)
+          const playerId = await db.getOrCreatePlayerIdByAddress(player);
+
+          // Idempotency: skip if exists (using player_id as primary identifier)
+          const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
           if (exists) {
             logger.debug(`[infofiListener] Market already exists for season ${seasonId}, player ${player}`);
             continue;
           }
 
-          // Create market using player_address as primary identifier
+          // Create market using player_id
           const market = await db.createInfoFiMarket({
-            season_id: seasonId,
-            player_address: player,
+            raffle_id: seasonId,
+            player_id: playerId,
             market_type: MARKET_TYPE,
-            initial_probability_bps: probabilityBps,
-            current_probability_bps: probabilityBps,
+            initial_probability: probabilityBps,
+            current_probability: probabilityBps,
             is_active: true,
             is_settled: false
           });
 
-          // Optionally create player record for future features (non-blocking)
+          // Initialize pricing cache
           try {
-            await db.getOrCreatePlayerIdByAddress(player);
-          } catch (playerErr) {
-            logger.warn(`[infofiListener] Failed to create player record for ${player}:`, playerErr.message);
-            // Non-critical: continue even if player record creation fails
+            await db.upsertMarketPricingCache({
+              market_id: market.id,
+              raffle_probability: probabilityBps,
+              market_sentiment: probabilityBps,
+              hybrid_price: probabilityBps / 10000,
+              raffle_weight: 7000,
+              market_weight: 3000,
+              last_updated: new Date().toISOString()
+            });
+          } catch (cacheErr) {
+            logger.warn(`[infofiListener] Failed to initialize pricing cache for market ${market.id}:`, cacheErr.message);
           }
-
-          await db.upsertMarketPricingCache({
-            market_id: market.id,
-            raffle_probability_bps: probabilityBps,
-            market_sentiment_bps: probabilityBps,
-            hybrid_price_bps: probabilityBps,
-            raffle_weight_bps: 7000,
-            market_weight_bps: 3000,
-            last_updated: new Date().toISOString()
-          });
 
           logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
         } catch (e) {

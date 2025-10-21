@@ -28,7 +28,13 @@ const contractsToCopy = [
   { sourceFile: 'InfoFiMarketFactory.sol/InfoFiMarketFactory.json', destFile: 'InfoFiMarketFactory.json' },
   { sourceFile: 'InfoFiPriceOracle.sol/InfoFiPriceOracle.json', destFile: 'InfoFiPriceOracle.json' },
   { sourceFile: 'InfoFiSettlement.sol/InfoFiSettlement.json', destFile: 'InfoFiSettlement.json' },
-  { sourceFile: 'SeasonCSMM.sol/SeasonCSMM.json', destFile: 'SeasonCSMM.json' },
+  
+  // InfoFi FPMM (V2)
+  { sourceFile: 'RaffleOracleAdapter.sol/RaffleOracleAdapter.json', destFile: 'RaffleOracleAdapter.json' },
+  { sourceFile: 'InfoFiFPMMV2.sol/InfoFiFPMMV2.json', destFile: 'InfoFiFPMMV2.json' },
+  { sourceFile: 'InfoFiFPMMV2.sol/SimpleFPMM.json', destFile: 'SimpleFPMM.json' },
+  { sourceFile: 'InfoFiFPMMV2.sol/SOLPToken.json', destFile: 'SOLPToken.json' },
+  { sourceFile: 'ConditionalTokensMock.sol/ConditionalTokensMock.json', destFile: 'ConditionalTokensMock.json' },
 
   // Position tracker
   { sourceFile: 'RafflePositionTracker.sol/RafflePositionTracker.json', destFile: 'RafflePositionTracker.json' },

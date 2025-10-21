@@ -7,11 +7,12 @@ import { useHybridPriceLive } from '@/hooks/useHybridPriceLive';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/useToast';
 import { useAccount } from 'wagmi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { placeBetTx, readBet, claimPayoutTx } from '@/services/onchainInfoFi';
+import { placeBetTx, readBet } from '@/services/onchainInfoFi';
 import { buildMarketTitleParts } from '@/lib/marketTitle';
-import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { getContractAddresses } from '@/config/contracts';
 import { InfoFiMarketAbi } from '@/utils/abis';
@@ -36,6 +37,9 @@ const InfoFiMarketCard = ({ market }) => {
   const parts = buildMarketTitleParts(market);
   const title = market?.question || market?.market_type || t('market');
   const { isConnected, address } = useAccount();
+  
+  // Show skeleton if player data is not yet loaded
+  const isLoadingPlayer = market.market_type === 'WINNER_PREDICTION' && !market.player;
   const qc = useQueryClient();
   const { toast } = useToast();
   // Live price (hybrid feed via backend listeners)
@@ -55,6 +59,9 @@ const InfoFiMarketCard = ({ market }) => {
 
   const initialHybrid = normalizeBps(market?.current_probability);
   const [bps, setBps] = React.useState({ hybrid: initialHybrid, raffle: null, market: null });
+  
+  // Check if oracle data is initialized (must be after bps state declaration)
+  const isLoadingOracle = isWinnerPrediction && bps.raffle === null && bps.hybrid === null;
   const { data: priceData } = useHybridPriceLive(market?.id);
   React.useEffect(() => {
     const fallbackHybrid = normalizeBps(market?.current_probability);
@@ -222,26 +229,6 @@ const InfoFiMarketCard = ({ market }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, effectiveMarketId]);
 
-  const claimYes = useMutation({
-    mutationFn: () => claimPayoutTx({ marketId: effectiveMarketId, prediction: true }),
-    onSuccess: (hash) => {
-      qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, true] });
-      toast({ title: t('claimSuccessful'), description: t('yesPayoutClaimed', { hash: String(hash) }) });
-    },
-    onError: (e) => {
-      toast({ title: t('claimFailed'), description: e?.message || t('transactionError'), variant: 'destructive' });
-    }
-  });
-  const claimNo = useMutation({
-    mutationFn: () => claimPayoutTx({ marketId: effectiveMarketId, prediction: false }),
-    onSuccess: (hash) => {
-      qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, false] });
-      toast({ title: t('claimSuccessful'), description: t('noPayoutClaimed', { hash: String(hash) }) });
-    },
-    onError: (e) => {
-      toast({ title: t('claimFailed'), description: e?.message || t('transactionError'), variant: 'destructive' });
-    }
-  });
   const noPos = useQuery({
     queryKey: ['infofiBet', effectiveMarketId, address, false],
     enabled: !!address && !!effectiveMarketId,
@@ -271,58 +258,30 @@ const InfoFiMarketCard = ({ market }) => {
   });
 
   // Calculate probability directly from ticket balances when oracle is unavailable
-  const directProbabilityBps = React.useMemo(() => {
-    if (!isWinnerPrediction || playerTicketBalance?.data == null || totalTicketSupply == null) {
-      return null;
-    }
-    if (totalTicketSupply === 0n) return 0;
-
-    const playerBalance = playerTicketBalance.data;
-    const totalSupply = totalTicketSupply;
-
-    // Calculate basis points: (playerBalance / totalSupply) * 10000
-    const bps = Number((playerBalance * 10000n) / totalSupply);
-    return Math.max(0, Math.min(10000, bps));
-  }, [isWinnerPrediction, playerTicketBalance?.data, totalTicketSupply]);
-
   // Display percent: Show actual raffle odds (what users see)
+  // ONLY use raffle probability from oracle - no fallbacks
+  // If oracle data not available, component shows skeleton (via isLoadingOracle check)
   const percent = React.useMemo(() => {
-    // Priority 1: Raffle probability from oracle (actual win chance, not hybrid price)
-    // Display the actual raffle odds to users, not the hybrid price
-    // Accept 0 as valid probability (player could have 0% chance)
     if (bps.raffle != null) {
       const normalized = Math.max(0, Math.min(10000, bps.raffle));
       return (normalized / 100).toFixed(1);
     }
-    
-    // Priority 2: Direct calculation from player balance (fallback when oracle unavailable)
-    if (directProbabilityBps != null) {
-      return (Math.max(0, Math.min(10000, directProbabilityBps)) / 100).toFixed(1);
-    }
-    
-    // Priority 3: Inline calculation as last resort
-    if (totalTicketSupply && totalTicketSupply > 0n) {
-      const playerBal = playerTicketBalance?.data;
-      if (typeof playerBal === 'bigint' && playerBal >= 0n) {
-        const bpsValue = Number((playerBal * 10000n) / totalTicketSupply);
-        return (Math.max(0, Math.min(10000, bpsValue)) / 100).toFixed(1);
-      }
-    }
-    
-    // Fallback: 0%
-    return '0.0';
-  }, [bps.raffle, directProbabilityBps, playerTicketBalance?.data, totalTicketSupply]);
+    // No fallbacks - if raffle probability not available, return null
+    // Component will show skeleton until oracle initializes
+    return null;
+  }, [bps.raffle]);
 
   // Payout percent: Use hybrid price (determines actual payout odds)
+  // Hybrid price = 70% raffle + 30% market sentiment
   const payoutPercent = React.useMemo(() => {
-    // Use hybrid price for payout calculations
     if (bps.hybrid != null) {
       const normalized = Math.max(0, Math.min(10000, bps.hybrid));
       return (normalized / 100).toFixed(1);
     }
-    // Fallback to display percent if hybrid not available
-    return percent;
-  }, [bps.hybrid, percent]);
+    // No fallback - if hybrid price not available, return null
+    // Component will show skeleton until oracle initializes
+    return null;
+  }, [bps.hybrid]);
 
   // Calculate payout for a given bet amount (uses hybrid price)
   const calculatePayout = React.useCallback((betAmount, isYes) => {
@@ -380,29 +339,70 @@ DebugInfoFiPanel.propTypes = {
 };
 
 
+  // Show skeleton loading state if player data is missing OR oracle not initialized
+  if (isLoadingPlayer || isLoadingOracle) {
+    return (
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-32 w-full rounded-lg" />
+            <Skeleton className="h-32 w-full rounded-lg" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
       {/* Polymarket-style header with market question */}
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium leading-tight">
-          {isWinnerPrediction ? (
-            <span className="flex flex-col gap-1">
-              <span className="text-base">
-                {parts.prefix}{" "}
-                <UsernameDisplay 
-                  address={market.player}
-                  linkTo={`/users/${market.player}`}
-                  className="font-semibold"
-                />
+        <Link to={`/markets/${market.id}`} className="block">
+          <CardTitle className="text-sm font-medium leading-tight cursor-pointer">
+            {isWinnerPrediction ? (
+              <span className="flex flex-col gap-1">
+                <span className="text-base">
+                  {parts.prefix}{" "}
+                  <span 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.location.href = `/users/${market.player}`;
+                    }}
+                    className="font-semibold hover:underline cursor-pointer"
+                  >
+                    <UsernameDisplay 
+                      address={market.player}
+                      className="font-semibold"
+                    />
+                  </span>
+                </span>
+                <span 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.location.href = `/raffles/${seasonId}`;
+                  }}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                >
+                  {parts.seasonLabel}
+                </span>
               </span>
-              <Link to={`/raffles/${seasonId}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                {parts.seasonLabel}
-              </Link>
-            </span>
-          ) : (
-            title
-          )}
-        </CardTitle>
+            ) : (
+              title
+            )}
+          </CardTitle>
+        </Link>
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
@@ -552,37 +552,6 @@ DebugInfoFiPanel.propTypes = {
           </div>
         </div>
 
-        {/* Claims - only show if there are claimable positions */}
-        {isConnected && (() => {
-          const yesAmt = (() => { try { const v = yesPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
-          const noAmt = (() => { try { const v = noPos.data; return (typeof v === 'bigint') ? v : (v?.amount ?? 0n); } catch { return 0n; } })();
-          const hasPosition = yesAmt > 0n || noAmt > 0n;
-          
-          if (!hasPosition) return null;
-          
-          return (
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-              <Button 
-                variant="outline" 
-                size="sm"
-                disabled={claimYes.isPending || yesAmt === 0n} 
-                onClick={() => claimYes.mutate()}
-                className="text-xs"
-              >
-                {claimYes.isPending ? t('claimingYes') : t('claimYes')}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                disabled={claimNo.isPending || noAmt === 0n} 
-                onClick={() => claimNo.mutate()}
-                className="text-xs"
-              >
-                {claimNo.isPending ? t('claimingNo') : t('claimNo')}
-              </Button>
-            </div>
-          );
-        })()}
       </CardContent>
     </Card>
   );

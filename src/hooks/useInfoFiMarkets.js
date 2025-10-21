@@ -1,48 +1,33 @@
 // src/hooks/useInfoFiMarkets.js
-// React Query hook for fetching InfoFi markets list directly from blockchain
+// React Query hook for fetching InfoFi markets list from backend API
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { listSeasonWinnerMarkets, enumerateAllMarkets } from '@/services/onchainInfoFi'
-import { getStoredNetworkKey } from '@/lib/wagmi'
 
 /**
- * Fetch markets directly from blockchain for all active seasons
+ * Fetch markets from backend API (synced from blockchain)
+ * This ensures we use database IDs for routing consistency
  * @param {Array} seasons - Array of season objects with id property
  * @returns {Promise<Object>} markets grouped by seasonId
  */
-async function fetchMarketsOnchain(seasons) {
-  const networkKey = getStoredNetworkKey()
+async function fetchMarketsFromAPI(seasons) {
   const marketsBySeason = {}
   
-  // If no seasons provided, try to enumerate all markets as fallback
-  if (!seasons || seasons.length === 0) {
-    try {
-      const allMarkets = await enumerateAllMarkets({ networkKey })
-      // Group by seasonId
-      for (const market of allMarkets) {
-        const seasonId = String(market.seasonId || market.raffle_id || '0')
-        if (!marketsBySeason[seasonId]) {
-          marketsBySeason[seasonId] = []
-        }
-        marketsBySeason[seasonId].push(market)
-      }
-      return marketsBySeason
-    } catch (_error) {
-      // Failed to enumerate markets, return empty object
-      return {}
-    }
-  }
+  // If no seasons provided, fetch for default season 1
+  const seasonsToFetch = seasons && seasons.length > 0 ? seasons : [{ id: 1 }]
   
-  // Fetch markets for each season
-  for (const season of seasons) {
-    const seasonId = String(season.id || season.seasonId || '0')
+  // Fetch markets for each season from backend API
+  for (const season of seasonsToFetch) {
+    const seasonId = String(season.id || season.seasonId || '1')
     try {
-      const markets = await listSeasonWinnerMarkets({ 
-        seasonId, 
-        networkKey 
-      })
-      if (markets && markets.length > 0) {
-        marketsBySeason[seasonId] = markets
+      const response = await fetch(`/api/infofi/markets?seasonId=${seasonId}`)
+      if (!response.ok) {
+        continue // Skip this season if fetch fails
+      }
+      const data = await response.json()
+      
+      // API returns { markets: { "1": [...], "2": [...] } }
+      if (data.markets && data.markets[seasonId]) {
+        marketsBySeason[seasonId] = data.markets[seasonId]
       }
     } catch (_error) {
       // Failed to fetch markets for this season, continue with others
@@ -55,14 +40,14 @@ async function fetchMarketsOnchain(seasons) {
 /**
  * useInfoFiMarkets
  * Wraps React Query to provide markets list with caching and refetching.
- * Now queries directly from blockchain instead of backend API.
+ * Fetches from backend API (synced from blockchain) to ensure database ID consistency.
  * 
  * @param {Array} seasons - Optional array of seasons to fetch markets for
  */
 export function useInfoFiMarkets(seasons = []) {
   const query = useQuery({
-    queryKey: ['infofi', 'markets', 'onchain', seasons.map(s => s.id).join(',')],
-    queryFn: () => fetchMarketsOnchain(seasons),
+    queryKey: ['infofi', 'markets', 'api', seasons.map(s => s.id).join(',')],
+    queryFn: () => fetchMarketsFromAPI(seasons),
     staleTime: 10_000,
     refetchInterval: 10_000,
     enabled: true, // Always enabled, will use fallback if no seasons

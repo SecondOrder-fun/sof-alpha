@@ -9,6 +9,9 @@ import "../src/infofi/InfoFiMarket.sol";
 import "../src/infofi/InfoFiMarketFactory.sol";
 import "../src/infofi/InfoFiPriceOracle.sol";
 import "../src/infofi/InfoFiSettlement.sol";
+import "../src/infofi/RaffleOracleAdapter.sol";
+import "../src/infofi/InfoFiFPMMV2.sol";
+import "../src/mocks/ConditionalTokensMock.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
@@ -101,19 +104,61 @@ contract DeployScript is Script {
             console2.log("Skipping PRICE_UPDATER_ROLE grant to InfoFiMarket (not admin or already granted)");
         }
 
-        // Deploy InfoFiMarketFactory with raffle read addr, oracle, shared market, and SOF bet token; admin = deployer
-        console2.log("Deploying InfoFiMarketFactory...");
+        // Deploy ConditionalTokens Mock for local testing
+        console2.log("Deploying ConditionalTokensMock...");
+        ConditionalTokensMock conditionalTokens = new ConditionalTokensMock();
+        console2.log("ConditionalTokensMock deployed at:", address(conditionalTokens));
+
+        // Deploy RaffleOracleAdapter
+        console2.log("Deploying RaffleOracleAdapter...");
+        RaffleOracleAdapter oracleAdapter = new RaffleOracleAdapter(
+            address(conditionalTokens),
+            deployerAddr  // Admin & resolver
+        );
+        console2.log("RaffleOracleAdapter deployed at:", address(oracleAdapter));
+
+        // Deploy InfoFiFPMMV2
+        console2.log("Deploying InfoFiFPMMV2...");
+        InfoFiFPMMV2 fpmmManager = new InfoFiFPMMV2(
+            address(conditionalTokens),
+            address(sof),      // Collateral token
+            deployerAddr,      // Treasury
+            deployerAddr       // Admin
+        );
+        console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
+
+        // Deploy InfoFiMarketFactory (V2 with FPMM)
+        console2.log("Deploying InfoFiMarketFactory (V2 with FPMM)...");
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
-            address(raffle), address(infoFiOracle), address(infoFiMarket), address(sof), deployerAddr
+            address(raffle),
+            address(infoFiOracle),
+            address(oracleAdapter),
+            address(fpmmManager),
+            address(sof),
+            deployerAddr,      // Treasury
+            deployerAddr       // Admin
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
-        // Grant OPERATOR_ROLE on InfoFiMarket to the factory so it can create markets
-        try infoFiMarket.grantRole(infoFiMarket.OPERATOR_ROLE(), address(infoFiFactory)) {
-            console2.log("Granted OPERATOR_ROLE to factory on InfoFiMarket");
+        // Grant RESOLVER_ROLE on oracleAdapter to factory
+        try oracleAdapter.grantRole(oracleAdapter.RESOLVER_ROLE(), address(infoFiFactory)) {
+            console2.log("Granted RESOLVER_ROLE to factory on RaffleOracleAdapter");
         } catch {
-            console2.log("Skipping OPERATOR_ROLE grant (not admin or already granted)");
+            console2.log("Skipping RESOLVER_ROLE grant (not admin or already granted)");
         }
+
+        // Grant FACTORY_ROLE on fpmmManager to factory
+        try fpmmManager.grantRole(fpmmManager.FACTORY_ROLE(), address(infoFiFactory)) {
+            console2.log("Granted FACTORY_ROLE to factory on InfoFiFPMMV2");
+        } catch {
+            console2.log("Skipping FACTORY_ROLE grant (not admin or already granted)");
+        }
+
+        // Approve factory to spend SOF from treasury for initial liquidity
+        // For testing, deployer is treasury, so approve 100,000 SOF for market creation
+        uint256 factoryAllowance = 100_000 ether;
+        sof.approve(address(infoFiFactory), factoryAllowance);
+        console2.log("Approved InfoFiMarketFactory to spend", factoryAllowance, "SOF from treasury");
 
         // Grant PRICE_UPDATER_ROLE on oracle to factory so it can push probability updates
         try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiFactory)) {

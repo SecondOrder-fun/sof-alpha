@@ -8,11 +8,18 @@ export { default as RafflePositionTrackerAbi } from '@/contracts/abis/RafflePosi
 export { default as RafflePrizeDistributorAbi } from '@/contracts/abis/RafflePrizeDistributor.json';
 export { default as RaffleTokenAbi } from '@/contracts/abis/RaffleToken.json';
 
-// InfoFi Prediction Markets
+// InfoFi Prediction Markets (Legacy)
 export { default as InfoFiMarketAbi } from '@/contracts/abis/InfoFiMarket.json';
 export { default as InfoFiMarketFactoryAbi } from '@/contracts/abis/InfoFiMarketFactory.json';
 export { default as InfoFiPriceOracleAbi } from '@/contracts/abis/InfoFiPriceOracle.json';
 export { default as InfoFiSettlementAbi } from '@/contracts/abis/InfoFiSettlement.json';
+
+// InfoFi FPMM (V2)
+export { default as RaffleOracleAdapterAbi } from '@/contracts/abis/RaffleOracleAdapter.json';
+export { default as InfoFiFPMMV2Abi } from '@/contracts/abis/InfoFiFPMMV2.json';
+export { default as SimpleFPMMAbi } from '@/contracts/abis/SimpleFPMM.json';
+export { default as SOLPTokenAbi } from '@/contracts/abis/SOLPToken.json';
+export { default as ConditionalTokensMockAbi } from '@/contracts/abis/ConditionalTokensMock.json';
 
 // Bonding Curve & Tokens
 export { default as SOFBondingCurveAbi } from '@/contracts/abis/SOFBondingCurve.json';
@@ -20,7 +27,6 @@ export { default as SOFTokenAbi } from '@/contracts/abis/SOFToken.json';
 export { default as SOFFaucetAbi } from '@/contracts/abis/SOFFaucet.json';
 
 // Season Management
-export { default as SeasonCSMMAbi } from '@/contracts/abis/SeasonCSMM.json';
 export { default as SeasonFactoryAbi } from '@/contracts/abis/SeasonFactory.json';
 
 // Standard Interfaces

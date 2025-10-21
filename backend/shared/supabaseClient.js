@@ -50,12 +50,12 @@ export class DatabaseService {
     return data;
   }
 
-  async getInfoFiMarketByComposite(seasonId, playerAddress, marketType) {
+  async getInfoFiMarketByComposite(raffleId, playerId, marketType) {
     const { data, error} = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('season_id', seasonId)
-      .eq('player_address', playerAddress)
+      .eq('raffle_id', raffleId)
+      .eq('player_id', playerId)
       .eq('market_type', marketType)
       .limit(1)
       .maybeSingle();
@@ -65,8 +65,8 @@ export class DatabaseService {
     return data || null;
   }
 
-  async hasInfoFiMarket(seasonId, playerAddress, marketType) {
-    const existing = await this.getInfoFiMarketByComposite(seasonId, playerAddress, marketType);
+  async hasInfoFiMarket(seasonId, playerId, marketType) {
+    const existing = await this.getInfoFiMarketByComposite(seasonId, playerId, marketType);
     return Boolean(existing);
   }
 
@@ -97,33 +97,69 @@ export class DatabaseService {
     // Align with schema (is_active boolean)
     const { data, error } = await this.client
       .from('infofi_markets')
-      .select('*')
+      .select('*, players!infofi_markets_player_id_fkey(address)')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
     
     if (error) throw new Error(error.message);
-    return data;
+    // Transform players object to player address
+    return data.map(market => {
+      if (market.players) {
+        market.player = market.players.address;
+        delete market.players;
+      }
+      return market;
+    });
   }
 
   async getInfoFiMarketById(id) {
     const { data, error } = await this.client
       .from('infofi_markets')
-      .select('*')
+      .select('*, players!infofi_markets_player_id_fkey(address)')
       .eq('id', id)
-      .single();
+      .limit(1);
     
     if (error) throw new Error(error.message);
-    return data;
+    // Return first result or null if no results
+    const market = data && data.length > 0 ? data[0] : null;
+    if (market && market.players) {
+      market.player = market.players.address;
+      delete market.players;
+    }
+    return market;
+  }
+
+  /**
+   * Get InfoFi market by season and player (the natural key from blockchain)
+   */
+  async getInfoFiMarketBySeasonAndPlayer(seasonId, playerAddress, marketType = 'WINNER_PREDICTION') {
+    const { data, error } = await this.client
+      .from('infofi_markets')
+      .select('*')
+      .eq('raffle_id', seasonId)
+      .eq('player_address', playerAddress)
+      .eq('market_type', marketType)
+      .limit(1);
+    
+    if (error) throw new Error(error.message);
+    return data && data.length > 0 ? data[0] : null;
   }
 
   async getInfoFiMarketsBySeasonId(seasonId) {
     const { data, error } = await this.client
       .from('infofi_markets')
-      .select('*')
-      .eq('season_id', seasonId)
+      .select('*, players!infofi_markets_player_id_fkey(address)')
+      .eq('raffle_id', seasonId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
-    return data;
+    // Transform players object to player address
+    return data.map(market => {
+      if (market.players) {
+        market.player = market.players.address;
+        delete market.players;
+      }
+      return market;
+    });
   }
 
   // Backward compatibility alias
@@ -167,6 +203,39 @@ export class DatabaseService {
     return data;
   }
 
+  /**
+   * Clear all InfoFi markets from database
+   * Used when restarting local Anvil to ensure DB is in sync with chain
+   */
+  async clearAllInfoFiMarkets() {
+    const { error } = await this.client
+      .from('infofi_markets')
+      .delete()
+      .neq('id', 0); // Delete all rows
+    
+    if (error) throw new Error(error.message);
+
+    // Reset the auto-increment sequence to start from 1
+    const { error: seqError } = await this.client.rpc('reset_infofi_markets_sequence');
+    if (seqError && !seqError.message?.includes('does not exist')) {
+      // Only throw if it's not a "function doesn't exist" error
+      // (function might not be created yet in some environments)
+      console.warn('[clearAllInfoFiMarkets] Could not reset sequence:', seqError.message);
+    }
+  }
+
+  /**
+   * Clear all market pricing cache entries
+   */
+  async clearAllMarketPricingCache() {
+    const { error } = await this.client
+      .from('market_pricing_cache')
+      .delete()
+      .neq('market_id', 0); // Delete all rows
+    
+    if (error) throw new Error(error.message);
+  }
+
   async getMarketOdds(marketId) {
     // Align odds with pricing cache (bps fields)
     const { data, error } = await this.client
@@ -178,7 +247,29 @@ export class DatabaseService {
     return data;
   }
 
-  // Market pricing cache operations (bps-based)
+  // Hybrid pricing cache operations
+  async upsertHybridPricingCache(cache) {
+    // cache: { market_id, raffle_component, sentiment_component, hybrid_price, last_updated }
+    const { data, error } = await this.client
+      .from('hybrid_pricing_cache')
+      .upsert(cache)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async getHybridPricingCache(marketId) {
+    const { data, error } = await this.client
+      .from('hybrid_pricing_cache')
+      .select('*')
+      .eq('market_id', marketId)
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  // Legacy market pricing cache operations (bps-based) - deprecated
   async upsertMarketPricingCache(cache) {
     // cache: { market_id, raffle_probability, market_sentiment, hybrid_price,
     //          raffle_weight, market_weight, last_updated }

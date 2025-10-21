@@ -8,16 +8,17 @@ import InfoFiMarketFactoryAbi from '@/contracts/abis/InfoFiMarketFactory.json';
  */
 export function useInfoFiFactory(factoryAddress) {
   /**
-   * Get SeasonCSMM address for a season
+   * Get FPMM market address for a player (V2)
    * @param {number} seasonId - Season ID
+   * @param {string} playerAddress - Player address
    */
-  const useSeasonCSMM = (seasonId) => {
+  const usePlayerMarket = (seasonId, playerAddress) => {
     return useReadContract({
       address: factoryAddress,
       abi: InfoFiMarketFactoryAbi,
-      functionName: 'getSeasonCSMM',
-      args: [BigInt(seasonId)],
-      query: { enabled: !!(factoryAddress && seasonId) }
+      functionName: 'getPlayerMarket',
+      args: [BigInt(seasonId), playerAddress],
+      query: { enabled: !!(factoryAddress && seasonId && playerAddress) }
     });
   };
 
@@ -75,8 +76,8 @@ export function useInfoFiFactory(factoryAddress) {
   });
 
   return {
-    // Read hooks
-    useSeasonCSMM,
+    // Read hooks (V2 - FPMM)
+    usePlayerMarket,
     useHasWinnerMarket,
     useSeasonPlayers,
     useMarketCount,

@@ -7,9 +7,12 @@ import process from 'node:process';
 import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
 import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
+import { resetAndSyncInfoFiMarkets } from '../src/services/syncInfoFiMarkets.js';
 import { pricingService } from '../shared/pricingService.js';
+import { historicalOddsService } from '../shared/historicalOddsService.js';
 import { loadChainEnv } from '../src/config/chain.js';
 import { redisClient } from '../shared/redisClient.js';
+import { db } from '../shared/supabaseClient.js';
 
 // Create Fastify instance
 const app = fastify({ logger: true });
@@ -73,6 +76,11 @@ try {
   await app.register((await import('./routes/usernameRoutes.js')).default, { prefix: '/api/usernames' });
   app.log.info('Mounted /api/usernames');
 } catch (err) { app.log.error({ err }, 'Failed to mount /api/usernames'); }
+
+try {
+  await app.register((await import('./routes/fpmmRoutes.js')).default, { prefix: '/api/fpmm' });
+  app.log.info('Mounted /api/fpmm');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/fpmm'); }
 
 try {
   await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
@@ -174,15 +182,29 @@ try {
     app.log.error({ e }, 'Failed to connect to Redis - username features may not work');
   }
 
-  // Start InfoFi listeners for networks that have factory configured
+  // Sync InfoFi markets from blockchain to database
   try {
     const chains = loadChainEnv();
     const candidates = [
       { key: 'LOCAL', cfg: chains.LOCAL },
       { key: 'TESTNET', cfg: chains.TESTNET },
     ];
+    
     for (const c of candidates) {
       if (c?.cfg?.infofiFactory) {
+        // For LOCAL network, reset database and sync from blockchain
+        // This ensures database is in sync with Anvil on restart
+        if (c.key === 'LOCAL') {
+          try {
+            app.log.info({ network: c.key }, 'Resetting and syncing InfoFi markets from blockchain...');
+            const syncedCount = await resetAndSyncInfoFiMarkets(c.key, app.log);
+            app.log.info({ network: c.key, syncedCount }, 'InfoFi markets synced from blockchain');
+          } catch (syncErr) {
+            app.log.error({ syncErr }, 'Failed to sync InfoFi markets - continuing with listener only');
+          }
+        }
+        
+        // Start listener for new markets
         const stop = startInfoFiMarketListener(c.key, app.log);
         stopListeners.push(stop);
         app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
@@ -213,6 +235,39 @@ try {
   } catch (e) {
     app.log.error({ e }, 'Failed to connect pricingService to WS');
   }
+
+  // Schedule daily cleanup of old historical odds data
+  const cleanupIntervalHours = parseInt(process.env.ODDS_CLEANUP_INTERVAL_HOURS || '24', 10);
+  const cleanupIntervalMs = cleanupIntervalHours * 60 * 60 * 1000;
+  
+  const cleanupHistoricalOdds = async () => {
+    try {
+      app.log.info('Starting scheduled historical odds cleanup...');
+      
+      // Get all active markets
+      const markets = await db.getActiveInfoFiMarkets();
+      let totalRemoved = 0;
+      
+      for (const market of markets) {
+        const seasonId = market.season_id || market.raffle_id || 0;
+        const removed = await historicalOddsService.cleanupOldData(seasonId, market.id);
+        totalRemoved += removed;
+      }
+      
+      app.log.info({ totalRemoved, marketCount: markets.length }, 'Historical odds cleanup completed');
+    } catch (error) {
+      app.log.error({ error }, 'Failed to cleanup historical odds');
+    }
+  };
+  
+  // Run cleanup immediately on startup, then schedule
+  cleanupHistoricalOdds();
+  const cleanupInterval = setInterval(cleanupHistoricalOdds, cleanupIntervalMs);
+  app.log.info({ intervalHours: cleanupIntervalHours }, 'Historical odds cleanup scheduler started');
+  
+  // Store interval for cleanup on shutdown
+  stopListeners.push(() => clearInterval(cleanupInterval));
+  
 } catch (err) {
   app.log.error(err);
   process.exit(1);

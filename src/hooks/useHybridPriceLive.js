@@ -27,6 +27,9 @@ export function useHybridPriceLive(marketId) {
   // Memoize the return object to prevent unnecessary re-renders
   const priceData = useMemo(() => {
     if (!data) return null;
+    // Return null if oracle data is invalid (not active or never updated)
+    // This prevents using default zero values from uninitialized oracle entries
+    if (!data.active && data.lastUpdate === 0) return null;
     return {
       marketId,
       hybridPriceBps: data.hybridPriceBps,

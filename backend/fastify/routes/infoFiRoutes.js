@@ -1,6 +1,7 @@
 import { db } from '../../shared/supabaseClient.js';
 import { pricingService } from '../../shared/pricingService.js';
 import { marketMakerService } from '../../shared/marketMakerService.js';
+import { historicalOddsService } from '../../shared/historicalOddsService.js';
 import { getPublicClient } from '../../src/lib/viemClient.js';
 import RaffleAbi from '../../src/abis/RaffleAbi.js';
 import { getChainByKey } from '../../src/config/chain.js';
@@ -164,14 +165,77 @@ export async function infoFiRoutes(fastify, options) {
   });
 
   // Get a specific InfoFi market by ID
+  // Note: The ID from the URL is the blockchain market index (0, 1, 2, etc.)
+  // which doesn't match the database auto-increment ID
+  // For now, we fetch all markets for the current season and return by index
   fastify.get('/markets/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const market = await db.getInfoFiMarketById(id);
+      const marketId = parseInt(id, 10);
+      
+      if (!Number.isInteger(marketId) || marketId <= 0) {
+        return reply.status(400).send({ error: 'Invalid market ID' });
+      }
+      
+      // Fetch market by ID directly
+      const market = await db.getInfoFiMarketById(marketId);
+      
+      if (!market) {
+        return reply.status(404).send({ error: 'Market not found' });
+      }
+      
       return reply.send({ market });
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch InfoFi market' });
+    }
+  });
+
+  /**
+   * GET /api/infofi/markets/:marketId/history
+   * Retrieve historical odds data for a market
+   * Query params: range (1H, 6H, 1D, 1W, 1M, ALL)
+   */
+  fastify.get('/markets/:marketId/history', async (request, reply) => {
+    try {
+      const { marketId } = request.params;
+      const { range = 'ALL' } = request.query;
+
+      // Validate time range
+      const validRanges = ['1H', '6H', '1D', '1W', '1M', 'ALL'];
+      if (!validRanges.includes(range)) {
+        return reply.status(400).send({ 
+          error: 'Invalid time range. Must be one of: 1H, 6H, 1D, 1W, 1M, ALL' 
+        });
+      }
+
+      // Get market to find season ID
+      const market = await db.getInfoFiMarketById(Number(marketId));
+      if (!market) {
+        return reply.status(404).send({ error: 'Market not found' });
+      }
+
+      const seasonId = market.season_id || market.raffle_id || 0;
+
+      // Fetch historical data from Redis
+      const result = await historicalOddsService.getHistoricalOdds(
+        seasonId,
+        marketId,
+        range
+      );
+
+      return reply.send({
+        marketId,
+        seasonId: String(seasonId),
+        range,
+        ...result
+      });
+    } catch (error) {
+      fastify.log.error({ error }, 'Failed to fetch historical odds');
+      return reply.status(500).send({ 
+        error: 'Failed to fetch historical odds',
+        message: error.message 
+      });
     }
   });
 

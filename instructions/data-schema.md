@@ -44,23 +44,39 @@ type PlayerPosition = {
 
 ### InfoFi Market (Platform-level)
 
+**IMPORTANT**: Database uses snake_case column names. The actual Supabase table schema is:
+
+- `raffle_id` (NOT `season_id` or `seasonId`)
+- `player_address` (NOT `playerAddress`)
+- `market_type` (NOT `marketType`)
+- `initial_probability_bps` (NOT `initialProbabilityBps`)
+- `current_probability_bps` (NOT `currentProbabilityBps`)
+- `is_active` (NOT `isActive`)
+- `is_settled` (NOT `isSettled`)
+
 ```typescript
 type InfoFiMarket = {
-  id: string | number;              // DB identifier
-  seasonId: number;                 // Associated raffle/season
-  playerAddress?: string;           // For player-focused markets
-  marketType: 'WINNER_PREDICTION' | 'POSITION_SIZE' | 'BEHAVIORAL';
-  contractAddress?: string;         // Onchain market address if deployed
-  initialProbabilityBps: number;    // Snapshot at creation
-  currentProbabilityBps: number;    // Updated via position changes
-  isActive: boolean;
-  isSettled: boolean;
-  settlementTime?: string;          // ISO timestamp
-  winningOutcome?: boolean;         // Depends on market type
-  createdAt: string;                // ISO timestamp
-  updatedAt: string;                // ISO timestamp
+  id: string | number;              // DB identifier (auto-increment)
+  raffle_id: number;                // Associated raffle/season (DB column name)
+  player_address?: string;          // For player-focused markets (DB column name)
+  market_type: 'WINNER_PREDICTION' | 'POSITION_SIZE' | 'BEHAVIORAL';
+  contract_address?: string;        // Onchain market address if deployed
+  initial_probability_bps: number;  // Snapshot at creation
+  current_probability_bps: number;  // Updated via position changes
+  is_active: boolean;
+  is_settled: boolean;
+  settlement_time?: string;         // ISO timestamp
+  winning_outcome?: boolean;        // Depends on market type
+  created_at: string;               // ISO timestamp
+  updated_at: string;               // ISO timestamp
 }
 ```
+
+**Frontend/API Mapping**: When returning to frontend, convert to camelCase:
+
+- `raffle_id` → `raffleId` or `seasonId`
+- `player_address` → `playerAddress`
+- etc.
 
 ### InfoFi Position (User Bet)
 
@@ -92,15 +108,26 @@ type InfoFiWinnings = {
 
 ### Market Pricing Cache (Hybrid Model)
 
+**IMPORTANT**: Database uses snake_case column names. The actual Supabase table schema is:
+
+- Table name: `market_pricing_cache` (NOT `hybrid_pricing_cache`)
+- `market_id` (BIGINT, primary key)
+- `raffle_probability` (INTEGER, basis points 0-10000)
+- `market_sentiment` (INTEGER, basis points 0-10000)
+- `hybrid_price` (NUMERIC, decimal 0-1)
+- `raffle_weight` (INTEGER, default 7000)
+- `market_weight` (INTEGER, default 3000)
+- `last_updated` (TIMESTAMPTZ)
+
 ```typescript
 type MarketPricingCache = {
-  marketId: string | number;
-  raffleProbabilityBps: number;     // From onchain positions
-  marketSentimentBps: number;       // From trading activity
-  hybridPriceBps: number;           // (raffleWeight*raffle + marketWeight*sentiment)/10000
-  raffleWeightBps: number;          // Default 7000
-  marketWeightBps: number;          // Default 3000
-  lastUpdated: string;              // ISO timestamp
+  market_id: number;                // Database column name
+  raffle_probability: number;       // INTEGER: basis points from onchain positions (0-10000)
+  market_sentiment: number;         // INTEGER: basis points from trading activity (0-10000)
+  hybrid_price: number;             // NUMERIC: decimal (raffle_weight*raffle + market_weight*sentiment)/10000/10000
+  raffle_weight: number;            // INTEGER: default 7000 (70%)
+  market_weight: number;            // INTEGER: default 3000 (30%)
+  last_updated: string;             // ISO timestamp
 }
 ```
 

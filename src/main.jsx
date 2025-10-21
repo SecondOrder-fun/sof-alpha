@@ -49,6 +49,7 @@ import UsersIndex from './routes/UsersIndex';
 import UserProfile from './routes/UserProfile';
 import FaucetPage from './routes/FaucetPage';
 import LocalizationAdmin from './routes/LocalizationAdmin';
+import InfoFiMarketDetail from './pages/InfoFiMarketDetail';
 
 // Create router
 const router = createBrowserRouter([
@@ -72,6 +73,10 @@ const router = createBrowserRouter([
       {
         path: 'markets',
         element: <MarketsIndex />,
+      },
+      {
+        path: 'markets/:marketId',
+        element: <InfoFiMarketDetail />,
       },
       {
         path: 'raffles/:seasonId',

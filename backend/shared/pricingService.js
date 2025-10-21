@@ -1,6 +1,7 @@
 
 import { EventEmitter } from 'events';
 import { db } from './supabaseClient.js';
+import { historicalOddsService } from './historicalOddsService.js';
 
 /**
  * Real-Time Pricing Service
@@ -140,6 +141,32 @@ export class PricingService extends EventEmitter {
       };
       this.emit('priceUpdate', evt);
       this._notifySubscribers(marketId, evt);
+
+      // Record to historical storage (non-blocking)
+      try {
+        // Get season ID from cache or fetch from DB
+        const market = cache || await db.getInfoFiMarketById(marketId);
+        const seasonId = market?.season_id || market?.raffle_id || 0;
+        
+        await historicalOddsService.recordOddsUpdate(
+          seasonId,
+          marketId,
+          {
+            timestamp: Date.now(),
+            yes_bps: evt.hybrid_price_bps,
+            no_bps: 10000 - evt.hybrid_price_bps,
+            hybrid_bps: evt.hybrid_price_bps,
+            raffle_bps: evt.raffle_probability_bps,
+            sentiment_bps: evt.market_sentiment_bps
+          }
+        );
+      } catch (histErr) {
+        // Log but don't fail the price update
+        const log = this.logger;
+        if (log && typeof log.warn === 'function') {
+          log.warn('[pricingService] Failed to record historical odds', histErr);
+        }
+      }
 
       return updated;
     } catch (error) {
