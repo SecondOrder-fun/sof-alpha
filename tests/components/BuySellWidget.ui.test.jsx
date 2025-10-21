@@ -12,6 +12,24 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+// Mock wagmi hooks
+vi.mock('wagmi', () => ({
+  useAccount: () => ({
+    address: '0x1234567890123456789012345678901234567890',
+    isConnected: true,
+  }),
+  useReadContract: () => ({
+    data: undefined,
+    isLoading: false,
+  }),
+  useBalance: () => ({
+    data: { value: 0n, decimals: 18, symbol: 'SOF', formatted: '0' },
+    isLoading: false,
+  }),
+  usePublicClient: () => ({}),
+  useWalletClient: () => ({ data: null }),
+}));
+
 // Minimal stubs for dependencies
 vi.mock('@/hooks/useSofDecimals', () => ({ useSofDecimals: () => 18 }));
 vi.mock('@/config/contracts', () => ({ getContractAddresses: () => ({}) }));
@@ -36,10 +54,19 @@ vi.mock('@/hooks/useCurve', () => ({
 }));
 
 import BuySellWidget from '@/components/curve/BuySellWidget.jsx';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 describe('BuySellWidget UI', () => {
   it('renders centered Buy/Sell header and labels', () => {
-    render(<BuySellWidget bondingCurveAddress="0xCurve" />);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BuySellWidget bondingCurveAddress="0xCurve" />
+      </QueryClientProvider>
+    );
 
     // Check that buy and sell text appears (may appear multiple times)
     const buyElements = screen.getAllByText(/common:buy/i);

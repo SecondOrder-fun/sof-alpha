@@ -47,7 +47,7 @@ export function useTreasury(seasonId) {
       select: (data) => {
         if (!data) return undefined;
         if (typeof data.bondingCurve === 'string') return data.bondingCurve;
-        if (Array.isArray(data) && data.length > 6) return data[6];
+        if (Array.isArray(data) && data.length > 5) return data[5];
         return undefined;
       },
     },

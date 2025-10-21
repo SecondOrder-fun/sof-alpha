@@ -36,30 +36,30 @@ describe('useTreasury', () => {
 
   // Helper to create proper mock implementation
   const createMockReadContract = (overrides = {}) => {
-    return ({ functionName, query }) => {
+    return ({ address, functionName, query }) => {
       if (functionName === 'seasons') {
         const data = ['Season 1', 0n, 0n, 1, 6500, mockBondingCurve, '0xToken', false, false];
-        return { data: query?.select ? query.select(data) : mockBondingCurve };
+        return { data: query?.select ? query.select(data) : mockBondingCurve, refetch: vi.fn() };
       }
       if (functionName === 'accumulatedFees') {
-        return { data: overrides.accumulatedFees ?? 0n };
+        return { data: overrides.accumulatedFees ?? 0n, refetch: vi.fn() };
       }
       if (functionName === 'getSofReserves') {
-        return { data: overrides.sofReserves ?? 0n };
+        return { data: overrides.sofReserves ?? 0n, refetch: vi.fn() };
       }
       if (functionName === 'getContractBalance') {
-        return { data: overrides.treasuryBalance ?? 0n };
+        return { data: overrides.treasuryBalance ?? 0n, refetch: vi.fn() };
       }
       if (functionName === 'totalFeesCollected') {
-        return { data: overrides.totalFeesCollected ?? 0n };
+        return { data: overrides.totalFeesCollected ?? 0n, refetch: vi.fn() };
       }
       if (functionName === 'hasRole') {
-        return { data: overrides.hasRole ?? false };
+        return { data: overrides.hasRole ?? false, refetch: vi.fn() };
       }
       if (functionName === 'treasuryAddress') {
-        return { data: overrides.treasuryAddress ?? '0xTreasuryAddress' };
+        return { data: overrides.treasuryAddress ?? '0xTreasuryAddress', refetch: vi.fn() };
       }
-      return { data: 0n };
+      return { data: 0n, refetch: vi.fn() };
     };
   };
 
@@ -102,7 +102,7 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.accumulatedFees).toBe('1.0');
+      expect(result.current.accumulatedFees).toBe('1');
     });
 
     it('should return SOF reserves from bonding curve', () => {
@@ -112,7 +112,7 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.sofReserves).toBe('10.0');
+      expect(result.current.sofReserves).toBe('10');
     });
 
     it('should return total fees collected', () => {
@@ -122,7 +122,7 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.totalFeesCollected).toBe('50.0');
+      expect(result.current.totalFeesCollected).toBe('50');
     });
   });
 
@@ -301,10 +301,10 @@ describe('useTreasury', () => {
 
       const { result } = renderHook(() => useTreasury('1'), { wrapper });
 
-      expect(result.current.accumulatedFees).toBe('0.0');
-      expect(result.current.treasuryBalance).toBe('0.0');
-      expect(result.current.sofReserves).toBe('0.0');
-      expect(result.current.totalFeesCollected).toBe('0.0');
+      expect(result.current.accumulatedFees).toBe('0');
+      expect(result.current.treasuryBalance).toBe('0');
+      expect(result.current.sofReserves).toBe('0');
+      expect(result.current.totalFeesCollected).toBe('0');
     });
   });
 });
