@@ -13,3 +13,9 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/SecondOrder-fun/sof-docs.git
+[submodule "contracts/lib/conditional-tokens-contracts"]
+	path = contracts/lib/conditional-tokens-contracts
+	url = https://github.com/gnosis/conditional-tokens-contracts
+[submodule "contracts/lib/conditional-tokens-market-makers"]
+	path = contracts/lib/conditional-tokens-market-makers
+	url = https://github.com/gnosis/conditional-tokens-market-makers
