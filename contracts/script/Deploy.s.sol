@@ -66,6 +66,10 @@ contract DeployScript is Script {
 
         // Deploy SeasonFactory, passing the Raffle and Tracker contract addresses
         SeasonFactory seasonFactory = new SeasonFactory(address(raffle), address(tracker));
+        
+        // Grant SeasonFactory admin role on tracker so it can grant MARKET_ROLE to bonding curves
+        tracker.grantRole(bytes32(0), address(seasonFactory));
+        console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to SeasonFactory");
 
         // Set the season factory address in the Raffle contract (idempotent via try/catch)
         try raffle.setSeasonFactory(address(seasonFactory)) {
@@ -155,10 +159,10 @@ contract DeployScript is Script {
         }
 
         // Approve factory to spend SOF from treasury for initial liquidity
-        // For testing, deployer is treasury, so approve 100,000 SOF for market creation
-        uint256 factoryAllowance = 100_000 ether;
-        sof.approve(address(infoFiFactory), factoryAllowance);
-        console2.log("Approved InfoFiMarketFactory to spend", factoryAllowance, "SOF from treasury");
+        // For testing, deployer is treasury, so approve infinite SOF for market creation
+        // This prevents approval exhaustion after multiple market creations
+        sof.approve(address(infoFiFactory), type(uint256).max);
+        console2.log("Approved InfoFiMarketFactory to spend unlimited SOF from treasury");
 
         // Grant PRICE_UPDATER_ROLE on oracle to factory so it can push probability updates
         try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiFactory)) {

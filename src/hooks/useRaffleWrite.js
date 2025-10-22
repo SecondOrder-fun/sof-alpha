@@ -2,8 +2,8 @@
 // Admin write helpers for the Raffle contract.
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount, useWalletClient } from 'wagmi';
-import { decodeErrorResult, keccak256, toHex } from 'viem';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
+import { decodeErrorResult } from 'viem';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getContractAddresses, RAFFLE_ABI } from '@/config/contracts';
 
@@ -107,8 +107,6 @@ export function useRaffleWrite() {
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
   const publicClient = usePublicClient();
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
 
   const raffleContractConfig = {
     address: contracts.RAFFLE,

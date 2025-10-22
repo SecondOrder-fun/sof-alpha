@@ -280,13 +280,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Emit InfoFi position update and call factory
         emit PositionUpdate(seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets);
         if (infoFiFactory != address(0)) {
-            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
                 seasonId,
                 participant,
                 oldTickets,
                 newTicketsLocal,
                 state.totalTickets
-            );
+            ) {
+                // Success - InfoFi market updated/created
+            } catch {
+                // InfoFi failure should not block raffle participation
+                // Event will be emitted by factory if market creation failed
+            }
         }
     }
 
@@ -318,13 +323,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Emit InfoFi position update and call factory
         emit PositionUpdate(seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets);
         if (infoFiFactory != address(0)) {
-            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
                 seasonId,
                 participant,
                 oldTickets,
                 pos.ticketCount,
                 state.totalTickets
-            );
+            ) {
+                // Success - InfoFi market updated
+            } catch {
+                // InfoFi failure should not block raffle participation
+                // Event will be emitted by factory if update failed
+            }
         }
     }
 

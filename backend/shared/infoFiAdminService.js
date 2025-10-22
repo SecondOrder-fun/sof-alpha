@@ -1,5 +1,5 @@
 // backend/shared/infoFiAdminService.js
-import { db } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js';
 
 /**
  * Service for InfoFi markets admin operations
@@ -14,7 +14,7 @@ class InfoFiAdminService {
   async getMarketsAdminSummary() {
     try {
       // Query infofi_markets with joins to raffles, players, and hybrid_pricing_cache
-      const { data: markets, error } = await db
+      const { data: markets, error } = await supabase
         .from('infofi_markets')
         .select(`
           id,
@@ -42,6 +42,19 @@ class InfoFiAdminService {
         .order('created_at', { ascending: false });
 
       if (error) {
+        // If tables don't exist yet (local dev), return empty data
+        if (error.message?.includes('does not exist') || 
+            error.message?.includes('relationship') ||
+            error.code === '42P01') {
+          return {
+            success: true,
+            data: {
+              seasons: [],
+              totalMarkets: 0,
+              totalActiveMarkets: 0,
+            },
+          };
+        }
         throw new Error(`Failed to fetch markets: ${error.message}`);
       }
 
@@ -120,7 +133,7 @@ class InfoFiAdminService {
    */
   async getMarketLiquidity(marketId) {
     try {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('hybrid_pricing_cache')
         .select('volume_24h, price_change_24h, last_updated')
         .eq('market_id', marketId)
