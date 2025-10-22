@@ -162,64 +162,8 @@ export function useRaffleWrite() {
       await queryClient.invalidateQueries({ queryKey: ['allSeasons'] });
       await queryClient.refetchQueries({ queryKey: ['allSeasons'] });
       
-      // Grant RAFFLE_MANAGER_ROLE to the connected wallet on the newly created bonding curve
-      if (!address || !walletClient) {
-        return; // Skip if wallet not connected
-      }
-      
-      try {
-        // Get the current season ID (the one just created)
-        const currentSeasonId = await publicClient.readContract({
-          address: contracts.RAFFLE,
-          abi: RAFFLE_ABI,
-          functionName: 'currentSeasonId',
-        });
-        
-        // Get the season details to find the bonding curve address
-        const seasonDetails = await publicClient.readContract({
-          address: contracts.RAFFLE,
-          abi: RAFFLE_ABI,
-          functionName: 'seasons',
-          args: [currentSeasonId],
-        });
-        
-        // Extract bonding curve address (index 5 in the tuple)
-        const bondingCurveAddress = seasonDetails[5];
-        
-        if (bondingCurveAddress && bondingCurveAddress !== '0x0000000000000000000000000000000000000000') {
-          // Calculate RAFFLE_MANAGER_ROLE hash
-          const raffleManagerRole = keccak256(toHex('RAFFLE_MANAGER_ROLE'));
-          
-          // Grant the role using wagmi's writeContract
-          const { request } = await publicClient.simulateContract({
-            address: bondingCurveAddress,
-            abi: [
-              {
-                type: 'function',
-                name: 'grantRole',
-                stateMutability: 'nonpayable',
-                inputs: [
-                  { name: 'role', type: 'bytes32' },
-                  { name: 'account', type: 'address' }
-                ],
-                outputs: []
-              }
-            ],
-            functionName: 'grantRole',
-            args: [raffleManagerRole, address],
-            account: address,
-          });
-          
-          await walletClient.writeContract(request);
-          
-          // eslint-disable-next-line no-console
-          console.log('Granted RAFFLE_MANAGER_ROLE to', address, 'on bonding curve', bondingCurveAddress);
-        }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to grant RAFFLE_MANAGER_ROLE:', error);
-        // Don't throw - this is a non-critical enhancement
-      }
+      // Note: RAFFLE_MANAGER_ROLE is now automatically granted by SeasonFactory
+      // during season creation (to both Raffle contract and deployer address)
     },
   });
 
