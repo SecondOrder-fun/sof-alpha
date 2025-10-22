@@ -190,7 +190,13 @@ const InfoFiMarketCard = ({ market }) => {
   const betMutation = useMutation({
     mutationFn: async () => {
       const amt = form.amount || '0';
-      return placeBetTx({ marketId: effectiveMarketId, prediction: form.side === 'YES', amount: amt });
+      return placeBetTx({ 
+        marketId: effectiveMarketId, 
+        prediction: form.side === 'YES', 
+        amount: amt,
+        seasonId: seasonId,
+        player: market.player
+      });
     },
     onSuccess: (hash) => {
       qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, true] });

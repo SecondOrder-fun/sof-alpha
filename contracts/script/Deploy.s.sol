@@ -66,7 +66,7 @@ contract DeployScript is Script {
 
         // Deploy SeasonFactory, passing the Raffle and Tracker contract addresses
         SeasonFactory seasonFactory = new SeasonFactory(address(raffle), address(tracker));
-        
+
         // Grant SeasonFactory admin role on tracker so it can grant MARKET_ROLE to bonding curves
         tracker.grantRole(bytes32(0), address(seasonFactory));
         console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to SeasonFactory");
@@ -87,26 +87,10 @@ contract DeployScript is Script {
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         raffle.grantRole(seasonCreatorRole, deployerAddr);
 
-        // Deploy InfoFiMarket contract
-        InfoFiMarket infoFiMarket = new InfoFiMarket();
-
         // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
         console2.log("Deploying InfoFiPriceOracle (weights 70/30) with deployer as admin...");
         InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(deployerAddr, 7000, 3000);
         console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
-
-        // Wire market to oracle and grant updater role so market can push sentiment
-        try infoFiMarket.setOracle(address(infoFiOracle)) {
-            console2.log("InfoFiMarket oracle set:", address(infoFiOracle));
-        } catch {
-            console2.log("InfoFiMarket oracle was already set or method failed (skipping)");
-        }
-        // Grant oracle PRICE_UPDATER_ROLE to InfoFiMarket so placeBet can update sentiment
-        try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiMarket)) {
-            console2.log("Granted PRICE_UPDATER_ROLE to InfoFiMarket on InfoFiPriceOracle");
-        } catch {
-            console2.log("Skipping PRICE_UPDATER_ROLE grant to InfoFiMarket (not admin or already granted)");
-        }
 
         // Deploy ConditionalTokens Mock for local testing
         console2.log("Deploying ConditionalTokensMock...");
@@ -117,7 +101,7 @@ contract DeployScript is Script {
         console2.log("Deploying RaffleOracleAdapter...");
         RaffleOracleAdapter oracleAdapter = new RaffleOracleAdapter(
             address(conditionalTokens),
-            deployerAddr  // Admin & resolver
+            deployerAddr // Admin & resolver
         );
         console2.log("RaffleOracleAdapter deployed at:", address(oracleAdapter));
 
@@ -125,9 +109,9 @@ contract DeployScript is Script {
         console2.log("Deploying InfoFiFPMMV2...");
         InfoFiFPMMV2 fpmmManager = new InfoFiFPMMV2(
             address(conditionalTokens),
-            address(sof),      // Collateral token
-            deployerAddr,      // Treasury
-            deployerAddr       // Admin
+            address(sof), // Collateral token
+            deployerAddr, // Treasury
+            deployerAddr // Admin
         );
         console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
 
@@ -139,8 +123,8 @@ contract DeployScript is Script {
             address(oracleAdapter),
             address(fpmmManager),
             address(sof),
-            deployerAddr,      // Treasury
-            deployerAddr       // Admin
+            deployerAddr, // Treasury
+            deployerAddr // Admin
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
@@ -239,9 +223,9 @@ contract DeployScript is Script {
         console2.log("SOF token deployed at:", address(sof));
         console2.log("SeasonFactory contract deployed at:", address(seasonFactory));
         console2.log("Raffle contract deployed at:", address(raffle));
-        console2.log("InfoFiMarket contract deployed at:", address(infoFiMarket));
         console2.log("InfoFiMarketFactory contract deployed at:", address(infoFiFactory));
         console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
+        console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
         console2.log("SOF Faucet deployed at:", address(faucet));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));
