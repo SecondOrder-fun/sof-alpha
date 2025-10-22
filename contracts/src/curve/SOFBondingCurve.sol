@@ -9,11 +9,11 @@ import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
-import {IInfoFiMarketFactory} from "../lib/IInfoFiMarketFactory.sol";
 
 // Minimal interface to push updates to the on-chain position tracker
 interface IRafflePositionTracker {
     function updatePlayerPosition(address player) external;
+    function updateAllPlayersInSeason() external;
 }
 
 /**
@@ -33,8 +33,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     // Raffle callback wiring
     address public raffle;
     uint256 public raffleSeasonId;
-    // InfoFi factory (optional wiring for threshold-triggered market creation)
-    address public infoFiFactory;
 
     // Optional on-chain position tracker to emit PositionSnapshot upon updates
     address public positionTracker;
@@ -152,16 +150,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Set InfoFi factory for threshold-triggered market creation
-     */
-    function setInfoFiFactory(address _factory) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(_factory != address(0), "Curve: factory zero");
-        infoFiFactory = _factory;
-    }
-
-    /**
-     * @notice Set the on-chain position tracker contract that mirrors positions via snapshots
-     * @dev The tracker must grant MARKET_ROLE to this curve contract separately.
+     * @notice Set position tracker address for on-chain snapshots
      */
     function setPositionTracker(address _tracker) external onlyRole(RAFFLE_MANAGER_ROLE) {
         require(_tracker != address(0), "Curve: tracker zero");
@@ -213,10 +202,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
 
         emit TokensPurchased(msg.sender, totalCost, tokenAmount, fee);
 
-        // Emit position update and notify InfoFi factory on threshold crossing upward (>= 1.00%)
+        // Emit position update
         uint256 totalTickets = curveConfig.totalSupply;
         uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
-        uint256 oldBps = (oldTickets * 10000) / (preTotal == 0 ? 1 : preTotal);
 
         emit PositionUpdate(
             raffleSeasonId,
@@ -232,26 +220,11 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             IRaffle(raffle).recordParticipant(raffleSeasonId, msg.sender, tokenAmount);
         }
 
-        // Best-effort push to on-chain tracker so FE gets PositionSnapshot events
+        // Update ALL players' positions in tracker so all probabilities are current
+        // This ensures all InfoFi markets show correct odds after any buy
+        // Position tracker emits PositionSnapshot events that backend listens to
         if (positionTracker != address(0)) {
-            try IRafflePositionTracker(positionTracker).updatePlayerPosition(msg.sender) {
-                // no-op
-            } catch {
-                // swallow error to avoid impacting user buy
-            }
-        }
-
-        // Notify InfoFi factory on EVERY position change for odds updates
-        // Factory handles market creation idempotency and threshold logic internally
-        if (infoFiFactory != address(0)) {
-            // Best-effort call; do not revert the buy on external failure
-            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                raffleSeasonId,
-                msg.sender,
-                oldTickets,
-                newTickets,
-                totalTickets
-            ) {
+            try IRafflePositionTracker(positionTracker).updateAllPlayersInSeason() {
                 // no-op
             } catch {
                 // swallow error to avoid impacting user buy
@@ -312,9 +285,11 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             IRaffle(raffle).removeParticipant(raffleSeasonId, msg.sender, tokenAmount);
         }
 
-        // Best-effort push to on-chain tracker so FE gets PositionSnapshot events
+        // Update ALL players' positions in tracker so all probabilities are current
+        // This ensures all InfoFi markets show correct odds after any sell
+        // Position tracker emits PositionSnapshot events that backend listens to
         if (positionTracker != address(0)) {
-            try IRafflePositionTracker(positionTracker).updatePlayerPosition(msg.sender) {
+            try IRafflePositionTracker(positionTracker).updateAllPlayersInSeason() {
                 // no-op
             } catch {
                 // swallow error to avoid impacting user sell
@@ -332,23 +307,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             totalTickets,
             newBps
         );
-
-        // Always notify InfoFi factory of position changes (including sells)
-        // Factory handles market updates and can track position reductions
-        if (infoFiFactory != address(0)) {
-            // Best-effort call; do not revert the sell on external failure
-            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                raffleSeasonId,
-                msg.sender,
-                oldTickets,
-                newTickets,
-                totalTickets
-            ) {
-                // no-op
-            } catch {
-                // swallow error to avoid impacting user sell
-            }
-        }
     }
 
     /**

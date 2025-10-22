@@ -2,6 +2,7 @@ import { db } from '../../shared/supabaseClient.js';
 import { pricingService } from '../../shared/pricingService.js';
 import { marketMakerService } from '../../shared/marketMakerService.js';
 import { historicalOddsService } from '../../shared/historicalOddsService.js';
+import { infoFiAdminService } from '../../shared/infoFiAdminService.js';
 import { getPublicClient } from '../../src/lib/viemClient.js';
 import RaffleAbi from '../../src/abis/RaffleAbi.js';
 import { getChainByKey } from '../../src/config/chain.js';
@@ -584,6 +585,28 @@ export async function infoFiRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Failed to start pricing stream' });
+    }
+  });
+
+  /**
+   * GET /api/infofi/markets/admin-summary
+   * Admin endpoint to get comprehensive market status grouped by season
+   * Includes liquidity metrics and 24h changes
+   */
+  fastify.get('/markets/admin-summary', async (_request, reply) => {
+    try {
+      const result = await infoFiAdminService.getMarketsAdminSummary();
+      
+      if (!result.success) {
+        return reply.status(500).send({ 
+          error: result.error || 'Failed to fetch markets summary' 
+        });
+      }
+      
+      return reply.send(result.data);
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch markets admin summary' });
     }
   });
 }

@@ -334,19 +334,6 @@
   },
   {
     "type": "function",
-    "name": "infoFiFactory",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "initializeCurve",
     "inputs": [
       {
@@ -532,19 +519,6 @@
         "name": "minSofAmount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setInfoFiFactory",
-    "inputs": [
-      {
-        "name": "_factory",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],

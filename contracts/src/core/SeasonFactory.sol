@@ -64,10 +64,8 @@ contract SeasonFactory is AccessControl {
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
-        // Set InfoFi factory on curve if configured
-        if (infoFiFactory != address(0)) {
-            curve.setInfoFiFactory(infoFiFactory);
-        }
+        // InfoFi factory integration removed - now using RafflePositionTracker
+        // Position tracker is set separately if needed
 
         // Grant curve rights on raffle token
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), curveAddr);
