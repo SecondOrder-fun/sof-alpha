@@ -17,6 +17,7 @@ contract SeasonFactory is AccessControl {
 
     address public immutable raffleAddress;
     address public immutable trackerAddress;
+    address public immutable deployerAddress;
     address public infoFiFactory;
 
     event SeasonContractsDeployed(
@@ -28,6 +29,7 @@ contract SeasonFactory is AccessControl {
     constructor(address _raffleAddress, address _trackerAddress) {
         raffleAddress = _raffleAddress;
         trackerAddress = _trackerAddress;
+        deployerAddress = msg.sender;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
     }
@@ -60,7 +62,7 @@ contract SeasonFactory is AccessControl {
 
         // Grant Raffle contract manager role on curve and initialize
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
-        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), msg.sender);
+        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), deployerAddress);
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
