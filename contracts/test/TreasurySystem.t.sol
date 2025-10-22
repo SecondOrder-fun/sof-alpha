@@ -32,7 +32,7 @@ contract TreasurySystemTest is Test {
         sofToken = new SOFToken("SOF Token", "SOF", INITIAL_SUPPLY, treasury);
         
         // Deploy bonding curve
-        bondingCurve = new SOFBondingCurve(address(sofToken));
+        bondingCurve = new SOFBondingCurve(address(sofToken), address(this));
         
         // Deploy raffle token with season info
         raffleToken = new RaffleToken(
