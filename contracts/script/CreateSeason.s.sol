@@ -81,15 +81,27 @@ contract CreateSeason is Script {
             revert("Season creation failed");
         }
 
+        // Get bonding curve address from season
+        (, , , , , address bondingCurveAddr, , , ) = raffle.seasons(seasonId);
+        
         // Wire the position tracker to the new season's curve
         address trackerAddress = vm.envAddress("RAFFLE_TRACKER_ADDRESS");
         if (trackerAddress != address(0)) {
             raffle.setPositionTrackerForSeason(seasonId, trackerAddress);
             console2.log("Wired position tracker for season", seasonId);
+            
+            // Grant MARKET_ROLE to bonding curve so it can update positions
+            bytes32 marketRole = keccak256("MARKET_ROLE");
+            (bool success, ) = trackerAddress.call(
+                abi.encodeWithSignature("grantRole(bytes32,address)", marketRole, bondingCurveAddr)
+            );
+            
+            if (success) {
+                console2.log("Granted MARKET_ROLE to bonding curve on tracker:", bondingCurveAddr);
+            } else {
+                console2.log("Failed to grant MARKET_ROLE (may not be admin or already granted)");
+            }
         }
-
-        // Get bonding curve address from season
-        (, , , , , address bondingCurveAddr, , , ) = raffle.seasons(seasonId);
         
         // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
         address sofAddress = vm.envAddress("SOF_ADDRESS");
@@ -103,23 +115,9 @@ contract CreateSeason is Script {
             }
         }
 
-        // Grant RAFFLE_MANAGER_ROLE to the deployer on the bonding curve
-        // This is needed for extracting fees and managing the curve
-        if (bondingCurveAddr != address(0)) {
-            // Import the bonding curve interface
-            bytes32 raffleManagerRole = keccak256("RAFFLE_MANAGER_ROLE");
-            
-            // Call grantRole on the bonding curve
-            (bool success, ) = bondingCurveAddr.call(
-                abi.encodeWithSignature("grantRole(bytes32,address)", raffleManagerRole, caller)
-            );
-            
-            if (success) {
-                console2.log("Granted RAFFLE_MANAGER_ROLE to deployer on bonding curve:", bondingCurveAddr);
-            } else {
-                console2.log("Failed to grant RAFFLE_MANAGER_ROLE (may not be admin or already granted)");
-            }
-        }
+        // Note: RAFFLE_MANAGER_ROLE is now automatically granted by SeasonFactory
+        // during bonding curve creation (to both Raffle contract and deployer address)
+        console2.log("RAFFLE_MANAGER_ROLE automatically granted by SeasonFactory to deployer");
 
         vm.stopBroadcast();
     }

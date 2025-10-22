@@ -81,12 +81,13 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     event CurveInitialized(address raffleToken, uint256 stepCount);
     event FeesExtracted(address indexed to, uint256 amount);
 
-    constructor(address _sofToken) {
+    constructor(address _sofToken, address _admin) {
         require(_sofToken != address(0), "SOF: token is zero");
+        require(_admin != address(0), "SOF: admin is zero");
         sofToken = IERC20(_sofToken);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(EMERGENCY_ROLE, msg.sender);
-        _grantRole(RAFFLE_MANAGER_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        _grantRole(EMERGENCY_ROLE, _admin);
+        _grantRole(RAFFLE_MANAGER_ROLE, _admin);
     }
 
     /**

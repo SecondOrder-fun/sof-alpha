@@ -56,13 +56,15 @@ contract SeasonFactory is AccessControl {
         );
         raffleTokenAddr = address(raffleToken);
 
-        // Deploy curve for this season
-        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()));
+        // Deploy curve for this season with deployer as admin
+        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()), deployerAddress);
         curveAddr = address(curve);
 
-        // Grant Raffle contract manager role on curve and initialize
+        // Grant RAFFLE_MANAGER_ROLE to this factory temporarily to initialize, and to Raffle permanently
+        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), address(this));
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
-        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), deployerAddress);
+        
+        // Initialize the curve (requires RAFFLE_MANAGER_ROLE)
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
