@@ -153,7 +153,7 @@ contract ConsolationClaimsTest is Test {
         assertEq(sofToken.balanceOf(loser1), expectedPerLoser);
     }
     
-    function testGetSeasonReturnsCorrectData() public {
+    function testGetSeasonReturnsCorrectData() public view {
         IRafflePrizeDistributor.SeasonPayouts memory season = distributor.getSeason(SEASON_ID);
         
         assertEq(season.token, address(sofToken));

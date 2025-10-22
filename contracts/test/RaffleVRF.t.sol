@@ -180,7 +180,7 @@ contract RaffleVRFTest is Test {
         assertEq(winners[0], player1);
     }
 
-    function testPrizePoolCapturedFromCurveReserves() public {
+    function testPrizePoolCapturedFromCurveReserves() public pure {
         // Skip this test for now as it requires deeper changes to the Raffle contract
         // We'll mark it as a known issue in project-tasks.md
         return;

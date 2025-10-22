@@ -15,12 +15,7 @@ import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
-
-
-// Minimal ACL interface for granting MARKET_ROLE on the tracker
-interface ITrackerACL {
-    function grantRole(bytes32 role, address account) external;
-}
+import {ITrackerACL} from "../lib/ITrackerACL.sol";
 
 /**
  * @title Raffle Contract

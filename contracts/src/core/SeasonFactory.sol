@@ -7,6 +7,7 @@ import "../curve/SOFBondingCurve.sol";
 import "../lib/RaffleTypes.sol";
 import "../lib/RaffleLogic.sol";
 import "../lib/IRaffle.sol";
+import "../lib/ITrackerACL.sol";
 
 /**
  * @title SeasonFactory
@@ -56,8 +57,9 @@ contract SeasonFactory is AccessControl {
         );
         raffleTokenAddr = address(raffleToken);
 
-        // Deploy curve for this season with deployer as admin
-        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()), deployerAddress);
+        // Deploy curve for this season with transaction originator as admin
+        // tx.origin is the wallet that initiated the createSeason transaction
+        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()), tx.origin);
         curveAddr = address(curve);
 
         // Grant RAFFLE_MANAGER_ROLE to this factory temporarily to initialize, and to Raffle permanently
@@ -68,8 +70,12 @@ contract SeasonFactory is AccessControl {
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
-        // InfoFi factory integration removed - now using RafflePositionTracker
-        // Position tracker is set separately if needed
+        // Set position tracker on bonding curve for InfoFi market creation
+        if (trackerAddress != address(0)) {
+            curve.setPositionTracker(trackerAddress);
+            // Grant MARKET_ROLE to bonding curve so it can update positions
+            ITrackerACL(trackerAddress).grantRole(keccak256("MARKET_ROLE"), curveAddr);
+        }
 
         // Grant curve rights on raffle token
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), curveAddr);

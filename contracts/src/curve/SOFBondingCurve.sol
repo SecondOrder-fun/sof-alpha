@@ -85,7 +85,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         require(_sofToken != address(0), "SOF: token is zero");
         require(_admin != address(0), "SOF: admin is zero");
         sofToken = IERC20(_sofToken);
-        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        // Grant admin roles to both the deployer and the factory (msg.sender)
+        // Factory needs DEFAULT_ADMIN_ROLE to grant other roles during initialization
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender); // SeasonFactory
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin); // Deployer EOA
         _grantRole(EMERGENCY_ROLE, _admin);
         _grantRole(RAFFLE_MANAGER_ROLE, _admin);
     }
