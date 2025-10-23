@@ -4,6 +4,7 @@ import { createWalletClient, custom } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { useQueryClient } from '@tanstack/react-query';
+import { RaffleAbi, RafflePrizeDistributorAbi, SOFBondingCurveAbi } from '@/utils/abis';
 
 /**
  * Hook for managing the raffle distribution process
@@ -13,8 +14,7 @@ const useFundDistributor = ({
   setEndingE2EId,
   setEndStatus,
   setVerify,
-  allSeasonsQuery,
-  RaffleMiniAbi
+  allSeasonsQuery
 }) => {
   const netKey = getStoredNetworkKey();
   const publicClient = usePublicClient();
@@ -28,7 +28,7 @@ const useFundDistributor = ({
     try {
       console.log('[checkContractState] Reading contract:', raffleAddr, 'seasonId:', seasonId);
       console.log('[checkContractState] publicClient:', publicClient);
-      console.log('[checkContractState] RaffleMiniAbi:', RaffleMiniAbi ? 'defined' : 'undefined');
+      console.log('[checkContractState] Using RaffleAbi from centralized utility');
       
       if (!publicClient) {
         throw new Error('publicClient is not available');
@@ -39,7 +39,7 @@ const useFundDistributor = ({
       const seasonDetails = await Promise.race([
         publicClient.readContract({
           address: raffleAddr,
-          abi: RaffleMiniAbi,
+          abi: RaffleAbi,
           functionName: "getSeasonDetails",
           args: [BigInt(seasonId)],
         }),
@@ -189,7 +189,7 @@ const useFundDistributor = ({
         try {
           const hash = await walletClient.writeContract({
             address: raffleAddr,
-            abi: RaffleMiniAbi,
+            abi: RaffleAbi,
             functionName: "requestSeasonEndEarly",
             args: [BigInt(idToUse)],
             account
@@ -216,7 +216,7 @@ const useFundDistributor = ({
       try {
         requestId = await publicClient.readContract({
           address: raffleAddr,
-          abi: RaffleMiniAbi,
+          abi: RaffleAbi,
           functionName: "getVrfRequestForSeason",
           args: [BigInt(idToUse)],
         });
@@ -276,7 +276,7 @@ const useFundDistributor = ({
       try {
         const winners = await publicClient.readContract({
           address: raffleAddr,
-          abi: RaffleMiniAbi,
+          abi: RaffleAbi,
           functionName: "getWinners",
           args: [BigInt(idToUse)],
         });
@@ -312,25 +312,7 @@ const useFundDistributor = ({
       try {
         distSeason = await publicClient.readContract({
           address: distributorAddr,
-          abi: [
-            {
-              type: "function",
-              name: "seasons",
-              stateMutability: "view",
-              inputs: [{ name: "seasonId", type: "uint256" }],
-              outputs: [
-                { name: "token", type: "address" },
-                { name: "grandWinner", type: "address" },
-                { name: "grandAmount", type: "uint256" },
-                { name: "consolationAmount", type: "uint256" },
-                { name: "totalTicketsSnapshot", type: "uint256" },
-                { name: "grandWinnerTickets", type: "uint256" },
-                { name: "merkleRoot", type: "bytes32" },
-                { name: "funded", type: "bool" },
-                { name: "grandClaimed", type: "bool" },
-              ],
-            },
-          ],
+          abi: RafflePrizeDistributorAbi,
           functionName: "seasons",
           args: [BigInt(idToUse)],
         });
@@ -354,7 +336,7 @@ const useFundDistributor = ({
           // Get the bonding curve address from season details
           const seasonDetails = await publicClient.readContract({
             address: raffleAddr,
-            abi: RaffleMiniAbi,
+            abi: RaffleAbi,
             functionName: "getSeasonDetails",
             args: [BigInt(idToUse)],
           });
@@ -368,18 +350,7 @@ const useFundDistributor = ({
           
           const extractHash = await walletClient.writeContract({
             address: bondingCurveAddr,
-            abi: [
-              {
-                type: "function",
-                name: "extractSof",
-                stateMutability: "nonpayable",
-                inputs: [
-                  { name: "to", type: "address" },
-                  { name: "amount", type: "uint256" },
-                ],
-                outputs: [],
-              },
-            ],
+            abi: SOFBondingCurveAbi,
             functionName: "extractSof",
             args: [distributorAddr, seasonState.totalPrizePool],
             account
@@ -393,18 +364,7 @@ const useFundDistributor = ({
           
           const fundHash = await walletClient.writeContract({
             address: distributorAddr,
-            abi: [
-              {
-                type: "function",
-                name: "fundSeason",
-                stateMutability: "nonpayable",
-                inputs: [
-                  { name: "seasonId", type: "uint256" },
-                  { name: "amount", type: "uint256" },
-                ],
-                outputs: [],
-              },
-            ],
+            abi: RafflePrizeDistributorAbi,
             functionName: "fundSeason",
             args: [BigInt(idToUse), seasonState.totalPrizePool],
             account

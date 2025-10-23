@@ -15,7 +15,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { keccak256, stringToHex } from "viem";
-import { RaffleAbi } from "@/utils/abis";
 
 // Import refactored components
 import TransactionStatus from "@/components/admin/TransactionStatus";
@@ -86,7 +85,6 @@ function AdminPanel() {
     setEndStatus,
     setVerify,
     allSeasonsQuery,
-    raffleAbi: RaffleAbi,
   });
 
   if (isAdminLoading || isCreatorLoading || isEmergencyLoading) {
