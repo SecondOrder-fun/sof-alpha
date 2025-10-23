@@ -7,50 +7,50 @@
   - Supports LOCAL (default) network; extensible for TESTNET if needed
 */
 
-import fs from 'fs';
-import path from 'path';
-import process from 'node:process';
-import { fileURLToPath } from 'url';
-import { getAddress as toChecksumAddress } from 'viem';
+import fs from "fs";
+import path from "path";
+import process from "node:process";
+import { fileURLToPath } from "url";
+import { getAddress as toChecksumAddress } from "viem";
 
 // Resolve repo root relative to this script location so it works from any CWD
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '..');
-const BROADCAST_DIR = path.join(ROOT, 'contracts', 'broadcast', 'Deploy.s.sol');
+const ROOT = path.resolve(__dirname, "..");
+const BROADCAST_DIR = path.join(ROOT, "contracts", "broadcast", "Deploy.s.sol");
 
 // Map contract names in broadcast to env keys
 const NAME_TO_ENV = {
   // Core
-  SOFToken: 'SOF',
-  Raffle: 'RAFFLE',
-  SeasonFactory: 'SEASON_FACTORY',
-  RafflePositionTracker: 'RAFFLE_TRACKER',
+  SOFToken: "SOF",
+  Raffle: "RAFFLE",
+  SeasonFactory: "SEASON_FACTORY",
+  RafflePositionTracker: "RAFFLE_TRACKER",
   // InfoFi
-  InfoFiMarketFactory: 'INFOFI_FACTORY',
-  InfoFiPriceOracle: 'INFOFI_ORACLE',
-  InfoFiSettlement: 'INFOFI_SETTLEMENT',
-  RafflePrizeDistributor: 'PRIZE_DISTRIBUTOR',
+  InfoFiMarketFactory: "INFOFI_FACTORY",
+  InfoFiPriceOracle: "INFOFI_ORACLE",
+  InfoFiSettlement: "INFOFI_SETTLEMENT",
+  InfoFiFPMMV2: "INFOFI_FPMM",
+  ConditionalTokenSOF: "CONDITIONAL_TOKENS",
+  RafflePrizeDistributor: "PRIZE_DISTRIBUTOR",
   // Faucet
-  SOFFaucet: 'SOF_FAUCET',
-  // Legacy placeholder
-  InfoFiMarket: 'INFOFI_MARKET',
+  SOFFaucet: "SOF_FAUCET",
   // VRF mock (needed for local resolve flows)
-  VRFCoordinatorV2Mock: 'VRF_COORDINATOR',
+  VRFCoordinatorV2Mock: "VRF_COORDINATOR",
 };
 
 /**
  * Find the latest broadcast JSON for a given chain id.
  */
-function findLatestBroadcast(chainId = '31337') {
+function findLatestBroadcast(chainId = "31337") {
   const chainDir = path.join(BROADCAST_DIR, String(chainId));
-  const runsDir = path.join(chainDir, 'runs');
+  const runsDir = path.join(chainDir, "runs");
 
   // Prefer the most recent run.json under runs/*
   if (fs.existsSync(runsDir)) {
     const candidates = [];
     for (const entry of fs.readdirSync(runsDir)) {
-      const p = path.join(runsDir, entry, 'run.json');
+      const p = path.join(runsDir, entry, "run.json");
       if (fs.existsSync(p)) {
         const stat = fs.statSync(p);
         candidates.push({ p, mtime: stat.mtimeMs });
@@ -72,7 +72,7 @@ function findLatestBroadcast(chainId = '31337') {
   }
 
   // Fallback to run-latest.json
-  const latestPath = path.join(chainDir, 'run-latest.json');
+  const latestPath = path.join(chainDir, "run-latest.json");
   if (fs.existsSync(latestPath)) return latestPath;
   return null;
 }
@@ -87,7 +87,7 @@ function findLatestBroadcast(chainId = '31337') {
 function readEnvToMap(filePath) {
   const map = new Map();
   if (!fs.existsSync(filePath)) return map;
-  const text = fs.readFileSync(filePath, 'utf8');
+  const text = fs.readFileSync(filePath, "utf8");
   for (const line of text.split(/\r?\n/)) {
     if (!line || /^\s*#/.test(line)) continue;
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
@@ -110,11 +110,14 @@ function readEnvToMap(filePath) {
  * @returns {string} The built env file content
  */
 // eslint-disable-next-line no-unused-vars
-function buildFromExample(exampleText, {
-  allowPredicate, // (key) => boolean
-  updates = {},
-  existing = new Map(),
-}) {
+function buildFromExample(
+  exampleText,
+  {
+    allowPredicate, // (key) => boolean
+    updates = {},
+    existing = new Map(),
+  }
+) {
   const out = [];
   const lines = exampleText.split(/\r?\n/);
   for (const line of lines) {
@@ -129,15 +132,17 @@ function buildFromExample(exampleText, {
       // drop keys not allowed in this target file
       continue;
     }
-    const override = Object.prototype.hasOwnProperty.call(updates, key) ? updates[key] : undefined;
+    const override = Object.prototype.hasOwnProperty.call(updates, key)
+      ? updates[key]
+      : undefined;
     const current = existing.get(key);
-    const exampleVal = m[2] ?? '';
+    const exampleVal = m[2] ?? "";
     const value = override ?? current ?? exampleVal;
     out.push(`${key}=${value}`);
   }
   // Ensure trailing newline
-  if (out.length === 0 || out[out.length - 1] !== '') out.push('');
-  return out.join('\n');
+  if (out.length === 0 || out[out.length - 1] !== "") out.push("");
+  return out.join("\n");
 }
 
 /**
@@ -146,26 +151,30 @@ function buildFromExample(exampleText, {
 function parseDeployAddresses(broadcastDir) {
   const broadcastPath = findLatestBroadcast();
   if (!broadcastPath) {
-    console.error('Could not find broadcast output. Looked under:', broadcastDir);
+    console.error(
+      "Could not find broadcast output. Looked under:",
+      broadcastDir
+    );
     process.exit(1);
   }
 
-  const raw = fs.readFileSync(broadcastPath, 'utf8');
+  const raw = fs.readFileSync(broadcastPath, "utf8");
   let json;
   try {
     json = JSON.parse(raw);
   } catch (e) {
-    console.error('Failed to parse broadcast JSON:', broadcastPath);
+    console.error("Failed to parse broadcast JSON:", broadcastPath);
     throw e;
   }
 
-  console.log('Using broadcast file:', broadcastPath);
+  console.log("Using broadcast file:", broadcastPath);
   const out = {};
   const txs = Array.isArray(json?.transactions) ? json.transactions : [];
   const unmatched = [];
   for (const tx of txs) {
     const name = tx.contractName;
-    const address = tx.contractAddress || tx.contractAddressDeployed || tx.address;
+    const address =
+      tx.contractAddress || tx.contractAddressDeployed || tx.address;
     if (!name || !address) continue;
     const envKeyBase = NAME_TO_ENV[name];
     if (envKeyBase) {
@@ -176,7 +185,10 @@ function parseDeployAddresses(broadcastDir) {
   }
 
   if (unmatched.length) {
-    console.log('Unmatched contracts in broadcast (ignored):', unmatched.map(u => u.name).join(', '));
+    console.log(
+      "Unmatched contracts in broadcast (ignored):",
+      unmatched.map((u) => u.name).join(", ")
+    );
   }
 
   return out;
@@ -187,17 +199,21 @@ function parseDeployAddresses(broadcastDir) {
  * - Preserves existing comments and unrelated lines
  * - Updates existing keys or appends missing ones at the end
  */
-function updateEnvFile(filePath, updates, { prefix = '', suffix = '_LOCAL', sanitizer } = {}) {
-  let content = '';
+function updateEnvFile(
+  filePath,
+  updates,
+  { prefix = "", suffix = "_LOCAL", sanitizer } = {}
+) {
+  let content = "";
   if (fs.existsSync(filePath)) {
-    content = fs.readFileSync(filePath, 'utf8');
+    content = fs.readFileSync(filePath, "utf8");
   } else {
     console.warn(`Env file not found, creating: ${filePath}`);
   }
 
   // Optionally sanitize existing content (e.g., remove misplaced keys)
-  if (typeof sanitizer === 'function') {
-    content = sanitizer(content || '');
+  if (typeof sanitizer === "function") {
+    content = sanitizer(content || "");
   }
 
   const lines = content ? content.split(/\r?\n/) : [];
@@ -223,27 +239,36 @@ function updateEnvFile(filePath, updates, { prefix = '', suffix = '_LOCAL', sani
     }
   }
 
-  let updatedContent = lines.join('\n');
+  let updatedContent = lines.join("\n");
   if (appliedKeys.length) {
     const header = `\n# --- Auto-updated by scripts/update-env-addresses.js (${new Date().toISOString()}) ---`;
-    updatedContent = (updatedContent ? updatedContent + '\n' : '') + header + '\n' + appliedKeys.join('\n') + '\n';
+    updatedContent =
+      (updatedContent ? updatedContent + "\n" : "") +
+      header +
+      "\n" +
+      appliedKeys.join("\n") +
+      "\n";
   }
 
-  fs.writeFileSync(filePath, updatedContent, 'utf8');
+  fs.writeFileSync(filePath, updatedContent, "utf8");
 }
 
 function main() {
-  const network = process.env.NETWORK || process.env.DEFAULT_NETWORK || 'LOCAL';
-  const chainId = process.env.CHAIN_ID || (network === 'LOCAL' ? '31337' : process.env.TESTNET_CHAIN_ID || '');
+  const network = process.env.NETWORK || process.env.DEFAULT_NETWORK || "LOCAL";
+  const chainId =
+    process.env.CHAIN_ID ||
+    (network === "LOCAL" ? "31337" : process.env.TESTNET_CHAIN_ID || "");
 
   if (!chainId) {
-    console.error('Could not determine chainId. Set CHAIN_ID or TESTNET_CHAIN_ID.');
+    console.error(
+      "Could not determine chainId. Set CHAIN_ID or TESTNET_CHAIN_ID."
+    );
     process.exit(1);
   }
 
   const addrMap = parseDeployAddresses(BROADCAST_DIR);
   if (!Object.keys(addrMap).length) {
-    console.error('No known contract addresses found in broadcast file.');
+    console.error("No known contract addresses found in broadcast file.");
     process.exit(1);
   }
 
@@ -262,49 +287,42 @@ function main() {
     frontendUpdates[base] = checksummed; // e.g., VITE_RAFFLE_ADDRESS_LOCAL
   }
 
-  const envPath = path.join(ROOT, '.env');
-  const envLocalPath = path.join(ROOT, '.env.local');
+  const envPath = path.join(ROOT, ".env");
+  const envLocalPath = path.join(ROOT, ".env.local");
 
   // Determine suffix based on target network
-  const envSuffix = (network || '').toUpperCase() === 'TESTNET' ? '_TESTNET' : '_LOCAL';
+  const envSuffix =
+    (network || "").toUpperCase() === "TESTNET" ? "_TESTNET" : "_LOCAL";
 
   // Update .env in-place (backend keys with suffix)
-  updateEnvFile(
-    envPath,
-    backendUpdates,
-    {
-      prefix: '',
-      suffix: envSuffix,
-      sanitizer: (text) => text
-    }
-  );
+  updateEnvFile(envPath, backendUpdates, {
+    prefix: "",
+    suffix: envSuffix,
+    sanitizer: (text) => text,
+  });
 
   // Also write VITE_ keys with suffix into .env for frontend
-  updateEnvFile(
-    envPath,
-    backendUpdates,
-    {
-      prefix: 'VITE_',
-      suffix: envSuffix,
-      sanitizer: (text) => text
-    }
-  );
+  updateEnvFile(envPath, backendUpdates, {
+    prefix: "VITE_",
+    suffix: envSuffix,
+    sanitizer: (text) => text,
+  });
 
   // If .env.local exists, mirror only VITE_ keys there (optional convenience)
   if (fs.existsSync(envLocalPath)) {
-    updateEnvFile(
-      envLocalPath,
-      backendUpdates,
-      {
-        prefix: 'VITE_',
-        suffix: envSuffix,
-        sanitizer: (text) => text
-      }
-    );
+    updateEnvFile(envLocalPath, backendUpdates, {
+      prefix: "VITE_",
+      suffix: envSuffix,
+      sanitizer: (text) => text,
+    });
   }
 
   // Console summary
-  console.log('Updated environment with deployed addresses (network=%s, chainId=%s):', network, chainId);
+  console.log(
+    "Updated environment with deployed addresses (network=%s, chainId=%s):",
+    network,
+    chainId
+  );
   for (const [k, v] of Object.entries(addrMap)) {
     console.log(`  ${k}: ${v}`);
   }

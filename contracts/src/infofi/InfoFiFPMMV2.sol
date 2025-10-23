@@ -68,14 +68,16 @@ contract SOLPToken is ERC20 {
 
 /**
  * @title SimpleFPMM
- * @notice Simplified Fixed Product Market Maker for binary outcomes
+ * @notice Fixed Product Market Maker for binary outcomes with Conditional Tokens
  * @dev Implements x * y = k invariant for YES/NO markets
+ * Users receive ERC1155 conditional tokens when buying positions
  */
 contract SimpleFPMM is ERC20, ReentrancyGuard {
     IERC20 public immutable collateralToken;
     IConditionalTokens public immutable conditionalTokens;
     bytes32 public immutable conditionId;
     
+    uint256[2] public positionIds; // [YES, NO] position IDs from CTF
     uint256 public yesReserve;
     uint256 public noReserve;
     uint256 public constant FEE_BPS = 200; // 2%
@@ -99,6 +101,23 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
         conditionalTokens = IConditionalTokens(_conditionalTokens);
         conditionId = _conditionId;
         treasury = _treasury;
+        
+        // Calculate position IDs for YES (index 0) and NO (index 1)
+        positionIds[0] = _calculatePositionId(0); // YES
+        positionIds[1] = _calculatePositionId(1); // NO
+    }
+    
+    /**
+     * @notice Calculate position ID for an outcome
+     * @param outcomeIndex 0 for YES, 1 for NO
+     */
+    function _calculatePositionId(uint256 outcomeIndex) internal view returns (uint256) {
+        bytes32 collectionId = conditionalTokens.getCollectionId(
+            bytes32(0), // parentCollectionId
+            conditionId,
+            1 << outcomeIndex // indexSet: 0b01 for YES, 0b10 for NO
+        );
+        return conditionalTokens.getPositionId(address(collateralToken), collectionId);
     }
     
     /**
@@ -166,7 +185,7 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
     }
     
     /**
-     * @notice Buy YES or NO outcome tokens
+     * @notice Buy YES or NO outcome tokens (receives ERC1155 conditional tokens)
      * @param buyYes True to buy YES, false to buy NO
      * @param amountIn Amount of collateral to spend
      * @param minAmountOut Minimum outcome tokens to receive (slippage protection)
@@ -179,53 +198,67 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
     ) external nonReentrant returns (uint256 amountOut) {
         require(amountIn > 0, "Zero amount");
         
+        uint256 outcomeIndex = buyYes ? 0 : 1;
+        
+        // Calculate output using x * y = k
+        amountOut = calcBuyAmount(buyYes, amountIn);
+        require(amountOut >= minAmountOut, "Slippage exceeded");
+        
+        // Take user's collateral
+        require(
+            collateralToken.transferFrom(msg.sender, address(this), amountIn),
+            "Transfer failed"
+        );
+        
         // Calculate fee
         uint256 fee = (amountIn * FEE_BPS) / 10000;
         uint256 amountInAfterFee = amountIn - fee;
         feesCollected += fee;
         
-        // Calculate output using x * y = k
+        // Approve CTF to spend collateral
+        require(
+            collateralToken.approve(address(conditionalTokens), amountInAfterFee),
+            "Approval failed"
+        );
+        
+        // Split collateral into outcome tokens via Conditional Tokens
+        uint256[] memory partition = new uint256[](2);
+        partition[0] = 1; // 0b01 (YES)
+        partition[1] = 2; // 0b10 (NO)
+        
+        conditionalTokens.splitPosition(
+            address(collateralToken),
+            bytes32(0), // parentCollectionId
+            conditionId,
+            partition,
+            amountInAfterFee
+        );
+        
+        // Update reserves
         if (buyYes) {
-            // Buying YES means selling NO reserve
-            uint256 k = yesReserve * noReserve;
-            uint256 newNoReserve = noReserve + amountInAfterFee;
-            uint256 newYesReserve = k / newNoReserve;
-            amountOut = yesReserve - newYesReserve;
-            
-            yesReserve = newYesReserve;
-            noReserve = newNoReserve;
+            yesReserve -= amountOut;
+            noReserve += amountInAfterFee;
         } else {
-            // Buying NO means selling YES reserve
-            uint256 k = yesReserve * noReserve;
-            uint256 newYesReserve = yesReserve + amountInAfterFee;
-            uint256 newNoReserve = k / newYesReserve;
-            amountOut = noReserve - newNoReserve;
-            
-            yesReserve = newYesReserve;
-            noReserve = newNoReserve;
+            noReserve -= amountOut;
+            yesReserve += amountInAfterFee;
         }
         
-        require(amountOut >= minAmountOut, "Slippage exceeded");
-        
-        // Transfer collateral from user
-        require(
-            collateralToken.transferFrom(msg.sender, address(this), amountIn),
-            "Transfer failed"
+        // Transfer outcome tokens to buyer
+        conditionalTokens.safeTransferFrom(
+            address(this),
+            msg.sender,
+            positionIds[outcomeIndex],
+            amountOut,
+            ""
         );
         
         emit Trade(msg.sender, buyYes, amountIn, amountOut);
     }
     
     /**
-     * @notice Calculate buy amount for given input
-     * @param buyYes True for YES, false for NO
-     * @param amountIn Amount of collateral to spend
-     * @return amountOut Amount of outcome tokens to receive
+     * @notice Calculate buy amount using constant product formula
      */
-    function calcBuyAmount(
-        bool buyYes,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut) {
+    function calcBuyAmount(bool buyYes, uint256 amountIn) public view returns (uint256) {
         uint256 fee = (amountIn * FEE_BPS) / 10000;
         uint256 amountInAfterFee = amountIn - fee;
         
@@ -233,12 +266,12 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
             uint256 k = yesReserve * noReserve;
             uint256 newNoReserve = noReserve + amountInAfterFee;
             uint256 newYesReserve = k / newNoReserve;
-            amountOut = yesReserve - newYesReserve;
+            return yesReserve - newYesReserve;
         } else {
             uint256 k = yesReserve * noReserve;
             uint256 newYesReserve = yesReserve + amountInAfterFee;
             uint256 newNoReserve = k / newYesReserve;
-            amountOut = noReserve - newNoReserve;
+            return noReserve - newNoReserve;
         }
     }
     
@@ -257,6 +290,92 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
     }
     
     /**
+     * @notice Sell YES or NO outcome tokens back to pool
+     * @param sellYes True to sell YES, false to sell NO
+     * @param amountOut Amount of collateral to receive
+     * @param maxAmountIn Maximum outcome tokens to sell (slippage protection)
+     * @return amountIn Amount of outcome tokens sold
+     */
+    function sell(
+        bool sellYes,
+        uint256 amountOut,
+        uint256 maxAmountIn
+    ) external nonReentrant returns (uint256 amountIn) {
+        require(amountOut > 0, "Zero amount");
+        
+        uint256 outcomeIndex = sellYes ? 0 : 1;
+        
+        // Calculate input needed
+        amountIn = calcSellAmount(sellYes, amountOut);
+        require(amountIn <= maxAmountIn, "Slippage exceeded");
+        
+        // Take user's outcome tokens
+        conditionalTokens.safeTransferFrom(
+            msg.sender,
+            address(this),
+            positionIds[outcomeIndex],
+            amountIn,
+            ""
+        );
+        
+        // Calculate fee
+        uint256 fee = (amountOut * FEE_BPS) / (10000 - FEE_BPS);
+        uint256 amountOutPlusFee = amountOut + fee;
+        feesCollected += fee;
+        
+        // Update reserves
+        if (sellYes) {
+            yesReserve += amountIn;
+            noReserve -= amountOutPlusFee;
+        } else {
+            noReserve += amountIn;
+            yesReserve -= amountOutPlusFee;
+        }
+        
+        // Merge positions back to collateral
+        uint256[] memory partition = new uint256[](2);
+        partition[0] = 1;
+        partition[1] = 2;
+        
+        conditionalTokens.mergePositions(
+            address(collateralToken),
+            bytes32(0),
+            conditionId,
+            partition,
+            amountOutPlusFee
+        );
+        
+        // Return collateral to seller
+        require(
+            collateralToken.transfer(msg.sender, amountOut),
+            "Transfer failed"
+        );
+        
+        emit Trade(msg.sender, sellYes, amountIn, amountOut);
+    }
+    
+    /**
+     * @notice Calculate sell amount using constant product formula
+     */
+    function calcSellAmount(bool sellYes, uint256 amountOut) public view returns (uint256) {
+        uint256 amountOutPlusFee = (amountOut * 10000) / (10000 - FEE_BPS);
+        
+        if (sellYes) {
+            uint256 k = yesReserve * noReserve;
+            uint256 newNoReserve = noReserve - amountOutPlusFee;
+            require(newNoReserve > 0, "Insufficient liquidity");
+            uint256 newYesReserve = k / newNoReserve;
+            return newYesReserve - yesReserve;
+        } else {
+            uint256 k = yesReserve * noReserve;
+            uint256 newYesReserve = yesReserve - amountOutPlusFee;
+            require(newYesReserve > 0, "Insufficient liquidity");
+            uint256 newNoReserve = k / newYesReserve;
+            return newNoReserve - noReserve;
+        }
+    }
+    
+    /**
      * @notice Withdraw collected fees to treasury
      */
     function withdrawFees() external {
@@ -267,6 +386,44 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
             collateralToken.transfer(treasury, amount),
             "Transfer failed"
         );
+    }
+    
+    /**
+     * @notice Initialize reserves after market creation
+     * @dev Only callable once by manager during market creation
+     */
+    function initializeReserves(uint256 _yesReserve, uint256 _noReserve) external {
+        require(yesReserve == 0 && noReserve == 0, "Already initialized");
+        require(_yesReserve > 0 && _noReserve > 0, "Invalid reserves");
+        
+        yesReserve = _yesReserve;
+        noReserve = _noReserve;
+    }
+    
+    /**
+     * @notice ERC1155 receiver - required to receive conditional tokens
+     */
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+    
+    /**
+     * @notice ERC1155 batch receiver
+     */
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
     }
 }
 
@@ -349,14 +506,47 @@ contract InfoFiFPMMV2 is AccessControl, ReentrancyGuard {
             "Transfer failed"
         );
         
-        // Approve FPMM
-        collateralToken.approve(fpmm, INITIAL_FUNDING);
+        // Split collateral into outcome tokens via Conditional Tokens
+        collateralToken.approve(address(conditionalTokens), INITIAL_FUNDING);
         
-        // Add initial liquidity
-        uint256 lpTokensMinted = fpmmContract.addLiquidity(INITIAL_FUNDING);
+        uint256[] memory partition = new uint256[](2);
+        partition[0] = 1; // 0b01 (YES)
+        partition[1] = 2; // 0b10 (NO)
+        
+        conditionalTokens.splitPosition(
+            address(collateralToken),
+            bytes32(0), // parentCollectionId
+            conditionId,
+            partition,
+            INITIAL_FUNDING
+        );
+        
+        // Get position IDs from FPMM
+        uint256 yesPositionId = fpmmContract.positionIds(0);
+        uint256 noPositionId = fpmmContract.positionIds(1);
+        
+        // Transfer outcome tokens to FPMM to initialize reserves (50/50 split)
+        conditionalTokens.safeTransferFrom(
+            address(this),
+            fpmm,
+            yesPositionId,
+            INITIAL_FUNDING / 2,
+            ""
+        );
+        
+        conditionalTokens.safeTransferFrom(
+            address(this),
+            fpmm,
+            noPositionId,
+            INITIAL_FUNDING / 2,
+            ""
+        );
+        
+        // Initialize FPMM reserves
+        fpmmContract.initializeReserves(INITIAL_FUNDING / 2, INITIAL_FUNDING / 2);
         
         // Mint SOLP tokens to factory (treasury)
-        solpToken.mint(msg.sender, lpTokensMinted);
+        solpToken.mint(msg.sender, INITIAL_FUNDING);
         
         emit MarketCreated(seasonId, player, fpmm, conditionId, lpToken);
     }
@@ -393,5 +583,31 @@ contract InfoFiFPMMV2 is AccessControl, ReentrancyGuard {
             _i /= 10;
         }
         return string(bstr);
+    }
+    
+    /**
+     * @notice ERC1155 receiver - required to receive conditional tokens during market creation
+     */
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+    
+    /**
+     * @notice ERC1155 batch receiver
+     */
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
     }
 }

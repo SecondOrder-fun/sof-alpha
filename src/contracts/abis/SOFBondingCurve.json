@@ -6,6 +6,11 @@
         "name": "_sofToken",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_admin",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -334,7 +339,7 @@
   },
   {
     "type": "function",
-    "name": "infoFiFactory",
+    "name": "infoFiMarketFactory",
     "inputs": [],
     "outputs": [
       {
@@ -539,7 +544,7 @@
   },
   {
     "type": "function",
-    "name": "setInfoFiFactory",
+    "name": "setInfoFiMarketFactory",
     "inputs": [
       {
         "name": "_factory",

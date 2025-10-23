@@ -22,6 +22,7 @@ export function loadChainEnv() {
       curve: process.env.CURVE_ADDRESS_LOCAL || "",
       // Raffle position tracker (backend usage optional but exposed for parity)
       raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_LOCAL || "",
+      positionTracker: process.env.RAFFLE_TRACKER_ADDRESS_LOCAL || "", // Alias for raffleTracker
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_LOCAL || "",
       // InfoFi on-chain hybrid price oracle (required for SSE transport)
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_LOCAL || "",
@@ -35,6 +36,7 @@ export function loadChainEnv() {
       curve: process.env.CURVE_ADDRESS_TESTNET || "",
       // Raffle position tracker (backend usage optional but exposed for parity)
       raffleTracker: process.env.RAFFLE_TRACKER_ADDRESS_TESTNET || "",
+      positionTracker: process.env.RAFFLE_TRACKER_ADDRESS_TESTNET || "", // Alias for raffleTracker
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_TESTNET || "",
       // InfoFi on-chain hybrid price oracle (required for SSE transport)
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_TESTNET || "",

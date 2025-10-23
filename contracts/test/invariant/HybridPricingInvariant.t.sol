@@ -47,7 +47,7 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     }
     
     // Invariant: Weights must always sum to 10000 (100%)
-    function invariant_weightsSumTo10000() public view {
+    function invariant_weightsSumTo10000() public pure {
         // Get the weights from the contract
         uint256 raffleWeight = INITIAL_RAFFLE_WEIGHT; // Using the initial values since we don't change them
         uint256 marketWeight = INITIAL_MARKET_WEIGHT;

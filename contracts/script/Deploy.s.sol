@@ -11,7 +11,7 @@ import "../src/infofi/InfoFiPriceOracle.sol";
 import "../src/infofi/InfoFiSettlement.sol";
 import "../src/infofi/RaffleOracleAdapter.sol";
 import "../src/infofi/InfoFiFPMMV2.sol";
-import "../src/mocks/ConditionalTokensMock.sol";
+import "../src/infofi/ConditionalTokenSOF.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
@@ -67,6 +67,10 @@ contract DeployScript is Script {
         // Deploy SeasonFactory, passing the Raffle and Tracker contract addresses
         SeasonFactory seasonFactory = new SeasonFactory(address(raffle), address(tracker));
 
+        // Grant SeasonFactory admin role on tracker so it can grant MARKET_ROLE to bonding curves
+        tracker.grantRole(bytes32(0), address(seasonFactory));
+        console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to SeasonFactory");
+
         // Set the season factory address in the Raffle contract (idempotent via try/catch)
         try raffle.setSeasonFactory(address(seasonFactory)) {
             console2.log("SeasonFactory set on Raffle:", address(seasonFactory));
@@ -83,37 +87,23 @@ contract DeployScript is Script {
         raffle.grantRole(seasonCreatorRole, address(seasonFactory));
         raffle.grantRole(seasonCreatorRole, deployerAddr);
 
-        // Deploy InfoFiMarket contract
-        InfoFiMarket infoFiMarket = new InfoFiMarket();
-
         // Deploy InfoFiPriceOracle with default weights 70/30, admin = deployer
         console2.log("Deploying InfoFiPriceOracle (weights 70/30) with deployer as admin...");
         InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(deployerAddr, 7000, 3000);
         console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
 
-        // Wire market to oracle and grant updater role so market can push sentiment
-        try infoFiMarket.setOracle(address(infoFiOracle)) {
-            console2.log("InfoFiMarket oracle set:", address(infoFiOracle));
-        } catch {
-            console2.log("InfoFiMarket oracle was already set or method failed (skipping)");
-        }
-        // Grant oracle PRICE_UPDATER_ROLE to InfoFiMarket so placeBet can update sentiment
-        try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiMarket)) {
-            console2.log("Granted PRICE_UPDATER_ROLE to InfoFiMarket on InfoFiPriceOracle");
-        } catch {
-            console2.log("Skipping PRICE_UPDATER_ROLE grant to InfoFiMarket (not admin or already granted)");
-        }
-
-        // Deploy ConditionalTokens Mock for local testing
-        console2.log("Deploying ConditionalTokensMock...");
-        ConditionalTokensMock conditionalTokens = new ConditionalTokensMock();
-        console2.log("ConditionalTokensMock deployed at:", address(conditionalTokens));
+        // Deploy ConditionalTokenSOF (SecondOrder.fun CTF implementation)
+        // Production-ready implementation optimized for binary outcome markets
+        // Compatible with Solidity 0.8.20, implements complete Gnosis CTF interface
+        console2.log("Deploying ConditionalTokenSOF...");
+        ConditionalTokenSOF conditionalTokens = new ConditionalTokenSOF();
+        console2.log("ConditionalTokenSOF deployed at:", address(conditionalTokens));
 
         // Deploy RaffleOracleAdapter
         console2.log("Deploying RaffleOracleAdapter...");
         RaffleOracleAdapter oracleAdapter = new RaffleOracleAdapter(
             address(conditionalTokens),
-            deployerAddr  // Admin & resolver
+            deployerAddr // Admin & resolver
         );
         console2.log("RaffleOracleAdapter deployed at:", address(oracleAdapter));
 
@@ -121,9 +111,9 @@ contract DeployScript is Script {
         console2.log("Deploying InfoFiFPMMV2...");
         InfoFiFPMMV2 fpmmManager = new InfoFiFPMMV2(
             address(conditionalTokens),
-            address(sof),      // Collateral token
-            deployerAddr,      // Treasury
-            deployerAddr       // Admin
+            address(sof), // Collateral token
+            deployerAddr, // Treasury
+            deployerAddr // Admin
         );
         console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
 
@@ -135,8 +125,8 @@ contract DeployScript is Script {
             address(oracleAdapter),
             address(fpmmManager),
             address(sof),
-            deployerAddr,      // Treasury
-            deployerAddr       // Admin
+            deployerAddr, // Treasury
+            deployerAddr // Admin
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
 
@@ -155,10 +145,10 @@ contract DeployScript is Script {
         }
 
         // Approve factory to spend SOF from treasury for initial liquidity
-        // For testing, deployer is treasury, so approve 100,000 SOF for market creation
-        uint256 factoryAllowance = 100_000 ether;
-        sof.approve(address(infoFiFactory), factoryAllowance);
-        console2.log("Approved InfoFiMarketFactory to spend", factoryAllowance, "SOF from treasury");
+        // For testing, deployer is treasury, so approve infinite SOF for market creation
+        // This prevents approval exhaustion after multiple market creations
+        sof.approve(address(infoFiFactory), type(uint256).max);
+        console2.log("Approved InfoFiMarketFactory to spend unlimited SOF from treasury");
 
         // Grant PRICE_UPDATER_ROLE on oracle to factory so it can push probability updates
         try infoFiOracle.grantRole(infoFiOracle.PRICE_UPDATER_ROLE(), address(infoFiFactory)) {
@@ -222,12 +212,9 @@ contract DeployScript is Script {
         console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
         console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
 
-        // Grant FEE_COLLECTOR_ROLE to the Raffle contract for treasury system
-        try sof.grantRole(sof.FEE_COLLECTOR_ROLE(), address(raffle)) {
-            console2.log("Granted FEE_COLLECTOR_ROLE to Raffle contract");
-        } catch {
-            console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
-        }
+        // Grant FEE_COLLECTOR_ROLE to deployer/admin for manual fee collection
+        sof.grantRole(sof.FEE_COLLECTOR_ROLE(), deployerAddr);
+        console2.log("Granted FEE_COLLECTOR_ROLE to admin/deployer:", deployerAddr);
 
         vm.stopBroadcast();
 
@@ -235,9 +222,9 @@ contract DeployScript is Script {
         console2.log("SOF token deployed at:", address(sof));
         console2.log("SeasonFactory contract deployed at:", address(seasonFactory));
         console2.log("Raffle contract deployed at:", address(raffle));
-        console2.log("InfoFiMarket contract deployed at:", address(infoFiMarket));
         console2.log("InfoFiMarketFactory contract deployed at:", address(infoFiFactory));
         console2.log("InfoFiPriceOracle contract deployed at:", address(infoFiOracle));
+        console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
         console2.log("InfoFiSettlement deployed at:", address(infoFiSettlement));
         console2.log("SOF Faucet deployed at:", address(faucet));
         console2.log("VRFCoordinatorV2Mock deployed at:", address(vrfCoordinator));

@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import { WebSocketServer } from 'ws';
 import process from 'node:process';
 import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
+import { startPositionTrackerListener } from '../src/services/positionTrackerListener.js';
 import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
 import { resetAndSyncInfoFiMarkets } from '../src/services/syncInfoFiMarkets.js';
@@ -204,10 +205,16 @@ try {
           }
         }
         
-        // Start listener for new markets
+        // Start listener for new markets (legacy - kept for backward compatibility)
         const stop = startInfoFiMarketListener(c.key, app.log);
         stopListeners.push(stop);
         app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
+      }
+      // Start position tracker listener if configured (primary source for market probability updates)
+      if (c?.cfg?.positionTracker) {
+        const stopTracker = startPositionTrackerListener(c.key, app.log);
+        stopListeners.push(stopTracker);
+        app.log.info({ network: c.key, tracker: c.cfg.positionTracker }, 'Position tracker listener started');
       }
       // Start oracle listener if oracle configured (feeds pricingService from on-chain)
       if (c?.cfg?.infofiOracle) {

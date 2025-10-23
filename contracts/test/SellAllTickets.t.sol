@@ -30,7 +30,7 @@ contract MockSeasonFactory_SellAll is ISeasonFactory {
         );
         raffleTokenAddr = address(token);
 
-        SOFBondingCurve curve = new SOFBondingCurve(sof);
+        SOFBondingCurve curve = new SOFBondingCurve(sof, address(this));
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(msg.sender, seasonId);
 

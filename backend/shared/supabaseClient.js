@@ -191,6 +191,23 @@ export class DatabaseService {
     return data;
   }
 
+  async updateInfoFiMarketProbability(seasonId, playerId, marketType, newProbabilityBps) {
+    const { data, error } = await this.client
+      .from('infofi_markets')
+      .update({ current_probability: newProbabilityBps })
+      .eq('raffle_id', seasonId)
+      .eq('player_id', playerId)
+      .eq('market_type', marketType)
+      .select()
+      .single();
+    
+    if (error) {
+      // Don't throw - market might not exist yet (race condition with MarketCreated)
+      return null;
+    }
+    return data;
+  }
+
   async deleteInfoFiMarket(id) {
     const { data, error } = await this.client
       .from('infofi_markets')
@@ -340,8 +357,18 @@ export class DatabaseService {
   async getOrCreatePlayerIdByAddress(address) {
     const existing = await this.getPlayerByAddress(address);
     if (existing?.id) return existing.id;
-    const created = await this.createPlayer(address);
-    return created.id;
+    
+    try {
+      const created = await this.createPlayer(address);
+      return created.id;
+    } catch (err) {
+      // Handle race condition - player might have been created between check and insert
+      if (err.message?.includes('duplicate key') || err.message?.includes('players_pkey')) {
+        const retry = await this.getPlayerByAddress(address);
+        if (retry?.id) return retry.id;
+      }
+      throw err;
+    }
   }
 
   // Analytics operations

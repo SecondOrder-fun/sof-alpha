@@ -25,7 +25,7 @@ contract MockSeasonFactory is ISeasonFactory {
         raffleTokenAddr = address(token);
 
         // Deploy bonding curve bound to SOF token
-        SOFBondingCurve curve = new SOFBondingCurve(sof);
+        SOFBondingCurve curve = new SOFBondingCurve(sof, address(this));
 
         // Initialize curve and set raffle info (msg.sender is Raffle contract)
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);

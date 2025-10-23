@@ -1,5 +1,5 @@
 // src/routes/AdminPanel.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAccount, usePublicClient, useChainId } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { useRaffleWrite } from "@/hooks/useRaffleWrite";
@@ -15,13 +15,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { keccak256, stringToHex } from "viem";
-import { getContractAddresses } from "@/config/contracts";
 import { RaffleAbi } from "@/utils/abis";
 
 // Import refactored components
 import TransactionStatus from "@/components/admin/TransactionStatus";
 import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
 import SeasonList from "@/components/admin/SeasonList";
+import InfoFiMarketsPanel from "@/components/admin/InfoFiMarketsPanel";
 import useFundDistributor from "@/hooks/useFundDistributor";
 
 function AdminPanel() {
@@ -78,51 +78,6 @@ function AdminPanel() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Contract code presence check for RAFFLE
-  const [raffleCodeStatus, setRaffleCodeStatus] = useState({
-    checked: false,
-    hasCode: false,
-    error: null,
-  });
-
-  // Check if RAFFLE contract has code deployed
-  useEffect(() => {
-    let cancelled = false;
-    const addresses = getContractAddresses(getStoredNetworkKey());
-
-    async function checkCode() {
-      try {
-        if (!publicClient || !addresses?.RAFFLE) {
-          if (!cancelled) {
-            setRaffleCodeStatus({ checked: true, hasCode: false, error: null });
-          }
-          return;
-        }
-        const code = await publicClient.getCode({ address: addresses.RAFFLE });
-        if (!cancelled) {
-          setRaffleCodeStatus({
-            checked: true,
-            hasCode: !!code && code !== "0x",
-            error: null,
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setRaffleCodeStatus({
-            checked: true,
-            hasCode: false,
-            error: error.message,
-          });
-        }
-      }
-    }
-
-    checkCode();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [publicClient]);
 
   // Initialize the FundDistributor hook
   const { fundDistributorManual } = useFundDistributor({
@@ -142,8 +97,6 @@ function AdminPanel() {
     return <p>You are not authorized to view this page.</p>;
   }
 
-  const addresses = getContractAddresses(netKey);
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -151,23 +104,6 @@ function AdminPanel() {
         <p className="text-sm text-muted-foreground">
           Manage raffle seasons and contract settings
         </p>
-        <div className="space-y-2">
-          <div className="break-all">
-            <span className="font-semibold">RAFFLE:</span>{" "}
-            {addresses.RAFFLE || "n/a"}
-          </div>
-          <div>
-            <span className="font-semibold">Contract Code:</span>{" "}
-            {!raffleCodeStatus.checked
-              ? "checking…"
-              : raffleCodeStatus.hasCode
-              ? "present"
-              : "absent"}
-            {raffleCodeStatus.error ? (
-              <span className="text-red-600"> — {raffleCodeStatus.error}</span>
-            ) : null}
-          </div>
-        </div>
       </div>
       <div className="grid md:grid-cols-2 gap-4 mt-4">
         <Card>
@@ -216,6 +152,11 @@ function AdminPanel() {
             />
           </CardContent>
         </Card>
+      </div>
+
+      {/* InfoFi Markets Status Panel */}
+      <div className="mt-6">
+        <InfoFiMarketsPanel />
       </div>
     </div>
   );

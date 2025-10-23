@@ -15,12 +15,7 @@ import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
-
-
-// Minimal ACL interface for granting MARKET_ROLE on the tracker
-interface ITrackerACL {
-    function grantRole(bytes32 role, address account) external;
-}
+import {ITrackerACL} from "../lib/ITrackerACL.sol";
 
 /**
  * @title Raffle Contract
@@ -168,11 +163,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Allow the curve to call participant hooks
         _grantRole(BONDING_CURVE_ROLE, curveAddr);
 
-        // If InfoFi factory is configured, wire it into the curve for threshold callbacks
-        if (infoFiFactory != address(0)) {
-            // Raffle has RAFFLE_MANAGER_ROLE on the curve (granted by SeasonFactory)
-            SOFBondingCurve(curveAddr).setInfoFiFactory(infoFiFactory);
-        }
+        // InfoFi factory integration removed - now using RafflePositionTracker
+        // Position tracker is set separately via setPositionTracker() if needed
 
         emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
     }
@@ -288,13 +280,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Emit InfoFi position update and call factory
         emit PositionUpdate(seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets);
         if (infoFiFactory != address(0)) {
-            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
                 seasonId,
                 participant,
                 oldTickets,
                 newTicketsLocal,
                 state.totalTickets
-            );
+            ) {
+                // Success - InfoFi market updated/created
+            } catch {
+                // InfoFi failure should not block raffle participation
+                // Event will be emitted by factory if market creation failed
+            }
         }
     }
 
@@ -326,13 +323,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Emit InfoFi position update and call factory
         emit PositionUpdate(seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets);
         if (infoFiFactory != address(0)) {
-            IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
+            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
                 seasonId,
                 participant,
                 oldTickets,
                 pos.ticketCount,
                 state.totalTickets
-            );
+            ) {
+                // Success - InfoFi market updated
+            } catch {
+                // InfoFi failure should not block raffle participation
+                // Event will be emitted by factory if update failed
+            }
         }
     }
 

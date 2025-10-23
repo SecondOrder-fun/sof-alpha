@@ -2,11 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
 import "../lib/RaffleTypes.sol";
-import "../lib/RaffleLogic.sol";
 import "../lib/IRaffle.sol";
+import "../lib/ITrackerACL.sol";
 
 /**
  * @title SeasonFactory
@@ -17,6 +18,7 @@ contract SeasonFactory is AccessControl {
 
     address public immutable raffleAddress;
     address public immutable trackerAddress;
+    address public immutable deployerAddress;
     address public infoFiFactory;
 
     event SeasonContractsDeployed(
@@ -28,6 +30,7 @@ contract SeasonFactory is AccessControl {
     constructor(address _raffleAddress, address _trackerAddress) {
         raffleAddress = _raffleAddress;
         trackerAddress = _trackerAddress;
+        deployerAddress = msg.sender;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
     }
@@ -46,7 +49,7 @@ contract SeasonFactory is AccessControl {
         // Deploy RaffleToken for this season
         RaffleToken raffleToken = new RaffleToken(
             string(abi.encodePacked("SecondOrder ", config.name)),
-            string(abi.encodePacked("SOF-", RaffleLogic._toString(seasonId))),
+            string(abi.encodePacked("SOF-", Strings.toString(seasonId))),
             seasonId,
             config.name,
             config.startTime,
@@ -54,19 +57,29 @@ contract SeasonFactory is AccessControl {
         );
         raffleTokenAddr = address(raffleToken);
 
-        // Deploy curve for this season
-        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()));
+        // Deploy curve for this season with transaction originator as admin
+        // tx.origin is the wallet that initiated the createSeason transaction
+        SOFBondingCurve curve = new SOFBondingCurve(address(IRaffle(raffleAddress).sofToken()), tx.origin);
         curveAddr = address(curve);
 
-        // Grant Raffle contract manager role on curve and initialize
+        // Grant RAFFLE_MANAGER_ROLE to this factory temporarily to initialize, and to Raffle permanently
+        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), address(this));
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
-        curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), msg.sender);
+        
+        // Initialize the curve (requires RAFFLE_MANAGER_ROLE)
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
-        // Set InfoFi factory on curve if configured
+        // Set position tracker on bonding curve for InfoFi market creation
+        if (trackerAddress != address(0)) {
+            curve.setPositionTracker(trackerAddress);
+            // Grant MARKET_ROLE to bonding curve so it can update positions
+            ITrackerACL(trackerAddress).grantRole(keccak256("MARKET_ROLE"), curveAddr);
+        }
+        
+        // Set InfoFi market factory on bonding curve for automatic FPMM market creation
         if (infoFiFactory != address(0)) {
-            curve.setInfoFiFactory(infoFiFactory);
+            curve.setInfoFiMarketFactory(infoFiFactory);
         }
 
         // Grant curve rights on raffle token

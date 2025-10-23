@@ -1,5 +1,5 @@
 // backend/src/services/infofiListener.js
-// Watches InfoFiMarketFactory.MarketCreated events and syncs infofi_markets in DB.
+// Watches InfoFiMarketFactory.MarketCreated and ProbabilityUpdated events and syncs infofi_markets in DB.
 
 import { getPublicClient } from '../lib/viemClient.js';
 import { getChainByKey } from '../config/chain.js';
@@ -7,7 +7,7 @@ import InfoFiMarketFactoryAbi from '../abis/InfoFiMarketFactoryAbi.js';
 import { db } from '../../shared/supabaseClient.js';
 
 /**
- * Start watching MarketCreated events for a given network key (LOCAL/TESTNET)
+ * Start watching MarketCreated and ProbabilityUpdated events for a given network key (LOCAL/TESTNET)
  * Returns an unsubscribe function.
  */
 export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console) {
@@ -20,11 +20,12 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
   const client = getPublicClient(networkKey);
 
   // Subscribe to MarketCreated
-  const unwatch = client.watchContractEvent({
+  const unwatchMarketCreated = client.watchContractEvent({
     address: chain.infofiFactory,
     abi: InfoFiMarketFactoryAbi,
     eventName: 'MarketCreated',
     onLogs: async (logs) => {
+      logger.info(`[infofiListener] Received ${logs.length} MarketCreated event(s)`);
       for (const log of logs) {
         try {
           const seasonId = Number(log.args.seasonId);
@@ -33,13 +34,15 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
           // marketType is bytes32; we treat winner prediction as constant string
           const MARKET_TYPE = 'WINNER_PREDICTION';
 
+          logger.info(`[infofiListener] Processing MarketCreated: season=${seasonId}, player=${player}, bps=${probabilityBps}`);
+
           // Get or create player record FIRST (needed for foreign key)
           const playerId = await db.getOrCreatePlayerIdByAddress(player);
 
           // Idempotency: skip if exists (using player_id as primary identifier)
           const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
           if (exists) {
-            logger.debug(`[infofiListener] Market already exists for season ${seasonId}, player ${player}`);
+            logger.info(`[infofiListener] Market already exists for season ${seasonId}, player ${player} - skipping`);
             continue;
           }
 
@@ -69,16 +72,57 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
             logger.warn(`[infofiListener] Failed to initialize pricing cache for market ${market.id}:`, cacheErr.message);
           }
 
-          logger.info(`[infofiListener] Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
+          logger.info(`[infofiListener] ✅ Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
         } catch (e) {
           logger.error('[infofiListener] Failed to handle MarketCreated log', e);
         }
       }
     },
-    onError: (e) => logger.error('[infofiListener] watchContractEvent error', e),
+    onError: (e) => logger.error('[infofiListener] MarketCreated watchContractEvent error', e),
+    pollingInterval: 3000,
+  });
+
+  // Subscribe to ProbabilityUpdated
+  const unwatchProbabilityUpdated = client.watchContractEvent({
+    address: chain.infofiFactory,
+    abi: InfoFiMarketFactoryAbi,
+    eventName: 'ProbabilityUpdated',
+    onLogs: async (logs) => {
+      logger.info(`[infofiListener] Received ${logs.length} ProbabilityUpdated event(s)`);
+      for (const log of logs) {
+        try {
+          const seasonId = Number(log.args.seasonId);
+          const player = String(log.args.player);
+          const newProbabilityBps = Number(log.args.newProbabilityBps);
+          const MARKET_TYPE = 'WINNER_PREDICTION';
+
+          logger.info(`[infofiListener] Processing ProbabilityUpdated: season=${seasonId}, player=${player}, newBps=${newProbabilityBps}`);
+
+          // Get player ID
+          const playerId = await db.getOrCreatePlayerIdByAddress(player);
+
+          // Update current_probability in database
+          const updated = await db.updateInfoFiMarketProbability(seasonId, playerId, MARKET_TYPE, newProbabilityBps);
+          
+          if (updated) {
+            logger.info(`[infofiListener] ✅ Updated probability for season ${seasonId}, player ${player}, newBps=${newProbabilityBps}`);
+          } else {
+            logger.warn(`[infofiListener] Failed to update probability for season ${seasonId}, player ${player} - market may not exist`);
+          }
+        } catch (e) {
+          logger.error('[infofiListener] Failed to handle ProbabilityUpdated log', e);
+        }
+      }
+    },
+    onError: (e) => logger.error('[infofiListener] ProbabilityUpdated watchContractEvent error', e),
     pollingInterval: 3000,
   });
 
   logger.info(`[infofiListener] Listening on ${networkKey} at ${chain.infofiFactory}`);
-  return unwatch;
+  
+  // Return combined unsubscribe function
+  return () => {
+    unwatchMarketCreated();
+    unwatchProbabilityUpdated();
+  };
 }

@@ -3,7 +3,6 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useHybridPriceLive } from '@/hooks/useHybridPriceLive';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,62 +56,12 @@ const InfoFiMarketCard = ({ market }) => {
     return Math.max(0, Math.min(10000, Math.round(num)));
   }, []);
 
-  const initialHybrid = normalizeBps(market?.current_probability);
-  const [bps, setBps] = React.useState({ hybrid: initialHybrid, raffle: null, market: null });
+  // Use database as source of truth - backend listener keeps it in sync
+  // No need for oracle queries since backend syncs ProbabilityUpdated events
+  const probabilityBps = normalizeBps(market?.current_probability);
   
-  // Check if oracle data is initialized (must be after bps state declaration)
-  const isLoadingOracle = isWinnerPrediction && bps.raffle === null && bps.hybrid === null;
-  const { data: priceData } = useHybridPriceLive(market?.id);
-  React.useEffect(() => {
-    const fallbackHybrid = normalizeBps(market?.current_probability);
-
-    if (!priceData) {
-      if (fallbackHybrid !== null) {
-        setBps((prev) => {
-          // Only update if value actually changed
-          if (prev.hybrid !== fallbackHybrid) {
-            return { ...prev, hybrid: fallbackHybrid };
-          }
-          return prev;
-        });
-      }
-      return;
-    }
-
-    const nextHybridRaw = priceData.hybridPriceBps;
-    const nextRaffleRaw = priceData.raffleProbabilityBps;
-    const nextMarketRaw = priceData.marketSentimentBps;
-
-    const normalizedHybrid = normalizeBps(nextHybridRaw);
-    const normalizedRaffle = normalizeBps(nextRaffleRaw);
-    const normalizedMarket = normalizeBps(nextMarketRaw);
-
-    setBps((prev) => {
-      const currentHybrid = typeof prev.hybrid === 'number' ? prev.hybrid : null;
-      let hybrid = currentHybrid;
-      if (normalizedHybrid !== null && normalizedHybrid > 0) {
-        hybrid = normalizedHybrid;
-      } else if (normalizedHybrid !== null) {
-        hybrid = fallbackHybrid ?? normalizedHybrid;
-      } else if ((hybrid == null || hybrid === 0) && fallbackHybrid !== null) {
-        hybrid = fallbackHybrid;
-      }
-
-      const raffle = normalizedRaffle !== null ? normalizedRaffle : prev.raffle;
-      const marketProb = normalizedMarket !== null ? normalizedMarket : prev.market;
-
-      // Only update if values actually changed
-      if (prev.hybrid === hybrid && prev.raffle === raffle && prev.market === marketProb) {
-        return prev;
-      }
-
-      return {
-        hybrid,
-        raffle,
-        market: marketProb,
-      };
-    });
-  }, [priceData, market?.current_probability, normalizeBps]);
+  // Check if market data is loaded
+  const isLoadingOracle = isWinnerPrediction && probabilityBps === null;
 
   // Derive preferred uint256 market id if listing supplied a bytes32 id
   const netKey = (import.meta.env.VITE_DEFAULT_NETWORK || 'LOCAL').toUpperCase();
@@ -241,7 +190,13 @@ const InfoFiMarketCard = ({ market }) => {
   const betMutation = useMutation({
     mutationFn: async () => {
       const amt = form.amount || '0';
-      return placeBetTx({ marketId: effectiveMarketId, prediction: form.side === 'YES', amount: amt });
+      return placeBetTx({ 
+        marketId: effectiveMarketId, 
+        prediction: form.side === 'YES', 
+        amount: amt,
+        seasonId: seasonId,
+        player: market.player
+      });
     },
     onSuccess: (hash) => {
       qc.invalidateQueries({ queryKey: ['infofiBet', effectiveMarketId, address, true] });
@@ -257,31 +212,17 @@ const InfoFiMarketCard = ({ market }) => {
     }
   });
 
-  // Calculate probability directly from ticket balances when oracle is unavailable
-  // Display percent: Show actual raffle odds (what users see)
-  // ONLY use raffle probability from oracle - no fallbacks
-  // If oracle data not available, component shows skeleton (via isLoadingOracle check)
+  // Display percent: Use database current_probability (synced by backend listener)
   const percent = React.useMemo(() => {
-    if (bps.raffle != null) {
-      const normalized = Math.max(0, Math.min(10000, bps.raffle));
-      return (normalized / 100).toFixed(1);
+    if (probabilityBps != null) {
+      return (probabilityBps / 100).toFixed(1);
     }
-    // No fallbacks - if raffle probability not available, return null
-    // Component will show skeleton until oracle initializes
     return null;
-  }, [bps.raffle]);
+  }, [probabilityBps]);
 
-  // Payout percent: Use hybrid price (determines actual payout odds)
-  // Hybrid price = 70% raffle + 30% market sentiment
-  const payoutPercent = React.useMemo(() => {
-    if (bps.hybrid != null) {
-      const normalized = Math.max(0, Math.min(10000, bps.hybrid));
-      return (normalized / 100).toFixed(1);
-    }
-    // No fallback - if hybrid price not available, return null
-    // Component will show skeleton until oracle initializes
-    return null;
-  }, [bps.hybrid]);
+  // Payout percent: For now, use same as display percent
+  // TODO: Implement hybrid pricing (70% raffle + 30% market sentiment) if needed
+  const payoutPercent = percent;
 
   // Calculate payout for a given bet amount (uses hybrid price)
   const calculatePayout = React.useCallback((betAmount, isYes) => {

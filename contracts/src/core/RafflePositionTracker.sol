@@ -14,6 +14,7 @@ import {RaffleTypes} from "../lib/RaffleTypes.sol";
 // --- External raffle interface (aligns with existing Raffle.sol) ---
 interface IRaffleContract {
     function currentSeasonId() external view returns (uint256);
+    
     function getSeasonDetails(uint256 seasonId)
         external
         view
@@ -24,6 +25,8 @@ interface IRaffleContract {
             uint256 totalTickets,
             uint256 totalPrizePool
         );
+
+    function getParticipants(uint256 seasonId) external view returns (address[] memory);
 
     // Mirror Raffle.getParticipantPosition ABI by defining a compatible struct locally
     struct ParticipantPosition {
@@ -43,6 +46,9 @@ contract RafflePositionTracker is AccessControl {
     // --- Roles ---
     bytes32 public constant MARKET_ROLE = keccak256("MARKET_ROLE");
     bytes32 public constant ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
+
+    // --- Constants ---
+    uint256 public constant MAX_PLAYERS_PER_UPDATE = 250;
 
     // --- Types ---
     struct PlayerSnapshot {
@@ -91,6 +97,33 @@ contract RafflePositionTracker is AccessControl {
     }
 
     /**
+     * @notice Update ALL players in the current season after any position change.
+     * @dev Called by bonding curve after buy/sell to ensure all probabilities are current.
+     *      Limited to MAX_PLAYERS_PER_UPDATE for gas safety.
+     */
+    function updateAllPlayersInSeason() external onlyRole(MARKET_ROLE) {
+        uint256 seasonId = raffle.currentSeasonId();
+        address[] memory players = raffle.getParticipants(seasonId);
+        
+        if (players.length == 0) return;
+        
+        // Get total tickets once to save gas
+        (, , , uint256 totalTickets, ) = raffle.getSeasonDetails(seasonId);
+        
+        // Limit to MAX_PLAYERS_PER_UPDATE for gas safety
+        uint256 updateCount = players.length > MAX_PLAYERS_PER_UPDATE 
+            ? MAX_PLAYERS_PER_UPDATE 
+            : players.length;
+        
+        // Update each player with pre-fetched totalTickets
+        for (uint256 i = 0; i < updateCount; i++) {
+            _updatePlayerInternalWithTotal(players[i], seasonId, totalTickets);
+        }
+        
+        seasonLastUpdateBlock[seasonId] = block.number;
+    }
+
+    /**
      * @notice Batch update multiple players. Gas-optimized loop with minimal state writes.
      */
     function batchUpdatePositions(address[] calldata players) external onlyRole(MARKET_ROLE) {
@@ -131,6 +164,17 @@ contract RafflePositionTracker is AccessControl {
             
         ) = raffle.getSeasonDetails(seasonId);
 
+        _updatePlayerInternalWithTotal(player, seasonId, totalTickets);
+    }
+
+    /**
+     * @notice Internal helper that accepts pre-fetched totalTickets to save gas in batch operations.
+     */
+    function _updatePlayerInternalWithTotal(
+        address player,
+        uint256 seasonId,
+        uint256 totalTickets
+    ) internal {
         IRaffleContract.ParticipantPosition memory pos = raffle.getParticipantPosition(seasonId, player);
         uint256 newTicketCount = pos.ticketCount;
         bool isActive = pos.isActive;
@@ -150,12 +194,8 @@ contract RafflePositionTracker is AccessControl {
 
         playerHistory[player].push(snap);
         currentPositions[player] = snap;
-        seasonLastUpdateBlock[seasonId] = block.number;
 
         emit PositionSnapshot(player, newTicketCount, totalTickets, bps, seasonId);
-
-        // TODO: (integration) Notify market contracts/oracle factory interfaces if/when wired on-chain.
-        // e.g., IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(player, oldTickets, newTickets, totalTickets);
     }
 
     // Minimal helper to emit array length without passing the heavy data again (keeps event signature stable)

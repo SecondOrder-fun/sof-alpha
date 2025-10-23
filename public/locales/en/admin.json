@@ -92,5 +92,23 @@
   "funded": "Funded",
   "grand": "Grand",
   "consolation": "Consolation",
-  "vrfReqId": "VRF reqId"
+  "vrfReqId": "VRF reqId",
+  "infoFiMarkets": {
+    "title": "InfoFi Markets Status",
+    "description": "View all InfoFi prediction markets grouped by season",
+    "summary": "{{total}} total markets ({{active}} active)",
+    "marketName": "Market Name",
+    "id": "ID",
+    "season": "Season",
+    "seasonNumber": "Season {{number}}",
+    "marketCount": "{{count}} markets ({{active}} active)",
+    "currentLiquidity": "Current Liquidity (24h)",
+    "totalVolume": "Total Volume",
+    "status": "Status",
+    "active": "Active",
+    "settled": "Settled",
+    "noMarkets": "No InfoFi markets found",
+    "loading": "Loading markets...",
+    "error": "Error loading markets"
+  }
 }
