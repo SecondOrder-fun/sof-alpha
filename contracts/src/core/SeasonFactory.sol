@@ -2,10 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
 import "../lib/RaffleTypes.sol";
-import "../lib/RaffleLogic.sol";
 import "../lib/IRaffle.sol";
 import "../lib/ITrackerACL.sol";
 
@@ -49,7 +49,7 @@ contract SeasonFactory is AccessControl {
         // Deploy RaffleToken for this season
         RaffleToken raffleToken = new RaffleToken(
             string(abi.encodePacked("SecondOrder ", config.name)),
-            string(abi.encodePacked("SOF-", RaffleLogic._toString(seasonId))),
+            string(abi.encodePacked("SOF-", Strings.toString(seasonId))),
             seasonId,
             config.name,
             config.startTime,
@@ -75,6 +75,11 @@ contract SeasonFactory is AccessControl {
             curve.setPositionTracker(trackerAddress);
             // Grant MARKET_ROLE to bonding curve so it can update positions
             ITrackerACL(trackerAddress).grantRole(keccak256("MARKET_ROLE"), curveAddr);
+        }
+        
+        // Set InfoFi market factory on bonding curve for automatic FPMM market creation
+        if (infoFiFactory != address(0)) {
+            curve.setInfoFiMarketFactory(infoFiFactory);
         }
 
         // Grant curve rights on raffle token

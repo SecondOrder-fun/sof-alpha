@@ -13,6 +13,7 @@
  * @property {`0x${string}` | string} INFOFI_SETTLEMENT
  * @property {`0x${string}` | string} INFOFI_MARKET // legacy placeholder
  * @property {`0x${string}` | string} INFOFI_FPMM // FPMM manager contract
+ * @property {`0x${string}` | string} CONDITIONAL_TOKENS // Gnosis Conditional Tokens
  * @property {`0x${string}` | string} SOF_FAUCET
  */
 
@@ -33,6 +34,7 @@ export const CONTRACTS = {
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_LOCAL || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_LOCAL || "", // legacy
     INFOFI_FPMM: import.meta.env.VITE_INFOFI_FPMM_ADDRESS_LOCAL || "",
+    CONDITIONAL_TOKENS: import.meta.env.VITE_CONDITIONAL_TOKENS_ADDRESS_LOCAL || "",
     VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_LOCAL || "",
     SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_LOCAL || "",
   },
@@ -46,6 +48,7 @@ export const CONTRACTS = {
     INFOFI_SETTLEMENT: import.meta.env.VITE_INFOFI_SETTLEMENT_ADDRESS_TESTNET || "",
     INFOFI_MARKET: import.meta.env.VITE_INFOFI_MARKET_ADDRESS_TESTNET || "", // legacy
     INFOFI_FPMM: import.meta.env.VITE_INFOFI_FPMM_ADDRESS_TESTNET || "",
+    CONDITIONAL_TOKENS: import.meta.env.VITE_CONDITIONAL_TOKENS_ADDRESS_TESTNET || "",
     VRF_COORDINATOR: import.meta.env.VITE_VRF_COORDINATOR_ADDRESS_TESTNET || "",
     SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET || "",
   },

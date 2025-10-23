@@ -11,7 +11,7 @@ import "../src/infofi/InfoFiPriceOracle.sol";
 import "../src/infofi/InfoFiSettlement.sol";
 import "../src/infofi/RaffleOracleAdapter.sol";
 import "../src/infofi/InfoFiFPMMV2.sol";
-import "../src/mocks/ConditionalTokensMock.sol";
+import "../src/infofi/ConditionalTokenSOF.sol";
 import "../src/token/SOFToken.sol";
 import "../src/core/SeasonFactory.sol";
 import "../src/lib/RaffleTypes.sol";
@@ -92,10 +92,12 @@ contract DeployScript is Script {
         InfoFiPriceOracle infoFiOracle = new InfoFiPriceOracle(deployerAddr, 7000, 3000);
         console2.log("InfoFiPriceOracle deployed at:", address(infoFiOracle));
 
-        // Deploy ConditionalTokens Mock for local testing
-        console2.log("Deploying ConditionalTokensMock...");
-        ConditionalTokensMock conditionalTokens = new ConditionalTokensMock();
-        console2.log("ConditionalTokensMock deployed at:", address(conditionalTokens));
+        // Deploy ConditionalTokenSOF (SecondOrder.fun CTF implementation)
+        // Production-ready implementation optimized for binary outcome markets
+        // Compatible with Solidity 0.8.20, implements complete Gnosis CTF interface
+        console2.log("Deploying ConditionalTokenSOF...");
+        ConditionalTokenSOF conditionalTokens = new ConditionalTokenSOF();
+        console2.log("ConditionalTokenSOF deployed at:", address(conditionalTokens));
 
         // Deploy RaffleOracleAdapter
         console2.log("Deploying RaffleOracleAdapter...");
@@ -210,12 +212,9 @@ contract DeployScript is Script {
         console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
         console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
 
-        // Grant FEE_COLLECTOR_ROLE to the Raffle contract for treasury system
-        try sof.grantRole(sof.FEE_COLLECTOR_ROLE(), address(raffle)) {
-            console2.log("Granted FEE_COLLECTOR_ROLE to Raffle contract");
-        } catch {
-            console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
-        }
+        // Grant FEE_COLLECTOR_ROLE to deployer/admin for manual fee collection
+        sof.grantRole(sof.FEE_COLLECTOR_ROLE(), deployerAddr);
+        console2.log("Granted FEE_COLLECTOR_ROLE to admin/deployer:", deployerAddr);
 
         vm.stopBroadcast();
 

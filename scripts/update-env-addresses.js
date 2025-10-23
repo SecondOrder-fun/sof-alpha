@@ -31,6 +31,7 @@ const NAME_TO_ENV = {
   InfoFiPriceOracle: "INFOFI_ORACLE",
   InfoFiSettlement: "INFOFI_SETTLEMENT",
   InfoFiFPMMV2: "INFOFI_FPMM",
+  ConditionalTokenSOF: "CONDITIONAL_TOKENS",
   RafflePrizeDistributor: "PRIZE_DISTRIBUTOR",
   // Faucet
   SOFFaucet: "SOF_FAUCET",

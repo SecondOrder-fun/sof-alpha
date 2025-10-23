@@ -34,7 +34,7 @@ const contractsToCopy = [
   { sourceFile: 'InfoFiFPMMV2.sol/InfoFiFPMMV2.json', destFile: 'InfoFiFPMMV2.json' },
   { sourceFile: 'InfoFiFPMMV2.sol/SimpleFPMM.json', destFile: 'SimpleFPMM.json' },
   { sourceFile: 'InfoFiFPMMV2.sol/SOLPToken.json', destFile: 'SOLPToken.json' },
-  { sourceFile: 'ConditionalTokensMock.sol/ConditionalTokensMock.json', destFile: 'ConditionalTokensMock.json' },
+  { sourceFile: 'ConditionalTokenSOF.sol/ConditionalTokenSOF.json', destFile: 'ConditionalTokenSOF.json' },
 
   // Position tracker
   { sourceFile: 'RafflePositionTracker.sol/RafflePositionTracker.json', destFile: 'RafflePositionTracker.json' },

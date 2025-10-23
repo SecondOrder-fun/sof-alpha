@@ -62,4 +62,20 @@ interface IConditionalTokens {
         bytes32 conditionId,
         uint256[] calldata indexSets
     ) external;
+    
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes calldata data
+    ) external;
+    
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata amounts,
+        bytes calldata data
+    ) external;
 }

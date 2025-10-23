@@ -575,6 +575,106 @@ export async function readBet({ marketId, account, prediction, networkKey = 'LOC
   }
 }
 
+/**
+ * Read user's position in an FPMM market
+ * Positions are held as Conditional Tokens (ERC1155), not in a mapping
+ * @param {Object} params
+ * @param {string} params.seasonId - Season ID
+ * @param {string} params.player - Player address
+ * @param {string} params.account - User address to check
+ * @param {boolean} params.prediction - true for YES, false for NO
+ * @param {string} params.networkKey - Network key
+ * @returns {Promise<{amount: bigint}>} User's position amount
+ */
+export async function readFpmmPosition({ seasonId, player, account, prediction, networkKey = 'LOCAL' }) {
+  const chain = getNetworkByKey(networkKey);
+  const publicClient = createPublicClient({ chain: { id: chain.id }, transport: http(chain.rpcUrl) });
+  const addrs = getContractAddresses(networkKey);
+
+  if (!addrs.INFOFI_FPMM) {
+    console.warn('INFOFI_FPMM address not configured');
+    return { amount: 0n };
+  }
+
+  if (!addrs.CONDITIONAL_TOKENS) {
+    console.warn('CONDITIONAL_TOKENS address not configured');
+    return { amount: 0n };
+  }
+
+  try {
+    // Get FPMM address for this player/season
+    const fpmmManagerAbi = [
+      {
+        "type": "function",
+        "name": "getMarket",
+        "inputs": [
+          {"name": "seasonId", "type": "uint256"},
+          {"name": "player", "type": "address"}
+        ],
+        "outputs": [{"name": "", "type": "address"}],
+        "stateMutability": "view"
+      }
+    ];
+
+    const fpmmAddress = await publicClient.readContract({
+      address: addrs.INFOFI_FPMM,
+      abi: fpmmManagerAbi,
+      functionName: 'getMarket',
+      args: [BigInt(seasonId), getAddress(player)],
+    });
+
+    if (!fpmmAddress || fpmmAddress === '0x0000000000000000000000000000000000000000') {
+      return { amount: 0n };
+    }
+
+    // SimpleFPMM ABI to get position IDs
+    const fpmmAbi = [
+      {
+        "type": "function",
+        "name": "positionIds",
+        "inputs": [{"name": "", "type": "uint256"}],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view"
+      }
+    ];
+
+    // Get position ID for YES (0) or NO (1)
+    const positionId = await publicClient.readContract({
+      address: fpmmAddress,
+      abi: fpmmAbi,
+      functionName: 'positionIds',
+      args: [prediction ? 0n : 1n],
+    });
+
+    // ConditionalTokens ABI for balanceOf
+    const conditionalTokensAbi = [
+      {
+        "type": "function",
+        "name": "balanceOf",
+        "inputs": [
+          {"name": "owner", "type": "address"},
+          {"name": "positionId", "type": "uint256"}
+        ],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view"
+      }
+    ];
+
+    // Query user's conditional token balance
+    const balance = await publicClient.readContract({
+      address: addrs.CONDITIONAL_TOKENS,
+      abi: conditionalTokensAbi,
+      functionName: 'balanceOf',
+      args: [getAddress(account), positionId],
+    });
+
+    return { amount: balance };
+  } catch (error) {
+    console.error('Error reading FPMM position:', error);
+    return { amount: 0n };
+  }
+}
+
 // Place a bet (buy position) using FPMM system. Amount is SOF (18 decimals) as human string/number.
 export async function placeBetTx({ marketId, prediction, amount, networkKey = 'LOCAL', seasonId, player }) {
   if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
@@ -731,4 +831,104 @@ export async function claimPayoutTx({ marketId, prediction, networkKey = 'LOCAL'
     await publicClient.waitForTransactionReceipt({ hash: h2 });
     return h2;
   }
+}
+
+/**
+ * Redeem conditional tokens after market resolution
+ * @param {Object} params
+ * @param {string} params.seasonId - Season ID
+ * @param {string} params.player - Player address whose market to redeem from
+ * @param {string} params.networkKey - Network key (LOCAL or TESTNET)
+ * @returns {Promise<string>} Transaction hash
+ */
+export async function redeemPositionTx({ seasonId, player, networkKey = 'LOCAL' }) {
+  if (typeof window === 'undefined' || !window.ethereum) throw new Error('No wallet available');
+  const chain = getNetworkByKey(networkKey);
+  const walletClient = createWalletClient({ chain: { id: chain.id }, transport: custom(window.ethereum) });
+  const publicClient = createPublicClient({ chain: { id: chain.id }, transport: http(chain.rpcUrl) });
+  const [from] = await walletClient.getAddresses();
+  if (!from) throw new Error('Connect wallet first');
+  
+  const addrs = getContractAddresses(networkKey);
+  if (!addrs.CONDITIONAL_TOKENS) throw new Error('CONDITIONAL_TOKENS address missing');
+  if (!addrs.SOF) throw new Error('SOF address missing');
+  if (!addrs.INFOFI_FPMM) throw new Error('INFOFI_FPMM address missing');
+  
+  // Get FPMM address for this player
+  const fpmmManagerAbi = [
+    {
+      "type": "function",
+      "name": "getMarket",
+      "inputs": [
+        {"name": "seasonId", "type": "uint256"},
+        {"name": "player", "type": "address"}
+      ],
+      "outputs": [{"name": "", "type": "address"}],
+      "stateMutability": "view"
+    }
+  ];
+  
+  const fpmmAddress = await publicClient.readContract({
+    address: addrs.INFOFI_FPMM,
+    abi: fpmmManagerAbi,
+    functionName: 'getMarket',
+    args: [BigInt(seasonId), getAddress(player)],
+  });
+  
+  if (!fpmmAddress || fpmmAddress === '0x0000000000000000000000000000000000000000') {
+    throw new Error('No FPMM market exists for this player');
+  }
+  
+  // Get condition ID from FPMM
+  const fpmmAbi = [
+    {
+      "type": "function",
+      "name": "conditionId",
+      "inputs": [],
+      "outputs": [{"name": "", "type": "bytes32"}],
+      "stateMutability": "view"
+    }
+  ];
+  
+  const conditionId = await publicClient.readContract({
+    address: fpmmAddress,
+    abi: fpmmAbi,
+    functionName: 'conditionId',
+  });
+  
+  // ConditionalTokens ABI for redeemPositions
+  const conditionalTokensAbi = [
+    {
+      "type": "function",
+      "name": "redeemPositions",
+      "inputs": [
+        {"name": "collateralToken", "type": "address"},
+        {"name": "parentCollectionId", "type": "bytes32"},
+        {"name": "conditionId", "type": "bytes32"},
+        {"name": "indexSets", "type": "uint256[]"}
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+  ];
+  
+  // Redeem both YES and NO positions
+  // indexSets: [1] = 0b01 (YES), [2] = 0b10 (NO)
+  const indexSets = [1, 2];
+  
+  const hash = await walletClient.writeContract({
+    address: addrs.CONDITIONAL_TOKENS,
+    abi: conditionalTokensAbi,
+    functionName: 'redeemPositions',
+    args: [
+      addrs.SOF,                    // collateralToken
+      '0x0000000000000000000000000000000000000000000000000000000000000000', // parentCollectionId (empty)
+      conditionId,                  // conditionId
+      indexSets                     // indexSets [1, 2]
+    ],
+    account: from,
+  });
+  
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
 }

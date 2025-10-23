@@ -29,8 +29,6 @@ export function startPositionTrackerListener(networkKey = 'LOCAL', logger = cons
       for (const log of logs) {
         try {
           const player = String(log.args.player);
-          const ticketCount = Number(log.args.ticketCount);
-          const totalTickets = Number(log.args.totalTickets);
           const winProbabilityBps = Number(log.args.winProbabilityBps);
           const seasonId = Number(log.args.seasonId);
           const MARKET_TYPE = 'WINNER_PREDICTION';
@@ -40,39 +38,14 @@ export function startPositionTrackerListener(networkKey = 'LOCAL', logger = cons
           // Get or create player record
           const playerId = await db.getOrCreatePlayerIdByAddress(player);
 
+          // NOTE: We no longer create markets here - that's handled by infofiListener
+          // when it sees MarketCreated events from the on-chain InfoFiMarketFactory.
+          // This listener only updates probabilities for existing markets.
+
           // Check if market exists for this player
           const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
 
-          if (!exists) {
-            // Market doesn't exist yet - this player just crossed the threshold
-            // Create the market
-            const market = await db.createInfoFiMarket({
-              raffle_id: seasonId,
-              player_id: playerId,
-              market_type: MARKET_TYPE,
-              initial_probability: winProbabilityBps,
-              current_probability: winProbabilityBps,
-              is_active: true,
-              is_settled: false
-            });
-
-            // Initialize pricing cache
-            try {
-              await db.upsertMarketPricingCache({
-                market_id: market.id,
-                raffle_probability: winProbabilityBps,
-                market_sentiment: winProbabilityBps,
-                hybrid_price: winProbabilityBps / 10000,
-                raffle_weight: 7000,
-                market_weight: 3000,
-                last_updated: new Date().toISOString()
-              });
-            } catch (cacheErr) {
-              logger.warn(`[positionTrackerListener] Failed to initialize pricing cache for market ${market.id}:`, cacheErr.message);
-            }
-
-            logger.info(`[positionTrackerListener] ✅ Created new market for season ${seasonId}, player ${player}, bps=${winProbabilityBps}`);
-          } else {
+          if (exists) {
             // Market exists - update probability
             const updated = await db.updateInfoFiMarketProbability(seasonId, playerId, MARKET_TYPE, winProbabilityBps);
             
@@ -81,6 +54,10 @@ export function startPositionTrackerListener(networkKey = 'LOCAL', logger = cons
             } else {
               logger.warn(`[positionTrackerListener] Failed to update probability for season ${seasonId}, player ${player}`);
             }
+          } else {
+            // Market doesn't exist yet - it will be created by infofiListener when
+            // InfoFiMarketFactory emits MarketCreated event (if player crosses 1% threshold)
+            logger.debug(`[positionTrackerListener] No market yet for season ${seasonId}, player ${player}, bps=${winProbabilityBps}`);
           }
         } catch (e) {
           logger.error('[positionTrackerListener] Failed to handle PositionSnapshot log', e);

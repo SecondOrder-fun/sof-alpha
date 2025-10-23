@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { enumerateAllMarkets, readBetFull, claimPayoutTx } from '@/services/onchainInfoFi';
+import { enumerateAllMarkets, readBetFull, claimPayoutTx, redeemPositionTx, readFpmmPosition } from '@/services/onchainInfoFi';
 import { getPrizeDistributor, getSeasonPayouts, claimGrand } from '@/services/onchainRaffleDistributor';
 // CSMM claims removed - FPMM claims will be implemented separately
 import { formatUnits } from 'viem';
@@ -47,12 +47,62 @@ const ClaimCenter = ({ address, title, description }) => {
     refetchInterval: 5_000,
   });
 
-  // FPMM Claims (FPMM-based prediction markets)
-  // TODO: Implement FPMM claim logic when CTF redemption is ready
+  // FPMM Claims (FPMM-based prediction markets with CTF redemption)
   const fpmmClaimsQuery = useQuery({
-    queryKey: ['claimcenter_fpmm_claimables', address, netKey],
-    enabled: false, // Disabled until FPMM claims are implemented
-    queryFn: async () => [],
+    queryKey: ['claimcenter_fpmm_claimables', address, netKey, (discovery.data || []).length],
+    enabled: !!address && Array.isArray(discovery.data),
+    queryFn: async () => {
+      const out = [];
+      // Get unique seasons from discovered markets
+      const seasons = new Set((discovery.data || []).map(m => Number(m.seasonId)));
+      
+      for (const seasonId of seasons) {
+        // Get all players in this season (from discovery data)
+        const playersInSeason = new Set(
+          (discovery.data || [])
+            .filter(m => Number(m.seasonId) === seasonId)
+            .map(m => m.player)
+            .filter(Boolean)
+        );
+        
+        // Check each player's market for user's positions
+        for (const player of playersInSeason) {
+          try {
+            // Check if user has YES or NO positions
+            const yesPosition = await readFpmmPosition({
+              seasonId,
+              player,
+              account: address,
+              prediction: true,
+              networkKey: netKey
+            });
+            
+            const noPosition = await readFpmmPosition({
+              seasonId,
+              player,
+              account: address,
+              prediction: false,
+              networkKey: netKey
+            });
+            
+            // If user has positions and market is resolved, add to claimables
+            if (yesPosition.amount > 0n || noPosition.amount > 0n) {
+              out.push({
+                seasonId,
+                player,
+                yesAmount: yesPosition.amount,
+                noAmount: noPosition.amount,
+                type: 'fpmm'
+              });
+            }
+          } catch (err) {
+            // Skip markets that error (not created yet, etc)
+            console.warn(`Failed to check FPMM position for season ${seasonId}, player ${player}:`, err);
+          }
+        }
+      }
+      return out;
+    },
     staleTime: 5_000,
     refetchInterval: 5_000,
   });
@@ -101,13 +151,14 @@ const ClaimCenter = ({ address, title, description }) => {
     },
   });
 
-  // FPMM claim mutation - TODO: Implement when CTF redemption is ready
+  // FPMM claim mutation - Redeems conditional tokens after market resolution
   const claimFPMMOne = useMutation({
-    mutationFn: async () => {
-      throw new Error('FPMM claims not yet implemented');
+    mutationFn: async ({ seasonId, player }) => {
+      return redeemPositionTx({ seasonId, player, networkKey: netKey });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['claimcenter_fpmm_claimables'] });
+      qc.invalidateQueries({ queryKey: ['infoFiPositions'] });
     },
   });
 
@@ -182,14 +233,15 @@ const ClaimCenter = ({ address, title, description }) => {
                       <div className="p-2 space-y-2">
                         {rows.map((r) => {
                           if (r.type === 'fpmm') {
-                            // FPMM claim (CTF redemption) - TODO: Implement
+                            // FPMM claim (CTF redemption)
+                            const totalAmount = (r.yesAmount ?? 0n) + (r.noAmount ?? 0n);
                             return (
-                              <div key={`fpmm-${r.playerId}`} className="flex items-center justify-between border rounded p-2 text-sm bg-blue-50/50">
+                              <div key={`fpmm-${r.player}`} className="flex items-center justify-between border rounded p-2 text-sm bg-blue-50/50">
                                 <div className="text-xs text-muted-foreground">
-                                  <span className="font-semibold text-blue-600">FPMM Market</span> • Player: <span className="font-mono">{String(r.playerAddress).slice(0, 6)}...{String(r.playerAddress).slice(-4)}</span> • Outcome: <span className="font-semibold">{r.outcome}</span> • Payout: <span className="font-mono">{formatUnits(r.netPayout ?? 0n, 18)}</span> SOF (2% fee)
+                                  <span className="font-semibold text-blue-600">FPMM Market</span> • Player: <span className="font-mono">{String(r.player).slice(0, 6)}...{String(r.player).slice(-4)}</span> • YES: <span className="font-mono">{formatUnits(r.yesAmount ?? 0n, 18)}</span> • NO: <span className="font-mono">{formatUnits(r.noAmount ?? 0n, 18)}</span> • Total: <span className="font-mono">{formatUnits(totalAmount, 18)}</span> SOF
                                 </div>
-                                <Button variant="outline" onClick={() => claimFPMMOne.mutate({ fpmmAddress: r.fpmmAddress, playerId: r.playerId })} disabled={claimFPMMOne.isPending}>
-                                  {claimFPMMOne.isPending ? t('transactions:claiming') : t('common:claim')}
+                                <Button variant="outline" onClick={() => claimFPMMOne.mutate({ seasonId: r.seasonId, player: r.player })} disabled={claimFPMMOne.isPending}>
+                                  {claimFPMMOne.isPending ? t('transactions:claiming') : t('common:redeem')}
                                 </Button>
                               </div>
                             );

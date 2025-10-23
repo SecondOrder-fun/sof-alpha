@@ -52,7 +52,9 @@ const BuySellWidget = ({ marketId, market }) => {
       return placeBetTx({ 
         marketId, 
         prediction: outcome === 'YES', 
-        amount: amt 
+        amount: amt,
+        seasonId: market?.raffle_id || market?.seasonId,
+        player: market?.player
       });
     },
     onSuccess: (hash) => {
@@ -263,6 +265,9 @@ BuySellWidget.propTypes = {
   marketId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   market: PropTypes.shape({
     current_probability: PropTypes.number,
+    raffle_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    player: PropTypes.string,
   }),
 };
 
