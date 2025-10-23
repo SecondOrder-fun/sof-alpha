@@ -63,18 +63,18 @@ export function useFaucet() {
         const [lastClaimTime, cooldownPeriod, amountPerRequest] = await Promise.all([
           publicClient.readContract({
             address: contracts.SOF_FAUCET,
-            abi: SOFFaucetAbi,
+            abi: SOFFaucetAbi.abi || SOFFaucetAbi,
             functionName: 'lastClaimTime',
             args: [address],
           }),
           publicClient.readContract({
             address: contracts.SOF_FAUCET,
-            abi: SOFFaucetAbi,
+            abi: SOFFaucetAbi.abi || SOFFaucetAbi,
             functionName: 'cooldownPeriod',
           }),
           publicClient.readContract({
             address: contracts.SOF_FAUCET,
-            abi: SOFFaucetAbi,
+            abi: SOFFaucetAbi.abi || SOFFaucetAbi,
             functionName: 'amountPerRequest',
           }),
         ]);
@@ -87,7 +87,7 @@ export function useFaucet() {
                     Date.now() / 1000 > Number(lastClaimTime) + Number(cooldownPeriod)
         };
       } catch (err) {
-        // Silent error handling, returning null
+        console.error('[useFaucet] Error fetching faucet data:', err);
         return null;
       }
     },
@@ -106,7 +106,7 @@ export function useFaucet() {
       
       const hash = await walletClient.writeContract({
         address: contracts.SOF_FAUCET,
-        abi: SOFFaucetAbi,
+        abi: SOFFaucetAbi.abi || SOFFaucetAbi,
         functionName: 'claim',
         account: address,
       });
@@ -153,7 +153,7 @@ export function useFaucet() {
       // Then contribute karma
       const karmaHash = await walletClient.writeContract({
         address: contracts.SOF_FAUCET,
-        abi: SOFFaucetAbi,
+        abi: SOFFaucetAbi.abi || SOFFaucetAbi,
         functionName: 'contributeKarma',
         args: [BigInt(parseFloat(amount) * 10**18)],
         account: address,
