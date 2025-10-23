@@ -1,52 +1,56 @@
 // src/routes/UsersIndex.jsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from 'wagmi';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { getStoredNetworkKey } from '@/lib/wagmi';
-import { useAllSeasons } from '@/hooks/useAllSeasons';
-import { getSeasonPlayersOnchain } from '@/services/onchainInfoFi';
 import UsernameDisplay from '@/components/user/UsernameDisplay';
 
 const UsersIndex = () => {
   const { t } = useTranslation('common');
   const { address: myAddress } = useAccount();
-  const netKey = getStoredNetworkKey();
-  const { data: seasons = [], isLoading: seasonsLoading } = useAllSeasons();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState([]);
+  const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
-
-  const seasonIds = useMemo(() => (seasons || []).map((s) => s.id), [seasons]);
-  const seasonKey = useMemo(() => seasonIds.join(','), [seasonIds]);
-  const netKeyUpper = useMemo(() => (netKey || 'LOCAL').toUpperCase(), [netKey]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (seasonIds.length === 0) { setPlayers([]); return; }
       setLoading(true);
+      setError(null);
+      
       try {
-        const set = new Set();
-        for (const sid of seasonIds) {
-          try {
-            const arr = await getSeasonPlayersOnchain({ seasonId: sid, networkKey: netKeyUpper });
-            (arr || []).forEach((a) => set.add(String(a)));
-          } catch (_) {
-            // continue
-          }
+        // Fetch players from backend API (which queries Supabase database)
+        const response = await fetch('http://localhost:3000/api/users');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        if (!cancelled) setPlayers(Array.from(set));
+        
+        const data = await response.json();
+        
+        if (!cancelled) {
+          setPlayers(data.players || []);
+          // eslint-disable-next-line no-console
+          console.log('[UsersIndex] Loaded', data.count, 'players from database');
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[UsersIndex] Error loading players:', err);
+        if (!cancelled) {
+          setError(err.message);
+          setPlayers([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
+    
     load();
-    // no live subscription here; users can refresh by navigating back
     return () => { cancelled = true; };
-  }, [seasonKey, netKeyUpper, seasonIds]);
+  }, []);
 
   // Reset to first page when players list changes
   useEffect(() => { setPage(1); }, [players.length]);
@@ -65,11 +69,25 @@ const UsersIndex = () => {
           <CardTitle>{t('allUserProfiles')}</CardTitle>
         </CardHeader>
         <CardContent>
-          {(seasonsLoading || loading) && <p className="text-muted-foreground">{t('loading')}</p>}
-          {!seasonsLoading && !loading && players.length === 0 && (
-            <p className="text-muted-foreground">{t('noUsersFound')}</p>
+          {loading && <p className="text-muted-foreground">{t('loading')}</p>}
+          {error && (
+            <div className="space-y-2">
+              <p className="text-red-600">Error loading players: {error}</p>
+              <p className="text-sm text-muted-foreground">
+                Make sure the backend server is running on port 3000.
+              </p>
+            </div>
           )}
-          {!seasonsLoading && !loading && players.length > 0 && (
+          {!loading && !error && players.length === 0 && (
+            <div className="space-y-2">
+              <p className="text-muted-foreground">{t('noUsersFound')}</p>
+              <p className="text-sm text-muted-foreground">
+                No players have participated in any seasons yet. 
+                Players will appear here once they buy tickets in a season.
+              </p>
+            </div>
+          )}
+          {!loading && !error && players.length > 0 && (
             <div className="divide-y rounded border">
               {pageSlice.map((addr) => {
                 const isMyAddress = myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase();
@@ -89,7 +107,7 @@ const UsersIndex = () => {
             </div>
           )}
           {/* Pagination Controls */}
-          {!seasonsLoading && !loading && players.length > 0 && (
+          {!loading && !error && players.length > 0 && (
             <div className="flex items-center justify-between mt-3">
               <div className="text-sm text-muted-foreground">
                 {t('showingRange', { start: start + 1, end: Math.min(end, total), total })}

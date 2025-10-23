@@ -113,6 +113,31 @@ export async function userRoutes(fastify, options) {
     // Intentionally empty - options parameter required by Fastify plugin interface
   }
   
+  // Get all players (addresses that have participated in seasons)
+  fastify.get('/', async (request, reply) => {
+    try {
+      const { db } = await import('../../shared/supabaseClient.js');
+      
+      // Query all players from database
+      const { data: players, error } = await db.client
+        .from('players')
+        .select('address')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        fastify.log.error({ error }, 'Failed to fetch players from database');
+        return reply.status(500).send({ error: 'Failed to fetch players' });
+      }
+      
+      // Return array of addresses
+      const addresses = (players || []).map(p => p.address);
+      reply.send({ players: addresses, count: addresses.length });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to fetch players' });
+    }
+  });
+  
   // Get user profile
   fastify.get('/profile/:id', async (request, reply) => {
     try {

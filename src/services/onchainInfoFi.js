@@ -121,14 +121,30 @@ function getContracts(networkKey) {
 export async function getSeasonPlayersOnchain({ seasonId, networkKey = 'LOCAL' }) {
   const { publicClient } = buildClients(networkKey);
   const { factory } = getContracts(networkKey);
-  if (!factory.address) throw new Error('INFOFI_FACTORY address missing');
-  const players = await publicClient.readContract({
-    address: factory.address,
-    abi: factory.abi,
-    functionName: 'getSeasonPlayers',
-    args: [BigInt(seasonId)],
-  });
-  return players;
+  
+  // eslint-disable-next-line no-console
+  console.log(`[getSeasonPlayersOnchain] seasonId=${seasonId}, networkKey=${networkKey}, factory.address=${factory.address}`);
+  
+  if (!factory.address) {
+    // eslint-disable-next-line no-console
+    console.warn('[getSeasonPlayersOnchain] No factory address configured, returning empty array');
+    return [];
+  }
+  try {
+    const players = await publicClient.readContract({
+      address: factory.address,
+      abi: factory.abi,
+      functionName: 'getSeasonPlayers',
+      args: [BigInt(seasonId)],
+    });
+    // eslint-disable-next-line no-console
+    console.log(`[getSeasonPlayersOnchain] Successfully fetched ${players?.length || 0} players:`, players);
+    return players || [];
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[getSeasonPlayersOnchain] Error fetching players:', error);
+    return [];
+  }
 }
 
 export async function hasWinnerMarketOnchain({ seasonId, player, networkKey = 'LOCAL' }) {
