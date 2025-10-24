@@ -8,7 +8,7 @@ import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
 import { startPositionTrackerListener } from '../src/services/positionTrackerListener.js';
 import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
-import { startBondingCurveListener, scanHistoricalPositionUpdates } from '../src/services/bondingCurveListener.js';
+import { startSeasonListener, discoverExistingSeasons } from '../src/services/seasonListener.js';
 import { resetAndSyncInfoFiMarkets } from '../src/services/syncInfoFiMarkets.js';
 import { pricingService } from '../shared/pricingService.js';
 import { historicalOddsService } from '../shared/historicalOddsService.js';
@@ -235,33 +235,19 @@ try {
         app.log.info({ network: c.key, raffle: c.cfg.raffle }, 'Raffle listener started');
       }
       
-      // Start bonding curve listener for backend-driven market creation
-      // This listens to PositionUpdate events and creates markets when threshold crossed
+      // Start season listener for backend-driven market creation
+      // This watches SeasonCreated events and dynamically starts bonding curve listeners
       try {
-        // Scan for missed events on startup
-        const lastBlock = await db.getLastProcessedBlock('position_updates');
-        const currentBlock = await app.viem?.publicClient?.getBlockNumber?.() || 0n;
+        // First, discover existing seasons and start their bonding curve listeners
+        const discoveredCount = await discoverExistingSeasons(c.key, app.log);
+        app.log.info({ network: c.key, discoveredCount }, 'Existing seasons discovered and listeners started');
         
-        if (currentBlock > 0n && BigInt(lastBlock) < currentBlock - 100n) {
-          app.log.info({ 
-            network: c.key, 
-            fromBlock: lastBlock, 
-            toBlock: Number(currentBlock),
-            blocksToScan: Number(currentBlock) - lastBlock
-          }, 'Scanning for missed PositionUpdate events...');
-          
-          await scanHistoricalPositionUpdates(c.key, lastBlock, Number(currentBlock), app.log);
-          await db.setLastProcessedBlock('position_updates', Number(currentBlock));
-          
-          app.log.info({ network: c.key }, 'Historical scan complete');
-        }
-        
-        // Start real-time listener
-        const stopBondingCurve = startBondingCurveListener(c.key, app.log);
-        stopListeners.push(stopBondingCurve);
-        app.log.info({ network: c.key }, 'Bonding curve listener started (backend-driven market creation)');
+        // Start season listener for new seasons
+        const stopSeasonListener = startSeasonListener(c.key, app.log);
+        stopListeners.push(stopSeasonListener);
+        app.log.info({ network: c.key }, 'Season listener started (backend-driven market creation)');
       } catch (err) {
-        app.log.error({ err, network: c.key }, 'Failed to start bonding curve listener');
+        app.log.error({ err, network: c.key }, 'Failed to start season listener');
       }
     }
   } catch (e) {

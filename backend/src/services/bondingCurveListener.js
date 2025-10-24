@@ -2,7 +2,6 @@
 // Watches SOFBondingCurve.PositionUpdate events and triggers InfoFi market creation when threshold crossed
 
 import { getPublicClient } from '../lib/viemClient.js';
-import { getChainByKey } from '../config/chain.js';
 import SOFBondingCurveAbi from '../abis/SOFBondingCurveAbi.js';
 import { createMarketForPlayer } from './infoFiMarketCreator.js';
 import { db } from '../../shared/supabaseClient.js';
@@ -11,16 +10,23 @@ const THRESHOLD_BPS = 100; // 1%
 const processedEvents = new Map(); // seasonId-player -> timestamp
 
 /**
- * Start watching PositionUpdate events from bonding curves
+ * Start watching PositionUpdate events from a specific bonding curve
  * @param {string} networkKey - Network key (LOCAL/TESTNET)
+ * @param {string} bondingCurveAddress - Address of the bonding curve contract to watch
+ * @param {number} seasonId - Season ID for logging and tracking
  * @param {object} logger - Logger instance
  * @returns {function} Unwatch function
  */
-export function startBondingCurveListener(networkKey = 'LOCAL', logger = console) {
-  const chain = getChainByKey(networkKey);
+export function startBondingCurveListener(networkKey = 'LOCAL', bondingCurveAddress, seasonId, logger = console) {
+  if (!bondingCurveAddress) {
+    logger.error('[bondingCurveListener] No bonding curve address provided');
+    return () => {};
+  }
+
   const client = getPublicClient(networkKey);
 
   const unwatch = client.watchContractEvent({
+    address: bondingCurveAddress,
     abi: SOFBondingCurveAbi,
     eventName: 'PositionUpdate',
     onLogs: async (logs) => {
@@ -85,25 +91,32 @@ export function startBondingCurveListener(networkKey = 'LOCAL', logger = console
     pollingInterval: 3000,
   });
 
-  logger.info(`[bondingCurveListener] 👂 Listening for PositionUpdate events on ${networkKey}`);
+  logger.info(`[bondingCurveListener] 👂 Listening for PositionUpdate events on ${networkKey} for season ${seasonId} at ${bondingCurveAddress}`);
   return unwatch;
 }
 
 /**
  * Scan historical PositionUpdate events for missed market creations
  * @param {string} networkKey - Network key
+ * @param {string} bondingCurveAddress - Address of bonding curve to scan
  * @param {number} fromBlock - Starting block number
  * @param {number} toBlock - Ending block number
  * @param {object} logger - Logger instance
  */
-export async function scanHistoricalPositionUpdates(networkKey, fromBlock, toBlock, logger = console) {
+export async function scanHistoricalPositionUpdates(networkKey, bondingCurveAddress, fromBlock, toBlock, logger = console) {
+  if (!bondingCurveAddress) {
+    logger.warn('[bondingCurveListener] No bonding curve address provided for historical scan');
+    return;
+  }
+
   const client = getPublicClient(networkKey);
   
-  logger.info(`[bondingCurveListener] 🔍 Scanning blocks ${fromBlock} to ${toBlock} for missed events`);
+  logger.info(`[bondingCurveListener] 🔍 Scanning blocks ${fromBlock} to ${toBlock} for missed events at ${bondingCurveAddress}`);
   
   try {
     // Get all PositionUpdate events in range
     const logs = await client.getContractEvents({
+      address: bondingCurveAddress,
       abi: SOFBondingCurveAbi,
       eventName: 'PositionUpdate',
       fromBlock: BigInt(fromBlock),

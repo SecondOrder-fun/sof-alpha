@@ -144,6 +144,25 @@ PRIVATE_KEY=your_private_key_for_deployment
 
 ### Running the Application
 
+#### Local Development Workflow
+
+**Important**: When starting fresh or restarting Anvil, reset the database first to prevent stale data:
+
+```bash
+# Terminal 1: Start Anvil
+npm run anvil
+
+# Terminal 2: Reset database and deploy contracts
+npm run reset:local-db    # Clear stale data
+npm run anvil:deploy      # Deploy contracts
+npm run dev:backend       # Start backend
+
+# Terminal 3: Start frontend
+npm run dev:frontend
+```
+
+See [Database Reset Guide](./docs/DATABASE_RESET.md) for details.
+
 #### Frontend Development
 
 ```bash

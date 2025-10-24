@@ -17,6 +17,8 @@
     "lint": "eslint . --max-warnings 0",
     "copy-abis": "node scripts/copy-abis.js",
     "update-env": "node scripts/update-env-addresses.js",
+    "reset:local-db": "node scripts/reset-local-db.js",
+    "scan:historical": "node scripts/scan-historical-events.js",
     "preview-https": "vite preview --https",
     "anvil": "anvil -p 8545 --chain-id 31337 --block-base-fee-per-gas 0 --block-time 2",
     "deploy:anvil": "sh -c 'cd contracts && VRF_COORDINATOR=0x000000000000000000000000000000000000cAFe VRF_KEY_HASH=0x0000000000000000000000000000000000000000000000000000000000000000 VRF_SUBSCRIPTION_ID=0 forge script script/Deploy.s.sol:DeployScript --rpc-url http://127.0.0.1:8545 --mnemonics \"test test test test test test test test test test test junk\" --mnemonic-indexes 0 --broadcast -vvv && cd .. && npm run copy-abis && npm run update-env'",
