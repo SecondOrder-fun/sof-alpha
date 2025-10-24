@@ -8,6 +8,7 @@ import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
 import { startPositionTrackerListener } from '../src/services/positionTrackerListener.js';
 import { startOracleListener } from '../src/services/oracleListener.js';
 import { startRaffleListener } from '../src/services/raffleListener.js';
+import { startBondingCurveListener, scanHistoricalPositionUpdates } from '../src/services/bondingCurveListener.js';
 import { resetAndSyncInfoFiMarkets } from '../src/services/syncInfoFiMarkets.js';
 import { pricingService } from '../shared/pricingService.js';
 import { historicalOddsService } from '../shared/historicalOddsService.js';
@@ -227,6 +228,35 @@ try {
         const stopRaffle = startRaffleListener(c.key, wsBroadcast, app.log);
         stopListeners.push(stopRaffle);
         app.log.info({ network: c.key, raffle: c.cfg.raffle }, 'Raffle listener started');
+      }
+      
+      // Start bonding curve listener for backend-driven market creation
+      // This listens to PositionUpdate events and creates markets when threshold crossed
+      try {
+        // Scan for missed events on startup
+        const lastBlock = await db.getLastProcessedBlock('position_updates');
+        const currentBlock = await app.viem?.publicClient?.getBlockNumber?.() || 0n;
+        
+        if (currentBlock > 0n && BigInt(lastBlock) < currentBlock - 100n) {
+          app.log.info({ 
+            network: c.key, 
+            fromBlock: lastBlock, 
+            toBlock: Number(currentBlock),
+            blocksToScan: Number(currentBlock) - lastBlock
+          }, 'Scanning for missed PositionUpdate events...');
+          
+          await scanHistoricalPositionUpdates(c.key, lastBlock, Number(currentBlock), app.log);
+          await db.setLastProcessedBlock('position_updates', Number(currentBlock));
+          
+          app.log.info({ network: c.key }, 'Historical scan complete');
+        }
+        
+        // Start real-time listener
+        const stopBondingCurve = startBondingCurveListener(c.key, app.log);
+        stopListeners.push(stopBondingCurve);
+        app.log.info({ network: c.key }, 'Bonding curve listener started (backend-driven market creation)');
+      } catch (err) {
+        app.log.error({ err, network: c.key }, 'Failed to start bonding curve listener');
       }
     }
   } catch (e) {
