@@ -100,6 +100,11 @@ try {
 } catch (err) { app.log.error({ err }, 'Failed to mount /api/settlement'); }
 
 try {
+  await app.register((await import('./routes/adminRoutes.js')).default, { prefix: '/api/admin' });
+  app.log.info('Mounted /api/admin');
+} catch (err) { app.log.error({ err }, 'Failed to mount /api/admin'); }
+
+try {
   await app.register((await import('./routes/analyticsRoutes.js')).default, { prefix: '/api/analytics' });
   app.log.info('Mounted /api/analytics');
 } catch (err) { app.log.error({ err }, 'Failed to mount /api/analytics'); }

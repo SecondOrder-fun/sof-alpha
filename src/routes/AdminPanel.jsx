@@ -14,6 +14,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { keccak256, stringToHex } from "viem";
 
 // Import refactored components
@@ -22,6 +23,8 @@ import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
 import SeasonList from "@/components/admin/SeasonList";
 import InfoFiMarketsPanel from "@/components/admin/InfoFiMarketsPanel";
 import useFundDistributor from "@/hooks/useFundDistributor";
+import { BackendWalletManager } from "@/features/admin/components/BackendWalletManager";
+import { ManualMarketCreation } from "@/features/admin/components/ManualMarketCreation";
 
 function AdminPanel() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
@@ -100,62 +103,81 @@ function AdminPanel() {
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">Admin Panel</h2>
         <p className="text-sm text-muted-foreground">
-          Manage raffle seasons and contract settings
+          Manage raffle seasons, backend services, and contract settings
         </p>
       </div>
-      <div className="grid md:grid-cols-2 gap-4 mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Season</CardTitle>
-            <CardDescription>Set up a new raffle season.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CreateSeasonForm
-              createSeason={createSeason}
-              chainTimeQuery={chainTimeQuery}
-            />
-          </CardContent>
-        </Card>
+      
+      <Tabs defaultValue="seasons" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="seasons">Seasons</TabsTrigger>
+          <TabsTrigger value="markets">InfoFi Markets</TabsTrigger>
+          <TabsTrigger value="backend">Backend Wallet</TabsTrigger>
+          <TabsTrigger value="manual">Manual Markets</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="seasons" className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create New Season</CardTitle>
+                <CardDescription>Set up a new raffle season.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CreateSeasonForm
+                  createSeason={createSeason}
+                  chainTimeQuery={chainTimeQuery}
+                />
+              </CardContent>
+            </Card>
 
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>Manage Seasons</CardTitle>
-            <CardDescription>
-              Start or end existing raffle seasons.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(createSeason?.isPending ||
-              (createSeason?.hash && !createSeason?.isConfirmed)) && (
-              <TransactionStatus mutation={createSeason} />
-            )}
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Manage Seasons</CardTitle>
+                <CardDescription>
+                  Start or end existing raffle seasons.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(createSeason?.isPending ||
+                  (createSeason?.hash && !createSeason?.isConfirmed)) && (
+                  <TransactionStatus mutation={createSeason} />
+                )}
 
-            {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
-            {allSeasonsQuery.error && (
-              <p>Error loading seasons: {allSeasonsQuery.error.message}</p>
-            )}
+                {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+                {allSeasonsQuery.error && (
+                  <p>Error loading seasons: {allSeasonsQuery.error.message}</p>
+                )}
 
-            <SeasonList
-              seasons={allSeasonsQuery.data || []}
-              hasCreatorRole={hasCreatorRole}
-              hasEmergencyRole={hasEmergencyRole}
-              chainId={chainId}
-              networkConfig={netCfg}
-              startSeason={startSeason}
-              requestSeasonEnd={requestSeasonEnd}
-              fundDistributor={fundDistributorManual}
-              verify={verify}
-              endingE2EId={endingE2EId}
-              endStatus={endStatus}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* InfoFi Markets Status Panel */}
-      <div className="mt-6">
-        <InfoFiMarketsPanel />
-      </div>
+                <SeasonList
+                  seasons={allSeasonsQuery.data || []}
+                  hasCreatorRole={hasCreatorRole}
+                  hasEmergencyRole={hasEmergencyRole}
+                  chainId={chainId}
+                  networkConfig={netCfg}
+                  startSeason={startSeason}
+                  requestSeasonEnd={requestSeasonEnd}
+                  fundDistributor={fundDistributorManual}
+                  verify={verify}
+                  endingE2EId={endingE2EId}
+                  endStatus={endStatus}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="markets" className="space-y-4">
+          <InfoFiMarketsPanel />
+        </TabsContent>
+        
+        <TabsContent value="backend" className="space-y-4">
+          <BackendWalletManager />
+        </TabsContent>
+        
+        <TabsContent value="manual" className="space-y-4">
+          <ManualMarketCreation />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
