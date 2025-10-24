@@ -49,17 +49,48 @@ export function useFaucet() {
     staleTime: 15000, // 15 seconds
   });
 
-  // Query for faucet data
+  // Query for faucet data with robust validation
   const {
     data: faucetData,
     isLoading: isLoadingFaucet,
     refetch: refetchFaucet,
+    error: faucetError,
   } = useQuery({
     queryKey: ["faucetData", address, contracts.SOF_FAUCET],
     queryFn: async () => {
-      if (!address || !isConnected || !contracts.SOF_FAUCET) return null;
+      if (!address || !isConnected) return null;
+      
+      // Validate faucet address exists
+      if (!contracts.SOF_FAUCET || contracts.SOF_FAUCET === "") {
+        console.warn("[useFaucet] ⚠️ No faucet address configured. Please run 'npm run anvil:deploy' and restart the dev server.");
+        return null;
+      }
+
+      // Validate address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contracts.SOF_FAUCET)) {
+        console.error("[useFaucet] ❌ Invalid faucet address format:", contracts.SOF_FAUCET);
+        return null;
+      }
 
       try {
+        // CRITICAL: Check if contract is deployed at this address
+        const code = await publicClient.getBytecode({
+          address: contracts.SOF_FAUCET,
+        });
+
+        if (!code || code === "0x" || code === "0x0") {
+          console.error(
+            `[useFaucet] ❌ No contract deployed at faucet address: ${contracts.SOF_FAUCET}\n` +
+            `This usually means:\n` +
+            `  1. Anvil was restarted and contracts need to be redeployed\n` +
+            `  2. The .env file has a stale address\n` +
+            `  3. Vite dev server needs to be restarted\n\n` +
+            `FIX: Run 'npm run anvil:deploy' then RESTART Vite dev server (Ctrl+C and 'npm run dev')`
+          );
+          return null;
+        }
+
+        // Contract exists, proceed with reads
         const [lastClaimTime, cooldownPeriod, amountPerRequest] =
           await Promise.all([
             publicClient.readContract({
@@ -89,13 +120,18 @@ export function useFaucet() {
             Date.now() / 1000 > Number(lastClaimTime) + Number(cooldownPeriod),
         };
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error("[useFaucet] Error fetching faucet data:", err);
+        console.error("[useFaucet] ❌ Error fetching faucet data:", err);
+        console.error(
+          `[useFaucet] Contract address: ${contracts.SOF_FAUCET}\n` +
+          `If you see 'returned no data (0x)', the contract address is stale.\n` +
+          `FIX: Restart Vite dev server after running 'npm run anvil:deploy'`
+        );
         return null;
       }
     },
     enabled: Boolean(address && isConnected && contracts.SOF_FAUCET),
     staleTime: 15000, // 15 seconds
+    retry: false, // Don't retry on failure - it won't help
   });
 
   // Mutation for claiming tokens
@@ -220,5 +256,7 @@ export function useFaucet() {
     },
     getTimeRemaining,
     isClaimable: faucetData?.canClaim || false,
+    faucetError,
+    faucetAddress: contracts.SOF_FAUCET,
   };
 }

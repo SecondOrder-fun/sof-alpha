@@ -6,6 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { Toaster } from '@/components/ui/toaster';
 import UsernameDialog from '@/components/user/UsernameDialog';
 import { useUsernameContext } from '@/context/UsernameContext';
+import { ContractAddressValidator } from '@/components/dev/ContractAddressValidator';
 
 const App = () => {
   const { showDialog, setShowDialog } = useUsernameContext();
@@ -19,6 +20,7 @@ const App = () => {
       <Footer />
       <Toaster />
       <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+      <ContractAddressValidator />
     </div>
   );
 };
