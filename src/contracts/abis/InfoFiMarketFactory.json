@@ -36,6 +36,11 @@
         "name": "_admin",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_backend",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -43,6 +48,19 @@
   {
     "type": "function",
     "name": "ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "BACKEND_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -810,7 +828,7 @@
   },
   {
     "type": "error",
-    "name": "OnlyCurveOrRaffle",
+    "name": "OnlyBackend",
     "inputs": []
   },
   {

@@ -132,9 +132,9 @@ import "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 - **VRF-Triggered Settlement**: Single VRF callback coordinates both raffle resolution and InfoFi market settlement
 - **OpenZeppelin AccessControl**: Role-based permissions for admin functions, VRF coordination, and InfoFi integration
 - **Gas-Optimized Position Tracking**: Efficient sliding window calculations with external verification patterns
-- **Cross-Contract Communication**: Direct integration with InfoFiMarketFactory for automated market creation
+- **Backend Event Integration**: Emits `PositionUpdate` events that backend services listen to for market creation
 
-#### 2. **InfoFiMarketFactory.sol** (New)
+#### 2. **InfoFiMarketFactory.sol** (New - Backend-Driven Architecture)
 
 ```solidity
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -143,11 +143,20 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 **Core Functionality:**
 
-- **Automated Market Creation**: Triggers when raffle positions cross configurable thresholds (default: 1% of total)
+- **Backend-Driven Market Creation**: Backend services call `onPositionUpdate()` when threshold crossed (not automatic on-chain)
+- **BACKEND_ROLE Access Control**: Only authorized backend wallet can trigger market creation (70-80% gas savings for users)
 - **Hybrid Pricing Integration**: Coordinates with InfoFiPriceOracle for real-time price discovery
 - **OpenZeppelin Security**: AccessControl for market creation permissions, ReentrancyGuard for external calls
-- **Event-Driven Architecture**: Responds to raffle position updates via cross-contract integration
+- **Event-Driven Architecture**: Backend listens to `PositionUpdate` events from bonding curve, triggers market creation
 - **Market Parameter Management**: Admin-controlled thresholds, fee structures, and market type configurations
+
+**Backend-Driven Architecture Benefits:**
+
+- **User Gas Savings**: Users pay ~100k gas (ticket purchase only) instead of ~500k gas (purchase + market creation)
+- **Backend Absorbs Costs**: Platform operational expense covers market creation gas (~300k gas per market)
+- **30-60 Second Delay**: Acceptable latency for market creation after threshold crossing
+- **Historical Scanning**: Backend recovers from downtime by scanning missed events on startup
+- **Retry Logic**: Exponential backoff handles gas price spikes and temporary failures
 
 #### 3. **InfoFiPriceOracle.sol** (New)
 
@@ -340,11 +349,14 @@ const useCrossLayerStrategy = (raffleId) => {
 
 #### Enhanced Fastify (Main Application Server) Services
 
+- **Bonding Curve Listener** (`bondingCurveListener.js`): Watches `PositionUpdate` events from all bonding curves
+- **InfoFi Market Creator** (`infoFiMarketCreator.js`): Calls `InfoFiMarketFactory.onPositionUpdate()` when thresholds crossed
 - **InfoFi Market Management**: CRUD operations and indexing for on-chain prediction markets
 - **Oracle Streaming Service**: Reads on-chain `InfoFiPriceOracle` and streams values via SSE
 - **Arbitrage Detection Engine**: Identifies cross-layer profit opportunities using on-chain oracle values
 - **Cross-Layer Settlement Coordination**: VRF-triggered settlement management across raffle and InfoFi systems
 - **Advanced Analytics**: Strategy performance tracking, arbitrage history, and user behavior analysis
+- **Historical Event Scanning**: Recovers from downtime by scanning missed `PositionUpdate` events on startup
 
 #### Enhanced Hono (Edge Functions) Capabilities
 

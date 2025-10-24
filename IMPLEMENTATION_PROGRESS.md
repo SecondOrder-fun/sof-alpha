@@ -129,7 +129,8 @@
 
 #### Testing
 - [x] Run Foundry tests (update any failing tests) - **78/78 tests passing**
-- [ ] Deploy to local Anvil
+- [x] Deploy to local Anvil - **Contracts deployed successfully**
+- [x] Backend startup - **Backend running successfully with all ABIs**
 - [ ] Test E2E flow: deploy → buy tickets → verify market created
 - [ ] Measure gas costs (before/after comparison)
 - [ ] Test backend downtime recovery (historical scanning)
@@ -137,11 +138,11 @@
 - [ ] Test gas price spike handling
 
 #### Documentation
-- [ ] Update `instructions/project-requirements.md`
+- [x] Update `instructions/project-requirements.md` - Added backend-driven architecture details
 - [ ] Update `instructions/project-structure.md`
 - [ ] Update E2E runbook
-- [ ] Document backend wallet setup
-- [ ] Add troubleshooting guide
+- [x] Document backend wallet setup - Created comprehensive `docs/BACKEND_WALLET_SETUP.md`
+- [x] Add troubleshooting guide - Created comprehensive `docs/TROUBLESHOOTING.md`
 
 ---
 

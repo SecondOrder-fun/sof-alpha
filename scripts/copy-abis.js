@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const contractsDir = path.join(__dirname, '..', 'contracts', 'out');
 const frontendAbisDir = path.join(__dirname, '..', 'src', 'contracts', 'abis');
+const backendAbisDir = path.join(__dirname, '..', 'backend', 'src', 'abis');
 
 const contractsToCopy = [
   // Core contracts
@@ -40,9 +41,19 @@ const contractsToCopy = [
   { sourceFile: 'RafflePositionTracker.sol/RafflePositionTracker.json', destFile: 'RafflePositionTracker.json' },
 ];
 
+// Backend services need these ABIs (subset of above, in JS format for ES modules)
+const backendAbiNeeds = [
+  'SOFBondingCurve.json',
+  'InfoFiMarketFactory.json',
+  'InfoFiPriceOracle.json',
+  'Raffle.json',
+  'RafflePositionTracker.json',
+];
+
 async function copyAbis() {
   try {
     await fs.mkdir(frontendAbisDir, { recursive: true });
+    await fs.mkdir(backendAbisDir, { recursive: true });
 
     for (const contract of contractsToCopy) {
       const sourcePath = path.join(contractsDir, contract.sourceFile);
@@ -66,7 +77,28 @@ async function copyAbis() {
       }
     }
 
-    console.log('ABI copy process finished.');
+    // Copy backend ABIs (as ES module .js files)
+    console.log('\nCopying backend ABIs...');
+    for (const abiFileName of backendAbiNeeds) {
+      const frontendAbiPath = path.join(frontendAbisDir, abiFileName);
+      const backendAbiName = abiFileName.replace('.json', 'Abi.js');
+      const backendAbiPath = path.join(backendAbisDir, backendAbiName);
+
+      try {
+        const abiContent = await fs.readFile(frontendAbiPath, 'utf8');
+        const abiArray = JSON.parse(abiContent);
+        
+        // Create ES module wrapper
+        const jsContent = `// Auto-generated from ${abiFileName}\n// Do not edit manually - run 'npm run copy-abis' to regenerate\n\nexport default ${JSON.stringify(abiArray, null, 2)};\n`;
+        
+        await fs.writeFile(backendAbiPath, jsContent);
+        console.log(`Copied backend ABI: ${backendAbiName}`);
+      } catch (error) {
+        console.error(`Failed to copy backend ABI ${abiFileName}:`, error.message);
+      }
+    }
+
+    console.log('\nABI copy process finished.');
   } catch (error) {
     console.error('An error occurred during the ABI copy process:', error);
   }

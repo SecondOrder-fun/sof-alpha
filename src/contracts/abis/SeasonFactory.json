@@ -238,19 +238,6 @@
   },
   {
     "type": "function",
-    "name": "infoFiFactory",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "raffleAddress",
     "inputs": [],
     "outputs": [
@@ -291,19 +278,6 @@
       },
       {
         "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setInfoFiFactory",
-    "inputs": [
-      {
-        "name": "_factory",
         "type": "address",
         "internalType": "address"
       }

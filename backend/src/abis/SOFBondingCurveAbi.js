@@ -1,4 +1,4 @@
-// Auto-generated from InfoFiMarketFactory.json
+// Auto-generated from SOFBondingCurve.json
 // Do not edit manually - run 'npm run copy-abis' to regenerate
 
 export default [
@@ -6,32 +6,7 @@ export default [
     "type": "constructor",
     "inputs": [
       {
-        "name": "_raffle",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_oracle",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_oracleAdapter",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_fpmmManager",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "_sofToken",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_treasury",
         "type": "address",
         "internalType": "address"
       },
@@ -39,40 +14,9 @@ export default [
         "name": "_admin",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "_backend",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "ADMIN_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BACKEND_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -89,33 +33,7 @@ export default [
   },
   {
     "type": "function",
-    "name": "INITIAL_LIQUIDITY",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "THRESHOLD_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "TREASURY_ROLE",
+    "name": "EMERGENCY_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -128,7 +46,7 @@ export default [
   },
   {
     "type": "function",
-    "name": "WINNER_PREDICTION",
+    "name": "RAFFLE_MANAGER_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -141,20 +59,52 @@ export default [
   },
   {
     "type": "function",
-    "name": "_createMarketInternal",
+    "name": "accumulatedFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bondSteps",
     "inputs": [
       {
-        "name": "seasonId",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rangeTo",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "price",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "buyTokens",
+    "inputs": [
+      {
+        "name": "tokenAmount",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "player",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "probabilityBps",
+        "name": "maxSofAmount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -164,69 +114,152 @@ export default [
   },
   {
     "type": "function",
-    "name": "fpmmManager",
-    "inputs": [],
+    "name": "calculateBuyPrice",
+    "inputs": [
+      {
+        "name": "tokenAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "contract InfoFiFPMMV2"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getPlayerMarket",
+    "name": "calculateSellPrice",
     "inputs": [
       {
-        "name": "seasonId",
+        "name": "tokenAmount",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "player",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "created",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "curveConfig",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "totalSupply",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "sofReserves",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentStep",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyFee",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "sellFee",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "tradingLocked",
         "type": "bool",
         "internalType": "bool"
       },
       {
-        "name": "conditionId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "fpmmAddress",
-        "type": "address",
-        "internalType": "address"
+        "name": "initialized",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getPlayerProbability",
+    "name": "extractFeesToTreasury",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "extractSof",
     "inputs": [
       {
-        "name": "seasonId",
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getBondSteps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple[]",
+        "internalType": "struct RaffleTypes.BondStep[]",
+        "components": [
+          {
+            "name": "rangeTo",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "price",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentStep",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "step",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "player",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
-        "name": "probabilityBps",
+        "name": "rangeTo",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -254,19 +287,13 @@ export default [
   },
   {
     "type": "function",
-    "name": "getSeasonPlayers",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "getSofReserves",
+    "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "address[]",
-        "internalType": "address[]"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -315,19 +342,62 @@ export default [
   },
   {
     "type": "function",
-    "name": "marketCreated",
+    "name": "initializeCurve",
     "inputs": [
       {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
+        "name": "_raffleToken",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_bondSteps",
+        "type": "tuple[]",
+        "internalType": "struct RaffleTypes.BondStep[]",
+        "components": [
+          {
+            "name": "rangeTo",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "price",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      },
+      {
+        "name": "_buyFee",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "_sellFee",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "lockTrading",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -339,102 +409,27 @@ export default [
   },
   {
     "type": "function",
-    "name": "onPositionUpdate",
+    "name": "playerTickets",
     "inputs": [
       {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "player",
+        "name": "",
         "type": "address",
         "internalType": "address"
-      },
+      }
+    ],
+    "outputs": [
       {
-        "name": "oldTickets",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "newTickets",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "totalTickets",
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "oracle",
+    "name": "positionTracker",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IInfoFiPriceOracleMinimal"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "oracleAdapter",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract RaffleOracleAdapter"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "playerConditions",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "playerMarkets",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
     "outputs": [
       {
         "name": "",
@@ -452,7 +447,33 @@ export default [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract IRaffleRead"
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "raffleSeasonId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "raffleToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRaffleToken"
       }
     ],
     "stateMutability": "view"
@@ -468,24 +489,6 @@ export default [
       },
       {
         "name": "callerConfirmation",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "resolveSeasonMarkets",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "winner",
         "type": "address",
         "internalType": "address"
       }
@@ -513,12 +516,48 @@ export default [
   },
   {
     "type": "function",
-    "name": "setTreasury",
+    "name": "sellTokens",
     "inputs": [
       {
-        "name": "newTreasury",
+        "name": "tokenAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minSofAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPositionTracker",
+    "inputs": [
+      {
+        "name": "_tracker",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setRaffleInfo",
+    "inputs": [
+      {
+        "name": "_raffle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_seasonId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -558,20 +597,65 @@ export default [
   },
   {
     "type": "function",
-    "name": "treasury",
+    "name": "unpause",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "event",
-    "name": "MarketCreated",
+    "name": "CurveInitialized",
+    "inputs": [
+      {
+        "name": "raffleToken",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "stepCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeesExtracted",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PositionUpdate",
     "inputs": [
       {
         "name": "seasonId",
@@ -586,87 +670,25 @@ export default [
         "internalType": "address"
       },
       {
-        "name": "marketType",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
+        "name": "oldTickets",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
-        "name": "conditionId",
-        "type": "bytes32",
+        "name": "newTickets",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "bytes32"
+        "internalType": "uint256"
       },
       {
-        "name": "fpmmAddress",
-        "type": "address",
+        "name": "totalTickets",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "address"
+        "internalType": "uint256"
       },
       {
         "name": "probabilityBps",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "MarketCreationFailed",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "player",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "marketType",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "reason",
-        "type": "string",
-        "indexed": false,
-        "internalType": "string"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ProbabilityUpdated",
-    "inputs": [
-      {
-        "name": "seasonId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "player",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "oldProbabilityBps",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "newProbabilityBps",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -751,22 +773,16 @@ export default [
   },
   {
     "type": "event",
-    "name": "SeasonMarketsResolved",
+    "name": "SofExtracted",
     "inputs": [
       {
-        "name": "seasonId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "winner",
+        "name": "to",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "marketCount",
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -776,16 +792,85 @@ export default [
   },
   {
     "type": "event",
-    "name": "TreasuryUpdated",
+    "name": "TokensPurchased",
     "inputs": [
       {
-        "name": "oldTreasury",
+        "name": "buyer",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "newTreasury",
+        "name": "sofAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokensReceived",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TokensSold",
+    "inputs": [
+      {
+        "name": "seller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "tokenAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sofReceived",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TradingLocked",
+    "inputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
         "type": "address",
         "indexed": false,
         "internalType": "address"
@@ -816,27 +901,28 @@ export default [
   },
   {
     "type": "error",
-    "name": "InsufficientTreasuryBalance",
+    "name": "EnforcedPause",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "InvalidAddress",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "MarketAlreadyCreated",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "OnlyBackend",
+    "name": "ExpectedPause",
     "inputs": []
   },
   {
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   }
 ];
