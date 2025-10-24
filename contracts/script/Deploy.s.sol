@@ -119,6 +119,10 @@ contract DeployScript is Script {
 
         // Deploy InfoFiMarketFactory (V2 with FPMM)
         console2.log("Deploying InfoFiMarketFactory (V2 with FPMM)...");
+        
+        // Use account[0] as backend wallet for local development
+        address backendWallet = deployerAddr; // In production, this would be a dedicated backend service wallet
+        
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
             address(raffle),
             address(infoFiOracle),
@@ -126,9 +130,11 @@ contract DeployScript is Script {
             address(fpmmManager),
             address(sof),
             deployerAddr, // Treasury
-            deployerAddr // Admin
+            deployerAddr, // Admin
+            backendWallet // Backend service wallet (account[0] for local dev)
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
+        console2.log("Backend wallet (BACKEND_ROLE):", backendWallet);
 
         // Grant RESOLVER_ROLE on oracleAdapter to factory
         try oracleAdapter.grantRole(oracleAdapter.RESOLVER_ROLE(), address(infoFiFactory)) {
@@ -164,12 +170,8 @@ contract DeployScript is Script {
             console2.log("Raffle.setInfoFiFactory failed or already set (skipping)");
         }
 
-        // Wire factory into SeasonFactory so new curves get the factory address
-        try seasonFactory.setInfoFiFactory(address(infoFiFactory)) {
-            console2.log("SeasonFactory setInfoFiFactory:", address(infoFiFactory));
-        } catch {
-            console2.log("SeasonFactory.setInfoFiFactory failed or already set (skipping)");
-        }
+        // Note: SeasonFactory no longer wires InfoFi factory to curves
+        // Backend service will handle market creation by listening to PositionUpdate events
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
         console2.log("Deploying InfoFiSettlement...");

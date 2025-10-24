@@ -19,7 +19,6 @@ contract SeasonFactory is AccessControl {
     address public immutable raffleAddress;
     address public immutable trackerAddress;
     address public immutable deployerAddress;
-    address public infoFiFactory;
 
     event SeasonContractsDeployed(
         uint256 indexed seasonId,
@@ -35,9 +34,6 @@ contract SeasonFactory is AccessControl {
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
     }
 
-    function setInfoFiFactory(address _factory) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        infoFiFactory = _factory;
-    }
 
     function createSeasonContracts(
         uint256 seasonId,
@@ -75,11 +71,6 @@ contract SeasonFactory is AccessControl {
             curve.setPositionTracker(trackerAddress);
             // Grant MARKET_ROLE to bonding curve so it can update positions
             ITrackerACL(trackerAddress).grantRole(keccak256("MARKET_ROLE"), curveAddr);
-        }
-        
-        // Set InfoFi market factory on bonding curve for automatic FPMM market creation
-        if (infoFiFactory != address(0)) {
-            curve.setInfoFiMarketFactory(infoFiFactory);
         }
 
         // Grant curve rights on raffle token

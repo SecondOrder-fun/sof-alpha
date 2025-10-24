@@ -9,7 +9,6 @@ import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
-import {IInfoFiMarketFactory} from "../lib/IInfoFiMarketFactory.sol";
 
 // Minimal interface to push updates to the on-chain position tracker
 interface IRafflePositionTracker {
@@ -37,9 +36,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
 
     // Optional on-chain position tracker to emit PositionSnapshot upon updates
     address public positionTracker;
-    
-    // Optional InfoFi market factory for automatic market creation
-    address public infoFiMarketFactory;
 
 
 
@@ -165,13 +161,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         positionTracker = _tracker;
     }
     
-    /**
-     * @notice Set InfoFi market factory address for automatic market creation
-     */
-    function setInfoFiMarketFactory(address _factory) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(_factory != address(0), "Curve: factory zero");
-        infoFiMarketFactory = _factory;
-    }
 
     /**
      * @notice Buy raffle tokens with $SOF
@@ -241,21 +230,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Position tracker emits PositionSnapshot events that backend listens to
         if (positionTracker != address(0)) {
             try IRafflePositionTracker(positionTracker).updateAllPlayersInSeason() {
-                // no-op
-            } catch {
-                // swallow error to avoid impacting user buy
-            }
-        }
-        
-        // Notify InfoFi market factory to create/update prediction markets
-        if (infoFiMarketFactory != address(0)) {
-            try IInfoFiMarketFactory(infoFiMarketFactory).onPositionUpdate(
-                raffleSeasonId,
-                msg.sender,
-                oldTickets,
-                newTickets,
-                totalTickets
-            ) {
                 // no-op
             } catch {
                 // swallow error to avoid impacting user buy

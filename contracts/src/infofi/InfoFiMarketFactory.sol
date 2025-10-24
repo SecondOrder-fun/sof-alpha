@@ -24,6 +24,7 @@ import "./InfoFiFPMMV2.sol";
 contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
     bytes32 public constant ADMIN_ROLE = DEFAULT_ADMIN_ROLE;
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
+    bytes32 public constant BACKEND_ROLE = keccak256("BACKEND_ROLE");
     
     IRaffleRead public immutable raffle;
     IInfoFiPriceOracleMinimal public immutable oracle;
@@ -76,7 +77,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
     error InvalidAddress();
     error InsufficientTreasuryBalance();
     error MarketAlreadyCreated();
-    error OnlyCurveOrRaffle();
+    error OnlyBackend();
     
     constructor(
         address _raffle,
@@ -85,7 +86,8 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         address _fpmmManager,
         address _sofToken,
         address _treasury,
-        address _admin
+        address _admin,
+        address _backend
     ) {
         if (_raffle == address(0)) revert InvalidAddress();
         if (_oracle == address(0)) revert InvalidAddress();
@@ -94,6 +96,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         if (_sofToken == address(0)) revert InvalidAddress();
         if (_treasury == address(0)) revert InvalidAddress();
         if (_admin == address(0)) revert InvalidAddress();
+        if (_backend == address(0)) revert InvalidAddress();
         
         raffle = IRaffleRead(_raffle);
         oracle = IInfoFiPriceOracleMinimal(_oracle);
@@ -104,6 +107,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         
         _grantRole(ADMIN_ROLE, _admin);
         _grantRole(TREASURY_ROLE, _treasury);
+        _grantRole(BACKEND_ROLE, _backend);
     }
     
     function onPositionUpdate(
@@ -113,11 +117,9 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         uint256 newTickets,
         uint256 totalTickets
     ) external nonReentrant {
-        (RaffleTypes.SeasonConfig memory cfg, , , , ) = raffle.getSeasonDetails(seasonId);
-        if (cfg.bondingCurve == address(0)) revert InvalidAddress();
-        
-        if (msg.sender != cfg.bondingCurve && msg.sender != address(raffle)) {
-            revert OnlyCurveOrRaffle();
+        // Only backend service can call this function
+        if (!hasRole(BACKEND_ROLE, msg.sender)) {
+            revert OnlyBackend();
         }
         
         if (player == address(0)) revert InvalidAddress();
