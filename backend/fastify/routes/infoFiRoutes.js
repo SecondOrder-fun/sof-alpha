@@ -445,7 +445,7 @@ export async function infoFiRoutes(fastify, options) {
       let market;
       try {
         market = await db.createInfoFiMarket({
-          raffle_id: seasonId,
+          season_id: seasonId,
           player_id: playerId,
           market_type: MARKET_TYPE,
           initial_probability: bps,

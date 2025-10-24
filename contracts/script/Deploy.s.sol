@@ -120,8 +120,16 @@ contract DeployScript is Script {
         // Deploy InfoFiMarketFactory (V2 with FPMM)
         console2.log("Deploying InfoFiMarketFactory (V2 with FPMM)...");
         
-        // Use account[0] as backend wallet for local development
-        address backendWallet = deployerAddr; // In production, this would be a dedicated backend service wallet
+        // Backend wallet: Use BACKEND_WALLET_ADDRESS env var if set, otherwise use deployer
+        // For local dev, this is typically account[0] (same as deployer)
+        // For production, this should be a dedicated backend service wallet
+        address backendWallet = deployerAddr; // Default to deployer
+        if (vm.envExists("BACKEND_WALLET_ADDRESS")) {
+            backendWallet = vm.envAddress("BACKEND_WALLET_ADDRESS");
+            console2.log("Using custom backend wallet from env:", backendWallet);
+        } else {
+            console2.log("Using deployer as backend wallet (local dev mode)");
+        }
         
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
             address(raffle),
@@ -131,10 +139,16 @@ contract DeployScript is Script {
             address(sof),
             deployerAddr, // Treasury
             deployerAddr, // Admin
-            backendWallet // Backend service wallet (account[0] for local dev)
+            backendWallet // Backend service wallet - BACKEND_ROLE granted in constructor
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
-        console2.log("Backend wallet (BACKEND_ROLE):", backendWallet);
+        console2.log("Backend wallet granted BACKEND_ROLE:", backendWallet);
+        
+        // Verify BACKEND_ROLE was granted
+        bytes32 backendRole = infoFiFactory.BACKEND_ROLE();
+        bool hasRole = infoFiFactory.hasRole(backendRole, backendWallet);
+        console2.log("BACKEND_ROLE verification:", hasRole ? "SUCCESS" : "FAILED");
+        require(hasRole, "BACKEND_ROLE not granted to backend wallet");
 
         // Grant RESOLVER_ROLE on oracleAdapter to factory
         try oracleAdapter.grantRole(oracleAdapter.RESOLVER_ROLE(), address(infoFiFactory)) {

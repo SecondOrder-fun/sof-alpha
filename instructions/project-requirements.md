@@ -415,14 +415,16 @@ export class InfoFiRealTimePricingService extends EventEmitter {
 
 ```sql
 -- Enhanced InfoFi Markets table with advanced features
+-- NOTE: Uses raffle_id (NOT season_id) - verified via Supabase schema 2025-10-24
 CREATE TABLE infofi_markets (
     id BIGSERIAL PRIMARY KEY,
-    raffle_id BIGINT NOT NULL REFERENCES raffles(id),
-    player_id BIGINT NOT NULL REFERENCES players(id),
+    raffle_id BIGINT NOT NULL, -- References raffle/season ID (semantically equivalent to seasonId in contracts)
+    player_address VARCHAR(42) NOT NULL, -- Player's Ethereum address
+    player_id BIGINT, -- Optional normalized reference to players table
     market_type VARCHAR(50) NOT NULL, -- 'WINNER_PREDICTION', 'POSITION_SIZE', 'BEHAVIORAL'
     contract_address VARCHAR(42), -- Ethereum address of deployed market contract
-    initial_probability INTEGER NOT NULL, -- Basis points (0-10000)
-    current_probability INTEGER NOT NULL, -- Updated in real-time
+    initial_probability_bps INTEGER NOT NULL, -- Basis points (0-10000) at creation
+    current_probability_bps INTEGER NOT NULL, -- Updated in real-time via position changes
     hybrid_price DECIMAL(18,6), -- Current hybrid price (70% raffle + 30% sentiment)
     total_volume DECIMAL(18,6) DEFAULT 0, -- Total trading volume
     is_active BOOLEAN DEFAULT true,

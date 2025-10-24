@@ -58,6 +58,7 @@ export async function createMarketForPlayer(
       logger.info(`[infoFiMarketCreator] Gas price: ${gasPriceGwei} gwei`);
       
       // Call InfoFiMarketFactory.onPositionUpdate
+      // High gas limit required for SimpleFPMM deployment (creates new contract)
       const hash = await walletClient.writeContract({
         address: chain.infofiFactory,
         abi: InfoFiMarketFactoryAbi,
@@ -70,6 +71,7 @@ export async function createMarketForPlayer(
           BigInt(totalTickets)
         ],
         account: walletClient.account,
+        gas: 5000000n, // 5M gas for market creation (includes SimpleFPMM deployment)
       });
       
       logger.info(`[infoFiMarketCreator] 📝 Transaction submitted: ${hash}`);
@@ -101,7 +103,29 @@ export async function createMarketForPlayer(
       }
       
     } catch (error) {
-      logger.error(`[infoFiMarketCreator] ⚠️ Attempt ${attempt} failed:`, error.message);
+      logger.error(`[infoFiMarketCreator] ⚠️ Attempt ${attempt} failed`);
+      logger.error(`[infoFiMarketCreator] Error message:`, error.message);
+      logger.error(`[infoFiMarketCreator] Error name:`, error.name);
+      logger.error(`[infoFiMarketCreator] Error stack:`, error.stack);
+      logger.error(`[infoFiMarketCreator] Full error details:`, {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        cause: error.cause,
+        shortMessage: error.shortMessage,
+        details: error.details,
+        metaMessages: error.metaMessages,
+        stack: error.stack
+      });
+      logger.error(`[infoFiMarketCreator] Context:`, {
+        seasonId,
+        player,
+        oldTickets,
+        newTickets,
+        totalTickets,
+        networkKey,
+        factoryAddress: chain.infofiFactory
+      });
       
       // Check if it's a "market already exists" error (idempotent)
       if (error.message.includes('MarketAlreadyCreated') || error.message.includes('already exists')) {

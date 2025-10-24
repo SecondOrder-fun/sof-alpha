@@ -9,6 +9,20 @@ import { db } from '../../shared/supabaseClient.js';
 export default async function adminRoutes(fastify) {
   
   /**
+   * POST /api/admin/discover-seasons - Manually trigger season discovery
+   */
+  fastify.post('/discover-seasons', async (request, reply) => {
+    try {
+      const { discoverExistingSeasons } = await import('../../src/services/seasonListener.js');
+      const count = await discoverExistingSeasons('LOCAL', fastify.log);
+      return { success: true, discoveredCount: count };
+    } catch (error) {
+      fastify.log.error({ error }, 'Failed to discover seasons');
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
+  /**
    * GET /api/admin/backend-wallet
    * Get backend wallet information (address, balance, etc.)
    */

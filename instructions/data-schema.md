@@ -6,9 +6,11 @@ This document defines the data schema and formats for all entities in the Second
 
 ---
 
-## Updated Schema (Last verified: 2025-10-23)
+## Updated Schema (2025-10-24)
 
-The following models align with the actual database schema from Supabase migrations. All InfoFi-related tables use:
+**IMPORTANT**: Database schema verified via Supabase MCP. Uses `raffle_id` (NOT `season_id`).
+
+The following models align with the current smart contracts, InfoFi roadmap, and real-time pricing architecture. Values using basis points (bps) are integers from 0–10000.
 
 - **snake_case** column names in the database
 - **Basis points (bps)** as integers (0-10000) for probabilities and prices
@@ -68,22 +70,28 @@ type PlayerPosition = {
 
 ```typescript
 type InfoFiMarket = {
-  id: number;                       // BIGSERIAL primary key
-  season_id: number;                // NOT raffle_id - references season/raffle
-  player_address: string;           // VARCHAR(42) NOT NULL - direct address
-  player_id?: number;               // BIGINT nullable - optional normalized reference
-  market_type: 'WINNER_PREDICTION' | 'POSITION_SIZE' | 'BEHAVIORAL';
-  contract_address?: string;        // VARCHAR(42)
-  initial_probability_bps: number;  // INTEGER basis points (0-10000)
-  current_probability_bps: number;  // INTEGER basis points (0-10000)
-  is_active: boolean;
-  is_settled: boolean;
-  settlement_time?: string;         // TIMESTAMPTZ
-  winning_outcome?: boolean;
-  created_at: string;               // TIMESTAMPTZ
-  updated_at: string;               // TIMESTAMPTZ
+  id: string | number;              // DB identifier
+  raffleId: number;                 // Associated raffle/season (DB: raffle_id NOT season_id)
+  playerAddress: string;            // Player's Ethereum address (DB: player_address, NOT NULL)
+  playerId?: number;                // Optional normalized player reference (DB: player_id, nullable)
+  marketType: 'WINNER_PREDICTION' | 'POSITION_SIZE' | 'BEHAVIORAL';
+  contractAddress?: string;         // Onchain market address if deployed (DB: contract_address)
+  initialProbabilityBps: number;    // Snapshot at creation (DB: initial_probability_bps)
+  currentProbabilityBps: number;    // Updated via position changes (DB: current_probability_bps)
+  isActive: boolean;                // DB: is_active
+  isSettled: boolean;               // DB: is_settled
+  settlementTime?: string;          // ISO timestamp (DB: settlement_time)
+  winningOutcome?: boolean;         // Depends on market type (DB: winning_outcome)
+  createdAt: string;                // ISO timestamp (DB: created_at)
+  updatedAt: string;                // ISO timestamp (DB: updated_at)
 }
 ```
+
+**Database Column Mapping**:
+- TypeScript `raffleId` → Database `raffle_id` (NOT `season_id`)
+- TypeScript `playerAddress` → Database `player_address` (NOT NULL)
+- TypeScript `playerId` → Database `player_id` (nullable, optional foreign key)
+- All probability fields use `_bps` suffix in database (integers 0-10000)
 
 **Frontend/API Mapping**: When returning to frontend, convert to camelCase:
 

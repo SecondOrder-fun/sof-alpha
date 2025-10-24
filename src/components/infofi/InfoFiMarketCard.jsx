@@ -58,7 +58,7 @@ const InfoFiMarketCard = ({ market }) => {
 
   // Use database as source of truth - backend listener keeps it in sync
   // No need for oracle queries since backend syncs ProbabilityUpdated events
-  const probabilityBps = normalizeBps(market?.current_probability);
+  const probabilityBps = normalizeBps(market?.current_probability_bps ?? market?.current_probability);
   
   // Check if market data is loaded
   const isLoadingOracle = isWinnerPrediction && probabilityBps === null;
@@ -509,6 +509,7 @@ InfoFiMarketCard.propTypes = {
     volume24h: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     volume: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     current_probability: PropTypes.number,
+    current_probability_bps: PropTypes.number,
     yes_price: PropTypes.number,
     no_price: PropTypes.number,
   }).isRequired,

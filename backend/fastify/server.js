@@ -242,8 +242,8 @@ try {
         const discoveredCount = await discoverExistingSeasons(c.key, app.log);
         app.log.info({ network: c.key, discoveredCount }, 'Existing seasons discovered and listeners started');
         
-        // Start season listener for new seasons
-        const stopSeasonListener = startSeasonListener(c.key, app.log);
+        // Start season listener for new seasons (now scans historical events first)
+        const stopSeasonListener = await startSeasonListener(c.key, app.log);
         stopListeners.push(stopSeasonListener);
         app.log.info({ network: c.key }, 'Season listener started (backend-driven market creation)');
       } catch (err) {

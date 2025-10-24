@@ -13,21 +13,18 @@ class InfoFiAdminService {
    */
   async getMarketsAdminSummary() {
     try {
-      // Query infofi_markets with joins to raffles, players, and hybrid_pricing_cache
+      // Query infofi_markets with joins to players and hybrid_pricing_cache
       const { data: markets, error } = await supabase
         .from('infofi_markets')
         .select(`
           id,
-          raffle_id,
+          season_id,
           market_type,
           total_volume,
           is_active,
           is_settled,
           created_at,
           updated_at,
-          raffles!inner (
-            season_id
-          ),
           players!inner (
             address
           ),
@@ -38,7 +35,7 @@ class InfoFiAdminService {
             last_updated
           )
         `)
-        .order('raffle_id', { ascending: false })
+        .order('season_id', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -61,8 +58,7 @@ class InfoFiAdminService {
       // Transform data: convert snake_case to camelCase and group by season
       const transformedMarkets = (markets || []).map(market => ({
         id: market.id,
-        raffleId: market.raffle_id,
-        seasonId: market.raffles?.season_id,
+        seasonId: market.season_id,
         marketType: market.market_type,
         playerAddress: market.players?.address,
         totalVolume: market.total_volume || '0',

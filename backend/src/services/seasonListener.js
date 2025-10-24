@@ -4,7 +4,7 @@
 import { getPublicClient } from '../lib/viemClient.js';
 import { getChainByKey } from '../config/chain.js';
 import RaffleAbi from '../abis/RaffleAbi.js';
-import { startBondingCurveListener } from './bondingCurveListener.js';
+import { startBondingCurveListener, scanHistoricalPositionUpdates } from './bondingCurveListener.js';
 
 // Track active bonding curve listeners by season ID
 const activeBondingCurveListeners = new Map(); // seasonId -> unwatch function
@@ -15,7 +15,7 @@ const activeBondingCurveListeners = new Map(); // seasonId -> unwatch function
  * @param {object} logger - Logger instance
  * @returns {function} Unwatch function
  */
-export function startSeasonListener(networkKey = 'LOCAL', logger = console) {
+export async function startSeasonListener(networkKey = 'LOCAL', logger = console) {
   const chain = getChainByKey(networkKey);
   
   if (!chain?.raffle) {
@@ -25,6 +25,61 @@ export function startSeasonListener(networkKey = 'LOCAL', logger = console) {
 
   const client = getPublicClient(networkKey);
 
+  // First, scan for historical SeasonCreated events that may have been missed
+  try {
+    const currentBlock = await client.getBlockNumber();
+    const fromBlock = 0n; // Scan from genesis
+    
+    logger.info(`[seasonListener] 🔍 Scanning historical SeasonCreated events from block 0 to ${currentBlock}`);
+    
+    const historicalLogs = await client.getContractEvents({
+      address: chain.raffle,
+      abi: RaffleAbi,
+      eventName: 'SeasonCreated',
+      fromBlock,
+      toBlock: currentBlock,
+    });
+    
+    logger.info(`[seasonListener] Found ${historicalLogs.length} historical SeasonCreated event(s)`);
+    
+    // Process historical events
+    for (const log of historicalLogs) {
+      try {
+        const { seasonId, name, bondingCurve } = log.args;
+        const seasonIdNum = Number(seasonId);
+        const bondingCurveAddr = String(bondingCurve);
+        
+        logger.info(`[seasonListener] 📜 Historical season found: ${name} (ID: ${seasonIdNum}) with bonding curve at ${bondingCurveAddr}`);
+        
+        // Check if we're already listening to this bonding curve
+        if (activeBondingCurveListeners.has(seasonIdNum)) {
+          logger.debug(`[seasonListener] Already listening to bonding curve for season ${seasonIdNum}`);
+          continue;
+        }
+        
+        // Start bonding curve listener for this season
+        const stopBondingCurve = startBondingCurveListener(
+          networkKey,
+          bondingCurveAddr,
+          seasonIdNum,
+          logger
+        );
+        
+        activeBondingCurveListeners.set(seasonIdNum, stopBondingCurve);
+        logger.info(`[seasonListener] ✅ Started listener for historical season ${seasonIdNum}`);
+        
+        // Scan for historical PositionUpdate events
+        logger.info(`[seasonListener] Scanning historical PositionUpdate events for season ${seasonIdNum}`);
+        await scanHistoricalPositionUpdates(networkKey, bondingCurveAddr, fromBlock, currentBlock, logger);
+      } catch (error) {
+        logger.error(`[seasonListener] Error processing historical SeasonCreated event:`, error);
+      }
+    }
+  } catch (error) {
+    logger.error(`[seasonListener] Error scanning historical SeasonCreated events:`, error);
+  }
+
+  // Now watch for new SeasonCreated events going forward
   const unwatch = client.watchContractEvent({
     address: chain.raffle,
     abi: RaffleAbi,
@@ -69,10 +124,44 @@ export function startSeasonListener(networkKey = 'LOCAL', logger = console) {
 
   logger.info(`[seasonListener] 👂 Listening for SeasonCreated events on ${networkKey} at ${chain.raffle}`);
   
+  // Watch for SeasonStarted events
+  const unwatchSeasonStarted = client.watchContractEvent({
+    address: chain.raffle,
+    abi: RaffleAbi,
+    eventName: 'SeasonStarted',
+    onLogs: async (logs) => {
+      logger.info(`[seasonListener] Received ${logs.length} SeasonStarted event(s)`);
+      
+      for (const log of logs) {
+        try {
+          const { seasonId } = log.args;
+          const seasonIdNum = Number(seasonId);
+          
+          logger.info(`[seasonListener] 🚀 Season ${seasonIdNum} has been started at block ${log.blockNumber}`);
+          logger.info(`[seasonListener] Transaction: ${log.transactionHash}`);
+          
+          // TODO: Update database to mark season as started if needed
+          // This could trigger additional backend logic like:
+          // - Updating season status in database
+          // - Sending notifications
+          // - Starting additional monitoring
+          
+        } catch (error) {
+          logger.error('[seasonListener] Error processing SeasonStarted:', error);
+        }
+      }
+    },
+    onError: (error) => logger.error('[seasonListener] SeasonStarted watch error:', error),
+    pollingInterval: 3000,
+  });
+
+  logger.info(`[seasonListener] 👂 Listening for SeasonStarted events on ${networkKey} at ${chain.raffle}`);
+  
   // Return combined unwatch function
   return () => {
-    // Stop season listener
+    // Stop season listeners
     unwatch();
+    unwatchSeasonStarted();
     
     // Stop all bonding curve listeners
     for (const [seasonId, stopListener] of activeBondingCurveListeners.entries()) {
@@ -165,6 +254,12 @@ export async function discoverExistingSeasons(networkKey = 'LOCAL', logger = con
         discoveredCount++;
         
         logger.info(`[seasonListener] ✅ Started listener for season ${i}`);
+        
+        // Scan for historical PositionUpdate events that may have been missed
+        const currentBlock = await client.getBlockNumber();
+        const fromBlock = 0n; // Scan from genesis
+        logger.info(`[seasonListener] Scanning historical PositionUpdate events for season ${i} from block 0 to ${currentBlock}`);
+        await scanHistoricalPositionUpdates(networkKey, bondingCurveAddr, fromBlock, currentBlock, logger);
       } catch (error) {
         logger.error(`[seasonListener] Error discovering season ${i}:`, error);
       }

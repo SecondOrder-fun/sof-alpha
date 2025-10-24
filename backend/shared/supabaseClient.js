@@ -50,12 +50,12 @@ export class DatabaseService {
     return data;
   }
 
-  async getInfoFiMarketByComposite(raffleId, playerId, marketType) {
+  async getInfoFiMarketByComposite(raffleId, playerAddress, marketType) {
     const { data, error} = await this.client
       .from('infofi_markets')
       .select('*')
       .eq('raffle_id', raffleId)
-      .eq('player_id', playerId)
+      .eq('player_address', playerAddress)
       .eq('market_type', marketType)
       .limit(1)
       .maybeSingle();
@@ -65,8 +65,8 @@ export class DatabaseService {
     return data || null;
   }
 
-  async hasInfoFiMarket(seasonId, playerId, marketType) {
-    const existing = await this.getInfoFiMarketByComposite(seasonId, playerId, marketType);
+  async hasInfoFiMarket(raffleId, playerAddress, marketType) {
+    const existing = await this.getInfoFiMarketByComposite(raffleId, playerAddress, marketType);
     return Boolean(existing);
   }
 
@@ -132,11 +132,11 @@ export class DatabaseService {
   /**
    * Get InfoFi market by season and player (the natural key from blockchain)
    */
-  async getInfoFiMarketBySeasonAndPlayer(seasonId, playerAddress, marketType = 'WINNER_PREDICTION') {
+  async getInfoFiMarketBySeasonAndPlayer(raffleId, playerAddress, marketType = 'WINNER_PREDICTION') {
     const { data, error } = await this.client
       .from('infofi_markets')
       .select('*')
-      .eq('raffle_id', seasonId)
+      .eq('raffle_id', raffleId)
       .eq('player_address', playerAddress)
       .eq('market_type', marketType)
       .limit(1);
@@ -145,11 +145,11 @@ export class DatabaseService {
     return data && data.length > 0 ? data[0] : null;
   }
 
-  async getInfoFiMarketsBySeasonId(seasonId) {
+  async getInfoFiMarketsBySeasonId(raffleId) {
     const { data, error } = await this.client
       .from('infofi_markets')
       .select('*, players!infofi_markets_player_id_fkey(address)')
-      .eq('raffle_id', seasonId)
+      .eq('raffle_id', raffleId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     // Transform players object to player address
@@ -191,11 +191,11 @@ export class DatabaseService {
     return data;
   }
 
-  async updateInfoFiMarketProbability(seasonId, playerId, marketType, newProbabilityBps) {
+  async updateInfoFiMarketProbability(raffleId, playerId, marketType, newProbabilityBps) {
     const { data, error } = await this.client
       .from('infofi_markets')
-      .update({ current_probability: newProbabilityBps })
-      .eq('raffle_id', seasonId)
+      .update({ current_probability_bps: newProbabilityBps })
+      .eq('raffle_id', raffleId)
       .eq('player_id', playerId)
       .eq('market_type', marketType)
       .select()

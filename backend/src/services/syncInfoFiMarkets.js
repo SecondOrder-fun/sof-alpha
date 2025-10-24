@@ -45,9 +45,10 @@ export async function syncInfoFiMarkets(networkKey = 'LOCAL', logger = console) 
         logger.debug({ logArgs: log.args }, '[syncInfoFiMarkets] Processing event');
         const seasonId = Number(log.args.seasonId);
         const playerAddress = String(log.args.player);
+        const fpmmAddress = String(log.args.fpmmAddress);
         const probabilityBps = Number(log.args.probabilityBps);
         const MARKET_TYPE = 'WINNER_PREDICTION';
-        logger.debug({ seasonId, playerAddress, probabilityBps, MARKET_TYPE }, '[syncInfoFiMarkets] Parsed event data');
+        logger.debug({ seasonId, playerAddress, fpmmAddress, probabilityBps, MARKET_TYPE }, '[syncInfoFiMarkets] Parsed event data');
 
         // Get or create player record FIRST (needed for foreign key)
         const playerId = await db.getOrCreatePlayerIdByAddress(playerAddress);
@@ -60,13 +61,15 @@ export async function syncInfoFiMarkets(networkKey = 'LOCAL', logger = console) 
           continue;
         }
 
-        // Create market
+        // Create market with contract address from event
         const market = await db.createInfoFiMarket({
-          raffle_id: seasonId,
+          season_id: seasonId,
           player_id: playerId,
+          player_address: playerAddress.toLowerCase(),
           market_type: MARKET_TYPE,
-          initial_probability: probabilityBps,
-          current_probability: probabilityBps,
+          contract_address: fpmmAddress.toLowerCase(),
+          initial_probability_bps: probabilityBps,
+          current_probability_bps: probabilityBps,
           is_active: true,
           is_settled: false
         });
@@ -75,11 +78,11 @@ export async function syncInfoFiMarkets(networkKey = 'LOCAL', logger = console) 
         try {
           await db.upsertMarketPricingCache({
             market_id: market.id,
-            raffle_probability: probabilityBps,
-            market_sentiment: probabilityBps,
-            hybrid_price: probabilityBps / 10000,
-            raffle_weight: 7000,
-            market_weight: 3000,
+            raffle_probability_bps: probabilityBps,
+            market_sentiment_bps: probabilityBps,
+            hybrid_price_bps: probabilityBps,
+            raffle_weight_bps: 7000,
+            market_weight_bps: 3000,
             last_updated: new Date().toISOString()
           });
         } catch (cacheErr) {
