@@ -138,6 +138,101 @@ export async function userRoutes(fastify, options) {
     }
   });
   
+  // Get user's InfoFi positions
+  fastify.get('/:address/positions', async (request, reply) => {
+    try {
+      const { address } = request.params;
+      const { db } = await import('../../shared/supabaseClient.js');
+      
+      fastify.log.info({ address }, 'Fetching positions for user');
+      
+      // Query positions from infofi_positions table joined with markets
+      // Using ACTUAL database schema from migrations
+      const { data: positions, error } = await db.client
+        .from('infofi_positions')
+        .select(`
+          id,
+          market_id,
+          user_address,
+          outcome,
+          amount,
+          price,
+          created_at,
+          infofi_markets!inner (
+            id,
+            season_id,
+            player_address,
+            market_type,
+            initial_probability_bps,
+            current_probability_bps
+          )
+        `)
+        .eq('user_address', address.toLowerCase());
+      
+      if (error) {
+        fastify.log.error({ error, address }, 'Failed to fetch positions from database');
+        
+        // Return empty array instead of error if no markets exist yet
+        // This handles the case where the join fails because there are no markets
+        if (error.message && error.message.includes('does not exist')) {
+          fastify.log.info({ address }, 'No markets exist yet, returning empty positions');
+          return reply.send({ 
+            positions: [], 
+            count: 0,
+            message: 'No prediction markets available yet'
+          });
+        }
+        
+        return reply.status(500).send({ 
+          error: 'Failed to fetch positions',
+          details: error.message 
+        });
+      }
+      
+      fastify.log.info({ count: (positions || []).length, address }, 'Positions fetched successfully');
+      
+      // Transform data for frontend consumption
+      const transformedPositions = (positions || []).map(pos => {
+        const market = pos.infofi_markets;
+        
+        // Convert DECIMAL amount to wei string (multiply by 10^18)
+        // Database stores as numeric(38,18)
+        const amountDecimal = parseFloat(pos.amount || 0);
+        const amountWei = Math.floor(amountDecimal * 1e18).toString();
+        
+        return {
+          id: pos.id,
+          marketId: pos.market_id,
+          userAddress: pos.user_address,
+          outcome: pos.outcome,
+          amount: pos.amount, // Keep original decimal for display
+          amountWei, // Add wei representation for BigInt conversion
+          price: pos.price,
+          createdAt: pos.created_at,
+          market: market ? {
+            id: market.id,
+            seasonId: market.season_id, // Use season_id from actual schema
+            marketType: market.market_type,
+            initialProbabilityBps: market.initial_probability_bps,
+            currentProbabilityBps: market.current_probability_bps,
+            playerAddress: market.player_address
+          } : null
+        };
+      });
+      
+      reply.send({ 
+        positions: transformedPositions, 
+        count: transformedPositions.length 
+      });
+    } catch (error) {
+      fastify.log.error({ error, stack: error.stack }, 'Unexpected error fetching positions');
+      return reply.status(500).send({ 
+        error: 'Failed to fetch positions',
+        details: error.message 
+      });
+    }
+  });
+  
   // Get user profile
   fastify.get('/profile/:id', async (request, reply) => {
     try {

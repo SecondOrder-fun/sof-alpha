@@ -498,7 +498,12 @@ const PredictionPositionsCard = ({ address }) => {
       <CardContent>
         {positionsQuery.isLoading && <p className="text-muted-foreground">Loading positions...</p>}
         {positionsQuery.error && (
-          <p className="text-red-500">Error loading positions: {String(positionsQuery.error?.message || positionsQuery.error)}</p>
+          <p className="text-muted-foreground">
+            {positionsQuery.error?.message?.includes('does not exist') || 
+             positionsQuery.error?.message?.includes('No prediction markets')
+              ? 'No prediction markets available yet. Markets will be created automatically when players reach certain position thresholds.'
+              : `Error loading positions: ${String(positionsQuery.error?.message || positionsQuery.error)}`}
+          </p>
         )}
         {!positionsQuery.isLoading && !positionsQuery.error && (
           <div className="space-y-2">

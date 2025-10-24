@@ -3,81 +3,61 @@ import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { getStoredNetworkKey } from '@/lib/wagmi';
-import { listSeasonWinnerMarkets, enumerateAllMarkets, readBet } from '@/services/onchainInfoFi';
 import { formatUnits } from 'viem';
 
 /**
  * PositionsPanel
  * Shared InfoFi positions panel used by AccountPage and UserProfile to avoid divergence.
- * - Aggregates across provided seasons (or falls back to current season externally)
- * - Discovers markets via factory events; falls back to enumerating InfoFiMarket
- * - Displays discovery debug panel for now (can be toggled off later)
+ * Now fetches positions from the backend API (database) instead of blockchain.
+ * Note: seasons prop is kept for backwards compatibility but not currently used.
  */
 const PositionsPanel = ({ address, seasons = [], title, description }) => {
   const { t } = useTranslation('market');
-  const netKey = getStoredNetworkKey();
   const defaultTitle = title || t('predictionMarketPositions');
   const defaultDescription = description || t('openPositionsAcross');
+  
+  // Acknowledge seasons prop to avoid lint warning (kept for backwards compatibility)
+  if (seasons.length > 0) {
+    // Future enhancement: could filter positions by season if needed
+  }
 
   const positionsQuery = useQuery({
-    queryKey: ['positionsPanel_all', address, seasons.map((s) => s.id).join(','), netKey],
+    queryKey: ['positionsPanel', address],
     enabled: !!address,
     queryFn: async () => {
-      const out = [];
-      // 1) Try factory-based discovery per provided season
-      let discovered = [];
-      for (const s of seasons) {
-        // eslint-disable-next-line no-await-in-loop
-        const markets = await listSeasonWinnerMarkets({ seasonId: s.id, networkKey: netKey }).catch(() => []);
-        discovered = discovered.concat((markets || []).map((m) => ({ ...m, seasonId: m.seasonId ?? s.id })));
+      // Fetch positions from backend API
+      const response = await fetch(`http://localhost:3000/api/users/${address}/positions`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.details || `HTTP ${response.status}: ${response.statusText}`
+        );
       }
-      // 2) Fallback to enumerate all markets
-      if (discovered.length === 0) {
-        // eslint-disable-next-line no-await-in-loop
-        const all = await enumerateAllMarkets({ networkKey: netKey }).catch(() => []);
-        discovered = all || [];
-      }
-      // 3) Read wallet positions for each discovered market
-      for (const m of discovered) {
-        const seasonId = Number(m.seasonId);
-        // eslint-disable-next-line no-await-in-loop
-        const yes = await readBet({ marketId: m.id, account: address, prediction: true, networkKey: netKey });
-        // eslint-disable-next-line no-await-in-loop
-        const no = await readBet({ marketId: m.id, account: address, prediction: false, networkKey: netKey });
-        const yesAmt = yes?.amount ?? 0n;
-        const noAmt = no?.amount ?? 0n;
-        if (yesAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'YES', amountBig: yesAmt, amount: formatUnits(yesAmt, 18) + ' SOF', player: m.player });
-        if (noAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'NO', amountBig: noAmt, amount: formatUnits(noAmt, 18) + ' SOF', player: m.player });
-      }
-      return out;
+      
+      const data = await response.json();
+      const positions = data.positions || [];
+      
+      // Transform database positions to match expected format
+      return positions.map(pos => {
+        // Convert amountWei string to BigInt for calculations
+        // Backend sends wei representation as string to avoid precision loss
+        const amountBig = pos.amountWei ? BigInt(pos.amountWei) : 0n;
+        
+        return {
+          seasonId: pos.market?.seasonId || 0,
+          marketId: pos.marketId,
+          marketType: pos.market?.marketType || 'Winner Prediction',
+          outcome: pos.outcome,
+          amountBig,
+          amount: formatUnits(amountBig, 18) + ' SOF',
+          player: pos.market?.playerAddress || null,
+          price: pos.price,
+        };
+      });
     },
     staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
-
-  // Full fallback: enumerate all markets and read ALL positions (mirrors discovery panel but complete)
-  const fallbackQuery = useQuery({
-    queryKey: ['positionsPanel_fallback_all', address, netKey],
-    enabled: !!address && (!positionsQuery.data || (positionsQuery.data || []).length === 0),
-    queryFn: async () => {
-      const out = [];
-      const all = await enumerateAllMarkets({ networkKey: netKey }).catch(() => []);
-      for (const m of (all || [])) {
-        const seasonId = Number(m.seasonId);
-        // eslint-disable-next-line no-await-in-loop
-        const yes = await readBet({ marketId: m.id, account: address, prediction: true, networkKey: netKey });
-        // eslint-disable-next-line no-await-in-loop
-        const no = await readBet({ marketId: m.id, account: address, prediction: false, networkKey: netKey });
-        const yesAmt = yes?.amount ?? 0n;
-        const noAmt = no?.amount ?? 0n;
-        if (yesAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'YES', amountBig: yesAmt, amount: formatUnits(yesAmt, 18) + ' SOF', player: m.player });
-        if (noAmt > 0n) out.push({ seasonId, marketId: m.id, marketType: 'Winner Prediction', outcome: 'NO', amountBig: noAmt, amount: formatUnits(noAmt, 18) + ' SOF', player: m.player });
-      }
-      return out;
-    },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
+    refetchInterval: 10_000,
   });
 
   return (
@@ -94,11 +74,23 @@ const PositionsPanel = ({ address, seasons = [], title, description }) => {
               <p className="text-muted-foreground">{t('loadingPositions')}</p>
             )}
             {positionsQuery.error && (
-              <p className="text-red-500">{t('errorLoadingPositions', { error: String(positionsQuery.error?.message || positionsQuery.error) })}</p>
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  {positionsQuery.error.message?.includes('does not exist') || 
+                   positionsQuery.error.message?.includes('No prediction markets')
+                    ? t('noMarketsAvailable')
+                    : `${t('errorLoadingPositions')}: ${positionsQuery.error.message}`}
+                </p>
+                {!positionsQuery.error.message?.includes('does not exist') && 
+                 !positionsQuery.error.message?.includes('No prediction markets') && (
+                  <p className="text-sm text-muted-foreground">
+                    Make sure the backend server is running on port 3000.
+                  </p>
+                )}
+              </div>
             )}
             {!positionsQuery.isLoading && !positionsQuery.error && (() => {
-              const primary = positionsQuery.data || [];
-              const data = primary.length > 0 ? primary : (fallbackQuery.data || []);
+              const data = positionsQuery.data || [];
               if (data.length === 0) return <p className="text-muted-foreground">{t('noOpenPositions')}</p>;
               // Group by seasonId
               const bySeason = new Map();
