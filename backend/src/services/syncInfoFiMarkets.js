@@ -63,7 +63,7 @@ export async function syncInfoFiMarkets(networkKey = 'LOCAL', logger = console) 
 
         // Create market with contract address from event
         const market = await db.createInfoFiMarket({
-          season_id: seasonId,
+          raffle_id: seasonId,  // Database uses raffle_id, not season_id
           player_id: playerId,
           player_address: playerAddress.toLowerCase(),
           market_type: MARKET_TYPE,

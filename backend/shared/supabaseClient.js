@@ -168,14 +168,58 @@ export class DatabaseService {
   }
 
   async createInfoFiMarket(marketData) {
-    // Expect snake_case columns per schema
+    // Check if Supabase is configured
+    if (!hasSupabase) {
+      const error = 'Supabase not configured - missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY';
+      console.error('[supabaseClient] Configuration error:', error);
+      throw new Error(error);
+    }
+    
+    // Log incoming data for debugging
+    console.log('[supabaseClient] createInfoFiMarket called with:', JSON.stringify(marketData, null, 2));
+    
+    // Validate required fields based on actual schema
+    const requiredFields = ['raffle_id', 'player_address', 'market_type', 'initial_probability_bps', 'current_probability_bps'];
+    const missingFields = requiredFields.filter(field => marketData[field] === undefined || marketData[field] === null);
+    
+    if (missingFields.length > 0) {
+      const error = `Missing required fields: ${missingFields.join(', ')}`;
+      console.error('[supabaseClient] Validation error:', error);
+      throw new Error(error);
+    }
+    
+    // Ensure correct column names (raffle_id not season_id)
+    const insertData = {
+      raffle_id: marketData.raffle_id,
+      player_address: marketData.player_address,
+      player_id: marketData.player_id || null,
+      market_type: marketData.market_type,
+      contract_address: marketData.contract_address || null,
+      initial_probability_bps: marketData.initial_probability_bps,
+      current_probability_bps: marketData.current_probability_bps,
+      is_active: marketData.is_active !== undefined ? marketData.is_active : true,
+      is_settled: marketData.is_settled !== undefined ? marketData.is_settled : false
+    };
+    
+    console.log('[supabaseClient] Inserting data:', JSON.stringify(insertData, null, 2));
+    
     const { data, error } = await this.client
       .from('infofi_markets')
-      .insert([marketData])
+      .insert([insertData])
       .select()
       .single();
     
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('[supabaseClient] Insert error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      throw new Error(error.message);
+    }
+    
+    console.log('[supabaseClient] Successfully created market:', data.id);
     return data;
   }
 

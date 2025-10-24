@@ -30,7 +30,8 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
         try {
           const seasonId = Number(log.args.seasonId);
           const player = String(log.args.player);
-          const conditionId = String(log.args.conditionId);
+          // conditionId available but not used in DB yet
+          // const conditionId = String(log.args.conditionId);
           const fpmmAddress = String(log.args.fpmmAddress);
           const probabilityBps = Number(log.args.probabilityBps);
           // marketType is bytes32; we treat winner prediction as constant string
@@ -39,18 +40,24 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
           logger.info(`[infofiListener] Processing MarketCreated: season=${seasonId}, player=${player}, fpmm=${fpmmAddress}, bps=${probabilityBps}`);
 
           // Get or create player record FIRST (needed for foreign key)
+          logger.info(`[infofiListener] Getting/creating player ID for ${player}...`);
           const playerId = await db.getOrCreatePlayerIdByAddress(player);
+          logger.info(`[infofiListener] Player ID: ${playerId}`);
 
-          // Idempotency: skip if exists (using player_id as primary identifier)
-          const exists = await db.hasInfoFiMarket(seasonId, playerId, MARKET_TYPE);
+          // Idempotency: skip if exists (using player_address as primary identifier)
+          logger.info(`[infofiListener] Checking if market exists for season ${seasonId}, player ${player}...`);
+          const exists = await db.hasInfoFiMarket(seasonId, player.toLowerCase(), MARKET_TYPE);
+          logger.info(`[infofiListener] Market exists: ${exists}`);
+          
           if (exists) {
             logger.info(`[infofiListener] Market already exists for season ${seasonId}, player ${player} - skipping`);
             continue;
           }
 
-          // Create market using player_id and contract address from event
-          const market = await db.createInfoFiMarket({
-            season_id: seasonId,
+          // Create market using raffle_id (NOT season_id) and player_address
+          logger.info(`[infofiListener] Creating market in database...`);
+          const marketData = {
+            raffle_id: seasonId,  // Database uses raffle_id, not season_id
             player_id: playerId,
             player_address: player.toLowerCase(),
             market_type: MARKET_TYPE,
@@ -59,7 +66,10 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
             current_probability_bps: probabilityBps,
             is_active: true,
             is_settled: false
-          });
+          };
+          logger.info(`[infofiListener] Market data:`, marketData);
+          
+          const market = await db.createInfoFiMarket(marketData);
 
           // Initialize pricing cache
           try {
@@ -78,7 +88,10 @@ export function startInfoFiMarketListener(networkKey = 'LOCAL', logger = console
 
           logger.info(`[infofiListener] ✅ Created DB market for season ${seasonId}, player ${player}, bps=${probabilityBps}`);
         } catch (e) {
-          logger.error('[infofiListener] Failed to handle MarketCreated log', e);
+          logger.error('[infofiListener] Failed to handle MarketCreated log');
+          logger.error('[infofiListener] Error message:', e.message);
+          logger.error('[infofiListener] Error stack:', e.stack);
+          logger.error('[infofiListener] Full error:', e);
         }
       }
     },

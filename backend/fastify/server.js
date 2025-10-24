@@ -14,10 +14,18 @@ import { pricingService } from '../shared/pricingService.js';
 import { historicalOddsService } from '../shared/historicalOddsService.js';
 import { loadChainEnv } from '../src/config/chain.js';
 import { redisClient } from '../shared/redisClient.js';
-import { db } from '../shared/supabaseClient.js';
+import { db, hasSupabase } from '../shared/supabaseClient.js';
 
 // Create Fastify instance
 const app = fastify({ logger: true });
+
+// Log Supabase connection status at startup
+if (hasSupabase) {
+  app.log.info('✅ Supabase configured and connected');
+} else {
+  app.log.warn('⚠️  Supabase NOT configured - database operations will fail');
+  app.log.warn('    Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
+}
 
 // Ensure pricing service shares Fastify logger for consistent structured logs
 pricingService.setLogger?.(app.log);
