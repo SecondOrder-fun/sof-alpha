@@ -428,19 +428,6 @@ export default [
   },
   {
     "type": "function",
-    "name": "positionTracker",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "raffle",
     "inputs": [],
     "outputs": [
@@ -527,19 +514,6 @@ export default [
         "name": "minSofAmount",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setPositionTracker",
-    "inputs": [
-      {
-        "name": "_tracker",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],

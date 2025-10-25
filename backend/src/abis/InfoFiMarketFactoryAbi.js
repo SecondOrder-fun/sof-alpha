@@ -39,11 +39,6 @@ export default [
         "name": "_admin",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "_backend",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -51,19 +46,6 @@ export default [
   {
     "type": "function",
     "name": "ADMIN_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BACKEND_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -96,6 +78,19 @@ export default [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "RAFFLE_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -827,11 +822,6 @@ export default [
   {
     "type": "error",
     "name": "MarketAlreadyCreated",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "OnlyBackend",
     "inputs": []
   },
   {

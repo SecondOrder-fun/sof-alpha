@@ -36,9 +36,6 @@ const contractsToCopy = [
   { sourceFile: 'InfoFiFPMMV2.sol/SimpleFPMM.json', destFile: 'SimpleFPMM.json' },
   { sourceFile: 'InfoFiFPMMV2.sol/SOLPToken.json', destFile: 'SOLPToken.json' },
   { sourceFile: 'ConditionalTokenSOF.sol/ConditionalTokenSOF.json', destFile: 'ConditionalTokenSOF.json' },
-
-  // Position tracker
-  { sourceFile: 'RafflePositionTracker.sol/RafflePositionTracker.json', destFile: 'RafflePositionTracker.json' },
 ];
 
 // Backend services need these ABIs (subset of above, in JS format for ES modules)
@@ -47,7 +44,6 @@ const backendAbiNeeds = [
   'InfoFiMarketFactory.json',
   'InfoFiPriceOracle.json',
   'Raffle.json',
-  'RafflePositionTracker.json',
 ];
 
 async function copyAbis() {

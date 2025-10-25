@@ -25,7 +25,6 @@ const NAME_TO_ENV = {
   SOFToken: "SOF",
   Raffle: "RAFFLE",
   SeasonFactory: "SEASON_FACTORY",
-  RafflePositionTracker: "RAFFLE_TRACKER",
   // InfoFi
   InfoFiMarketFactory: "INFOFI_FACTORY",
   InfoFiPriceOracle: "INFOFI_ORACLE",
