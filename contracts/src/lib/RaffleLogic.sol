@@ -16,7 +16,7 @@ library RaffleLogic {
         if (state.totalTickets == 0 || state.participants.length == 0 || winnerCount == 0) {
             return new address[](0);
         }
-        
+
         // Special case: if there's only one participant, they must be the winner
         if (state.participants.length == 1) {
             address[] memory singleWinner = new address[](1);
@@ -45,10 +45,11 @@ library RaffleLogic {
         return winners;
     }
 
-    function _findParticipantByTicket(
-        RaffleStorage.SeasonState storage state,
-        uint256 ticketNumber
-    ) internal view returns (uint256 idx, address addr) {
+    function _findParticipantByTicket(RaffleStorage.SeasonState storage state, uint256 ticketNumber)
+        internal
+        view
+        returns (uint256 idx, address addr)
+    {
         uint256 cur = 1;
         for (uint256 j = 0; j < state.participants.length; j++) {
             address p = state.participants[j];

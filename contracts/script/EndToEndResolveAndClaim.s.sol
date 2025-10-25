@@ -42,7 +42,7 @@ contract EndToEndResolveAndClaim is Script {
         // Read season to get endTime and ensure active or endable
         RaffleTypes.SeasonConfig memory cfg;
         RaffleStorage.SeasonStatus status;
-        (cfg, status, , ,) = raffle.getSeasonDetails(seasonId);
+        (cfg, status,,,) = raffle.getSeasonDetails(seasonId);
 
         // 1) If not completed, request season end (or emergency end) and fulfill VRF
         if (status != RaffleStorage.SeasonStatus.Completed) {
@@ -56,8 +56,12 @@ contract EndToEndResolveAndClaim is Script {
 
                 Vm.Log[] memory entries = vm.getRecordedLogs();
                 requestId = _extractRequestIdFromLogs(entries);
-            } else if (status == RaffleStorage.SeasonStatus.VRFPending || status == RaffleStorage.SeasonStatus.EndRequested) {
-                console2.log("[E2E-Resolve] Season is already VRFPending/EndRequested. Retrieving existing requestId...");
+            } else if (
+                status == RaffleStorage.SeasonStatus.VRFPending || status == RaffleStorage.SeasonStatus.EndRequested
+            ) {
+                console2.log(
+                    "[E2E-Resolve] Season is already VRFPending/EndRequested. Retrieving existing requestId..."
+                );
                 requestId = raffle.getVrfRequestForSeason(seasonId);
             } else {
                 revert("Invalid season status for resolution");
@@ -73,7 +77,7 @@ contract EndToEndResolveAndClaim is Script {
             console2.log("[E2E-Resolve] VRF fulfilled");
 
             // Confirm season has transitioned to Completed
-            (, status, , , ) = raffle.getSeasonDetails(seasonId);
+            (, status,,,) = raffle.getSeasonDetails(seasonId);
             require(status == RaffleStorage.SeasonStatus.Completed, "Season not completed after VRF");
         } else {
             console2.log("[E2E-Resolve] Season already completed; skipping VRF step");
@@ -94,14 +98,16 @@ contract EndToEndResolveAndClaim is Script {
             console2.log("[E2E-Resolve] Deployer claimed grand prize. +SOF:", balAfterGrand - balBeforeGrand);
         } else {
             console2.log("[E2E-Resolve] Deployer was not the winner. Claiming consolation...");
-            
+
             // Claim consolation prize
             vm.startBroadcast(adminPk);
             uint256 balBeforeConsolation = sof.balanceOf(deployer);
             distributor.claimConsolation(seasonId);
             uint256 balAfterConsolation = sof.balanceOf(deployer);
             vm.stopBroadcast();
-            console2.log("[E2E-Resolve] Deployer claimed consolation prize. +SOF:", balAfterConsolation - balBeforeConsolation);
+            console2.log(
+                "[E2E-Resolve] Deployer claimed consolation prize. +SOF:", balAfterConsolation - balBeforeConsolation
+            );
         }
 
         console2.log("[E2E-Resolve] Flow complete: season ended, VRF fulfilled, payouts claimed.");

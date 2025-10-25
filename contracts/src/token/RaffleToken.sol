@@ -94,8 +94,6 @@ contract RaffleToken is ERC20, ERC20Burnable, AccessControl {
      * @notice Check if season is currently active
      */
     function isSeasonActive() external view returns (bool) {
-        return seasonInfo.isActive &&
-            block.timestamp >= seasonInfo.startTime &&
-            block.timestamp <= seasonInfo.endTime;
+        return seasonInfo.isActive && block.timestamp >= seasonInfo.startTime && block.timestamp <= seasonInfo.endTime;
     }
 }

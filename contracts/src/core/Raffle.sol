@@ -34,6 +34,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function getCoordinatorAddress() external view returns (address) {
         return address(COORDINATOR);
     }
+
     uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
 
     // Core
@@ -46,24 +47,14 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     // Default grand prize split in BPS (e.g., 6500 = 65%). If seasonConfig.grandPrizeBps == 0, use this default.
     uint16 public defaultGrandPrizeBps = 6500;
 
-    // Role hash used by RafflePositionTracker for updater permissions
-    bytes32 private constant TRACKER_MARKET_ROLE = keccak256("MARKET_ROLE");
-
     /// @dev Emitted on every position change (buy/sell) with post-change totals
     event PositionUpdate(
-        uint256 indexed seasonId,
-        address indexed player,
-        uint256 oldTickets,
-        uint256 newTickets,
-        uint256 totalTickets
+        uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets
     );
 
-    constructor(
-        address _sofToken,
-        address _vrfCoordinator,
-        uint64 _vrfSubscriptionId,
-        bytes32 _vrfKeyHash
-    ) VRFConsumerBaseV2(_vrfCoordinator) {
+    constructor(address _sofToken, address _vrfCoordinator, uint64 _vrfSubscriptionId, bytes32 _vrfKeyHash)
+        VRFConsumerBaseV2(_vrfCoordinator)
+    {
         require(_sofToken != address(0), "Raffle: SOF zero");
         sofToken = IERC20(_sofToken);
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
@@ -106,26 +97,6 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     /**
-     * @notice Wire the on-chain position tracker for a season and authorize the curve as updater
-     * @dev Calls curve.setPositionTracker(tracker) and tracker.grantRole(MARKET_ROLE, curve)
-     */
-    function setPositionTrackerForSeason(uint256 seasonId, address tracker) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
-        require(tracker != address(0), "Raffle: tracker zero");
-        address curveAddr = seasons[seasonId].bondingCurve;
-        require(curveAddr != address(0), "Raffle: curve not set");
-
-        // Set tracker on curve (Raffle has RAFFLE_MANAGER_ROLE on curve via SeasonFactory)
-        SOFBondingCurve(curveAddr).setPositionTracker(tracker);
-        // Grant MARKET_ROLE on tracker to the curve so it can push snapshots
-        ITrackerACL(tracker).grantRole(TRACKER_MARKET_ROLE, curveAddr);
-
-        emit PositionTrackerWired(seasonId, tracker, curveAddr);
-    }
-
-    event PositionTrackerWired(uint256 indexed seasonId, address indexed tracker, address indexed curve);
-
-    /**
      * @notice Create a new season: deploy RaffleToken and SOFBondingCurve, grant roles, init curve.
      */
     function createSeason(
@@ -144,13 +115,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
         seasonId = ++currentSeasonId;
 
-        (address raffleTokenAddr, address curveAddr) = seasonFactory.createSeasonContracts(
-            seasonId,
-            config,
-            bondSteps,
-            buyFeeBps,
-            sellFeeBps
-        );
+        (address raffleTokenAddr, address curveAddr) =
+            seasonFactory.createSeasonContracts(seasonId, config, bondSteps, buyFeeBps, sellFeeBps);
 
         // Persist config
         config.raffleToken = raffleTokenAddr;
@@ -162,9 +128,6 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
         // Allow the curve to call participant hooks
         _grantRole(BONDING_CURVE_ROLE, curveAddr);
-
-        // InfoFi factory integration removed - now using RafflePositionTracker
-        // Position tracker is set separately via setPositionTracker() if needed
 
         emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
     }
@@ -197,11 +160,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
         // VRF v2 request for winner selection (numWords == winnerCount)
         uint256 requestId = COORDINATOR.requestRandomWords(
-            vrfKeyHash,
-            vrfSubscriptionId,
-            VRF_REQUEST_CONFIRMATIONS,
-            vrfCallbackGasLimit,
-            seasons[seasonId].winnerCount
+            vrfKeyHash, vrfSubscriptionId, VRF_REQUEST_CONFIRMATIONS, vrfCallbackGasLimit, seasons[seasonId].winnerCount
         );
         seasonStates[seasonId].vrfRequestId = requestId;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
@@ -228,11 +187,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
         // VRF v2 request for winner selection (numWords == winnerCount)
         uint256 requestId = COORDINATOR.requestRandomWords(
-            vrfKeyHash,
-            vrfSubscriptionId,
-            VRF_REQUEST_CONFIRMATIONS,
-            vrfCallbackGasLimit,
-            seasons[seasonId].winnerCount
+            vrfKeyHash, vrfSubscriptionId, VRF_REQUEST_CONFIRMATIONS, vrfCallbackGasLimit, seasons[seasonId].winnerCount
         );
         seasonStates[seasonId].vrfRequestId = requestId;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
@@ -248,7 +203,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         uint256 totalPrizePool = seasonStates[seasonId].totalPrizePool;
 
         // Select winners address-based
-        address[] memory winners = RaffleLogic._selectWinnersAddressBased(seasonStates[seasonId], seasons[seasonId].winnerCount, randomWords);
+        address[] memory winners =
+            RaffleLogic._selectWinnersAddressBased(seasonStates[seasonId], seasons[seasonId].winnerCount, randomWords);
         seasonStates[seasonId].winners = winners;
 
         seasonStates[seasonId].status = SeasonStatus.Distributing;
@@ -258,7 +214,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     // Called by curve
-    function recordParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external onlyRole(BONDING_CURVE_ROLE) {
+    function recordParticipant(uint256 seasonId, address participant, uint256 ticketAmount)
+        external
+        onlyRole(BONDING_CURVE_ROLE)
+    {
         require(seasons[seasonId].isActive, "Raffle: season inactive");
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
@@ -271,7 +230,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             pos.isActive = true;
             emit ParticipantAdded(seasonId, participant, ticketAmount, state.totalTickets + ticketAmount);
         } else {
-            emit ParticipantUpdated(seasonId, participant, pos.ticketCount + ticketAmount, state.totalTickets + ticketAmount);
+            emit ParticipantUpdated(
+                seasonId, participant, pos.ticketCount + ticketAmount, state.totalTickets + ticketAmount
+            );
         }
         pos.ticketCount = newTicketsLocal;
         pos.lastUpdateBlock = block.number;
@@ -281,11 +242,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         emit PositionUpdate(seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets);
         if (infoFiFactory != address(0)) {
             try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                seasonId,
-                participant,
-                oldTickets,
-                newTicketsLocal,
-                state.totalTickets
+                seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets
             ) {
                 // Success - InfoFi market updated/created
             } catch {
@@ -295,7 +252,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         }
     }
 
-    function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount) external onlyRole(BONDING_CURVE_ROLE) {
+    function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount)
+        external
+        onlyRole(BONDING_CURVE_ROLE)
+    {
         require(seasons[seasonId].isActive, "Raffle: season inactive");
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
@@ -324,11 +284,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         emit PositionUpdate(seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets);
         if (infoFiFactory != address(0)) {
             try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                seasonId,
-                participant,
-                oldTickets,
-                pos.ticketCount,
-                state.totalTickets
+                seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets
             ) {
                 // Success - InfoFi market updated
             } catch {
@@ -339,13 +295,23 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     // Views
-    function getParticipants(uint256 seasonId) external view returns (address[] memory) { return seasonStates[seasonId].participants; }
+    function getParticipants(uint256 seasonId) external view returns (address[] memory) {
+        return seasonStates[seasonId].participants;
+    }
 
-    function getParticipantPosition(uint256 seasonId, address participant) external view returns (ParticipantPosition memory position) {
+    function getParticipantPosition(uint256 seasonId, address participant)
+        external
+        view
+        returns (ParticipantPosition memory position)
+    {
         return seasonStates[seasonId].participantPositions[participant];
     }
 
-    function getParticipantNumberRange(uint256 seasonId, address participant) external view returns (uint256 start, uint256 end) {
+    function getParticipantNumberRange(uint256 seasonId, address participant)
+        external
+        view
+        returns (uint256 start, uint256 end)
+    {
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage p = state.participantPositions[participant];
         if (!p.isActive) return (0, 0);
@@ -353,19 +319,23 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         for (uint256 i = 0; i < state.participants.length; i++) {
             address addr = state.participants[i];
             ParticipantPosition storage pos = state.participantPositions[addr];
-            if (addr == participant) { return (cur, cur + pos.ticketCount - 1); }
+            if (addr == participant) return (cur, cur + pos.ticketCount - 1);
             cur += pos.ticketCount;
         }
         return (0, 0);
     }
 
-    function getSeasonDetails(uint256 seasonId) external view returns (
-        RaffleTypes.SeasonConfig memory config,
-        SeasonStatus status,
-        uint256 totalParticipants,
-        uint256 totalTickets,
-        uint256 totalPrizePool
-    ) {
+    function getSeasonDetails(uint256 seasonId)
+        external
+        view
+        returns (
+            RaffleTypes.SeasonConfig memory config,
+            SeasonStatus status,
+            uint256 totalParticipants,
+            uint256 totalTickets,
+            uint256 totalPrizePool
+        )
+    {
         config = seasons[seasonId];
         SeasonState storage state = seasonStates[seasonId];
         status = state.status;
@@ -378,7 +348,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonStates[seasonId].status == SeasonStatus.Completed, "Raffle: not completed");
         return seasonStates[seasonId].winners;
     }
-    
+
     /**
      * @notice Get the current active season ID
      * @return uint256 The current active season ID or 0 if no active season
@@ -391,7 +361,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         }
         return 0; // No active season
     }
-    
+
     /**
      * @notice Check if a season is active
      * @param seasonId The season ID to check
@@ -400,7 +370,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function isSeasonActive(uint256 seasonId) external view returns (bool) {
         return seasons[seasonId].isActive;
     }
-    
+
     /**
      * @notice Get the total tickets for a season
      * @param seasonId The season ID
@@ -409,7 +379,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function getTotalTickets(uint256 seasonId) external view returns (uint256) {
         return seasonStates[seasonId].totalTickets;
     }
-    
+
     /**
      * @notice Get the player list for a season
      * @param seasonId The season ID
@@ -418,7 +388,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function getPlayerList(uint256 seasonId) external view returns (address[] memory) {
         return seasonStates[seasonId].participants;
     }
-    
+
     /**
      * @notice Get the number range for a player in a season
      * @param seasonId The season ID
@@ -426,11 +396,15 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
      * @return startRange The start of the player's number range
      * @return endRange The end of the player's number range
      */
-    function getNumberRange(uint256 seasonId, address player) external view returns (uint256 startRange, uint256 endRange) {
+    function getNumberRange(uint256 seasonId, address player)
+        external
+        view
+        returns (uint256 startRange, uint256 endRange)
+    {
         // Calculate the player's number range based on their position in the participants array
         uint256 rangeStart = 0;
         address[] memory participants = seasonStates[seasonId].participants;
-        
+
         for (uint256 i = 0; i < participants.length; i++) {
             if (participants[i] == player) {
                 break;
@@ -438,13 +412,13 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             ParticipantPosition memory prevPos = seasonStates[seasonId].participantPositions[participants[i]];
             rangeStart += prevPos.ticketCount;
         }
-        
+
         ParticipantPosition memory pos = seasonStates[seasonId].participantPositions[player];
         startRange = rangeStart;
         endRange = rangeStart + pos.ticketCount;
         return (startRange, endRange);
     }
-    
+
     /**
      * @notice Get the season winner
      * @param seasonId The season ID
@@ -456,7 +430,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         }
         return address(0);
     }
-    
+
     /**
      * @notice Get the final player position after season completion
      * @param seasonId The season ID
@@ -474,10 +448,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     // Admin
-    function pauseSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) { require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season"); seasons[seasonId].isActive = false; }
+    function pauseSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) {
+        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        seasons[seasonId].isActive = false;
+    }
 
-    function updateVRFConfig(uint64 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        vrfSubscriptionId = subscriptionId; vrfKeyHash = keyHash; vrfCallbackGasLimit = callbackGasLimit;
+    function updateVRFConfig(uint64 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        vrfSubscriptionId = subscriptionId;
+        vrfKeyHash = keyHash;
+        vrfCallbackGasLimit = callbackGasLimit;
     }
 
     /**
@@ -487,7 +469,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function completeSeasonManually(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
         require(seasonStates[seasonId].status == SeasonStatus.Distributing, "Raffle: not distributing");
-        
+
         // Mark complete
         seasons[seasonId].isCompleted = true;
         seasonStates[seasonId].status = SeasonStatus.Completed;
@@ -501,7 +483,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function setupPrizeDistributionManually(uint256 seasonId) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
         require(seasonStates[seasonId].status == SeasonStatus.Distributing, "Raffle: not distributing");
-        
+
         // Get the required parameters
         SeasonState storage state = seasonStates[seasonId];
         RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
@@ -509,21 +491,23 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(curveAddr != address(0), "Raffle: curve zero");
         uint256 totalPrizePool = SOFBondingCurve(curveAddr).getSofReserves();
         address[] memory winners = state.winners;
-        
+
         // Call the internal function
         _setupPrizeDistribution(seasonId, winners, totalPrizePool);
-        
+
         emit PrizeDistributionSetup(seasonId, prizeDistributor);
     }
 
     // Internals
-    function _setupPrizeDistribution(uint256 seasonId, address[] memory /*winners*/, uint256 /*totalPrizePool*/) internal {
+    function _setupPrizeDistribution(uint256 seasonId, address[] memory, /*winners*/ uint256 /*totalPrizePool*/ )
+        internal
+    {
         // Compute pool splits
         require(prizeDistributor != address(0), "Raffle: distributor not set");
         SeasonState storage state = seasonStates[seasonId];
         RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
         uint256 totalPrizePool = state.totalPrizePool;
-        
+
         // If there's no prize pool, we can still complete the season but skip distribution
         if (totalPrizePool == 0) {
             cfg.isCompleted = true;
@@ -558,15 +542,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Move funds from curve to distributor
         address curveAddr = cfg.bondingCurve;
         require(curveAddr != address(0), "Raffle: curve zero");
-        
+
         // 1. Configure the prize distributor with amounts and winner info
         IRafflePrizeDistributor(prizeDistributor).configureSeason(
-            seasonId,
-            address(sofToken),
-            grandWinner,
-            grandAmount,
-            consolationAmount,
-            totalParticipants
+            seasonId, address(sofToken), grandWinner, grandAmount, consolationAmount, totalParticipants
         );
 
         // 2. Extract funds from the curve directly to the prize distributor

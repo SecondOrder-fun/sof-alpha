@@ -10,12 +10,6 @@ import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
 
-// Minimal interface to push updates to the on-chain position tracker
-interface IRafflePositionTracker {
-    function updatePlayerPosition(address player) external;
-    function updateAllPlayersInSeason() external;
-}
-
 /**
  * @title SOF Bonding Curve
  * @notice Mint.club-inspired DBC bonding curve that only accepts $SOF as payment
@@ -33,11 +27,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     // Raffle callback wiring
     address public raffle;
     uint256 public raffleSeasonId;
-
-    // Optional on-chain position tracker to emit PositionSnapshot upon updates
-    address public positionTracker;
-
-
 
     // Curve configuration
     struct CurveConfig {
@@ -100,10 +89,12 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param _buyFee Buy fee in basis points
      * @param _sellFee Sell fee in basis points
      */
-    function initializeCurve(address _raffleToken, RaffleTypes.BondStep[] calldata _bondSteps, uint16 _buyFee, uint16 _sellFee)
-        external
-        onlyRole(RAFFLE_MANAGER_ROLE)
-    {
+    function initializeCurve(
+        address _raffleToken,
+        RaffleTypes.BondStep[] calldata _bondSteps,
+        uint16 _buyFee,
+        uint16 _sellFee
+    ) external onlyRole(RAFFLE_MANAGER_ROLE) {
         require(!curveConfig.initialized, "Curve: initialized");
         require(_raffleToken != address(0), "Curve: raffle zero");
         require(_bondSteps.length > 0, "Curve: no steps");
@@ -154,15 +145,6 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Set position tracker address for on-chain snapshots
-     */
-    function setPositionTracker(address _tracker) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(_tracker != address(0), "Curve: tracker zero");
-        positionTracker = _tracker;
-    }
-    
-
-    /**
      * @notice Buy raffle tokens with $SOF
      * @param tokenAmount Amount of raffle tokens to buy
      * @param maxSofAmount Maximum $SOF willing to spend (slippage protection)
@@ -211,29 +193,11 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 totalTickets = curveConfig.totalSupply;
         uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
 
-        emit PositionUpdate(
-            raffleSeasonId,
-            msg.sender,
-            oldTickets,
-            newTickets,
-            totalTickets,
-            newBps
-        );
+        emit PositionUpdate(raffleSeasonId, msg.sender, oldTickets, newTickets, totalTickets, newBps);
 
         // Callback to raffle for participant tracking
         if (raffle != address(0)) {
             IRaffle(raffle).recordParticipant(raffleSeasonId, msg.sender, tokenAmount);
-        }
-
-        // Update ALL players' positions in tracker so all probabilities are current
-        // This ensures all InfoFi markets show correct odds after any buy
-        // Position tracker emits PositionSnapshot events that backend listens to
-        if (positionTracker != address(0)) {
-            try IRafflePositionTracker(positionTracker).updateAllPlayersInSeason() {
-                // no-op
-            } catch {
-                // swallow error to avoid impacting user buy
-            }
         }
     }
 
@@ -251,13 +215,13 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Guardrail: ensure tokenAmount does not exceed current supply for pricing calc
         require(tokenAmount <= curveConfig.totalSupply, "Curve: amount > supply");
         uint256 baseReturn = calculateSellPrice(tokenAmount);
-        
+
         // Edge case: if selling all tokens, cap baseReturn to available reserves
         // This handles rounding errors in the discrete bonding curve calculation
         if (tokenAmount == curveConfig.totalSupply && baseReturn > curveConfig.sofReserves) {
             baseReturn = curveConfig.sofReserves;
         }
-        
+
         uint256 fee = (baseReturn * curveConfig.sellFee) / 10000; // fee accrues to accumulatedFees
         uint256 payout = baseReturn - fee;
 
@@ -290,28 +254,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             IRaffle(raffle).removeParticipant(raffleSeasonId, msg.sender, tokenAmount);
         }
 
-        // Update ALL players' positions in tracker so all probabilities are current
-        // This ensures all InfoFi markets show correct odds after any sell
-        // Position tracker emits PositionSnapshot events that backend listens to
-        if (positionTracker != address(0)) {
-            try IRafflePositionTracker(positionTracker).updateAllPlayersInSeason() {
-                // no-op
-            } catch {
-                // swallow error to avoid impacting user sell
-            }
-        }
-
         // Emit position update
         uint256 totalTickets = curveConfig.totalSupply;
         uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
-        emit PositionUpdate(
-            raffleSeasonId,
-            msg.sender,
-            oldTickets,
-            newTickets,
-            totalTickets,
-            newBps
-        );
+        emit PositionUpdate(raffleSeasonId, msg.sender, oldTickets, newTickets, totalTickets, newBps);
     }
 
     /**
@@ -433,13 +379,13 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      */
     function extractFeesToTreasury() external onlyRole(RAFFLE_MANAGER_ROLE) nonReentrant {
         require(accumulatedFees > 0, "Curve: no fees");
-        
+
         uint256 feesToExtract = accumulatedFees;
         accumulatedFees = 0;
-        
+
         // Transfer fees directly to SOFToken contract
         sofToken.safeTransfer(address(sofToken), feesToExtract);
-        
+
         emit FeesExtracted(address(sofToken), feesToExtract);
     }
 

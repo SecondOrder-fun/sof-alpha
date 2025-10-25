@@ -17,7 +17,7 @@ interface IInfoFiMarketFactory {
         uint256 newTickets,
         uint256 totalTickets
     ) external;
-    
+
     /**
      * @notice Called by Raffle after VRF determines winner to resolve all markets
      * @param seasonId The season identifier

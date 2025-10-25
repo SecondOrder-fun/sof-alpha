@@ -7,7 +7,6 @@ import "../token/RaffleToken.sol";
 import "../curve/SOFBondingCurve.sol";
 import "../lib/RaffleTypes.sol";
 import "../lib/IRaffle.sol";
-import "../lib/ITrackerACL.sol";
 
 /**
  * @title SeasonFactory
@@ -17,23 +16,16 @@ contract SeasonFactory is AccessControl {
     bytes32 public constant RAFFLE_ADMIN_ROLE = keccak256("RAFFLE_ADMIN_ROLE");
 
     address public immutable raffleAddress;
-    address public immutable trackerAddress;
     address public immutable deployerAddress;
 
-    event SeasonContractsDeployed(
-        uint256 indexed seasonId,
-        address indexed raffleToken,
-        address indexed bondingCurve
-    );
+    event SeasonContractsDeployed(uint256 indexed seasonId, address indexed raffleToken, address indexed bondingCurve);
 
-    constructor(address _raffleAddress, address _trackerAddress) {
+    constructor(address _raffleAddress) {
         raffleAddress = _raffleAddress;
-        trackerAddress = _trackerAddress;
         deployerAddress = msg.sender;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RAFFLE_ADMIN_ROLE, _raffleAddress);
     }
-
 
     function createSeasonContracts(
         uint256 seasonId,
@@ -61,17 +53,10 @@ contract SeasonFactory is AccessControl {
         // Grant RAFFLE_MANAGER_ROLE to this factory temporarily to initialize, and to Raffle permanently
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), address(this));
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
-        
+
         // Initialize the curve (requires RAFFLE_MANAGER_ROLE)
         curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
         curve.setRaffleInfo(raffleAddress, seasonId);
-
-        // Set position tracker on bonding curve for InfoFi market creation
-        if (trackerAddress != address(0)) {
-            curve.setPositionTracker(trackerAddress);
-            // Grant MARKET_ROLE to bonding curve so it can update positions
-            ITrackerACL(trackerAddress).grantRole(keccak256("MARKET_ROLE"), curveAddr);
-        }
 
         // Grant curve rights on raffle token
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), curveAddr);

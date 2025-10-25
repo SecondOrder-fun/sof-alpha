@@ -14,8 +14,8 @@ contract InfoFiPriceOracle is AccessControl {
 
     struct PriceData {
         uint256 raffleProbabilityBps; // 0-10000
-        uint256 marketSentimentBps;   // 0-10000
-        uint256 hybridPriceBps;       // 0-10000
+        uint256 marketSentimentBps; // 0-10000
+        uint256 hybridPriceBps; // 0-10000
         uint256 lastUpdate;
         bool active;
     }
@@ -30,7 +30,9 @@ contract InfoFiPriceOracle is AccessControl {
 
     Weights public weights;
 
-    event PriceUpdated(uint256 indexed marketId, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp);
+    event PriceUpdated(
+        uint256 indexed marketId, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp
+    );
     event WeightsUpdated(uint256 raffleWeightBps, uint256 marketWeightBps);
 
     constructor(address _admin, uint256 raffleWeightBps, uint256 marketWeightBps) {
@@ -49,7 +51,10 @@ contract InfoFiPriceOracle is AccessControl {
         emit WeightsUpdated(raffleWeightBps, marketWeightBps);
     }
 
-    function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps) external onlyRole(PRICE_UPDATER_ROLE) {
+    function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps)
+        external
+        onlyRole(PRICE_UPDATER_ROLE)
+    {
         PriceData storage p = prices[marketId];
         p.raffleProbabilityBps = raffleProbabilityBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);
@@ -58,7 +63,10 @@ contract InfoFiPriceOracle is AccessControl {
         emit PriceUpdated(marketId, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
     }
 
-    function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps) external onlyRole(PRICE_UPDATER_ROLE) {
+    function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps)
+        external
+        onlyRole(PRICE_UPDATER_ROLE)
+    {
         PriceData storage p = prices[marketId];
         p.marketSentimentBps = marketSentimentBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);

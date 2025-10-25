@@ -16,7 +16,7 @@ contract BuyTickets is Script {
         Raffle raffle = Raffle(vm.envAddress("RAFFLE_ADDRESS"));
         uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
 
-        (RaffleTypes.SeasonConfig memory config, , , , ) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory config,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve bondingCurve = SOFBondingCurve(config.bondingCurve);
 
         uint256 deployerPk = vm.envUint("PRIVATE_KEY");

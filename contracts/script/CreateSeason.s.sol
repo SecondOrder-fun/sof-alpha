@@ -82,32 +82,13 @@ contract CreateSeason is Script {
         }
 
         // Get bonding curve address from season
-        (, , , , , address bondingCurveAddr, , , ) = raffle.seasons(seasonId);
-        
-        // Wire the position tracker to the new season's curve
-        address trackerAddress = vm.envAddress("RAFFLE_TRACKER_ADDRESS");
-        if (trackerAddress != address(0)) {
-            raffle.setPositionTrackerForSeason(seasonId, trackerAddress);
-            console2.log("Wired position tracker for season", seasonId);
-            
-            // Grant MARKET_ROLE to bonding curve so it can update positions
-            bytes32 marketRole = keccak256("MARKET_ROLE");
-            (bool success, ) = trackerAddress.call(
-                abi.encodeWithSignature("grantRole(bytes32,address)", marketRole, bondingCurveAddr)
-            );
-            
-            if (success) {
-                console2.log("Granted MARKET_ROLE to bonding curve on tracker:", bondingCurveAddr);
-            } else {
-                console2.log("Failed to grant MARKET_ROLE (may not be admin or already granted)");
-            }
-        }
-        
+        (,,,,, address bondingCurveAddr,,,) = raffle.seasons(seasonId);
+
         // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
         address sofAddress = vm.envAddress("SOF_ADDRESS");
         if (sofAddress != address(0)) {
             SOFToken sofToken = SOFToken(sofAddress);
-            
+
             try sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), bondingCurveAddr) {
                 console2.log("Granted FEE_COLLECTOR_ROLE to bonding curve:", bondingCurveAddr);
             } catch {

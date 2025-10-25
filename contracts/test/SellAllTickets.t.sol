@@ -11,7 +11,10 @@ import {ISeasonFactory} from "../src/lib/ISeasonFactory.sol";
 // Minimal mock season factory (copied from Raffle.t.sol) to deploy per-season contracts and wire roles
 contract MockSeasonFactory_SellAll is ISeasonFactory {
     address public immutable sof;
-    constructor(address _sof) { sof = _sof; }
+
+    constructor(address _sof) {
+        sof = _sof;
+    }
 
     function createSeasonContracts(
         uint256 seasonId,
@@ -54,22 +57,38 @@ contract MockERC20_SellAll {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
     constructor(string memory _name, string memory _symbol, uint8 _decimals) {
-        name = _name; symbol = _symbol; decimals = _decimals;
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
     }
+
     function mint(address to, uint256 amount) public {
-        balanceOf[to] += amount; emit Transfer(address(0), to, amount);
+        balanceOf[to] += amount;
+        emit Transfer(address(0), to, amount);
     }
+
     function transfer(address to, uint256 amount) public returns (bool) {
         require(balanceOf[msg.sender] >= amount, "Insufficient balance");
-        balanceOf[msg.sender] -= amount; balanceOf[to] += amount; emit Transfer(msg.sender, to, amount); return true;
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
     }
+
     function approve(address spender, uint256 amount) public returns (bool) {
-        allowance[msg.sender][spender] = amount; emit Approval(msg.sender, spender, amount); return true;
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
     }
+
     function transferFrom(address from, address to, uint256 amount) public returns (bool) {
         require(balanceOf[from] >= amount, "Insufficient balance");
         require(allowance[from][msg.sender] >= amount, "Insufficient allowance");
-        balanceOf[from] -= amount; balanceOf[to] += amount; allowance[from][msg.sender] -= amount; emit Transfer(from, to, amount); return true;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        allowance[from][msg.sender] -= amount;
+        emit Transfer(from, to, amount);
+        return true;
     }
 }
 
@@ -107,7 +126,7 @@ contract SellAllTicketsTest is Test {
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
-        (RaffleTypes.SeasonConfig memory scfg, , , , ) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory scfg,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(scfg.bondingCurve);
         RaffleToken tix = RaffleToken(scfg.raffleToken);
 
@@ -132,12 +151,10 @@ contract SellAllTicketsTest is Test {
 
     // --- Helpers & Additional Tests (inside SellAllTicketsTest) ---
 
-    function _createSeasonWithSteps(
-        string memory name,
-        RaffleTypes.BondStep[] memory steps,
-        uint256 start,
-        uint256 end
-    ) internal returns (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) {
+    function _createSeasonWithSteps(string memory name, RaffleTypes.BondStep[] memory steps, uint256 start, uint256 end)
+        internal
+        returns (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix)
+    {
         RaffleTypes.SeasonConfig memory cfg;
         cfg.name = name;
         cfg.startTime = start;
@@ -152,12 +169,8 @@ contract SellAllTicketsTest is Test {
 
     function test_Mixed_BuySell_Patterns_FinalZero() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) = _createSeasonWithSteps(
-            "Mixed",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) =
+            _createSeasonWithSteps("Mixed", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -193,12 +206,8 @@ contract SellAllTicketsTest is Test {
 
     function test_RebuyAfterFullSell_RemainsTracked() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) = _createSeasonWithSteps(
-            "Rebuy",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) =
+            _createSeasonWithSteps("Rebuy", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -223,12 +232,8 @@ contract SellAllTicketsTest is Test {
 
     function test_SellBeyondBalance_Reverts() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) = _createSeasonWithSteps(
-            "OverSell",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) =
+            _createSeasonWithSteps("OverSell", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -249,12 +254,8 @@ contract SellAllTicketsTest is Test {
         RaffleTypes.BondStep[] memory steps = new RaffleTypes.BondStep[](1);
         steps[0] = RaffleTypes.BondStep({rangeTo: uint128(10_000), price: uint128(1e17)}); // 0.1 SOF
 
-        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) = _createSeasonWithSteps(
-            "Fixed-10k",
-            steps,
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve, RaffleToken tix) =
+            _createSeasonWithSteps("Fixed-10k", steps, nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -271,12 +272,8 @@ contract SellAllTicketsTest is Test {
 
     function test_MultiAddress_Interleaving_NumberRanges() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
-            "Multi-Addr",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve,) =
+            _createSeasonWithSteps("Multi-Addr", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -314,20 +311,16 @@ contract SellAllTicketsTest is Test {
 
         (uint256 s1, uint256 e1) = raffle.getParticipantNumberRange(seasonId, u1);
         (uint256 s2, uint256 e2) = raffle.getParticipantNumberRange(seasonId, u2);
-        assertEq(s1, 1);         // u1 first
-        assertEq(e1, 125);       // 100 + 25
-        assertEq(s2, 126);       // immediately after u1
-        assertEq(e2, 175);       // u2 has 50
+        assertEq(s1, 1); // u1 first
+        assertEq(e1, 125); // 100 + 25
+        assertEq(s2, 126); // immediately after u1
+        assertEq(e2, 175); // u2 has 50
     }
 
     function test_Buy_Slippage_Revert_On_Insufficient_Max() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
-            "BuySlippage",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve,) =
+            _createSeasonWithSteps("BuySlippage", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -344,12 +337,8 @@ contract SellAllTicketsTest is Test {
 
     function test_Sell_Slippage_Revert_On_TooHigh_Min() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
-            "SellSlippage",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve,) =
+            _createSeasonWithSteps("SellSlippage", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
@@ -370,19 +359,23 @@ contract SellAllTicketsTest is Test {
 
     function test_MultiAddress_RemoveAndReadd_WithTenAddresses() public {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
-            "Ten-Addr-Remove-Readd",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve,) =
+            _createSeasonWithSteps("Ten-Addr-Remove-Readd", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
         // Prepare 10 addresses
         address[10] memory users = [
-            address(0xA1), address(0xA2), address(0xA3), address(0xA4), address(0xA5),
-            address(0xA6), address(0xA7), address(0xA8), address(0xA9), address(0xB0)
+            address(0xA1),
+            address(0xA2),
+            address(0xA3),
+            address(0xA4),
+            address(0xA5),
+            address(0xA6),
+            address(0xA7),
+            address(0xA8),
+            address(0xA9),
+            address(0xB0)
         ];
 
         // Fund and have each buy 10 tickets
@@ -457,19 +450,23 @@ contract SellAllTicketsTest is Test {
 
     function _executeMultiAddressStaggeredRemovalsScenario() internal {
         uint256 nowTs = block.timestamp;
-        (uint256 seasonId, SOFBondingCurve curve, ) = _createSeasonWithSteps(
-            "Ten-Addr-Stagger",
-            _steps(),
-            nowTs + 1,
-            nowTs + 1 days
-        );
+        (uint256 seasonId, SOFBondingCurve curve,) =
+            _createSeasonWithSteps("Ten-Addr-Stagger", _steps(), nowTs + 1, nowTs + 1 days);
         vm.warp(nowTs + 1);
         raffle.startSeason(seasonId);
 
         // Prepare 10 addresses
         address[10] memory users = [
-            address(0xC1), address(0xC2), address(0xC3), address(0xC4), address(0xC5),
-            address(0xC6), address(0xC7), address(0xC8), address(0xC9), address(0xCA)
+            address(0xC1),
+            address(0xC2),
+            address(0xC3),
+            address(0xC4),
+            address(0xC5),
+            address(0xC6),
+            address(0xC7),
+            address(0xC8),
+            address(0xC9),
+            address(0xCA)
         ];
 
         // Fund and initial buys (10 each)
@@ -485,7 +482,9 @@ contract SellAllTicketsTest is Test {
 
         // Confirm initial participants == users (in order)
         address[] memory expected = new address[](users.length);
-        for (uint256 i = 0; i < users.length; i++) expected[i] = users[i];
+        for (uint256 i = 0; i < users.length; i++) {
+            expected[i] = users[i];
+        }
         {
             address[] memory actual = raffle.getParticipants(seasonId);
             assertEq(actual.length, expected.length);
@@ -496,7 +495,9 @@ contract SellAllTicketsTest is Test {
 
         // Remove three different indices via full sell: idx2=2, idx7=7, idx0=0 (note: indexes refer to current expected array)
         uint256[] memory removeIdx = new uint256[](3);
-        removeIdx[0] = 2; removeIdx[1] = 7; removeIdx[2] = 0;
+        removeIdx[0] = 2;
+        removeIdx[1] = 7;
+        removeIdx[2] = 0;
 
         for (uint256 k = 0; k < removeIdx.length; k++) {
             uint256 idx = removeIdx[k];
@@ -543,7 +544,10 @@ contract SellAllTicketsTest is Test {
         for (uint256 i = 0; i < users.length; i++) {
             bool found;
             for (uint256 j = 0; j < finalParts.length; j++) {
-                if (finalParts[j] == users[i]) { found = true; break; }
+                if (finalParts[j] == users[i]) {
+                    found = true;
+                    break;
+                }
             }
             assertTrue(found, "missing expected participant");
         }

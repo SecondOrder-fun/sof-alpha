@@ -10,16 +10,7 @@ import "openzeppelin-contracts/contracts/utils/Pausable.sol";
 interface IInfoFiPriceOracle {
     function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps) external;
     /// Returns (raffleProbabilityBps, marketSentimentBps, hybridPriceBps, lastUpdate, active)
-    function getPrice(uint256 marketId)
-        external
-        view
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            bool
-        );
+    function getPrice(uint256 marketId) external view returns (uint256, uint256, uint256, uint256, bool);
 }
 
 contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
@@ -54,7 +45,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         bool resolved;
         bool outcome; // true = YES wins, false = NO wins
         address tokenAddress; // ERC20 used for betting
-        address player;      // for per-player markets
+        address player; // for per-player markets
     }
 
     struct BetInfo {
@@ -97,18 +88,18 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param question The yes/no question for the market
      * @param token Address of the ERC20 token used for betting
      */
-    function createMarket(
-        uint256 raffleId,
-        address player,
-        string calldata question,
-        address token
-    ) external onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 marketId) {
+    function createMarket(uint256 raffleId, address player, string calldata question, address token)
+        external
+        onlyRole(OPERATOR_ROLE)
+        whenNotPaused
+        returns (uint256 marketId)
+    {
         require(bytes(question).length > 0, "InfoFiMarket: question cannot be empty");
         require(token != address(0), "InfoFiMarket: invalid token address");
         require(player != address(0), "InfoFiMarket: player zero");
 
         marketId = nextMarketId++;
-        
+
         markets[marketId] = MarketInfo({
             id: marketId,
             raffleId: raffleId,
@@ -136,18 +127,14 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param prediction True for yes, false for no
      * @param amount Amount to bet
      */
-    function placeBet(
-        uint256 marketId,
-        bool prediction,
-        uint256 amount
-    ) external nonReentrant whenNotPaused {
+    function placeBet(uint256 marketId, bool prediction, uint256 amount) external nonReentrant whenNotPaused {
         MarketInfo storage market = markets[marketId];
         require(!market.resolved, "InfoFiMarket: market resolved");
         require(!market.locked, "InfoFiMarket: market locked");
         require(amount >= MIN_BET_AMOUNT && amount <= MAX_BET_AMOUNT, "InfoFiMarket: invalid bet amount");
 
         IERC20 token = IERC20(market.tokenAddress);
-        
+
         // Transfer tokens from better to contract
         require(token.transferFrom(msg.sender, address(this), amount), "InfoFiMarket: token transfer failed");
 
@@ -168,7 +155,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
                 betterMarkets[msg.sender].push(marketId);
             }
         }
-        
+
         bet.prediction = prediction;
         bet.amount += amount;
 
@@ -230,21 +217,21 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
     function claimPayout(uint256 marketId, bool prediction) external nonReentrant whenNotPaused {
         MarketInfo storage market = markets[marketId];
         BetInfo storage bet = bets[marketId][msg.sender][prediction];
-        
+
         require(market.resolved, "InfoFiMarket: market not resolved");
         require(bet.amount > 0, "InfoFiMarket: no bet placed");
         require(!bet.claimed, "InfoFiMarket: payout already claimed");
         require(bet.prediction == market.outcome, "InfoFiMarket: incorrect prediction");
-        
+
         // Calculate payout
         uint256 winningPool = market.outcome ? market.totalYesPool : market.totalNoPool;
         uint256 payout = (bet.amount * market.totalPool) / winningPool;
         bet.payout = payout;
         bet.claimed = true;
-        
+
         IERC20 token = IERC20(market.tokenAddress);
         require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
-        
+
         emit PayoutClaimed(msg.sender, marketId, prediction, payout);
     }
 
@@ -258,16 +245,16 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         BetInfo storage bet = bets[marketId][msg.sender][winning];
         require(bet.amount > 0, "InfoFiMarket: no winning-side bet");
         require(!bet.claimed, "InfoFiMarket: payout already claimed");
-        
+
         // Calculate payout
         uint256 winningPool = winning ? market.totalYesPool : market.totalNoPool;
         uint256 payout = (bet.amount * market.totalPool) / winningPool;
         bet.payout = payout;
         bet.claimed = true;
-        
+
         IERC20 token = IERC20(market.tokenAddress);
         require(token.transfer(msg.sender, payout), "InfoFiMarket: payout transfer failed");
-        
+
         emit PayoutClaimed(msg.sender, marketId, winning, payout);
     }
 
@@ -278,26 +265,26 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param prediction Which side (true=YES, false=NO)
      * @return payout Potential payout amount (0 if not winning or already claimed)
      */
-    function calculatePayout(
-        uint256 marketId,
-        address better,
-        bool prediction
-    ) external view returns (uint256 payout) {
+    function calculatePayout(uint256 marketId, address better, bool prediction)
+        external
+        view
+        returns (uint256 payout)
+    {
         MarketInfo storage market = markets[marketId];
         BetInfo storage bet = bets[marketId][better][prediction];
-        
+
         // Return 0 if market not resolved, no bet, already claimed, or wrong side
         if (!market.resolved || bet.amount == 0 || bet.claimed || bet.prediction != market.outcome) {
             return 0;
         }
-        
+
         // Zero-division protection
         uint256 winningPool = market.outcome ? market.totalYesPool : market.totalNoPool;
         if (winningPool == 0) return 0;
-        
+
         // Calculate payout using same formula as claimPayout
         payout = (bet.amount * market.totalPool) / winningPool;
-        
+
         // Cap at total pool (sanity check)
         if (payout > market.totalPool) {
             payout = market.totalPool;
@@ -329,7 +316,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
             // Fallback to current sentiment ratio if oracle not configured
             return sentimentBps(marketId);
         }
-        ( , , uint256 hybridPriceBps, , bool active) = oracle.getPrice(marketId);
+        (,, uint256 hybridPriceBps,, bool active) = oracle.getPrice(marketId);
         // If oracle hasn't marked this market active yet, expose 0 to signal unavailable
         return active ? hybridPriceBps : 0;
     }
@@ -426,11 +413,7 @@ contract InfoFiMarket is AccessControl, ReentrancyGuard, Pausable {
         return yesBet.amount > 0 ? yesBet : noBet;
     }
 
-    function getBet(
-        uint256 marketId,
-        address better,
-        bool prediction
-    ) external view returns (BetInfo memory) {
+    function getBet(uint256 marketId, address better, bool prediction) external view returns (BetInfo memory) {
         return bets[marketId][better][prediction];
     }
 

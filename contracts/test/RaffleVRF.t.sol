@@ -12,8 +12,8 @@ import "../src/core/RafflePrizeDistributor.sol";
 
 // Harness that exposes fulfillRandomWords and VRF state setter
 contract RaffleHarness is Raffle {
-    constructor(address sof, address coord, uint64 subId, bytes32 keyHash)
-        Raffle(sof, coord, subId, keyHash) {}
+    constructor(address sof, address coord, uint64 subId, bytes32 keyHash) Raffle(sof, coord, subId, keyHash) {}
+
     function testSetVrf(uint256 seasonId, uint256 requestId) external {
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
         vrfRequestToSeason[requestId] = seasonId;
@@ -22,9 +22,11 @@ contract RaffleHarness is Raffle {
     function testFulfill(uint256 requestId, uint256[] calldata words) external {
         fulfillRandomWords(requestId, words);
     }
+
     function testLockTrading(uint256 seasonId) external {
         SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
     }
+
     function testRequestSeasonEnd(uint256 seasonId, uint256 requestId) external {
         // simulate requestSeasonEnd: lock trading and set VRFPending + request mapping
         SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
@@ -35,16 +37,49 @@ contract RaffleHarness is Raffle {
 
 // Minimal mock SOF token
 contract MockERC20 {
-    string public name; string public symbol; uint8 public decimals;
+    string public name;
+    string public symbol;
+    uint8 public decimals;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
-    constructor(string memory _n, string memory _s, uint8 _d) { name=_n; symbol=_s; decimals=_d; }
-    function mint(address to, uint256 amount) public { balanceOf[to]+=amount; emit Transfer(address(0), to, amount); }
-    function approve(address spender, uint256 amount) public returns (bool) { allowance[msg.sender][spender]=amount; emit Approval(msg.sender, spender, amount); return true; }
-    function transfer(address to, uint256 amount) public returns (bool) { require(balanceOf[msg.sender]>=amount, "bal"); balanceOf[msg.sender]-=amount; balanceOf[to]+=amount; emit Transfer(msg.sender,to,amount); return true; }
-    function transferFrom(address from, address to, uint256 amount) public returns (bool) { require(balanceOf[from]>=amount, "bal"); require(allowance[from][msg.sender]>=amount, "allow"); balanceOf[from]-=amount; balanceOf[to]+=amount; allowance[from][msg.sender]-=amount; emit Transfer(from,to,amount); return true; }
+
+    constructor(string memory _n, string memory _s, uint8 _d) {
+        name = _n;
+        symbol = _s;
+        decimals = _d;
+    }
+
+    function mint(address to, uint256 amount) public {
+        balanceOf[to] += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) public returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "bal");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
+        require(balanceOf[from] >= amount, "bal");
+        require(allowance[from][msg.sender] >= amount, "allow");
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        allowance[from][msg.sender] -= amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
 }
 
 contract RaffleVRFTest is Test {
@@ -60,9 +95,9 @@ contract RaffleVRFTest is Test {
         address mockCoordinator = address(0xCAFE);
         raffle = new RaffleHarness(address(sof), mockCoordinator, 0, bytes32(0));
         // Wire SeasonFactory required by Raffle.createSeason
-        SeasonFactory factory = new SeasonFactory(address(raffle), address(0)); // Pass address(0) for tracker in tests
+        SeasonFactory factory = new SeasonFactory(address(raffle));
         raffle.setSeasonFactory(address(factory));
-        
+
         // Set up prize distributor
         RafflePrizeDistributor distributor = new RafflePrizeDistributor(address(this));
         distributor.grantRole(distributor.RAFFLE_ROLE(), address(raffle));
@@ -83,7 +118,7 @@ contract RaffleVRFTest is Test {
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
-        (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
     }
 
@@ -93,8 +128,14 @@ contract RaffleVRFTest is Test {
         raffle.startSeason(seasonId);
 
         // players buy tickets
-        vm.startPrank(player1); sof.approve(address(curve), type(uint256).max); curve.buyTokens(10, 20 ether); vm.stopPrank();
-        vm.startPrank(player2); sof.approve(address(curve), type(uint256).max); curve.buyTokens(5, 15 ether); vm.stopPrank();
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(10, 20 ether);
+        vm.stopPrank();
+        vm.startPrank(player2);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 15 ether);
+        vm.stopPrank();
 
         // simulate VRF pending state for requestId=123
         uint256 reqId = 123;
@@ -102,7 +143,8 @@ contract RaffleVRFTest is Test {
 
         // build random words and fulfill
         uint256[] memory words = new uint256[](2);
-        words[0] = 777; words[1] = 888;
+        words[0] = 777;
+        words[1] = 888;
         raffle.testFulfill(reqId, words);
 
         // assert season completed and winners set
@@ -113,7 +155,12 @@ contract RaffleVRFTest is Test {
         address[] memory parts = raffle.getParticipants(seasonId);
         for (uint256 i = 0; i < winners.length; i++) {
             bool found;
-            for (uint256 j = 0; j < parts.length; j++) { if (winners[i] == parts[j]) { found = true; break; } }
+            for (uint256 j = 0; j < parts.length; j++) {
+                if (winners[i] == parts[j]) {
+                    found = true;
+                    break;
+                }
+            }
             assertTrue(found, "winner not a participant");
         }
     }
@@ -124,7 +171,10 @@ contract RaffleVRFTest is Test {
         raffle.startSeason(seasonId);
 
         // initial buy
-        vm.startPrank(player1); sof.approve(address(curve), type(uint256).max); curve.buyTokens(2, 5 ether); vm.stopPrank();
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(2, 5 ether);
+        vm.stopPrank();
 
         // lock trading via harness (Raffle holds the role on curve)
         raffle.testLockTrading(seasonId);
@@ -139,12 +189,13 @@ contract RaffleVRFTest is Test {
     }
 
     function testZeroParticipantsProducesNoWinners() public {
-        (uint256 seasonId, ) = _createSeason();
+        (uint256 seasonId,) = _createSeason();
         // simulate VRF without any participants
         uint256 reqId = 321;
         raffle.testSetVrf(seasonId, reqId);
         uint256[] memory words = new uint256[](2);
-        words[0] = 1; words[1] = 2;
+        words[0] = 1;
+        words[1] = 2;
         raffle.testFulfill(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
@@ -160,19 +211,24 @@ contract RaffleVRFTest is Test {
         cfg.winnerCount = 3;
         cfg.grandPrizeBps = 6500;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
-        (RaffleTypes.SeasonConfig memory out,, , ,) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
 
         vm.warp(block.timestamp + 1);
         raffle.startSeason(seasonId);
 
         // only one participant buys tickets
-        vm.startPrank(player1); sof.approve(address(curve), type(uint256).max); curve.buyTokens(5, 10 ether); vm.stopPrank();
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
 
         uint256 reqId = 654;
         raffle.testSetVrf(seasonId, reqId);
         uint256[] memory words = new uint256[](3);
-        words[0] = 7; words[1] = 7; words[2] = 7; // all map to same participant
+        words[0] = 7;
+        words[1] = 7;
+        words[2] = 7; // all map to same participant
         raffle.testFulfill(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
@@ -184,7 +240,7 @@ contract RaffleVRFTest is Test {
         // Skip this test for now as it requires deeper changes to the Raffle contract
         // We'll mark it as a known issue in project-tasks.md
         return;
-        
+
         /* Original test code preserved for reference
         (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
         vm.warp(block.timestamp + 1);
@@ -214,7 +270,7 @@ contract RaffleVRFTest is Test {
     }
 
     function testAccessControlEnforced() public {
-        (uint256 seasonId, ) = _createSeason();
+        (uint256 seasonId,) = _createSeason();
         // recordParticipant/removeParticipant are curve-callback only; should revert when called by others
         vm.expectRevert();
         raffle.recordParticipant(seasonId, address(this), 1);
@@ -228,7 +284,10 @@ contract RaffleVRFTest is Test {
         raffle.startSeason(seasonId);
 
         // have some activity
-        vm.startPrank(player1); sof.approve(address(curve), type(uint256).max); curve.buyTokens(3, 10 ether); vm.stopPrank();
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(3, 10 ether);
+        vm.stopPrank();
 
         // simulate requestSeasonEnd path
         uint256 reqId = 1001;
@@ -242,7 +301,8 @@ contract RaffleVRFTest is Test {
 
         // fulfill VRF and assert completion
         uint256[] memory words = new uint256[](2);
-        words[0] = 11; words[1] = 22;
+        words[0] = 11;
+        words[1] = 22;
         raffle.testFulfill(reqId, words);
         address[] memory winners = raffle.getWinners(seasonId);
         assertGt(winners.length, 0);
@@ -264,7 +324,9 @@ contract RaffleVRFTest is Test {
         // simulate VRF
         uint256 reqId = 2002;
         raffle.testRequestSeasonEnd(seasonId, reqId);
-        uint256[] memory words = new uint256[](2); words[0] = 5; words[1] = 6;
+        uint256[] memory words = new uint256[](2);
+        words[0] = 5;
+        words[1] = 6;
         raffle.testFulfill(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
@@ -278,7 +340,7 @@ contract RaffleVRFTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
-        
+
         vm.expectRevert("Raffle: name empty");
         raffle.createSeason(cfg, _steps(), 50, 70);
     }

@@ -36,13 +36,7 @@ contract FulfillVRFOverride is Script {
         VRFCoordinatorV2Mock vrf = VRFCoordinatorV2Mock(vrfAddr);
 
         // Pull season details to know winnerCount (array length required)
-        (
-            RaffleTypes.SeasonConfig memory cfg,
-            ,
-            ,
-            ,
-            
-        ) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory cfg,,,,) = raffle.getSeasonDetails(seasonId);
 
         // Read vrfRequestId directly from the mapping
         uint256 vrfRequestId = raffle.vrfRequestToSeason(seasonId);

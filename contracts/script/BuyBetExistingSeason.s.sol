@@ -48,10 +48,7 @@ contract BuyBetExistingSeason is Script {
         InfoFiMarket infoFi = InfoFiMarket(infoFiMarketAddr);
 
         // Read existing season details and assert it is active
-        (
-            RaffleTypes.SeasonConfig memory cfg,
-            , , ,
-        ) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory cfg,,,,) = raffle.getSeasonDetails(seasonId);
         console2.log("[Existing] Season:", seasonId);
         console2.log("[Existing] Name:", cfg.name);
         console2.log("[Existing] Active:", cfg.isActive);
@@ -118,7 +115,7 @@ contract BuyBetExistingSeason is Script {
         vm.stopBroadcast();
 
         // Log final market pools
-        ( , , , , uint256 yesPool, uint256 noPool, uint256 totalPool, ) = infoFi.quote(marketId);
+        (,,,, uint256 yesPool, uint256 noPool, uint256 totalPool,) = infoFi.quote(marketId);
         console2.log("[Flow] Market pools:");
         console2.log("  YES:");
         console2.logUint(yesPool);
@@ -135,8 +132,8 @@ contract BuyBetExistingSeason is Script {
         bytes20 data = bytes20(account);
         bytes16 hexSymbols = 0x30313233343536373839616263646566; // 0-9 a-f
         bytes memory str = new bytes(42);
-        str[0] = '0';
-        str[1] = 'x';
+        str[0] = "0";
+        str[1] = "x";
         for (uint256 i = 0; i < 20; i++) {
             uint8 b = uint8(data[i]);
             str[2 + i * 2] = bytes1(hexSymbols[b >> 4]);

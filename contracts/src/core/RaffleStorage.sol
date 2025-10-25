@@ -14,9 +14,14 @@ abstract contract RaffleStorage {
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
     bytes32 public constant BONDING_CURVE_ROLE = keccak256("BONDING_CURVE_ROLE");
 
-
-
-    enum SeasonStatus { NotStarted, Active, EndRequested, VRFPending, Distributing, Completed }
+    enum SeasonStatus {
+        NotStarted,
+        Active,
+        EndRequested,
+        VRFPending,
+        Distributing,
+        Completed
+    }
 
     struct ParticipantPosition {
         uint256 ticketCount;
@@ -43,7 +48,14 @@ abstract contract RaffleStorage {
     mapping(uint256 => uint256) public vrfRequestToSeason;
 
     // Events
-    event SeasonCreated(uint256 indexed seasonId, string name, uint256 startTime, uint256 endTime, address raffleToken, address bondingCurve);
+    event SeasonCreated(
+        uint256 indexed seasonId,
+        string name,
+        uint256 startTime,
+        uint256 endTime,
+        address raffleToken,
+        address bondingCurve
+    );
     event SeasonStarted(uint256 indexed seasonId);
     event SeasonLocked(uint256 indexed seasonId);
     event SeasonEndRequested(uint256 indexed seasonId, uint256 vrfRequestId);

@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../src/core/Raffle.sol";
-import "../src/core/RafflePositionTracker.sol";
 import "../src/infofi/InfoFiMarket.sol";
 import "../src/infofi/InfoFiMarketFactory.sol";
 import "../src/infofi/InfoFiPriceOracle.sol";
@@ -56,20 +55,9 @@ contract DeployScript is Script {
         vrfCoordinator.addConsumer(subscriptionId, address(raffle));
         console2.log("Raffle contract added as VRF consumer.");
 
-        // Deploy RafflePositionTracker with deployerAddr as admin
-        RafflePositionTracker tracker = new RafflePositionTracker(address(raffle), deployerAddr);
-        console2.log("RafflePositionTracker deployed at:", address(tracker));
-
-        // Grant the Raffle contract admin role on the tracker so it can manage roles
-        tracker.grantRole(bytes32(0), address(raffle));
-        console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to Raffle contract");
-
-        // Deploy SeasonFactory, passing the Raffle and Tracker contract addresses
-        SeasonFactory seasonFactory = new SeasonFactory(address(raffle), address(tracker));
-
-        // Grant SeasonFactory admin role on tracker so it can grant MARKET_ROLE to bonding curves
-        tracker.grantRole(bytes32(0), address(seasonFactory));
-        console2.log("Granted DEFAULT_ADMIN_ROLE on Tracker to SeasonFactory");
+        // Deploy SeasonFactory, passing the Raffle contract address
+        SeasonFactory seasonFactory = new SeasonFactory(address(raffle));
+        console2.log("SeasonFactory deployed at:", address(seasonFactory));
 
         // Set the season factory address in the Raffle contract (idempotent via try/catch)
         try raffle.setSeasonFactory(address(seasonFactory)) {
@@ -119,18 +107,7 @@ contract DeployScript is Script {
 
         // Deploy InfoFiMarketFactory (V2 with FPMM)
         console2.log("Deploying InfoFiMarketFactory (V2 with FPMM)...");
-        
-        // Backend wallet: Use BACKEND_WALLET_ADDRESS env var if set, otherwise use deployer
-        // For local dev, this is typically account[0] (same as deployer)
-        // For production, this should be a dedicated backend service wallet
-        address backendWallet = deployerAddr; // Default to deployer
-        if (vm.envExists("BACKEND_WALLET_ADDRESS")) {
-            backendWallet = vm.envAddress("BACKEND_WALLET_ADDRESS");
-            console2.log("Using custom backend wallet from env:", backendWallet);
-        } else {
-            console2.log("Using deployer as backend wallet (local dev mode)");
-        }
-        
+
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
             address(raffle),
             address(infoFiOracle),
@@ -138,17 +115,9 @@ contract DeployScript is Script {
             address(fpmmManager),
             address(sof),
             deployerAddr, // Treasury
-            deployerAddr, // Admin
-            backendWallet // Backend service wallet - BACKEND_ROLE granted in constructor
+            deployerAddr // Admin
         );
         console2.log("InfoFiMarketFactory deployed at:", address(infoFiFactory));
-        console2.log("Backend wallet granted BACKEND_ROLE:", backendWallet);
-        
-        // Verify BACKEND_ROLE was granted
-        bytes32 backendRole = infoFiFactory.BACKEND_ROLE();
-        bool hasRole = infoFiFactory.hasRole(backendRole, backendWallet);
-        console2.log("BACKEND_ROLE verification:", hasRole ? "SUCCESS" : "FAILED");
-        require(hasRole, "BACKEND_ROLE not granted to backend wallet");
 
         // Grant RESOLVER_ROLE on oracleAdapter to factory
         try oracleAdapter.grantRole(oracleAdapter.RESOLVER_ROLE(), address(infoFiFactory)) {
@@ -183,9 +152,6 @@ contract DeployScript is Script {
         } catch {
             console2.log("Raffle.setInfoFiFactory failed or already set (skipping)");
         }
-
-        // Note: SeasonFactory no longer wires InfoFi factory to curves
-        // Backend service will handle market creation by listening to PositionUpdate events
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)
         console2.log("Deploying InfoFiSettlement...");

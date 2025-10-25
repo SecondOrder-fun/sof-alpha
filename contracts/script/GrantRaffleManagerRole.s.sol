@@ -16,7 +16,7 @@ contract GrantRaffleManagerRole is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address raffleAddr = vm.envAddress("RAFFLE_ADDRESS_LOCAL");
         address caller = vm.addr(deployerPrivateKey);
-        
+
         // Get season ID from environment or default to 1
         uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
 
@@ -30,7 +30,7 @@ contract GrantRaffleManagerRole is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Get the bonding curve address for this season
-        (, , , , , address bondingCurve, , , ) = raffle.seasons(seasonId);
+        (,,,,, address bondingCurve,,,) = raffle.seasons(seasonId);
         console2.log("Bonding curve address:", bondingCurve);
 
         if (bondingCurve == address(0)) {
@@ -42,7 +42,7 @@ contract GrantRaffleManagerRole is Script {
         // Cast to SOFBondingCurve to access the role
         SOFBondingCurve curve = SOFBondingCurve(bondingCurve);
         bytes32 raffleManagerRole = curve.RAFFLE_MANAGER_ROLE();
-        
+
         console2.log("RAFFLE_MANAGER_ROLE hash:", vm.toString(raffleManagerRole));
 
         // Check if caller already has the role
@@ -58,7 +58,7 @@ contract GrantRaffleManagerRole is Script {
         // Grant the role
         try curve.grantRole(raffleManagerRole, caller) {
             console2.log("Successfully granted RAFFLE_MANAGER_ROLE to caller");
-            
+
             // Verify the grant
             bool nowHasRole = curve.hasRole(raffleManagerRole, caller);
             console2.log("Verification - Caller now has role:", nowHasRole);

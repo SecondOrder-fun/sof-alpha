@@ -15,10 +15,7 @@ contract RequestSeasonEndAndDump is Script {
         uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
 
         Raffle raffle = Raffle(raffleAddr);
-        (
-            RaffleTypes.SeasonConfig memory cfg,
-            , , ,
-        ) = raffle.getSeasonDetails(seasonId);
+        (RaffleTypes.SeasonConfig memory cfg,,,,) = raffle.getSeasonDetails(seasonId);
 
         vm.startBroadcast(pk);
         if (block.timestamp < cfg.endTime + 1) {
