@@ -27,6 +27,7 @@ const contractsToCopy = [
   // InfoFi
   { sourceFile: 'InfoFiMarket.sol/InfoFiMarket.json', destFile: 'InfoFiMarket.json' },
   { sourceFile: 'InfoFiMarketFactory.sol/InfoFiMarketFactory.json', destFile: 'InfoFiMarketFactory.json' },
+  { sourceFile: 'MarketTypeRegistry.sol/MarketTypeRegistry.json', destFile: 'MarketTypeRegistry.json' },
   { sourceFile: 'InfoFiPriceOracle.sol/InfoFiPriceOracle.json', destFile: 'InfoFiPriceOracle.json' },
   { sourceFile: 'InfoFiSettlement.sol/InfoFiSettlement.json', destFile: 'InfoFiSettlement.json' },
   
@@ -42,8 +43,10 @@ const contractsToCopy = [
 const backendAbiNeeds = [
   'SOFBondingCurve.json',
   'InfoFiMarketFactory.json',
+  'MarketTypeRegistry.json',
   'InfoFiPriceOracle.json',
   'Raffle.json',
+  'SimpleFPMM.json',
 ];
 
 async function copyAbis() {

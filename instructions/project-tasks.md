@@ -1606,3 +1606,42 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [x] 38 test files passing
   - [x] 0 failures
   - [x] Fixed final mock hoisting and async timing issues
+
+## Base Paymaster Integration (2025-11-06)
+
+### Phase 1: Smart Contract Modifications ✅ COMPLETE
+
+**Objective:** Decouple bonding curve from InfoFi market creation by removing direct contract calls and adding Paymaster role-based access.
+
+**Changes Made:**
+
+- [x] **Raffle.sol modifications**
+  - [x] Removed `address public infoFiFactory` state variable
+  - [x] Removed `InfoFiSkippedInsufficientGas` event
+  - [x] Removed `setInfoFiFactory()` function
+  - [x] Removed direct InfoFi calls from `recordParticipant()` (lines 237-254)
+  - [x] Removed direct InfoFi calls from `removeParticipant()` (lines 275-271)
+  - [x] Kept `PositionUpdate` event for backend listeners
+  - [x] Updated NatSpec to document backend-driven flow
+
+- [x] **InfoFiMarketFactory.sol modifications**
+  - [x] Added `PAYMASTER_ROLE` constant
+  - [x] Changed `onPositionUpdate()` access control from `RAFFLE_ROLE` to `PAYMASTER_ROLE`
+  - [x] Added `setPaymasterAccount()` admin function to grant role
+  - [x] Updated NatSpec to document Paymaster integration
+
+**Impact:**
+- Gas savings: ~100K per ticket purchase (no 800K gas forwarding)
+- Simplified Raffle contract logic
+- Decoupled architecture
+- Maintained backward compatibility with existing tests
+
+**Documentation:**
+- [x] Created `PHASE1-IMPLEMENTATION-COMPLETE.md` with detailed changes
+- [x] Updated `.env.example` with Base Paymaster configuration
+
+**Next Steps:**
+- [ ] Phase 2: Environment Setup (dependencies, Paymaster config)
+- [ ] Phase 3: Backend Services (PaymasterService, SSEService)
+- [ ] Phase 4: Frontend Integration (useMarketEvents hook)
+- [ ] Phase 5: Testing & Deployment

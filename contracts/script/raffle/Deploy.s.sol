@@ -3,19 +3,20 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "../src/core/Raffle.sol";
-import "../src/infofi/InfoFiMarket.sol";
-import "../src/infofi/InfoFiMarketFactory.sol";
-import "../src/infofi/InfoFiPriceOracle.sol";
-import "../src/infofi/InfoFiSettlement.sol";
-import "../src/infofi/RaffleOracleAdapter.sol";
-import "../src/infofi/InfoFiFPMMV2.sol";
-import "../src/infofi/ConditionalTokenSOF.sol";
-import "../src/token/SOFToken.sol";
-import "../src/core/SeasonFactory.sol";
-import "../src/lib/RaffleTypes.sol";
-import "../src/core/RafflePrizeDistributor.sol";
-import "../src/faucet/SOFFaucet.sol";
+import "src/core/Raffle.sol";
+// import "../src/infofi/InfoFiMarket.sol"; // DEPRECATED - replaced by InfoFiFPMMV2
+import "src/infofi/InfoFiMarketFactory.sol";
+import "src/infofi/MarketTypeRegistry.sol";
+import "src/infofi/InfoFiPriceOracle.sol";
+import "src/infofi/InfoFiSettlement.sol";
+import "src/infofi/RaffleOracleAdapter.sol";
+import "src/infofi/InfoFiFPMMV2.sol";
+import "src/infofi/ConditionalTokenSOF.sol";
+import "src/token/SOFToken.sol";
+import "src/core/SeasonFactory.sol";
+import "src/lib/RaffleTypes.sol";
+import "src/core/RafflePrizeDistributor.sol";
+import "src/faucet/SOFFaucet.sol";
 import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract DeployScript is Script {
@@ -105,8 +106,13 @@ contract DeployScript is Script {
         );
         console2.log("InfoFiFPMMV2 deployed at:", address(fpmmManager));
 
-        // Deploy InfoFiMarketFactory (V2 with FPMM)
-        console2.log("Deploying InfoFiMarketFactory (V2 with FPMM)...");
+        // Deploy MarketTypeRegistry
+        console2.log("Deploying MarketTypeRegistry...");
+        MarketTypeRegistry marketTypeRegistry = new MarketTypeRegistry(deployerAddr);
+        console2.log("MarketTypeRegistry deployed at:", address(marketTypeRegistry));
+
+        // Deploy InfoFiMarketFactory (V3 with Registry)
+        console2.log("Deploying InfoFiMarketFactory (V3 with Registry)...");
 
         InfoFiMarketFactory infoFiFactory = new InfoFiMarketFactory(
             address(raffle),
@@ -114,6 +120,7 @@ contract DeployScript is Script {
             address(oracleAdapter),
             address(fpmmManager),
             address(sof),
+            address(marketTypeRegistry),
             deployerAddr, // Treasury
             deployerAddr // Admin
         );
@@ -144,13 +151,6 @@ contract DeployScript is Script {
             console2.log("Granted PRICE_UPDATER_ROLE to factory on InfoFiPriceOracle");
         } catch {
             console2.log("Skipping PRICE_UPDATER_ROLE grant (not admin or already granted)");
-        }
-
-        // Wire factory into Raffle so curve callbacks can reach factory
-        try raffle.setInfoFiFactory(address(infoFiFactory)) {
-            console2.log("Raffle setInfoFiFactory:", address(infoFiFactory));
-        } catch {
-            console2.log("Raffle.setInfoFiFactory failed or already set (skipping)");
         }
 
         // Deploy InfoFiSettlement and grant SETTLER_ROLE to Raffle (so raffle can settle markets on VRF callback)

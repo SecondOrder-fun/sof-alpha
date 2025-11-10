@@ -288,6 +288,7 @@ function main() {
 
   const envPath = path.join(ROOT, ".env");
   const envLocalPath = path.join(ROOT, ".env.local");
+  const contractsEnvLocalPath = path.join(ROOT, "contracts", ".env.local");
 
   // Determine suffix based on target network
   const envSuffix =
@@ -312,6 +313,16 @@ function main() {
     updateEnvFile(envLocalPath, backendUpdates, {
       prefix: "VITE_",
       suffix: envSuffix,
+      sanitizer: (text) => text,
+    });
+  }
+
+  // Update contracts/.env.local with plain keys (no suffix, no prefix)
+  // This is used by deployment scripts and tests
+  if (fs.existsSync(contractsEnvLocalPath)) {
+    updateEnvFile(contractsEnvLocalPath, backendUpdates, {
+      prefix: "",
+      suffix: "",
       sanitizer: (text) => text,
     });
   }

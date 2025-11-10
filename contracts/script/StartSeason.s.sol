@@ -9,7 +9,7 @@ import "../src/core/RaffleStorage.sol";
 
 contract StartSeasonScript is Script {
     function run() external {
-        address raffleAddr = vm.envAddress("RAFFLE_ADDRESS");
+        address raffleAddr = vm.envAddress("RAFFLE_ADDRESS_LOCAL");
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address caller = vm.addr(pk);
 

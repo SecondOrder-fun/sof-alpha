@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../src/faucet/SOFFaucet.sol";
-import "../src/token/SOFToken.sol";
+import "src/faucet/SOFFaucet.sol";
+import "src/token/SOFToken.sol";
 
 /**
  * @title DeployFaucet

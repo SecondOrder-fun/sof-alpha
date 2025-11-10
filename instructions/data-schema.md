@@ -17,6 +17,40 @@ The following models align with the current smart contracts, InfoFi roadmap, and
 - **NUMERIC(38,18)** for decimal amounts (not DECIMAL(18,6))
 - **season_id** (not raffle_id) in infofi_markets table
 
+### Season Contracts (Event-Driven Storage)
+
+**IMPORTANT**: Database uses snake_case column names. This table stores contract addresses retrieved from `SeasonStarted` events.
+
+- `season_id` (BIGINT NOT NULL UNIQUE) - Season ID from event
+- `bonding_curve_address` (VARCHAR(42) NOT NULL) - BondingCurve contract address
+- `raffle_token_address` (VARCHAR(42) NOT NULL) - RaffleToken contract address
+- `raffle_address` (VARCHAR(42) NOT NULL) - Raffle contract address
+- `is_active` (BOOLEAN, default TRUE) - Whether season is active
+- `created_at`, `updated_at` (TIMESTAMPTZ)
+
+```typescript
+type SeasonContracts = {
+  id: number;                       // BIGSERIAL primary key
+  season_id: number;                // BIGINT NOT NULL UNIQUE
+  bonding_curve_address: string;    // VARCHAR(42) - BondingCurve address
+  raffle_token_address: string;     // VARCHAR(42) - RaffleToken address
+  raffle_address: string;           // VARCHAR(42) - Raffle contract address
+  is_active: boolean;               // BOOLEAN default TRUE
+  created_at: string;               // TIMESTAMPTZ
+  updated_at: string;               // TIMESTAMPTZ
+}
+```
+
+**Purpose**: Persists contract addresses discovered via `SeasonStarted` events, enabling other listeners to query addresses without re-reading from contract.
+
+**Indexes**:
+- `idx_season_contracts_season_id` - Fast lookup by season ID
+- `idx_season_contracts_active` - Find active seasons
+- `idx_season_contracts_bonding_curve` - Lookup by bonding curve address
+- `idx_season_contracts_token` - Lookup by token address
+
+---
+
 ### Season / Raffle (Onchain-aligned)
 
 ```typescript

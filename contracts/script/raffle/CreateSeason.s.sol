@@ -3,14 +3,14 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "../src/core/Raffle.sol";
-import "../src/lib/RaffleTypes.sol";
-import "../src/token/SOFToken.sol";
+import "src/core/Raffle.sol";
+import "src/lib/RaffleTypes.sol";
+import "src/token/SOFToken.sol";
 
 contract CreateSeason is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address raffleAddr = vm.envAddress("RAFFLE_ADDRESS");
+        address raffleAddr = vm.envAddress("RAFFLE_ADDRESS_LOCAL");
         address caller = vm.addr(deployerPrivateKey);
 
         console2.log("=== CREATE SEASON DEBUG ===");
@@ -85,7 +85,7 @@ contract CreateSeason is Script {
         (,,,,, address bondingCurveAddr,,,) = raffle.seasons(seasonId);
 
         // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
-        address sofAddress = vm.envAddress("SOF_ADDRESS");
+        address sofAddress = vm.envAddress("SOF_ADDRESS_LOCAL");
         if (sofAddress != address(0)) {
             SOFToken sofToken = SOFToken(sofAddress);
 

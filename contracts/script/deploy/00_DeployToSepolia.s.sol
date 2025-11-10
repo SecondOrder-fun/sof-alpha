@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Script.sol";
+import "forge-std/console2.sol";
+import {SOFToken} from "src/token/SOFToken.sol";
+import {SeasonFactory} from "src/core/SeasonFactory.sol";
+import {Raffle} from "src/core/Raffle.sol";
+import {SOFBondingCurve} from "src/curve/SOFBondingCurve.sol";
+
+/**
+ * @title DeployToSepolia
+ * @notice Deployment script for Base Sepolia testnet using Frame.sh wallet
+ * @dev Usage:
+ *   export FRAME_RPC="http://127.0.0.1:1248"
+ *   LATTICE_ADDRESS=$(cast wallet address --rpc-url $FRAME_RPC)
+ *   forge script script/deploy/00_DeployToSepolia.s.sol \
+ *     --rpc-url $FRAME_RPC \
+ *     --sender $LATTICE_ADDRESS \
+ *     --broadcast \
+ *     -vvvv
+ */
+contract DeployToSepolia is Script {
+    // Deployment addresses
+    address public sofTokenAddress;
+    address public seasonFactoryAddress;
+    address public raffleAddress;
+    address public bondingCurveAddress;
+
+    // Configuration
+    uint256 constant INITIAL_SOF_SUPPLY = 100_000_000e18; // 100M SOF
+    address constant TREASURY = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // Treasury address
+
+    // VRF Configuration (Base Sepolia)
+    address constant VRF_COORDINATOR = 0xd5d517ABe5Cf79B7e95eC98DB0f0277788aF8a45;
+    uint64 constant VRF_SUBSCRIPTION_ID = 0; // Will be set via environment or manual setup
+    bytes32 constant VRF_KEY_HASH = 0x9e1b49a3bfe90b5c1445b41f6ca7c0ad713d7c8496ada80757bdd57502ccf60b;
+
+    function run() public {
+        // Get sender from Frame wallet
+        address deployer = msg.sender;
+        console2.log("Deploying from:", deployer);
+        console2.log("Chain ID:", block.chainid);
+
+        vm.startBroadcast(deployer);
+
+        // 1. Deploy SOF Token
+        console2.log(unicode"\n📦 Deploying SOF Token...");
+        SOFToken sofToken = new SOFToken("SecondOrder Fun", "SOF", INITIAL_SOF_SUPPLY, TREASURY);
+        sofTokenAddress = address(sofToken);
+        console2.log(unicode"✅ SOF Token deployed:", sofTokenAddress);
+
+        // 2. Deploy Raffle
+        console2.log(unicode"\n📦 Deploying Raffle...");
+        Raffle raffle = new Raffle(sofTokenAddress, VRF_COORDINATOR, VRF_SUBSCRIPTION_ID, VRF_KEY_HASH);
+        raffleAddress = address(raffle);
+        console2.log(unicode"\n✅ Raffle deployed:", raffleAddress);
+
+        // 3. Deploy SeasonFactory
+        console2.log(unicode"\n📦 Deploying SeasonFactory...");
+        SeasonFactory seasonFactory = new SeasonFactory(raffleAddress);
+        seasonFactoryAddress = address(seasonFactory);
+        console2.log(unicode"\n✅ SeasonFactory deployed:", seasonFactoryAddress);
+
+        // 4. Set SeasonFactory in Raffle
+        console2.log(unicode"\n⚙️  Setting SeasonFactory in Raffle...");
+        raffle.setSeasonFactory(seasonFactoryAddress);
+        console2.log(unicode"\n✅ SeasonFactory set");
+
+        // 5. Deploy SOFBondingCurve
+        console2.log(unicode"\n📦 Deploying SOFBondingCurve...");
+        SOFBondingCurve bondingCurve = new SOFBondingCurve(
+            sofTokenAddress,
+            deployer // _admin for role management
+        );
+        bondingCurveAddress = address(bondingCurve);
+        console2.log(unicode"\n✅ SOFBondingCurve deployed:", bondingCurveAddress);
+
+        // 6. Grant BONDING_CURVE_ROLE to bonding curve
+        console2.log(unicode"\n⚙️  Granting BONDING_CURVE_ROLE...");
+        bytes32 bondingCurveRole = keccak256("BONDING_CURVE_ROLE");
+        raffle.grantRole(bondingCurveRole, bondingCurveAddress);
+        console2.log(unicode"\n✅ BONDING_CURVE_ROLE granted");
+
+        vm.stopBroadcast();
+
+        // Print summary
+        console2.log("\n============================================================");
+        console2.log("RAFFLE SYSTEM DEPLOYMENT COMPLETE");
+        console2.log("============================================================");
+        console2.log("SOF Token:", sofTokenAddress);
+        console2.log("Raffle:", raffleAddress);
+        console2.log("SeasonFactory:", seasonFactoryAddress);
+        console2.log("SOFBondingCurve:", bondingCurveAddress);
+        console2.log("============================================================");
+    }
+}

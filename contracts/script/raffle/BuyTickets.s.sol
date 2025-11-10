@@ -2,18 +2,18 @@
 pragma solidity ^0.8.20;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {SOFToken} from "../src/token/SOFToken.sol";
-import {Raffle} from "../src/core/Raffle.sol";
-import {RaffleTypes} from "../src/lib/RaffleTypes.sol";
-import {SOFBondingCurve} from "../src/curve/SOFBondingCurve.sol";
+import {SOFToken} from "src/token/SOFToken.sol";
+import {Raffle} from "src/core/Raffle.sol";
+import {RaffleTypes} from "src/lib/RaffleTypes.sol";
+import {SOFBondingCurve} from "src/curve/SOFBondingCurve.sol";
 
 contract BuyTickets is Script {
     uint256 constant TICKETS_TO_BUY = 2_000;
 
     function run() external {
         // Load contracts
-        SOFToken sof = SOFToken(vm.envAddress("SOF_ADDRESS"));
-        Raffle raffle = Raffle(vm.envAddress("RAFFLE_ADDRESS"));
+        SOFToken sof = SOFToken(vm.envAddress("SOF_ADDRESS_LOCAL"));
+        Raffle raffle = Raffle(vm.envAddress("RAFFLE_ADDRESS_LOCAL"));
         uint256 seasonId = vm.envOr("SEASON_ID", uint256(1));
 
         (RaffleTypes.SeasonConfig memory config,,,,) = raffle.getSeasonDetails(seasonId);

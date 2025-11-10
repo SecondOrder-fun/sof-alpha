@@ -40,14 +40,13 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     // Core
     IERC20 public immutable sofToken;
     ISeasonFactory public seasonFactory;
-    // InfoFi integration
-    address public infoFiFactory;
     // Prize Distributor integration
     address public prizeDistributor;
     // Default grand prize split in BPS (e.g., 6500 = 65%). If seasonConfig.grandPrizeBps == 0, use this default.
     uint16 public defaultGrandPrizeBps = 6500;
 
     /// @dev Emitted on every position change (buy/sell) with post-change totals
+    /// @dev Backend listens to this event and triggers InfoFi market creation via Paymaster
     event PositionUpdate(
         uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets
     );
@@ -70,14 +69,6 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(address(seasonFactory) == address(0), "Raffle: factory already set");
         require(_seasonFactoryAddress != address(0), "Raffle: factory zero");
         seasonFactory = ISeasonFactory(_seasonFactoryAddress);
-    }
-
-    /**
-     * @notice Set InfoFi factory used to react to position updates
-     */
-    function setInfoFiFactory(address _factory) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_factory != address(0), "Raffle: infofi zero");
-        infoFiFactory = _factory;
     }
 
     /**
@@ -219,37 +210,30 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         onlyRole(BONDING_CURVE_ROLE)
     {
         require(seasons[seasonId].isActive, "Raffle: season inactive");
+        
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
         uint256 oldTickets = pos.ticketCount;
         uint256 newTicketsLocal = oldTickets + ticketAmount;
+        uint256 newTotalTickets = state.totalTickets + ticketAmount;
+        
+        // Update state
         if (!pos.isActive) {
             state.participants.push(participant);
             state.totalParticipants++;
             pos.entryBlock = block.number;
             pos.isActive = true;
-            emit ParticipantAdded(seasonId, participant, ticketAmount, state.totalTickets + ticketAmount);
+            emit ParticipantAdded(seasonId, participant, ticketAmount, newTotalTickets);
         } else {
-            emit ParticipantUpdated(
-                seasonId, participant, pos.ticketCount + ticketAmount, state.totalTickets + ticketAmount
-            );
+            emit ParticipantUpdated(seasonId, participant, newTicketsLocal, newTotalTickets);
         }
         pos.ticketCount = newTicketsLocal;
         pos.lastUpdateBlock = block.number;
-        state.totalTickets += ticketAmount;
+        state.totalTickets = newTotalTickets;
 
-        // Emit InfoFi position update and call factory
+        // Emit position update for backend listeners
+        // Backend will listen to this event and trigger InfoFi market creation via Paymaster
         emit PositionUpdate(seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets);
-        if (infoFiFactory != address(0)) {
-            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                seasonId, participant, oldTickets, newTicketsLocal, state.totalTickets
-            ) {
-                // Success - InfoFi market updated/created
-            } catch {
-                // InfoFi failure should not block raffle participation
-                // Event will be emitted by factory if market creation failed
-            }
-        }
     }
 
     function removeParticipant(uint256 seasonId, address participant, uint256 ticketAmount)
@@ -261,12 +245,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         ParticipantPosition storage pos = state.participantPositions[participant];
         require(pos.isActive, "Raffle: not active");
         require(pos.ticketCount >= ticketAmount, "Raffle: too much");
+        
+        // Calculate new values before state updates
         uint256 oldTickets = pos.ticketCount;
-        pos.ticketCount = oldTickets - ticketAmount;
+        uint256 newTickets = oldTickets - ticketAmount;
+        uint256 newTotalTickets = state.totalTickets - ticketAmount;
+        
+        // Update state
+        pos.ticketCount = newTickets;
         pos.lastUpdateBlock = block.number;
-        state.totalTickets -= ticketAmount;
+        state.totalTickets = newTotalTickets;
 
-        if (pos.ticketCount == 0) {
+        if (newTickets == 0) {
             pos.isActive = false;
             state.totalParticipants--;
             // remove from array (swap and pop)
@@ -278,20 +268,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
                 }
             }
         }
-        emit ParticipantRemoved(seasonId, participant, state.totalTickets);
+        emit ParticipantRemoved(seasonId, participant, newTotalTickets);
 
-        // Emit InfoFi position update and call factory
-        emit PositionUpdate(seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets);
-        if (infoFiFactory != address(0)) {
-            try IInfoFiMarketFactory(infoFiFactory).onPositionUpdate(
-                seasonId, participant, oldTickets, pos.ticketCount, state.totalTickets
-            ) {
-                // Success - InfoFi market updated
-            } catch {
-                // InfoFi failure should not block raffle participation
-                // Event will be emitted by factory if update failed
-            }
-        }
+        // Emit InfoFi position update for backend listeners
+        emit PositionUpdate(seasonId, participant, oldTickets, newTickets, newTotalTickets);
     }
 
     // Views
@@ -525,16 +505,6 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // For MVP: single grand winner winners[0]
         address grandWinner = state.winners.length > 0 ? state.winners[0] : address(0);
         require(grandWinner != address(0), "Raffle: winner zero");
-
-        // Resolve InfoFi prediction markets
-        if (infoFiFactory != address(0)) {
-            try IInfoFiMarketFactory(infoFiFactory).resolveSeasonMarkets(seasonId, grandWinner) {
-                // Success - markets resolved
-            } catch {
-                // Log but don't revert raffle completion
-                // InfoFi resolution failure shouldn't block prize distribution
-            }
-        }
 
         // Snapshot participant count
         uint256 totalParticipants = state.totalParticipants;
