@@ -240,3 +240,14 @@ local/
 # Analytics and tracking
 .analytics/
 .tracking/
+
+# ==================================
+# Documentation Organization
+# ==================================
+
+# Prevent root-level .md files (all docs should be in docs/ directory)
+# Exception: README.md is allowed
+/*.md
+!README.md
+!MIGRATION_SUMMARY.md
+!MIGRATION_COMPLETE.md
