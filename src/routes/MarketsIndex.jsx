@@ -1,7 +1,11 @@
 // src/routes/MarketsIndex.jsx
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Filter, TrendingUp, Activity } from 'lucide-react';
 import InfoFiMarketCard from '@/components/infofi/InfoFiMarketCard';
 // import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useInfoFiMarkets } from '@/hooks/useInfoFiMarkets';
@@ -9,6 +13,9 @@ import { useAllSeasons } from '@/hooks/useAllSeasons';
 
 const MarketsIndex = () => {
   const { t } = useTranslation('market');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'settled'
+  
   // Determine current active season and default to it
   const { data: seasons, isLoading: seasonsLoading } = useAllSeasons?.() || { data: [], isLoading: false };
   const activeSeasonId = useMemo(() => {
@@ -31,7 +38,7 @@ const MarketsIndex = () => {
   //   return active?.config?.bondingCurve || null;
   // }, [seasons]);
 
-  // Group markets by season and market type
+  // Filter and group markets by season and market type
   const groupedBySeason = useMemo(() => {
     if (!markets || typeof markets !== 'object') return {};
 
@@ -39,17 +46,52 @@ const MarketsIndex = () => {
 
     Object.entries(markets).forEach(([seasonId, seasonMarkets]) => {
       const marketArray = Array.isArray(seasonMarkets) ? seasonMarkets : [];
-      const winners = marketArray.filter((m) => (m.market_type || m.type) === 'WINNER_PREDICTION');
-      const positionSize = marketArray.filter((m) => (m.market_type || m.type) === 'POSITION_SIZE');
-      const behavioral = marketArray.filter((m) => (m.market_type || m.type) === 'BEHAVIORAL');
+      
+      // Apply filters
+      let filtered = marketArray;
+      
+      // Status filter
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(m => m.is_active);
+      } else if (statusFilter === 'settled') {
+        filtered = filtered.filter(m => m.is_settled);
+      }
+      
+      // Search filter (by player address)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        filtered = filtered.filter(m => 
+          m.player_address?.toLowerCase().includes(query) ||
+          m.player?.toLowerCase().includes(query)
+        );
+      }
+      
+      // Group by market type
+      const winners = filtered.filter((m) => (m.market_type || m.type) === 'WINNER_PREDICTION');
+      const positionSize = filtered.filter((m) => (m.market_type || m.type) === 'POSITION_SIZE');
+      const behavioral = filtered.filter((m) => (m.market_type || m.type) === 'BEHAVIORAL');
       const known = new Set(['WINNER_PREDICTION', 'POSITION_SIZE', 'BEHAVIORAL']);
-      const others = marketArray.filter((m) => !known.has((m.market_type || m.type) || ''));
+      const others = filtered.filter((m) => !known.has((m.market_type || m.type) || ''));
 
-      result[seasonId] = { winners, positionSize, behavioral, others };
+      // Only include season if it has markets after filtering
+      if (winners.length > 0 || positionSize.length > 0 || behavioral.length > 0 || others.length > 0) {
+        result[seasonId] = { winners, positionSize, behavioral, others };
+      }
     });
 
     return result;
-  }, [markets]);
+  }, [markets, statusFilter, searchQuery]);
+  
+  // Calculate total markets count
+  const totalMarketsCount = useMemo(() => {
+    return Object.values(groupedBySeason).reduce((total, season) => {
+      return total + 
+        season.winners.length + 
+        season.positionSize.length + 
+        season.behavioral.length + 
+        season.others.length;
+    }, 0);
+  }, [groupedBySeason]);
 
   const isLoading = seasonsLoading || marketsLoading;
 
@@ -58,16 +100,55 @@ const MarketsIndex = () => {
       {/* Polymarket-style header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold">{t('title')}</h1>
+          <div>
+            <h1 className="text-3xl font-bold">{t('title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('browseActiveMarkets')}</p>
+          </div>
           {!seasonsLoading && activeSeasonId !== '0' && (
             <div className="flex items-center gap-2 text-sm">
+              <Activity className="h-4 w-4 text-green-500" />
               <span className="text-muted-foreground">{t('activeSeason')}:</span>
               <span className="font-mono font-semibold">#{activeSeasonId}</span>
             </div>
           )}
         </div>
-        <p className="text-muted-foreground">{t('browseActiveMarkets')}</p>
       </div>
+
+      {/* Search and Filter Bar - Polymarket style */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by player address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full sm:w-auto">
+          <TabsList className="grid w-full sm:w-auto grid-cols-3">
+            <TabsTrigger value="all" className="gap-1">
+              <Filter className="h-3 w-3" />
+              All
+            </TabsTrigger>
+            <TabsTrigger value="active" className="gap-1">
+              <TrendingUp className="h-3 w-3" />
+              Active
+            </TabsTrigger>
+            <TabsTrigger value="settled">
+              Settled
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Results count */}
+      {!isLoading && totalMarketsCount > 0 && (
+        <div className="mb-4 text-sm text-muted-foreground">
+          Showing {totalMarketsCount} {totalMarketsCount === 1 ? 'market' : 'markets'}
+          {searchQuery && ` matching "${searchQuery}"`}
+        </div>
+      )}
 
       {/* Loading and error states */}
       {seasonsLoading && (
@@ -110,8 +191,23 @@ const MarketsIndex = () => {
         <div className="space-y-8">
           {Object.keys(groupedBySeason).length === 0 && (
             <Card className="text-center py-12">
-              <CardContent>
-                <p className="text-muted-foreground">No on-chain markets found for this season.</p>
+              <CardContent className="space-y-4">
+                <div className="text-6xl mb-4">📊</div>
+                <h3 className="text-lg font-semibold">No Markets Found</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  {searchQuery 
+                    ? `No markets match your search "${searchQuery}". Try a different search term.`
+                    : 'No prediction markets available yet. Markets are created automatically when players cross the 1% threshold.'}
+                </p>
+                {searchQuery && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSearchQuery('')}
+                    className="mt-4"
+                  >
+                    Clear Search
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -119,7 +215,9 @@ const MarketsIndex = () => {
           {Object.entries(groupedBySeason).map(([seasonId, seasonGrouped]) => (
             <div key={seasonId}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Season #{seasonId}</h2>
+                <a href={`/raffle/${seasonId}`} className="text-xl font-semibold hover:underline">
+                  Season #{seasonId}
+                </a>
                 <span className="text-sm text-muted-foreground">
                   {Object.values(seasonGrouped).flat().length} {t('markets')}
                 </span>

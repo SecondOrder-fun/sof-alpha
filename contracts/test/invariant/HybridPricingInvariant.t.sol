@@ -22,8 +22,8 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Maximum allowed deviation in hybrid price (basis points)
     uint256 constant MAX_DEVIATION = 500; // 5%
 
-    // Test market ID (now uint256 instead of bytes32)
-    uint256 internal testMarketId;
+    // Test FPMM address (market ID)
+    address internal testFpmmAddress;
 
     function setUp() public {
         admin = address(this);
@@ -35,11 +35,11 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
         // Grant updater role to the updater address
         oracle.grantRole(oracle.PRICE_UPDATER_ROLE(), updater);
 
-        // Create a test market (using uint256 instead of bytes32)
-        testMarketId = uint256(keccak256("test_market"));
+        // Create a test FPMM address
+        testFpmmAddress = address(0x1234567890123456789012345678901234567890);
         vm.startPrank(updater);
-        oracle.updateRaffleProbability(testMarketId, 5000); // 50%
-        oracle.updateMarketSentiment(testMarketId, 6000); // 60%
+        oracle.updateRaffleProbability(testFpmmAddress, 5000); // 50%
+        oracle.updateMarketSentiment(testFpmmAddress, 6000); // 60%
         vm.stopPrank();
 
         // Target the oracle for invariant testing
@@ -58,7 +58,7 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Invariant: Hybrid price must be within bounds of raffle and market probabilities
     function invariant_hybridPriceWithinBounds() public view {
         // Get price data using the getPrice method
-        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testMarketId);
+        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testFpmmAddress);
 
         // Skip if market doesn't exist
         if (!priceData.active) return;
@@ -78,7 +78,7 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Invariant: Hybrid price calculation follows the weighted formula
     function invariant_hybridPriceCalculation() public view {
         // Get price data using the getPrice method
-        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testMarketId);
+        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testFpmmAddress);
 
         // Skip if market doesn't exist
         if (!priceData.active) return;
@@ -101,7 +101,7 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Invariant: Probability values must be within valid range (0-10000 basis points)
     function invariant_probabilitiesInValidRange() public view {
         // Get price data using the getPrice method
-        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testMarketId);
+        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testFpmmAddress);
 
         // Skip if market doesn't exist
         if (!priceData.active) return;
@@ -123,7 +123,7 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     // Invariant: Hybrid price deviation from components is bounded
     function invariant_hybridPriceDeviationBounded() public view {
         // Get price data using the getPrice method
-        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testMarketId);
+        InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testFpmmAddress);
 
         // Skip if market doesn't exist
         if (!priceData.active) return;

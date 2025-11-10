@@ -10,6 +10,21 @@ class RedisClient {
   constructor() {
     this.client = null;
     this.isConnected = false;
+    this.logger = null; // Will be set by server.js
+  }
+
+  /**
+   * Set logger instance (called from server.js)
+   */
+  setLogger(logger) {
+    this.logger = logger;
+  }
+
+  /**
+   * Get logger or fallback to console
+   */
+  getLogger() {
+    return this.logger || console;
   }
 
   /**
@@ -36,23 +51,23 @@ class RedisClient {
       });
 
       this.client.on('connect', () => {
-        console.log('[Redis] Connected successfully');
+        this.getLogger().info('[Redis] Connected successfully');
         this.isConnected = true;
       });
 
       this.client.on('error', (err) => {
-        console.error('[Redis] Connection error:', err.message);
+        this.getLogger().error({ err }, '[Redis] Connection error');
         this.isConnected = false;
       });
 
       this.client.on('close', () => {
-        console.log('[Redis] Connection closed');
+        this.getLogger().info('[Redis] Connection closed');
         this.isConnected = false;
       });
 
       return this.client;
     } catch (error) {
-      console.error('[Redis] Failed to initialize:', error.message);
+      this.getLogger().error({ err: error }, '[Redis] Failed to initialize');
       throw error;
     }
   }
@@ -75,7 +90,7 @@ class RedisClient {
       await this.client.quit();
       this.client = null;
       this.isConnected = false;
-      console.log('[Redis] Disconnected');
+      this.getLogger().info('[Redis] Disconnected');
     }
   }
 
@@ -88,7 +103,7 @@ class RedisClient {
       const result = await client.ping();
       return result === 'PONG';
     } catch (error) {
-      console.error('[Redis] Ping failed:', error.message);
+      this.getLogger().error({ err: error }, '[Redis] Ping failed');
       return false;
     }
   }

@@ -18,7 +18,6 @@ import TokenInfoTab from '@/components/curve/TokenInfoTab';
 import HoldersTab from '@/components/curve/HoldersTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
-import { useRaffleTracker } from '@/hooks/useRaffleTracker';
 import { useAccount } from 'wagmi';
 import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
 import { TreasuryControls } from '@/components/admin/TreasuryControls';
@@ -45,12 +44,8 @@ const RaffleDetails = () => {
     },
   });
 
-  // Tracker snapshot for the connected wallet
+  // Connected wallet
   const { address, isConnected } = useAccount();
-  const { usePlayerSnapshot, usePlayerSnapshotLive } = useRaffleTracker();
-  const snapshotQuery = usePlayerSnapshot(isConnected ? address : null);
-  // Live invalidation on PositionSnapshot events for this player
-  usePlayerSnapshotLive(isConnected ? address : null);
 
   // Local immediate position override after tx (until server snapshot catches up)
   const [localPosition, setLocalPosition] = useState(null);
@@ -143,13 +138,6 @@ const RaffleDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address, bondingCurveAddress]);
 
-  // Clear local override when server snapshot has caught up
-  useEffect(() => {
-    if (snapshotQuery?.data) {
-      setLocalPosition(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshotQuery?.data?.ticketCount, snapshotQuery?.data?.winProbabilityBps, snapshotQuery?.data?.totalTicketsAtTime]);
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
@@ -264,13 +252,11 @@ const RaffleDetails = () => {
                           setIsRefreshing(true);
                           debouncedRefresh(250);
                           refreshPositionNow();
-                          snapshotQuery.refetch?.();
                           // schedule a couple of follow-ups in case indexers are lagging
-                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); }, 1500);
                           setTimeout(() => { 
                             debouncedRefresh(0); 
                             refreshPositionNow(); 
-                            snapshotQuery.refetch?.(); 
                             setIsRefreshing(false);
                           }, 4000);
                         }}
@@ -279,17 +265,15 @@ const RaffleDetails = () => {
                           setIsRefreshing(true);
                           debouncedRefresh(0);
                           refreshPositionNow();
-                          snapshotQuery.refetch?.();
-                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); snapshotQuery.refetch?.(); }, 1500);
+                          setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); }, 1500);
                           setTimeout(() => { 
                             debouncedRefresh(0); 
                             refreshPositionNow(); 
-                            snapshotQuery.refetch?.(); 
                             setIsRefreshing(false);
                           }, 4000);
                         }}
                       />
-                      {/* Player snapshot (from RafflePositionTracker) */}
+                      {/* Player position display */}
                       <div className="mt-3 p-3 border rounded-md bg-muted/20">
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{t('yourCurrentPosition')}</div>
@@ -298,16 +282,14 @@ const RaffleDetails = () => {
                         </div>
                         {isConnected && (
                           <div className="mt-2 text-sm">
-                            {snapshotQuery.isLoading && <span className="text-muted-foreground">Loading snapshot…</span>}
-                            {snapshotQuery.error && (<span className="text-red-600">Error: {snapshotQuery.error.message}</span>)}
-                            {(snapshotQuery.data || localPosition) && (
+                            {localPosition && (
                               <div className="space-y-1">
-                                <div>{t('tickets')}: <span className="font-mono">{(localPosition?.tickets ?? snapshotQuery.data?.ticketCount ?? 0n).toString()}</span></div>
-                                <div>{t('winProbability')}: <span className="font-mono">{(() => { try { const base = (localPosition?.probBps ?? (snapshotQuery.data?.winProbabilityBps ?? 0)); const bps = Number(base); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
-                                <div className="text-xs text-muted-foreground">{t('totalTicketsAtSnapshot')}: <span className="font-mono">{(localPosition?.total ?? snapshotQuery.data?.totalTicketsAtTime ?? 0n).toString()}</span></div>
+                                <div>{t('tickets')}: <span className="font-mono">{localPosition.tickets.toString()}</span></div>
+                                <div>{t('winProbability')}: <span className="font-mono">{(() => { try { const bps = Number(localPosition.probBps); return `${(bps / 100).toFixed(2)}%`; } catch { return '0.00%'; } })()}</span></div>
+                                <div className="text-xs text-muted-foreground">{t('totalTicketsAtSnapshot')}: <span className="font-mono">{localPosition.total.toString()}</span></div>
                               </div>
                             )}
-                            {!snapshotQuery.isLoading && !snapshotQuery.error && !snapshotQuery.data && !localPosition && (<span className="text-muted-foreground">No position yet.</span>)}
+                            {!localPosition && (<span className="text-muted-foreground">No position yet.</span>)}
                           </div>
                         )}
                       </div>

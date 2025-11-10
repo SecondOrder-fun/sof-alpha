@@ -3,8 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
-import { getContractAddresses } from '@/config/contracts';
-import { getStoredNetworkKey } from '@/lib/wagmi';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,11 +10,10 @@ import { Button } from '@/components/ui/button';
 /**
  * Validates that contract addresses have deployed code
  * Only renders in development mode
+ * Uses Vite env vars and checks if contracts are deployed on-chain
  */
 export function ContractAddressValidator() {
   const publicClient = usePublicClient();
-  const netKey = getStoredNetworkKey();
-  const contracts = getContractAddresses(netKey);
   
   const [validationResults, setValidationResults] = useState({});
   const [isValidating, setIsValidating] = useState(false);
@@ -25,6 +22,19 @@ export function ContractAddressValidator() {
   const validateAddresses = async () => {
     setIsValidating(true);
     const results = {};
+
+    // Use Vite env vars directly
+    const contracts = {
+      SOF: import.meta.env.VITE_SOF_ADDRESS_LOCAL || '',
+      RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_LOCAL || '',
+      SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_LOCAL || '',
+      SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_LOCAL || '',
+      INFOFI_FACTORY: import.meta.env.VITE_INFOFI_FACTORY_ADDRESS_LOCAL || '',
+      INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_LOCAL || '',
+      PRIZE_DISTRIBUTOR: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_LOCAL || '',
+    };
+    // eslint-disable-next-line no-console
+    console.log('[ContractAddressValidator] Using Vite env vars:', contracts);
 
     const contractsToValidate = {
       'SOF Token': contracts.SOF,
@@ -66,8 +76,12 @@ export function ContractAddressValidator() {
   useEffect(() => {
     // Validate on mount
     validateAddresses();
+    
+    // Also validate every 5 seconds to catch env changes
+    const interval = setInterval(validateAddresses, 5000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contracts.SOF_FAUCET]); // Re-validate if faucet address changes
+  }, []);
 
   const hasIssues = Object.values(validationResults).some(r => r.status !== 'valid');
   const issueCount = Object.values(validationResults).filter(r => r.status !== 'valid').length;
@@ -118,23 +132,30 @@ export function ContractAddressValidator() {
           
           <AlertDescription className="mt-2 space-y-2">
             {Object.entries(validationResults).map(([name, result]) => (
-              <div key={name} className="flex items-center justify-between text-sm">
-                <span className="font-medium">{name}:</span>
-                {result.status === 'valid' && (
-                  <span className="text-green-600 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Valid
-                  </span>
-                )}
-                {result.status === 'missing' && (
-                  <span className="text-yellow-600">Not configured</span>
-                )}
-                {result.status === 'no-code' && (
-                  <span className="text-red-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> No contract
-                  </span>
-                )}
-                {result.status === 'error' && (
-                  <span className="text-red-600">Error</span>
+              <div key={name} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{name}:</span>
+                  {result.status === 'valid' && (
+                    <span className="text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Valid
+                    </span>
+                  )}
+                  {result.status === 'missing' && (
+                    <span className="text-yellow-600">Not configured</span>
+                  )}
+                  {result.status === 'no-code' && (
+                    <span className="text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> No contract
+                    </span>
+                  )}
+                  {result.status === 'error' && (
+                    <span className="text-red-600">Error</span>
+                  )}
+                </div>
+                {result.address && (
+                  <div className="text-xs text-muted-foreground pl-4 font-mono break-all">
+                    {result.address}
+                  </div>
                 )}
               </div>
             ))}
@@ -145,10 +166,26 @@ export function ContractAddressValidator() {
                 <ol className="list-decimal list-inside space-y-1">
                   <li>Run: <code className="bg-background px-1 rounded">npm run anvil:deploy</code></li>
                   <li>Restart Vite dev server (Ctrl+C, then <code className="bg-background px-1 rounded">npm run dev</code>)</li>
-                  <li>Refresh this page</li>
+                  <li>Hard refresh browser: <code className="bg-background px-1 rounded">Cmd+Shift+R</code> (Mac) or <code className="bg-background px-1 rounded">Ctrl+Shift+R</code> (Windows)</li>
+                  <li>Click button below to clear cache</li>
                 </ol>
               </div>
             )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                // Force reload
+                window.location.reload();
+              }}
+              className="w-full mt-2"
+            >
+              🗑️ Clear Cache & Reload
+            </Button>
 
             <Button
               variant="outline"

@@ -5,7 +5,8 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 /**
  * @title InfoFiPriceOracle
- * @notice Minimal MVP oracle storing hybrid pricing data per marketId
+ * @notice Minimal MVP oracle storing hybrid pricing data per FPMM market address
+ * @dev Uses FPMM contract address as market identifier (not abstract uint256 marketId)
  * @dev Exposes roles for admin and price updater. Does not integrate Chainlink in MVP.
  */
 contract InfoFiPriceOracle is AccessControl {
@@ -25,13 +26,13 @@ contract InfoFiPriceOracle is AccessControl {
         uint256 marketWeightBps;
     }
 
-    // marketId => price data (using uint256 to match InfoFiMarket)
-    mapping(uint256 => PriceData) public prices;
+    // fpmmAddress => price data (FPMM contract address is the market ID)
+    mapping(address => PriceData) public prices;
 
     Weights public weights;
 
     event PriceUpdated(
-        uint256 indexed marketId, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp
+        address indexed fpmmAddress, uint256 raffleBps, uint256 marketBps, uint256 hybridBps, uint256 timestamp
     );
     event WeightsUpdated(uint256 raffleWeightBps, uint256 marketWeightBps);
 
@@ -51,35 +52,44 @@ contract InfoFiPriceOracle is AccessControl {
         emit WeightsUpdated(raffleWeightBps, marketWeightBps);
     }
 
-    function updateRaffleProbability(uint256 marketId, uint256 raffleProbabilityBps)
+    function updateRaffleProbability(address fpmmAddress, uint256 raffleProbabilityBps)
         external
         onlyRole(PRICE_UPDATER_ROLE)
     {
-        PriceData storage p = prices[marketId];
+        require(fpmmAddress != address(0), "Oracle: invalid FPMM address");
+        PriceData storage p = prices[fpmmAddress];
         p.raffleProbabilityBps = raffleProbabilityBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);
         p.lastUpdate = block.timestamp;
         p.active = true;
-        emit PriceUpdated(marketId, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
+        emit PriceUpdated(fpmmAddress, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
     }
 
-    function updateMarketSentiment(uint256 marketId, uint256 marketSentimentBps)
+    function updateMarketSentiment(address fpmmAddress, uint256 marketSentimentBps)
         external
         onlyRole(PRICE_UPDATER_ROLE)
     {
-        PriceData storage p = prices[marketId];
+        require(fpmmAddress != address(0), "Oracle: invalid FPMM address");
+        PriceData storage p = prices[fpmmAddress];
         p.marketSentimentBps = marketSentimentBps;
         p.hybridPriceBps = _hybrid(p.raffleProbabilityBps, p.marketSentimentBps);
         p.lastUpdate = block.timestamp;
         p.active = true;
-        emit PriceUpdated(marketId, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
+        emit PriceUpdated(fpmmAddress, p.raffleProbabilityBps, p.marketSentimentBps, p.hybridPriceBps, p.lastUpdate);
     }
 
+    /**
+     * @notice Calculate hybrid price from raffle and market components
+     * @dev Formula: (70% × raffleBps + 30% × marketBps) / 100
+     * @param raffleBps Raffle probability in basis points (0-10000)
+     * @param marketBps Market sentiment in basis points (0-10000)
+     * @return Hybrid price in basis points (0-10000)
+     */
     function _hybrid(uint256 raffleBps, uint256 marketBps) internal view returns (uint256) {
         return (weights.raffleWeightBps * raffleBps + weights.marketWeightBps * marketBps) / 10000;
     }
 
-    function getPrice(uint256 marketId) external view returns (PriceData memory) {
-        return prices[marketId];
+    function getPrice(address fpmmAddress) external view returns (PriceData memory) {
+        return prices[fpmmAddress];
     }
 }

@@ -10,6 +10,21 @@ class UsernameService {
     this.WALLET_PREFIX = 'wallet:';
     this.USERNAME_PREFIX = 'username:';
     this.RESERVED_USERNAMES = ['admin', 'system', 'null', 'undefined', 'root', 'moderator'];
+    this.logger = null; // Will be set by server.js
+  }
+
+  /**
+   * Set logger instance (called from server.js)
+   */
+  setLogger(logger) {
+    this.logger = logger;
+  }
+
+  /**
+   * Get logger or fallback to console
+   */
+  getLogger() {
+    return this.logger || console;
   }
 
   /**
@@ -24,7 +39,7 @@ class UsernameService {
       const username = await client.get(`${this.WALLET_PREFIX}${normalizedAddress}`);
       return username;
     } catch (error) {
-      console.error('[UsernameService] Error getting username:', error.message);
+      this.getLogger().error({ err: error }, '[UsernameService] Error getting username');
       return null;
     }
   }
@@ -41,7 +56,7 @@ class UsernameService {
       const address = await client.get(`${this.USERNAME_PREFIX}${normalizedUsername}`);
       return address;
     } catch (error) {
-      console.error('[UsernameService] Error getting address:', error.message);
+      this.getLogger().error({ err: error }, '[UsernameService] Error getting address');
       return null;
     }
   }
@@ -86,10 +101,10 @@ class UsernameService {
 
       await pipeline.exec();
 
-      console.log(`[UsernameService] Set username "${username}" for ${address}`);
+      this.getLogger().info(`[UsernameService] Set username "${username}" for ${address}`);
       return { success: true };
     } catch (error) {
-      console.error('[UsernameService] Error setting username:', error.message);
+      this.getLogger().error({ err: error }, '[UsernameService] Error setting username');
       return { success: false, error: 'INTERNAL_ERROR' };
     }
   }
@@ -142,7 +157,7 @@ class UsernameService {
       const existingAddress = await this.getAddressByUsername(username);
       return !existingAddress;
     } catch (error) {
-      console.error('[UsernameService] Error checking availability:', error.message);
+      this.getLogger().error({ err: error }, '[UsernameService] Error checking availability');
       return false;
     }
   }

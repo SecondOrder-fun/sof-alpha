@@ -246,14 +246,27 @@ Platform token with treasury management:
 - Treasury distribution mechanism
 - Role-based access control
 
-#### InfoFiMarket.sol
+#### InfoFiMarketFactory.sol
 
-The prediction market contract that handles:
+The prediction market factory contract that handles:
 
-- Creating prediction markets for raffle outcomes
-- Accepting bets on yes/no questions
-- Resolving markets with outcomes
-- Distributing payouts to winners
+- Auto-creating FPMM-based prediction markets when players cross 1% threshold
+- Managing market types using keccak256 hashes for gas efficiency
+- Integrating Gnosis Conditional Token Framework
+- Providing 100 SOF liquidity per market from treasury
+- Resolving markets via RaffleOracleAdapter
+
+**Market Type Implementation:**
+
+Market types are identified using `keccak256` hashes instead of strings for gas efficiency (~200-400 gas savings per event). The contract emits hashes like `0x9af7ac...` which the backend decodes to human-readable strings like `"WINNER_PREDICTION"`.
+
+To add new market types:
+1. Add constant to contract: `bytes32 public constant NEW_TYPE = keccak256("NEW_TYPE");`
+2. Calculate hash: `cast keccak "NEW_TYPE"`
+3. Update backend mapping in `backend/src/listeners/marketCreatedListener.js`
+4. Redeploy contract and restart backend
+
+See [MARKET_TYPE_IMPLEMENTATION.md](./MARKET_TYPE_IMPLEMENTATION.md) for detailed guide.
 
 ### Treasury System
 

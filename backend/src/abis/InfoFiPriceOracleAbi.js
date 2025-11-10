@@ -67,9 +67,9 @@ export default [
     "name": "getPrice",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -175,8 +175,8 @@ export default [
     "inputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -286,9 +286,9 @@ export default [
     "name": "updateMarketSentiment",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "marketSentimentBps",
@@ -304,9 +304,9 @@ export default [
     "name": "updateRaffleProbability",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "raffleProbabilityBps",
@@ -340,10 +340,10 @@ export default [
     "name": "PriceUpdated",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
+        "name": "fpmmAddress",
+        "type": "address",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "address"
       },
       {
         "name": "raffleBps",

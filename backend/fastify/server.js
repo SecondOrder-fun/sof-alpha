@@ -1,333 +1,309 @@
-import fastify from 'fastify';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
-import { WebSocketServer } from 'ws';
-import process from 'node:process';
-import { startInfoFiMarketListener } from '../src/services/infofiListener.js';
-import { startPositionTrackerListener } from '../src/services/positionTrackerListener.js';
-import { startOracleListener } from '../src/services/oracleListener.js';
-import { startRaffleListener } from '../src/services/raffleListener.js';
-import { startSeasonListener, discoverExistingSeasons } from '../src/services/seasonListener.js';
-import { resetAndSyncInfoFiMarkets } from '../src/services/syncInfoFiMarkets.js';
-import { pricingService } from '../shared/pricingService.js';
-import { historicalOddsService } from '../shared/historicalOddsService.js';
-import { loadChainEnv } from '../src/config/chain.js';
-import { redisClient } from '../shared/redisClient.js';
-import { db, hasSupabase } from '../shared/supabaseClient.js';
+import fastify from "fastify";
+import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
+import process from "node:process";
+import { hasSupabase, db } from "../shared/supabaseClient.js";
+import { startSeasonStartedListener } from "../src/listeners/seasonStartedListener.js";
+import { startPositionUpdateListener } from "../src/listeners/positionUpdateListener.js";
+import { startMarketCreatedListener } from "../src/listeners/marketCreatedListener.js";
+import { startTradeListener } from "../src/listeners/tradeListener.js";
+import raffleAbi from "../src/abis/RaffleAbi.js";
+import sofBondingCurveAbi from "../src/abis/SOFBondingCurveAbi.js";
+import infoFiMarketFactoryAbi from "../src/abis/InfoFiMarketFactoryAbi.js";
+import simpleFpmmAbi from "../src/abis/SimpleFPMMAbi.js";
 
 // Create Fastify instance
 const app = fastify({ logger: true });
 
 // Log Supabase connection status at startup
 if (hasSupabase) {
-  app.log.info('✅ Supabase configured and connected');
+  app.log.info("✅ Supabase configured and connected");
 } else {
-  app.log.warn('⚠️  Supabase NOT configured - database operations will fail');
-  app.log.warn('    Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
+  app.log.warn("⚠️  Supabase NOT configured - database operations will fail");
+  app.log.warn("    Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env");
 }
-
-// Ensure pricing service shares Fastify logger for consistent structured logs
-pricingService.setLogger?.(app.log);
-
-// Log every route as it is registered to diagnose mounting issues
-app.addHook('onRoute', (routeOptions) => {
-  try {
-    const methods = Array.isArray(routeOptions.method) ? routeOptions.method.join(',') : routeOptions.method;
-    app.log.info({ method: methods, url: routeOptions.url, prefix: routeOptions.prefix }, 'route added');
-  } catch (e) {
-    app.log.error({ e }, 'Failed to log route');
-  }
-});
 
 // Register plugins
 await app.register(cors, {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://secondorder.fun', 'https://www.secondorder.fun']
-    : true, // Allow all origins in development
-  credentials: true
+  origin:
+    process.env.NODE_ENV === "production"
+      ? ["https://secondorder.fun", "https://www.secondorder.fun"]
+      : true, // Allow all origins in development
+  credentials: true,
 });
 
 await app.register(helmet);
 
 await app.register(rateLimit, {
   max: 100,
-  timeWindow: '1 minute'
+  timeWindow: "1 minute",
 });
 
-// Manually registered /api/health route removed; using healthRoutes plugin under prefix '/api'
-
-// Register routes (use default export from dynamic import)
-// Always register health first so /api/health is available even if other plugins fail
-try {
-  await app.register((await import('./routes/healthRoutes.js')).default, { prefix: '/api' });
-  app.log.info('Mounted /api/health');
-} catch (err) {
-  app.log.error({ err }, 'Failed to mount /api/health');
-}
-
-// Mount remaining route plugins defensively so one failure doesn't block others
-try {
-  await app.register((await import('./routes/raffleRoutes.js')).default, { prefix: '/api/raffles' });
-  app.log.info('Mounted /api/raffles');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/raffles'); }
-
-try {
-  await app.register((await import('./routes/infoFiRoutes.js')).default, { prefix: '/api/infofi' });
-  app.log.info('Mounted /api/infofi');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/infofi'); }
-
-try {
-  await app.register((await import('./routes/userRoutes.js')).default, { prefix: '/api/users' });
-  app.log.info('Mounted /api/users');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/users'); }
-
-try {
-  await app.register((await import('./routes/usernameRoutes.js')).default, { prefix: '/api/usernames' });
-  app.log.info('Mounted /api/usernames');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/usernames'); }
-
-try {
-  await app.register((await import('./routes/fpmmRoutes.js')).default, { prefix: '/api/fpmm' });
-  app.log.info('Mounted /api/fpmm');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/fpmm'); }
-
-try {
-  await app.register((await import('./routes/arbitrageRoutes.js')).default, { prefix: '/api/arbitrage' });
-  app.log.info('Mounted /api/arbitrage');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/arbitrage'); }
-
-try {
-  await app.register((await import('./routes/pricingRoutes.js')).default, { prefix: '/api/pricing' });
-  app.log.info('Mounted /api/pricing');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/pricing'); }
-
-try {
-  await app.register((await import('./routes/settlementRoutes.js')).default, { prefix: '/api/settlement' });
-  app.log.info('Mounted /api/settlement');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/settlement'); }
-
-try {
-  await app.register((await import('./routes/adminRoutes.js')).default, { prefix: '/api/admin' });
-  app.log.info('Mounted /api/admin');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/admin'); }
-
-try {
-  await app.register((await import('./routes/analyticsRoutes.js')).default, { prefix: '/api/analytics' });
-  app.log.info('Mounted /api/analytics');
-} catch (err) { app.log.error({ err }, 'Failed to mount /api/analytics'); }
-
-// Removed legacy /healthz to standardize on /api/health
-
-// Debug: print all mounted routes
-app.ready(() => {
+// Log every route as it is registered to diagnose mounting issues
+app.addHook("onRoute", (routeOptions) => {
   try {
-    app.log.info('Route tree start');
-    app.log.info('\n' + app.printRoutes());
-    app.log.info('Route tree end');
+    const methods = Array.isArray(routeOptions.method)
+      ? routeOptions.method.join(",")
+      : routeOptions.method;
+    app.log.info(
+      { method: methods, url: routeOptions.url, prefix: routeOptions.prefix },
+      "route added"
+    );
   } catch (e) {
-    app.log.error({ e }, 'Failed to print routes');
+    app.log.error({ e }, "Failed to log route");
   }
 });
+
+// Register routes (use default export from dynamic import)
+try {
+  await app.register((await import("./routes/usernameRoutes.js")).default, {
+    prefix: "/api/usernames",
+  });
+  app.log.info("Mounted /api/usernames");
+} catch (err) {
+  app.log.error({ err }, "Failed to mount /api/usernames");
+}
+
+try {
+  await app.register((await import("./routes/userRoutes.js")).default, {
+    prefix: "/api/users",
+  });
+  app.log.info("Mounted /api/users");
+} catch (err) {
+  app.log.error({ err }, "Failed to mount /api/users");
+}
+
+try {
+  await app.register((await import("./routes/infoFiRoutes.js")).default, {
+    prefix: "/api/infofi",
+  });
+  app.log.info("Mounted /api/infofi");
+} catch (err) {
+  app.log.error({ err }, "Failed to mount /api/infofi");
+}
+
+// Debug: print all mounted routes
+// app.ready(() => {
+//   try {
+//     app.log.info("Route tree start");
+//     app.log.info("\n" + app.printRoutes());
+//     app.log.info("Route tree end");
+//   } catch (e) {
+//     app.log.error({ e }, "Failed to print routes");
+//   }
+// });
 
 // Error handling
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
-  reply.status(500).send({ error: 'Internal Server Error' });
+  reply.status(500).send({ error: "Internal Server Error" });
 });
 
 // 404 handler
 app.setNotFoundHandler((_request, reply) => {
-  reply.status(404).send({ error: 'Not Found' });
+  reply.status(404).send({ error: "Not Found" });
 });
 
-// WebSocket server (will attach after app starts and app.server exists)
-let wss;
-let stopListeners = [];
+// Initialize listeners
+let unwatchSeasonStarted;
+let unwatchMarketCreated;
+const positionUpdateListeners = new Map(); // Map of seasonId -> unwatch function
+const tradeListeners = new Map(); // Map of fpmmAddress -> unwatch function
 
-// Broadcast helper (fan-out to all clients)
-function wsBroadcast(obj) {
-  if (!wss) return;
-  const msg = JSON.stringify(obj);
-  wss.clients.forEach((client) => {
-    try {
-      if (client.readyState === 1) {
-        client.send(msg);
-      }
-    } catch (_) {
-      // ignore individual client errors
+async function startListeners() {
+  try {
+    const raffleAddress = process.env.RAFFLE_ADDRESS_LOCAL;
+
+    if (!raffleAddress) {
+      app.log.warn(
+        "⚠️  RAFFLE_ADDRESS_LOCAL not set in environment - SeasonStarted listener will not start"
+      );
+      return;
     }
-  });
+
+    // Callback to start PositionUpdate listener when a season starts
+    const onSeasonCreated = async (seasonData) => {
+      const { seasonId, bondingCurveAddress, raffleTokenAddress } = seasonData;
+
+      try {
+        app.log.info(
+          `🎧 Starting PositionUpdate listener for season ${seasonId}`
+        );
+
+        const unwatch = await startPositionUpdateListener(
+          bondingCurveAddress,
+          sofBondingCurveAbi,
+          raffleAddress,
+          raffleAbi,
+          raffleTokenAddress,
+          app.log
+        );
+
+        // Store unwatch function for cleanup
+        positionUpdateListeners.set(seasonId, unwatch);
+        app.log.info(
+          `✅ PositionUpdate listener started for season ${seasonId}`
+        );
+      } catch (error) {
+        app.log.error(
+          `❌ Failed to start PositionUpdate listener for season ${seasonId}: ${error.message}`
+        );
+      }
+    };
+
+    // Discover existing seasons and start listeners for them
+    if (hasSupabase) {
+      try {
+        app.log.info("🔍 Discovering existing seasons...");
+        const existingSeasons = await db.getActiveSeasonContracts();
+
+        if (existingSeasons && existingSeasons.length > 0) {
+          app.log.info(`Found ${existingSeasons.length} active season(s)`);
+
+          for (const season of existingSeasons) {
+            await onSeasonCreated({
+              seasonId: season.season_id,
+              bondingCurveAddress: season.bonding_curve_address,
+              raffleTokenAddress: season.raffle_token_address,
+            });
+          }
+        } else {
+          app.log.info("No existing seasons found");
+        }
+      } catch (error) {
+        app.log.error(`Failed to discover existing seasons: ${error.message}`);
+      }
+    }
+
+    unwatchSeasonStarted = await startSeasonStartedListener(
+      raffleAddress,
+      raffleAbi,
+      app.log,
+      onSeasonCreated
+    );
+
+    // Start MarketCreated listener
+    const infoFiFactoryAddress = process.env.INFOFI_FACTORY_ADDRESS_LOCAL;
+    if (infoFiFactoryAddress) {
+      try {
+        app.log.info("🎧 Starting MarketCreated listener...");
+        unwatchMarketCreated = await startMarketCreatedListener(
+          infoFiFactoryAddress,
+          infoFiMarketFactoryAbi,
+          app.log
+        );
+        app.log.info("✅ MarketCreated listener started");
+      } catch (error) {
+        app.log.error(
+          `❌ Failed to start MarketCreated listener: ${error.message}`
+        );
+      }
+    } else {
+      app.log.warn(
+        "⚠️  INFOFI_FACTORY_ADDRESS_LOCAL not set in environment - MarketCreated listener will not start"
+      );
+    }
+
+    // Start Trade listeners for FPMM contracts
+    // Get list of active FPMM addresses from database
+    if (hasSupabase) {
+      try {
+        app.log.info("🎧 Starting Trade listeners for FPMM contracts...");
+        const activeFpmmAddresses = await db.getActiveFpmmAddresses();
+
+        if (activeFpmmAddresses && activeFpmmAddresses.length > 0) {
+          app.log.info(
+            `Found ${activeFpmmAddresses.length} active FPMM contract(s)`
+          );
+
+          const unwatchFunctions = await startTradeListener(
+            activeFpmmAddresses,
+            simpleFpmmAbi,
+            app.log
+          );
+
+          // Store unwatch functions for cleanup
+          unwatchFunctions.forEach((unwatch, index) => {
+            tradeListeners.set(activeFpmmAddresses[index], unwatch);
+          });
+
+          app.log.info(
+            `✅ Trade listeners started for ${activeFpmmAddresses.length} FPMM contract(s)`
+          );
+        } else {
+          app.log.info(
+            "No active FPMM contracts found - Trade listeners not started"
+          );
+        }
+      } catch (error) {
+        app.log.error(`❌ Failed to start Trade listeners: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    app.log.error("Failed to start listeners:", error);
+    // Don't crash server, but log the error
+  }
 }
 
 // Start server
 const PORT = process.env.PORT || 3000;
 
 try {
-  await app.listen({ port: Number(PORT), host: '127.0.0.1' });
-  // Attach WebSocket server to Fastify's underlying Node server
-  wss = new WebSocketServer({ server: app.server });
+  await app.listen({ port: Number(PORT), host: "127.0.0.1" });
+  app.log.info(`🚀 Server listening on port ${PORT}`);
 
-  wss.on('connection', (ws) => {
-    app.log.info('New WebSocket connection');
-    ws.on('message', (message) => {
-      app.log.info('Received message:', message.toString());
-    });
-    ws.on('close', () => {
-      app.log.info('WebSocket connection closed');
-    });
-    ws.on('error', (error) => {
-      app.log.error('WebSocket error:', error);
-    });
-  });
-
-  app.log.info(`HTTP server listening on port ${PORT}`);
-  app.log.info(`WebSocket server bound on the same port ${PORT}`);
-
-  // Initialize Redis connection
-  try {
-    redisClient.connect();
-    const pingResult = await redisClient.ping();
-    if (pingResult) {
-      app.log.info('Redis connection established and verified');
-    } else {
-      app.log.warn('Redis connection established but ping failed');
-    }
-  } catch (e) {
-    app.log.error({ e }, 'Failed to connect to Redis - username features may not work');
-  }
-
-  // Sync InfoFi markets from blockchain to database
-  try {
-    const chains = loadChainEnv();
-    const candidates = [
-      { key: 'LOCAL', cfg: chains.LOCAL },
-      { key: 'TESTNET', cfg: chains.TESTNET },
-    ];
-    
-    for (const c of candidates) {
-      if (c?.cfg?.infofiFactory) {
-        // For LOCAL network, reset database and sync from blockchain
-        // This ensures database is in sync with Anvil on restart
-        if (c.key === 'LOCAL') {
-          try {
-            app.log.info({ network: c.key }, 'Resetting and syncing InfoFi markets from blockchain...');
-            const syncedCount = await resetAndSyncInfoFiMarkets(c.key, app.log);
-            app.log.info({ network: c.key, syncedCount }, 'InfoFi markets synced from blockchain');
-          } catch (syncErr) {
-            app.log.error({ syncErr }, 'Failed to sync InfoFi markets - continuing with listener only');
-          }
-        }
-        
-        // Start listener for new markets (legacy - kept for backward compatibility)
-        const stop = startInfoFiMarketListener(c.key, app.log);
-        stopListeners.push(stop);
-        app.log.info({ network: c.key, factory: c.cfg.infofiFactory }, 'InfoFi listener started');
-      }
-      // Start position tracker listener if configured (primary source for market probability updates)
-      if (c?.cfg?.positionTracker) {
-        const stopTracker = startPositionTrackerListener(c.key, app.log);
-        stopListeners.push(stopTracker);
-        app.log.info({ network: c.key, tracker: c.cfg.positionTracker }, 'Position tracker listener started');
-      }
-      // Start oracle listener if oracle configured (feeds pricingService from on-chain)
-      if (c?.cfg?.infofiOracle) {
-        const stopOracle = startOracleListener(c.key, app.log);
-        stopListeners.push(stopOracle);
-        app.log.info({ network: c.key, oracle: c.cfg.infofiOracle }, 'Oracle listener started');
-      }
-      // Start raffle PositionUpdate listener if raffle is configured
-      if (c?.cfg?.raffle) {
-        const stopRaffle = startRaffleListener(c.key, wsBroadcast, app.log);
-        stopListeners.push(stopRaffle);
-        app.log.info({ network: c.key, raffle: c.cfg.raffle }, 'Raffle listener started');
-      }
-      
-      // Start season listener for backend-driven market creation
-      // This watches SeasonCreated events and dynamically starts bonding curve listeners
-      try {
-        // First, discover existing seasons and start their bonding curve listeners
-        const discoveredCount = await discoverExistingSeasons(c.key, app.log);
-        app.log.info({ network: c.key, discoveredCount }, 'Existing seasons discovered and listeners started');
-        
-        // Start season listener for new seasons (now scans historical events first)
-        const stopSeasonListener = await startSeasonListener(c.key, app.log);
-        stopListeners.push(stopSeasonListener);
-        app.log.info({ network: c.key }, 'Season listener started (backend-driven market creation)');
-      } catch (err) {
-        app.log.error({ err, network: c.key }, 'Failed to start season listener');
-      }
-    }
-  } catch (e) {
-    app.log.error({ e }, 'Failed to start InfoFi listeners');
-  }
-
-  // Forward pricingService price updates to WS as MARKET_UPDATE
-  try {
-    pricingService.on('priceUpdate', (evt) => {
-      wsBroadcast({ type: 'MARKET_UPDATE', payload: evt });
-    });
-    app.log.info('PricingService -> WS MARKET_UPDATE bridge ready');
-  } catch (e) {
-    app.log.error({ e }, 'Failed to connect pricingService to WS');
-  }
-
-  // Schedule daily cleanup of old historical odds data
-  const cleanupIntervalHours = parseInt(process.env.ODDS_CLEANUP_INTERVAL_HOURS || '24', 10);
-  const cleanupIntervalMs = cleanupIntervalHours * 60 * 60 * 1000;
-  
-  const cleanupHistoricalOdds = async () => {
-    try {
-      app.log.info('Starting scheduled historical odds cleanup...');
-      
-      // Get all active markets
-      const markets = await db.getActiveInfoFiMarkets();
-      let totalRemoved = 0;
-      
-      for (const market of markets) {
-        const seasonId = market.season_id || market.raffle_id || 0;
-        const removed = await historicalOddsService.cleanupOldData(seasonId, market.id);
-        totalRemoved += removed;
-      }
-      
-      app.log.info({ totalRemoved, marketCount: markets.length }, 'Historical odds cleanup completed');
-    } catch (error) {
-      app.log.error({ error }, 'Failed to cleanup historical odds');
-    }
-  };
-  
-  // Run cleanup immediately on startup, then schedule
-  cleanupHistoricalOdds();
-  const cleanupInterval = setInterval(cleanupHistoricalOdds, cleanupIntervalMs);
-  app.log.info({ intervalHours: cleanupIntervalHours }, 'Historical odds cleanup scheduler started');
-  
-  // Store interval for cleanup on shutdown
-  stopListeners.push(() => clearInterval(cleanupInterval));
-  
+  // Start listeners after server is ready
+  await startListeners();
 } catch (err) {
   app.log.error(err);
   process.exit(1);
 }
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  app.log.info('Shutting down server...');
-  await app.close();
-  try {
-    if (wss) {
-      wss.close();
-    }
-    // Stop InfoFi listeners
-    for (const stop of stopListeners) {
-      try { stop(); } catch (_) { /* ignore */ }
-    }
-    // Disconnect Redis
-    await redisClient.disconnect();
-    // app.server is closed by app.close()
-  } finally {
-    app.log.info('Server closed');
-    process.exit(0);
+let isShuttingDown = false;
+
+process.on("SIGINT", async () => {
+  // Prevent multiple shutdown attempts
+  if (isShuttingDown) {
+    app.log.warn("⚠️  Shutdown already in progress, ignoring duplicate SIGINT");
+    return;
   }
+
+  isShuttingDown = true;
+  app.log.info("Shutting down server...");
+
+  try {
+    // Stop all listeners
+    if (unwatchSeasonStarted) {
+      unwatchSeasonStarted();
+      app.log.info("🛑 Stopped SeasonStarted listener");
+    }
+
+    if (unwatchMarketCreated) {
+      unwatchMarketCreated();
+      app.log.info("🛑 Stopped MarketCreated listener");
+    }
+
+    // Stop all PositionUpdate listeners
+    for (const [seasonId, unwatch] of positionUpdateListeners.entries()) {
+      unwatch();
+      app.log.info(`🛑 Stopped PositionUpdate listener for season ${seasonId}`);
+    }
+
+    // Stop all Trade listeners
+    for (const [fpmmAddress, unwatch] of tradeListeners.entries()) {
+      unwatch();
+      app.log.info(`🛑 Stopped Trade listener for FPMM ${fpmmAddress}`);
+    }
+
+    await app.close();
+    app.log.info("✅ Server shut down gracefully");
+  } catch (error) {
+    app.log.error({ error }, "Error during shutdown");
+  }
+
+  process.exit(0);
 });
 
 export { app };

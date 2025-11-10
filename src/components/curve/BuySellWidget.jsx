@@ -189,7 +189,16 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     }
     try {
       const maxUint = (1n << 255n) - 1n;
-      await approve.mutateAsync({ amount: maxUint });
+      const approvalTxHash = await approve.mutateAsync({ amount: maxUint });
+      
+      // Wait for approval transaction to be mined before proceeding
+      if (client && approvalTxHash) {
+        await client.waitForTransactionReceipt({ 
+          hash: approvalTxHash, 
+          confirmations: 1 
+        });
+      }
+      
       const cap = applyMaxSlippage(estBuyWithFees);
       const tx = await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
       const hash = tx?.hash ?? tx ?? '';

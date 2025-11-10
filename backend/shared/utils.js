@@ -61,6 +61,6 @@ export function detectArbitrageOpportunity(raftValue, infoFiValue, threshold = 0
   };
 }
 
-export function generateMarketId(raffleId, playerAddress, marketType) {
-  return `${raffleId}-${playerAddress}-${marketType}`;
+export function generateMarketId(seasonId, playerAddress, marketType) {
+  return `${seasonId}-${playerAddress}-${marketType}`;
 }

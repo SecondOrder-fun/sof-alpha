@@ -655,19 +655,6 @@ export default [
   },
   {
     "type": "function",
-    "name": "infoFiFactory",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "isSeasonActive",
     "inputs": [
       {
@@ -956,19 +943,6 @@ export default [
         "name": "bps",
         "type": "uint16",
         "internalType": "uint16"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setInfoFiFactory",
-    "inputs": [
-      {
-        "name": "_factory",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],

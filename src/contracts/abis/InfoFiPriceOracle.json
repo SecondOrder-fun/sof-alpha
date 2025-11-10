@@ -64,9 +64,9 @@
     "name": "getPrice",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -172,8 +172,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -283,9 +283,9 @@
     "name": "updateMarketSentiment",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "marketSentimentBps",
@@ -301,9 +301,9 @@
     "name": "updateRaffleProbability",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "fpmmAddress",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "raffleProbabilityBps",
@@ -337,10 +337,10 @@
     "name": "PriceUpdated",
     "inputs": [
       {
-        "name": "marketId",
-        "type": "uint256",
+        "name": "fpmmAddress",
+        "type": "address",
         "indexed": true,
-        "internalType": "uint256"
+        "internalType": "address"
       },
       {
         "name": "raffleBps",

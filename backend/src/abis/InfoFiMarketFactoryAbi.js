@@ -31,6 +31,11 @@ export default [
         "internalType": "address"
       },
       {
+        "name": "_marketTypeRegistry",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_treasury",
         "type": "address",
         "internalType": "address"
@@ -78,6 +83,19 @@ export default [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PAYMASTER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -149,13 +167,32 @@ export default [
         "internalType": "address"
       },
       {
-        "name": "probabilityBps",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "marketType",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "_decodeRevertReason",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -334,6 +371,67 @@ export default [
   },
   {
     "type": "function",
+    "name": "marketFailureReason",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketStatus",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum InfoFiMarketFactory.MarketCreationStatus"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketTypeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract MarketTypeRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "onPositionUpdate",
     "inputs": [
       {
@@ -490,6 +588,24 @@ export default [
   },
   {
     "type": "function",
+    "name": "retryMarketCreation",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "revokeRole",
     "inputs": [
       {
@@ -499,6 +615,19 @@ export default [
       },
       {
         "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPaymasterAccount",
+    "inputs": [
+      {
+        "name": "paymasterAccount",
         "type": "address",
         "internalType": "address"
       }
@@ -583,7 +712,7 @@ export default [
       {
         "name": "marketType",
         "type": "bytes32",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes32"
       },
       {
@@ -597,12 +726,6 @@ export default [
         "type": "address",
         "indexed": false,
         "internalType": "address"
-      },
-      {
-        "name": "probabilityBps",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -628,6 +751,43 @@ export default [
         "type": "bytes32",
         "indexed": true,
         "internalType": "bytes32"
+      },
+      {
+        "name": "reason",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MarketStatusChanged",
+    "inputs": [
+      {
+        "name": "seasonId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "player",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "oldStatus",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum InfoFiMarketFactory.MarketCreationStatus"
+      },
+      {
+        "name": "newStatus",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum InfoFiMarketFactory.MarketCreationStatus"
       },
       {
         "name": "reason",
@@ -771,18 +931,37 @@ export default [
   },
   {
     "type": "event",
+    "name": "TreasuryLow",
+    "inputs": [
+      {
+        "name": "currentBalance",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "requiredPerMarket",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TreasuryUpdated",
     "inputs": [
       {
         "name": "oldTreasury",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
         "name": "newTreasury",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -811,6 +990,16 @@ export default [
   },
   {
     "type": "error",
+    "name": "ApprovalFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ConditionPreparationFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InsufficientTreasuryBalance",
     "inputs": []
   },
@@ -821,12 +1010,48 @@ export default [
   },
   {
     "type": "error",
+    "name": "InvalidMarketType",
+    "inputs": [
+      {
+        "name": "marketType",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LiquidityTransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "MarketAlreadyCreated",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "MarketCreationInternalFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotInFailedState",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCaller",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroTotalTickets",
     "inputs": []
   }
 ];

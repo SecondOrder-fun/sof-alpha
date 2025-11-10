@@ -40,6 +40,9 @@ export function useCurve(bondingCurveAddress) {
 
   /**
    * @notice Buys raffle tickets from the bonding curve.
+   * @dev Sets explicit gas limit to ensure InfoFi market creation has enough gas.
+   * The Raffle contract needs 900K+ gas to forward 800K to InfoFiMarketFactory.
+   * BondingCurve uses ~600K gas before calling Raffle, so we need 1.5M total.
    */
   const buyTokensMutation = useMutation({
     mutationFn: async ({ tokenAmount, maxSofAmount }) => {
@@ -47,6 +50,7 @@ export function useCurve(bondingCurveAddress) {
         ...curveContractConfig,
         functionName: 'buyTokens',
         args: [tokenAmount, maxSofAmount],
+        gas: 1500000n, // Explicit gas limit: 1.5M to ensure 900K+ remains for InfoFi
       });
     },
   });
