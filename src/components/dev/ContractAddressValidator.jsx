@@ -24,14 +24,12 @@ export function ContractAddressValidator() {
     const results = {};
 
     // Use Vite env vars directly
+    // Only validating core raffle contracts for now
+    // Use TESTNET addresses since DEFAULT_NETWORK=TESTNET
     const contracts = {
-      SOF: import.meta.env.VITE_SOF_ADDRESS_LOCAL || '',
-      RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_LOCAL || '',
-      SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_LOCAL || '',
-      SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_LOCAL || '',
-      INFOFI_FACTORY: import.meta.env.VITE_INFOFI_FACTORY_ADDRESS_LOCAL || '',
-      INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_LOCAL || '',
-      PRIZE_DISTRIBUTOR: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_LOCAL || '',
+      SOF: import.meta.env.VITE_SOF_ADDRESS_TESTNET || '',
+      RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || '',
+      SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_TESTNET || '',
     };
     // eslint-disable-next-line no-console
     console.log('[ContractAddressValidator] Using Vite env vars:', contracts);
@@ -40,10 +38,6 @@ export function ContractAddressValidator() {
       'SOF Token': contracts.SOF,
       'Raffle': contracts.RAFFLE,
       'Season Factory': contracts.SEASON_FACTORY,
-      'SOF Faucet': contracts.SOF_FAUCET,
-      'InfoFi Factory': contracts.INFOFI_FACTORY,
-      'InfoFi Oracle': contracts.INFOFI_ORACLE,
-      'Prize Distributor': contracts.PRIZE_DISTRIBUTOR,
     };
 
     for (const [name, address] of Object.entries(contractsToValidate)) {

@@ -7,6 +7,8 @@ import {SOFToken} from "src/token/SOFToken.sol";
 import {SeasonFactory} from "src/core/SeasonFactory.sol";
 import {Raffle} from "src/core/Raffle.sol";
 import {SOFBondingCurve} from "src/curve/SOFBondingCurve.sol";
+import {SOFFaucet} from "src/faucet/SOFFaucet.sol";
+import {RafflePrizeDistributor} from "src/core/RafflePrizeDistributor.sol";
 
 /**
  * @title DeployToSepolia
@@ -26,6 +28,8 @@ contract DeployToSepolia is Script {
     address public seasonFactoryAddress;
     address public raffleAddress;
     address public bondingCurveAddress;
+    address public sofFaucetAddress;
+    address public prizeDistributorAddress;
 
     // Configuration
     uint256 constant INITIAL_SOF_SUPPLY = 100_000_000e18; // 100M SOF
@@ -82,6 +86,32 @@ contract DeployToSepolia is Script {
         raffle.grantRole(bondingCurveRole, bondingCurveAddress);
         console2.log(unicode"\n✅ BONDING_CURVE_ROLE granted");
 
+        // 7. Deploy SOFFaucet
+        console2.log(unicode"\n📦 Deploying SOFFaucet...");
+        uint256[] memory allowedChainIds = new uint256[](2);
+        allowedChainIds[0] = 31337; // Anvil
+        allowedChainIds[1] = 84532; // Base Sepolia
+        SOFFaucet sofFaucet = new SOFFaucet(
+            sofTokenAddress,
+            1000e18, // 1000 SOF per request
+            1 days,  // 1 day cooldown
+            allowedChainIds
+        );
+        sofFaucetAddress = address(sofFaucet);
+        console2.log(unicode"\n✅ SOFFaucet deployed:", sofFaucetAddress);
+
+        // 8. Deploy RafflePrizeDistributor
+        console2.log(unicode"\n📦 Deploying RafflePrizeDistributor...");
+        RafflePrizeDistributor prizeDistributor = new RafflePrizeDistributor(deployer);
+        prizeDistributorAddress = address(prizeDistributor);
+        console2.log(unicode"\n✅ RafflePrizeDistributor deployed:", prizeDistributorAddress);
+
+        // 9. Grant RAFFLE_ROLE to raffle in prizeDistributor
+        console2.log(unicode"\n⚙️  Granting RAFFLE_ROLE to Raffle...");
+        bytes32 raffleRole = keccak256("RAFFLE_ROLE");
+        prizeDistributor.grantRole(raffleRole, raffleAddress);
+        console2.log(unicode"\n✅ RAFFLE_ROLE granted");
+
         vm.stopBroadcast();
 
         // Print summary
@@ -92,6 +122,8 @@ contract DeployToSepolia is Script {
         console2.log("Raffle:", raffleAddress);
         console2.log("SeasonFactory:", seasonFactoryAddress);
         console2.log("SOFBondingCurve:", bondingCurveAddress);
+        console2.log("SOFFaucet:", sofFaucetAddress);
+        console2.log("RafflePrizeDistributor:", prizeDistributorAddress);
         console2.log("============================================================");
     }
 }

@@ -60,6 +60,6 @@ export const CONTRACTS = {
  * @returns {ContractAddresses}
  */
 export function getContractAddresses(key) {
-  const k = (key || "LOCAL").toUpperCase();
-  return CONTRACTS[k] || CONTRACTS.LOCAL;
+  const k = (key || "TESTNET").toUpperCase();
+  return CONTRACTS[k] || CONTRACTS.TESTNET;
 }
