@@ -34,10 +34,10 @@ contract DeployToSepolia is Script {
     // Configuration
     uint256 constant INITIAL_SOF_SUPPLY = 100_000_000e18; // 100M SOF
 
-    // VRF Configuration (Base Sepolia)
-    address constant VRF_COORDINATOR = 0xd5d517ABe5Cf79B7e95eC98DB0f0277788aF8a45;
-    uint64 constant VRF_SUBSCRIPTION_ID = 0; // Will be set via environment or manual setup
-    bytes32 constant VRF_KEY_HASH = 0x9e1b49a3bfe90b5c1445b41f6ca7c0ad713d7c8496ada80757bdd57502ccf60b;
+    // VRF v2.5 Configuration (Base Sepolia)
+    address constant VRF_COORDINATOR = 0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE;
+    uint256 constant VRF_SUBSCRIPTION_ID = 1382014555192363513632434541237014010956192746964507769820896673428076803901;
+    bytes32 constant VRF_KEY_HASH = 0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71;
 
     function run() public {
         // Get sender from Frame wallet

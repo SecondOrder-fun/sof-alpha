@@ -23,9 +23,7 @@ export function ContractAddressValidator() {
     setIsValidating(true);
     const results = {};
 
-    // Use Vite env vars directly
-    // Validating core raffle contracts + faucet and prize distributor
-    // Use TESTNET addresses since DEFAULT_NETWORK=TESTNET
+    // Use env variables directly - they should be set in .env
     const contracts = {
       SOF: import.meta.env.VITE_SOF_ADDRESS_TESTNET || '',
       RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || '',
@@ -33,13 +31,9 @@ export function ContractAddressValidator() {
       SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET || '',
       PRIZE_DISTRIBUTOR: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_TESTNET || '',
     };
+
     // eslint-disable-next-line no-console
-    console.log('[ContractAddressValidator] Using Vite env vars:', contracts);
-    // eslint-disable-next-line no-console
-    console.log('[ContractAddressValidator] Raw env vars:', {
-      faucet: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET,
-      distributor: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_TESTNET,
-    });
+    console.log('[ContractAddressValidator] Using addresses:', contracts);
 
     const contractsToValidate = {
       'SOF Token': contracts.SOF,

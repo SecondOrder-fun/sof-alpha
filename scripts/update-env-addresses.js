@@ -17,7 +17,38 @@ import { getAddress as toChecksumAddress } from "viem";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
-const BROADCAST_DIR = path.join(ROOT, "contracts", "broadcast", "Deploy.s.sol");
+const BROADCAST_BASE = path.join(ROOT, "contracts", "broadcast");
+
+// Try to find the most recent deployment across all scripts
+function findBroadcastDir() {
+  const deploymentScripts = [
+    "00_DeployToSepolia.s.sol", // Testnet (Base Sepolia)
+    "Deploy.s.sol",              // Local/Anvil
+  ];
+
+  let mostRecentPath = null;
+  let mostRecentTime = 0;
+
+  for (const script of deploymentScripts) {
+    const scriptDir = path.join(BROADCAST_BASE, script);
+    if (!fs.existsSync(scriptDir)) continue;
+
+    // Check all chain directories
+    const entries = fs.readdirSync(scriptDir);
+    for (const entry of entries) {
+      const chainDir = path.join(scriptDir, entry);
+      const stat = fs.statSync(chainDir);
+      if (stat.isDirectory() && stat.mtimeMs > mostRecentTime) {
+        mostRecentTime = stat.mtimeMs;
+        mostRecentPath = chainDir;
+      }
+    }
+  }
+
+  return mostRecentPath;
+}
+
+const BROADCAST_DIR = findBroadcastDir() || path.join(BROADCAST_BASE, "Deploy.s.sol");
 
 // Map contract names in broadcast to env keys
 const NAME_TO_ENV = {
@@ -38,10 +69,24 @@ const NAME_TO_ENV = {
   VRFCoordinatorV2Mock: "VRF_COORDINATOR",
 };
 
+// VRF configuration keys that should be preserved/updated
+const VRF_CONFIG_KEYS = [
+  "VRF_COORDINATOR_ADDRESS",
+  "VRF_KEY_HASH",
+  "VRF_SUBSCRIPTION_ID",
+];
+
 /**
  * Find the latest broadcast JSON for a given chain id.
  */
 function findLatestBroadcast(chainId = "31337") {
+  // First, try run-latest.json (most reliable)
+  const latestPath = path.join(BROADCAST_DIR, String(chainId), "run-latest.json");
+  if (fs.existsSync(latestPath)) {
+    console.log("Found run-latest.json at:", latestPath);
+    return latestPath;
+  }
+
   const chainDir = path.join(BROADCAST_DIR, String(chainId));
   const runsDir = path.join(chainDir, "runs");
 
@@ -70,9 +115,6 @@ function findLatestBroadcast(chainId = "31337") {
     if (runFiles[0]?.p) return runFiles[0].p;
   }
 
-  // Fallback to run-latest.json
-  const latestPath = path.join(chainDir, "run-latest.json");
-  if (fs.existsSync(latestPath)) return latestPath;
   return null;
 }
 
@@ -194,14 +236,42 @@ function parseDeployAddresses(broadcastDir) {
 }
 
 /**
+ * Extract VRF configuration from existing env file.
+ * Returns a map of VRF config keys with their current values.
+ */
+function extractVrfConfig(filePath, suffix = "_LOCAL") {
+  const vrfConfig = {};
+  if (!fs.existsSync(filePath)) return vrfConfig;
+
+  const content = fs.readFileSync(filePath, "utf8");
+  const lines = content.split(/\r?\n/);
+
+  for (const line of lines) {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const [, key, value] = match;
+
+    // Check if this is a VRF config key with the target suffix
+    for (const vrfKey of VRF_CONFIG_KEYS) {
+      if (key === `${vrfKey}${suffix}`) {
+        vrfConfig[key] = value;
+      }
+    }
+  }
+
+  return vrfConfig;
+}
+
+/**
  * Update an .env-like file with provided key/value pairs.
  * - Preserves existing comments and unrelated lines
  * - Updates existing keys or appends missing ones at the end
+ * - Preserves VRF configuration keys
  */
 function updateEnvFile(
   filePath,
   updates,
-  { prefix = "", suffix = "_LOCAL", sanitizer } = {}
+  { prefix = "", suffix = "_LOCAL", sanitizer, preserveVrfConfig = true } = {}
 ) {
   let content = "";
   if (fs.existsSync(filePath)) {
@@ -209,6 +279,9 @@ function updateEnvFile(
   } else {
     console.warn(`Env file not found, creating: ${filePath}`);
   }
+
+  // Extract VRF config before sanitizing
+  const vrfConfig = preserveVrfConfig ? extractVrfConfig(filePath, suffix) : {};
 
   // Optionally sanitize existing content (e.g., remove misplaced keys)
   if (typeof sanitizer === "function") {
@@ -235,6 +308,13 @@ function updateEnvFile(
       lines[idx] = newLine;
     } else {
       appliedKeys.push(newLine);
+    }
+  }
+
+  // Preserve VRF config keys
+  for (const [vrfKey, vrfValue] of Object.entries(vrfConfig)) {
+    if (!keyLineIndex.has(vrfKey)) {
+      appliedKeys.push(`${vrfKey}=${vrfValue}`);
     }
   }
 
