@@ -1,5 +1,5 @@
 // src/hooks/useFaucet.js
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits } from "viem";
@@ -46,6 +46,33 @@ export function useFaucet() {
       }
     },
     enabled: Boolean(address && isConnected && contracts.SOF),
+    staleTime: 15000, // 15 seconds
+  });
+
+  // Query for faucet balance
+  const {
+    data: faucetBalance = "0",
+    isLoading: isLoadingFaucetBalance,
+  } = useQuery({
+    queryKey: ["faucetBalance", contracts.SOF_FAUCET, contracts.SOF],
+    queryFn: async () => {
+      if (!contracts.SOF_FAUCET || !contracts.SOF) return "0";
+
+      try {
+        const balance = await publicClient.readContract({
+          address: contracts.SOF,
+          abi: ERC20Abi.abi || ERC20Abi,
+          functionName: "balanceOf",
+          args: [contracts.SOF_FAUCET],
+        });
+
+        return formatUnits(balance, 18);
+      } catch (err) {
+        // Silent error handling, returning default value
+        return "0";
+      }
+    },
+    enabled: Boolean(contracts.SOF_FAUCET && contracts.SOF),
     staleTime: 15000, // 15 seconds
   });
 
@@ -212,12 +239,35 @@ export function useFaucet() {
     onSuccess: () => {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+      queryClient.invalidateQueries({ queryKey: ["faucetBalance"] });
       queryClient.invalidateQueries({ queryKey: ["faucetData"] });
     },
     onError: (err) => {
       setError(err.message || "Failed to contribute karma");
     },
   });
+
+  // Listen for KarmaReceived events to update faucet balance and user balance in real-time
+  useEffect(() => {
+    if (!publicClient || !contracts.SOF_FAUCET) return;
+
+    // Set up event listener for KarmaReceived events
+    const unwatch = publicClient.watchContractEvent({
+      address: contracts.SOF_FAUCET,
+      abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+      eventName: "KarmaReceived",
+      onLogs: () => {
+        // Refetch both faucet balance and user balance when karma is received
+        queryClient.invalidateQueries({ queryKey: ["faucetBalance"] });
+        queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+      },
+    });
+
+    // Clean up listener on unmount
+    return () => {
+      if (unwatch) unwatch();
+    };
+  }, [publicClient, contracts.SOF_FAUCET, queryClient]);
 
   // Calculate time remaining until next claim
   const getTimeRemaining = () => {
@@ -241,10 +291,12 @@ export function useFaucet() {
 
   return {
     sofBalance,
+    faucetBalance,
     faucetData,
     isLoading:
       isLoadingBalance ||
       isLoadingFaucet ||
+      isLoadingFaucetBalance ||
       claimMutation.isPending ||
       karmaMutation.isPending,
     error,

@@ -39,13 +39,17 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
     canTransferToTreasury,
     extractFees,
     transferToTreasury,
+    updateTreasuryAddress,
     isExtracting,
     isExtractConfirmed,
     extractError,
     isTransferring,
     isTransferConfirmed,
     transferError,
-  } = useTreasury(seasonId);
+    isUpdatingTreasury: hookIsUpdatingTreasury,
+    isUpdateConfirmed,
+    updateError,
+  } = useTreasury(seasonId, bondingCurveAddress);
 
   const { curveReserves, curveFees } = useCurveState(bondingCurveAddress, {
     isActive: true,
@@ -86,6 +90,7 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
   const [transferAmount, setTransferAmount] = useState("");
   const [lastExtractAmount, setLastExtractAmount] = useState(null);
   const [lastTransferAmount, setLastTransferAmount] = useState(null);
+  const [newTreasuryAddress, setNewTreasuryAddress] = useState("");
   const { toast } = useToast();
 
   const handleExtract = async () => {
@@ -111,6 +116,20 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
     if (!treasuryBalanceRaw) return;
     setLastTransferAmount(parseFloat(formatEther(treasuryBalanceRaw)));
     await transferToTreasury(treasuryBalanceRaw);
+  };
+
+  const handleUpdateTreasuryAddress = async () => {
+    if (!newTreasuryAddress || !/^0x[a-fA-F0-9]{40}$/.test(newTreasuryAddress)) {
+      toast({
+        title: "Invalid address",
+        description: "Please enter a valid Ethereum address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await updateTreasuryAddress(newTreasuryAddress);
+    setNewTreasuryAddress("");
   };
 
   useEffect(() => {
@@ -392,6 +411,48 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
             </div>
           </div>
         )}
+
+        <Separator />
+
+        {/* Treasury Address Management */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Update Treasury Address</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Change the address where extracted fees are sent
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="treasury-address">New Treasury Address</Label>
+            <div className="flex gap-2">
+              <Input
+                id="treasury-address"
+                type="text"
+                placeholder="0x..."
+                value={newTreasuryAddress}
+                onChange={(e) => setNewTreasuryAddress(e.target.value)}
+                disabled={hookIsUpdatingTreasury}
+              />
+              <Button
+                onClick={handleUpdateTreasuryAddress}
+                disabled={hookIsUpdatingTreasury || !newTreasuryAddress}
+                variant="outline"
+              >
+                {hookIsUpdatingTreasury ? "Updating..." : "Update"}
+              </Button>
+            </div>
+          </div>
+
+          {treasuryAddress && (
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium">Current Treasury Address:</p>
+              <p className="font-mono text-xs break-all">
+                {treasuryAddress}
+              </p>
+            </div>
+          )}
+        </div>
 
         <Separator />
 

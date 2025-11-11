@@ -1,7 +1,8 @@
 import { publicClient } from '../lib/viemClient.js';
 import { db } from '../../shared/supabaseClient.js';
 import { oracleCallService } from '../services/oracleCallService.js';
-import { getPaymasterService } from '../services/paymasterService.js';
+// TODO: Re-enable Paymaster service once viem account-abstraction is properly configured
+// import { getPaymasterService } from '../services/paymasterService.js';
 import { getSSEService } from '../services/sseService.js';
 
 // Simple ERC20 ABI for totalSupply() call
@@ -56,18 +57,19 @@ export async function startPositionUpdateListener(
   }
 
   // Initialize services
-  const paymasterService = getPaymasterService(logger);
+  // TODO: Re-enable Paymaster service once viem account-abstraction is properly configured
+  // const paymasterService = getPaymasterService(logger);
   const sseService = getSSEService(logger);
 
   // Initialize Paymaster service if not already done
-  if (!paymasterService.initialized) {
-    try {
-      await paymasterService.initialize();
-    } catch (error) {
-      logger.warn(`⚠️  PaymasterService initialization failed: ${error.message}`);
-      logger.warn(`   Market creation will not be available`);
-    }
-  }
+  // if (!paymasterService.initialized) {
+  //   try {
+  //     await paymasterService.initialize();
+  //   } catch (error) {
+  //     logger.warn(`⚠️  PaymasterService initialization failed: ${error.message}`);
+  //     logger.warn(`   Market creation will not be available`);
+  //   }
+  // }
 
   // Fetch max supply once at listener startup
   let maxSupply = null;
@@ -232,55 +234,57 @@ export async function startPositionUpdateListener(
               probability: newProbabilityBps,
             });
 
+            // TODO: Re-enable Paymaster market creation once viem account-abstraction is properly configured
             // Trigger Paymaster market creation if service is initialized
-            if (paymasterService.initialized) {
-              try {
-                logger.info(`🚀 Submitting gasless market creation via Paymaster...`);
-                const result = await paymasterService.createMarket(
-                  {
-                    seasonId: seasonIdNum,
-                    player,
-                    oldTickets: oldTicketsNum,
-                    newTickets: newTicketsNum,
-                    totalTickets: totalTicketsNum,
-                    infoFiFactoryAddress,
-                  },
-                  logger
-                );
+            // if (paymasterService.initialized) {
+            //   try {
+            //     logger.info(`🚀 Submitting gasless market creation via Paymaster...`);
+            //     const result = await paymasterService.createMarket(
+            //       {
+            //         seasonId: seasonIdNum,
+            //         player,
+            //         oldTickets: oldTicketsNum,
+            //         newTickets: newTicketsNum,
+            //         totalTickets: totalTicketsNum,
+            //         infoFiFactoryAddress,
+            //       },
+            //       logger
+            //     );
 
-                if (result.success) {
-                  logger.info(
-                    `✅ Market creation confirmed: ${result.hash} (attempts: ${result.attempts})`
-                  );
-                  // Broadcast market creation confirmed event
-                  sseService.broadcastMarketCreationConfirmed({
-                    seasonId: seasonIdNum,
-                    player,
-                    transactionHash: result.hash,
-                    marketAddress: 'pending', // Will be updated when market is created
-                  });
-                } else {
-                  logger.error(
-                    `❌ Market creation failed: ${result.error} (attempts: ${result.attempts})`
-                  );
-                  // Broadcast market creation failed event
-                  sseService.broadcastMarketCreationFailed({
-                    seasonId: seasonIdNum,
-                    player,
-                    error: result.error,
-                  });
-                }
-              } catch (error) {
-                logger.error(`❌ Market creation error: ${error.message}`);
-                sseService.broadcastMarketCreationFailed({
-                  seasonId: seasonIdNum,
-                  player,
-                  error: error.message,
-                });
-              }
-            } else {
-              logger.warn(`⚠️  PaymasterService not initialized, skipping market creation`);
-            }
+            //     if (result.success) {
+            //       logger.info(
+            //         `✅ Market creation confirmed: ${result.hash} (attempts: ${result.attempts})`
+            //       );
+            //       // Broadcast market creation confirmed event
+            //       sseService.broadcastMarketCreationConfirmed({
+            //         seasonId: seasonIdNum,
+            //         player,
+            //         transactionHash: result.hash,
+            //         marketAddress: 'pending', // Will be updated when market is created
+            //       });
+            //     } else {
+            //       logger.error(
+            //         `❌ Market creation failed: ${result.error} (attempts: ${result.attempts})`
+            //       );
+            //       // Broadcast market creation failed event
+            //       sseService.broadcastMarketCreationFailed({
+            //         seasonId: seasonIdNum,
+            //         player,
+            //         error: result.error,
+            //       });
+            //     }
+            //   } catch (error) {
+            //     logger.error(`❌ Market creation error: ${error.message}`);
+            //     sseService.broadcastMarketCreationFailed({
+            //       seasonId: seasonIdNum,
+            //       player,
+            //       error: error.message,
+            //     });
+            //   }
+            // } else {
+            //   logger.warn(`⚠️  PaymasterService not initialized, skipping market creation`);
+            // }
+            logger.info(`⏭️  Paymaster market creation temporarily disabled (viem account-abstraction pending)`);
           }
 
           // Log success with detailed information

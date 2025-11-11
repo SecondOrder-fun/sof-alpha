@@ -33,7 +33,6 @@ contract DeployToSepolia is Script {
 
     // Configuration
     uint256 constant INITIAL_SOF_SUPPLY = 100_000_000e18; // 100M SOF
-    address constant TREASURY = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // Treasury address
 
     // VRF Configuration (Base Sepolia)
     address constant VRF_COORDINATOR = 0xd5d517ABe5Cf79B7e95eC98DB0f0277788aF8a45;
@@ -50,7 +49,7 @@ contract DeployToSepolia is Script {
 
         // 1. Deploy SOF Token
         console2.log(unicode"\n📦 Deploying SOF Token...");
-        SOFToken sofToken = new SOFToken("SecondOrder Fun", "SOF", INITIAL_SOF_SUPPLY, TREASURY);
+        SOFToken sofToken = new SOFToken("SecondOrder Fun", "SOF", INITIAL_SOF_SUPPLY, deployer);
         sofTokenAddress = address(sofToken);
         console2.log(unicode"✅ SOF Token deployed:", sofTokenAddress);
 
@@ -111,6 +110,12 @@ contract DeployToSepolia is Script {
         bytes32 raffleRole = keccak256("RAFFLE_ROLE");
         prizeDistributor.grantRole(raffleRole, raffleAddress);
         console2.log(unicode"\n✅ RAFFLE_ROLE granted");
+
+        // 10. Fund SOFFaucet with SOF tokens
+        console2.log(unicode"\n💰 Funding SOFFaucet with SOF tokens...");
+        uint256 faucetFundAmount = 100_000e18; // 100,000 SOF for faucet
+        sofToken.transfer(sofFaucetAddress, faucetFundAmount);
+        console2.log(unicode"\n✅ SOFFaucet funded with", faucetFundAmount / 1e18, "SOF");
 
         vm.stopBroadcast();
 

@@ -16,7 +16,8 @@ const FaucetWidget = () => {
   const { t } = useTranslation('common');
   const { isConnected } = useAccount();
   const { 
-    sofBalance, 
+    sofBalance,
+    faucetBalance,
     faucetData, 
     isLoading, 
     error, 
@@ -68,7 +69,7 @@ const FaucetWidget = () => {
       const result = await contributeKarma(karmaAmount);
       if (result?.hash) {
         setTxHash(result.hash);
-        setKarmaAmount(''); // Reset input after successful contribution
+        setKarmaAmount(''); // Reset input to empty after successful contribution
       }
     } catch (err) {
       // Error is handled by the hook
@@ -105,7 +106,7 @@ const FaucetWidget = () => {
           </Alert>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">{t('yourSofBalance')}</h3>
                 <p className="text-2xl font-bold">{parseFloat(sofBalance).toLocaleString()} SOF</p>
@@ -115,6 +116,10 @@ const FaucetWidget = () => {
                 <p className="text-2xl font-bold">
                   {faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0'} SOF
                 </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Faucet Balance</h3>
+                <p className="text-2xl font-bold">{parseFloat(faucetBalance).toLocaleString()} SOF</p>
               </div>
             </div>
             

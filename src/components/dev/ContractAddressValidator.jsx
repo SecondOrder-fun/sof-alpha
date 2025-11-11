@@ -24,20 +24,29 @@ export function ContractAddressValidator() {
     const results = {};
 
     // Use Vite env vars directly
-    // Only validating core raffle contracts for now
+    // Validating core raffle contracts + faucet and prize distributor
     // Use TESTNET addresses since DEFAULT_NETWORK=TESTNET
     const contracts = {
       SOF: import.meta.env.VITE_SOF_ADDRESS_TESTNET || '',
       RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || '',
       SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_TESTNET || '',
+      SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET || '',
+      PRIZE_DISTRIBUTOR: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_TESTNET || '',
     };
     // eslint-disable-next-line no-console
     console.log('[ContractAddressValidator] Using Vite env vars:', contracts);
+    // eslint-disable-next-line no-console
+    console.log('[ContractAddressValidator] Raw env vars:', {
+      faucet: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET,
+      distributor: import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_TESTNET,
+    });
 
     const contractsToValidate = {
       'SOF Token': contracts.SOF,
       'Raffle': contracts.RAFFLE,
       'Season Factory': contracts.SEASON_FACTORY,
+      'SOF Faucet': contracts.SOF_FAUCET,
+      'Prize Distributor': contracts.PRIZE_DISTRIBUTOR,
     };
 
     for (const [name, address] of Object.entries(contractsToValidate)) {

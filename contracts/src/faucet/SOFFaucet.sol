@@ -29,6 +29,10 @@ contract SOFFaucet is Ownable, ReentrancyGuard {
     event AmountPerRequestChanged(uint256 newAmount);
     event CooldownPeriodChanged(uint256 newPeriod);
     event KarmaReceived(address indexed contributor, uint256 amount);
+    
+    // Debug events
+    event DebugLog(string label, uint256 value);
+    event DebugAddress(string label, address value);
 
     constructor(
         address _sofToken,
@@ -56,7 +60,11 @@ contract SOFFaucet is Ownable, ReentrancyGuard {
             chainId := chainid()
         }
 
+        // DEBUG: Log chain ID and allowed chains
+        emit DebugLog("Current chain ID", chainId);
+        emit DebugLog("Allowed chains count", allowedChainIds.length);
         for (uint256 i = 0; i < allowedChainIds.length; i++) {
+            emit DebugLog("Allowed chain", allowedChainIds[i]);
             if (chainId == allowedChainIds[i]) {
                 validChain = true;
                 break;
@@ -65,18 +73,43 @@ contract SOFFaucet is Ownable, ReentrancyGuard {
         require(validChain, "Faucet not available on this network");
 
         // Check cooldown period
+        uint256 lastClaim = lastClaimTime[msg.sender];
+        uint256 nextClaimTime = lastClaim + cooldownPeriod;
+        emit DebugLog("Last claim time", lastClaim);
+        emit DebugLog("Cooldown period", cooldownPeriod);
+        emit DebugLog("Next claim time", nextClaimTime);
+        emit DebugLog("Current block timestamp", block.timestamp);
+        
         require(
-            block.timestamp >= lastClaimTime[msg.sender] + cooldownPeriod || lastClaimTime[msg.sender] == 0,
+            block.timestamp >= nextClaimTime || lastClaim == 0,
             "Cooldown period not yet passed"
         );
+
+        // DEBUG: Log amount and balance
+        emit DebugLog("Amount per request", amountPerRequest);
+        uint256 faucetBalance = sofToken.balanceOf(address(this));
+        emit DebugLog("Faucet balance", faucetBalance);
+        emit DebugAddress("SOF token address", address(sofToken));
+        emit DebugAddress("Recipient address", msg.sender);
 
         // Update last claim time
         lastClaimTime[msg.sender] = block.timestamp;
 
         // Transfer tokens
-        require(sofToken.transfer(msg.sender, amountPerRequest), "Token transfer failed");
+        bool transferSuccess = sofToken.transfer(msg.sender, amountPerRequest);
+        emit DebugLog("Transfer success", transferSuccess ? 1 : 0);
+        require(transferSuccess, "Token transfer failed");
 
         emit TokensDispensed(msg.sender, amountPerRequest);
+    }
+
+    /**
+     * @dev Update the SOF token address (in case wrong token was set during deployment)
+     * @param _sofToken New SOF token address
+     */
+    function setSofToken(address _sofToken) external onlyOwner {
+        require(_sofToken != address(0), "Invalid token address");
+        sofToken = IERC20(_sofToken);
     }
 
     /**
