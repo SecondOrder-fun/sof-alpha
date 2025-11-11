@@ -14,18 +14,20 @@ const initialNetworkKey = (() => {
   }
 })();
 
-const { chain: initialChain, transport: initialTransport } = getChainConfig(initialNetworkKey);
+// Build chain config for TESTNET only
+const testnetChainConfig = getChainConfig('TESTNET');
 
 // Export initial chain for RainbowKitProvider
-export const getInitialChain = () => initialChain;
+export const getInitialChain = () => testnetChainConfig.chain;
 
 // Create config ONCE at module load - this prevents re-initialization
+// Note: WalletConnect disabled (no valid projectId) - using injected providers only
 const config = getDefaultConfig({
   appName: 'SecondOrder.fun',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
-  chains: [initialChain],
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '', // Empty to disable WalletConnect
+  chains: [testnetChainConfig.chain],
   transports: {
-    [initialChain.id]: initialTransport,
+    [testnetChainConfig.chain.id]: testnetChainConfig.transport,
   },
   ssr: false, // Client-only app, prevents SSR-related re-initialization
   multiInjectedProviderDiscovery: false, // Prevent provider re-discovery on mount

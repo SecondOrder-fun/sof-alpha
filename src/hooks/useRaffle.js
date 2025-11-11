@@ -4,10 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { RaffleAbi, ERC20Abi, RafflePositionTrackerAbi, SOFBondingCurveAbi } from '@/utils/abis';
+import { RaffleAbi, ERC20Abi, SOFBondingCurveAbi } from '@/utils/abis';
 
 // Create aliases for consistency with code usage
-const RaffleTrackerAbi = RafflePositionTrackerAbi;
 const CurveAbi = SOFBondingCurveAbi;
 
 /**
@@ -107,25 +106,25 @@ export function useRaffle(seasonId) {
     isLoading: isLoadingUserPosition,
     refetch: refetchUserPosition
   } = useQuery({
-    queryKey: ['userPosition', address, seasonId, contracts.RAFFLE_TRACKER],
+    queryKey: ['userPosition', address, seasonId, contracts.RAFFLE],
     queryFn: async () => {
-      if (!address || !isConnected || !contracts.RAFFLE_TRACKER || !seasonId) {
+      if (!address || !isConnected || !contracts.RAFFLE || !seasonId) {
         return { ticketCount: 0, startRange: 0, probability: 0 };
       }
       
       try {
-        // Get user's position from tracker
+        // Get user's position from Raffle contract
         const position = await publicClient.readContract({
-          address: contracts.RAFFLE_TRACKER,
-          abi: RaffleTrackerAbi,
-          functionName: 'getPosition',
+          address: contracts.RAFFLE,
+          abi: RaffleAbi,
+          functionName: 'getPlayerPosition',
           args: [seasonId, address],
         });
         
         // Get total tickets for probability calculation
         const totalTickets = await publicClient.readContract({
-          address: contracts.RAFFLE_TRACKER,
-          abi: RaffleTrackerAbi,
+          address: contracts.RAFFLE,
+          abi: RaffleAbi,
           functionName: 'getTotalTickets',
           args: [seasonId],
         });
@@ -143,7 +142,7 @@ export function useRaffle(seasonId) {
         return { ticketCount: 0, startRange: 0, probability: 0 };
       }
     },
-    enabled: Boolean(address && isConnected && contracts.RAFFLE_TRACKER && seasonId),
+    enabled: Boolean(address && isConnected && contracts.RAFFLE && seasonId),
     staleTime: 30000, // 30 seconds
   });
   
