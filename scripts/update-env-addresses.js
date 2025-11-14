@@ -19,36 +19,8 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const BROADCAST_BASE = path.join(ROOT, "contracts", "broadcast");
 
-// Try to find the most recent deployment across all scripts
-function findBroadcastDir() {
-  const deploymentScripts = [
-    "00_DeployToSepolia.s.sol", // Testnet (Base Sepolia)
-    "Deploy.s.sol",              // Local/Anvil
-  ];
-
-  let mostRecentPath = null;
-  let mostRecentTime = 0;
-
-  for (const script of deploymentScripts) {
-    const scriptDir = path.join(BROADCAST_BASE, script);
-    if (!fs.existsSync(scriptDir)) continue;
-
-    // Check all chain directories
-    const entries = fs.readdirSync(scriptDir);
-    for (const entry of entries) {
-      const chainDir = path.join(scriptDir, entry);
-      const stat = fs.statSync(chainDir);
-      if (stat.isDirectory() && stat.mtimeMs > mostRecentTime) {
-        mostRecentTime = stat.mtimeMs;
-        mostRecentPath = chainDir;
-      }
-    }
-  }
-
-  return mostRecentPath;
-}
-
-const BROADCAST_DIR = findBroadcastDir() || path.join(BROADCAST_BASE, "Deploy.s.sol");
+// Base directory for Foundry broadcast artifacts
+const BROADCAST_DIR = BROADCAST_BASE;
 
 // Map contract names in broadcast to env keys
 const NAME_TO_ENV = {
@@ -78,44 +50,72 @@ const VRF_CONFIG_KEYS = [
 
 /**
  * Find the latest broadcast JSON for a given chain id.
+ * Searches across all deployment scripts and returns the most recent broadcast.
  */
-function findLatestBroadcast(chainId = "31337") {
-  // First, try run-latest.json (most reliable)
-  const latestPath = path.join(BROADCAST_DIR, String(chainId), "run-latest.json");
-  if (fs.existsSync(latestPath)) {
-    console.log("Found run-latest.json at:", latestPath);
-    return latestPath;
-  }
+function findLatestBroadcast(chainId) {
+  if (!chainId) return null;
+  const deploymentScripts = [
+    "00_DeployToSepolia.s.sol", // Testnet (Base Sepolia)
+    "Deploy.s.sol",              // Local/Anvil
+  ];
 
-  const chainDir = path.join(BROADCAST_DIR, String(chainId));
-  const runsDir = path.join(chainDir, "runs");
+  let mostRecentPath = null;
+  let mostRecentTime = 0;
 
-  // Prefer the most recent run.json under runs/*
-  if (fs.existsSync(runsDir)) {
-    const candidates = [];
-    for (const entry of fs.readdirSync(runsDir)) {
-      const p = path.join(runsDir, entry, "run.json");
-      if (fs.existsSync(p)) {
-        const stat = fs.statSync(p);
-        candidates.push({ p, mtime: stat.mtimeMs });
+  for (const script of deploymentScripts) {
+    const scriptDir = path.join(BROADCAST_BASE, script);
+    if (!fs.existsSync(scriptDir)) continue;
+
+    // First, try run-latest.json (most reliable)
+    const latestPath = path.join(scriptDir, String(chainId), "run-latest.json");
+    if (fs.existsSync(latestPath)) {
+      const stat = fs.statSync(latestPath);
+      if (stat.mtimeMs > mostRecentTime) {
+        mostRecentTime = stat.mtimeMs;
+        mostRecentPath = latestPath;
+        console.log("Found run-latest.json at:", latestPath);
       }
     }
-    candidates.sort((a, b) => b.mtime - a.mtime);
-    if (candidates[0]?.p) return candidates[0].p;
+
+    const chainDir = path.join(scriptDir, String(chainId));
+    const runsDir = path.join(chainDir, "runs");
+
+    // Prefer the most recent run.json under runs/*
+    if (fs.existsSync(runsDir)) {
+      const candidates = [];
+      for (const entry of fs.readdirSync(runsDir)) {
+        const p = path.join(runsDir, entry, "run.json");
+        if (fs.existsSync(p)) {
+          const stat = fs.statSync(p);
+          candidates.push({ p, mtime: stat.mtimeMs });
+        }
+      }
+      candidates.sort((a, b) => b.mtime - a.mtime);
+      if (candidates[0]?.p && candidates[0].mtime > mostRecentTime) {
+        mostRecentTime = candidates[0].mtime;
+        mostRecentPath = candidates[0].p;
+      }
+    }
+
+    // Next, pick the newest top-level run-<timestamp>.json
+    if (fs.existsSync(chainDir)) {
+      const runFiles = fs
+        .readdirSync(chainDir)
+        .filter((f) => /^run-\d+\.json$/.test(f))
+        .map((f) => path.join(chainDir, f))
+        .map((p) => ({ p, mtime: fs.statSync(p).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      if (runFiles[0]?.p && runFiles[0].mtime > mostRecentTime) {
+        mostRecentTime = runFiles[0].mtime;
+        mostRecentPath = runFiles[0].p;
+      }
+    }
   }
 
-  // Next, pick the newest top-level run-<timestamp>.json
-  if (fs.existsSync(chainDir)) {
-    const runFiles = fs
-      .readdirSync(chainDir)
-      .filter((f) => /^run-\d+\.json$/.test(f))
-      .map((f) => path.join(chainDir, f))
-      .map((p) => ({ p, mtime: fs.statSync(p).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    if (runFiles[0]?.p) return runFiles[0].p;
+  if (mostRecentPath) {
+    console.log("Using most recent broadcast:", mostRecentPath);
   }
-
-  return null;
+  return mostRecentPath;
 }
 
 /**
@@ -189,15 +189,24 @@ function buildFromExample(
 /**
  * Parse addresses from broadcast file.
  */
-function parseDeployAddresses(broadcastDir) {
-  const broadcastPath = findLatestBroadcast();
+function parseDeployAddresses(broadcastDir, chainId) {
+  const broadcastPath = findLatestBroadcast(chainId);
   if (!broadcastPath) {
     console.error(
-      "Could not find broadcast output. Looked under:",
+      "Could not find broadcast output for chainId:",
+      chainId,
+      "Looked under:",
       broadcastDir
     );
     process.exit(1);
   }
+
+  // High-signal log: exactly which broadcast file is being used
+  console.log("\n=== Using Foundry broadcast ===");
+  console.log("  Chain ID:      ", chainId);
+  console.log("  Broadcast dir: ", broadcastDir);
+  console.log("  Broadcast file:", broadcastPath);
+  console.log("=== ======================= ===\n");
 
   const raw = fs.readFileSync(broadcastPath, "utf8");
   let json;
@@ -333,19 +342,59 @@ function updateEnvFile(
 }
 
 function main() {
-  const network = process.env.NETWORK || process.env.DEFAULT_NETWORK || "LOCAL";
-  const chainId =
-    process.env.CHAIN_ID ||
-    (network === "LOCAL" ? "31337" : process.env.TESTNET_CHAIN_ID || "");
+  // Detect network from environment or command line
+  let network = process.env.NETWORK || process.env.DEFAULT_NETWORK;
+  let chainId = process.env.CHAIN_ID;
 
+  // If not explicitly set, try to detect from broadcast directory
+  if (!network || !chainId) {
+    console.log("Detecting network from broadcast directory...");
+    
+    // Check which deployment script has the most recent broadcast
+    const sepoliaDir = path.join(BROADCAST_BASE, "00_DeployToSepolia.s.sol");
+    const localDir = path.join(BROADCAST_BASE, "Deploy.s.sol");
+    
+    let sepoliaTime = 0;
+    let localTime = 0;
+    
+    // Check Sepolia (84532 = Base Sepolia)
+    const sepoliaLatest = path.join(sepoliaDir, "84532", "run-latest.json");
+    if (fs.existsSync(sepoliaLatest)) {
+      sepoliaTime = fs.statSync(sepoliaLatest).mtimeMs;
+    }
+    
+    // Check Local (31337 = Anvil)
+    const localLatest = path.join(localDir, "31337", "run-latest.json");
+    if (fs.existsSync(localLatest)) {
+      localTime = fs.statSync(localLatest).mtimeMs;
+    }
+    
+    if (sepoliaTime > localTime && sepoliaTime > 0) {
+      network = "TESTNET";
+      chainId = "84532";
+      console.log("✓ Detected TESTNET deployment (Base Sepolia, chainId: 84532)");
+    } else if (localTime > 0) {
+      network = "LOCAL";
+      chainId = "31337";
+      console.log("✓ Detected LOCAL deployment (Anvil, chainId: 31337)");
+    } else {
+      console.error("Could not detect network from broadcast files.");
+      console.error("Looked in:", sepoliaDir, "and", localDir);
+      process.exit(1);
+    }
+  }
+
+  // Validate chainId
   if (!chainId) {
     console.error(
-      "Could not determine chainId. Set CHAIN_ID or TESTNET_CHAIN_ID."
+      "Could not determine chainId. Set CHAIN_ID or ensure broadcast files exist."
     );
     process.exit(1);
   }
 
-  const addrMap = parseDeployAddresses(BROADCAST_DIR);
+  console.log(`\n📦 Updating environment for ${network} (chainId: ${chainId})`);
+
+  const addrMap = parseDeployAddresses(BROADCAST_DIR, chainId);
   if (!Object.keys(addrMap).length) {
     console.error("No known contract addresses found in broadcast file.");
     process.exit(1);
@@ -353,7 +402,6 @@ function main() {
 
   // Prepare updates for backend and frontend
   const backendUpdates = {};
-  const frontendUpdates = {};
   for (const [base, address] of Object.entries(addrMap)) {
     // Normalize to EIP-55 checksum casing for clarity in logs and UIs
     let checksummed = address;
@@ -362,19 +410,19 @@ function main() {
     } catch (_) {
       // If normalization fails, keep original (may be CREATE2 or non-standard), still valid on-chain
     }
-    backendUpdates[base] = checksummed; // e.g., RAFFLE_ADDRESS_LOCAL
-    frontendUpdates[base] = checksummed; // e.g., VITE_RAFFLE_ADDRESS_LOCAL
+    backendUpdates[base] = checksummed;
   }
 
   const envPath = path.join(ROOT, ".env");
   const envLocalPath = path.join(ROOT, ".env.local");
   const contractsEnvLocalPath = path.join(ROOT, "contracts", ".env.local");
 
-  // Determine suffix based on target network
-  const envSuffix =
-    (network || "").toUpperCase() === "TESTNET" ? "_TESTNET" : "_LOCAL";
+  // Determine suffix based on detected network
+  const envSuffix = network.toUpperCase() === "TESTNET" ? "_TESTNET" : "_LOCAL";
+  console.log(`Using suffix: ${envSuffix}`);
 
   // Update .env in-place (backend keys with suffix)
+  console.log(`\n📝 Updating ${envPath} with backend addresses...`);
   updateEnvFile(envPath, backendUpdates, {
     prefix: "",
     suffix: envSuffix,
@@ -382,6 +430,7 @@ function main() {
   });
 
   // Also write VITE_ keys with suffix into .env for frontend
+  console.log(`📝 Updating ${envPath} with frontend addresses (VITE_ prefix)...`);
   updateEnvFile(envPath, backendUpdates, {
     prefix: "VITE_",
     suffix: envSuffix,
@@ -390,6 +439,7 @@ function main() {
 
   // If .env.local exists, mirror only VITE_ keys there (optional convenience)
   if (fs.existsSync(envLocalPath)) {
+    console.log(`📝 Updating ${envLocalPath} with frontend addresses...`);
     updateEnvFile(envLocalPath, backendUpdates, {
       prefix: "VITE_",
       suffix: envSuffix,
@@ -400,6 +450,7 @@ function main() {
   // Update contracts/.env.local with plain keys (no suffix, no prefix)
   // This is used by deployment scripts and tests
   if (fs.existsSync(contractsEnvLocalPath)) {
+    console.log(`📝 Updating ${contractsEnvLocalPath} with contract addresses...`);
     updateEnvFile(contractsEnvLocalPath, backendUpdates, {
       prefix: "",
       suffix: "",
@@ -408,14 +459,15 @@ function main() {
   }
 
   // Console summary
-  console.log(
-    "Updated environment with deployed addresses (network=%s, chainId=%s):",
-    network,
-    chainId
-  );
+  console.log(`\n✅ Successfully updated environment with deployed addresses:`);
+  console.log(`   Network: ${network}`);
+  console.log(`   Chain ID: ${chainId}`);
+  console.log(`   Suffix: ${envSuffix}`);
+  console.log(`\n📋 Deployed Contracts:`);
   for (const [k, v] of Object.entries(addrMap)) {
-    console.log(`  ${k}: ${v}`);
+    console.log(`   ${k}: ${v}`);
   }
+  console.log("");
 }
 
 try {

@@ -83,6 +83,8 @@
   "wrongChain": "Wrong Chain ({{chainId}})",
   "missingSeasonCreatorRole": "Missing SEASON_CREATOR_ROLE",
   "start": "Start",
+  "errorLabel": "Error",
+  "checkConsoleForDetails": "Check browser console for details",
   "requestingEnd": "Requesting End…",
   "requestEnd": "Request End",
   "fundDistributor": "Fund Distributor",

@@ -30,7 +30,14 @@ export function useRaffleAdmin(seasonId) {
 
   // Expose a stable callback with the delegated mutation
   const handleRequestSeasonEnd = async () => {
-    await requestSeasonEnd.mutateAsync({ seasonId: typeof seasonId === 'bigint' ? seasonId : BigInt(seasonId) });
+    try {
+      console.log('[useRaffleAdmin] Requesting season end for seasonId:', seasonId);
+      await requestSeasonEnd.mutateAsync({ seasonId: typeof seasonId === 'bigint' ? seasonId : BigInt(seasonId) });
+      console.log('[useRaffleAdmin] Season end request submitted successfully');
+    } catch (error) {
+      console.error('[useRaffleAdmin] Error requesting season end:', error);
+      throw error;
+    }
   };
 
   return {

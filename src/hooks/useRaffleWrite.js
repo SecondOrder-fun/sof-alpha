@@ -42,11 +42,24 @@ function useContractWriteWithFeedback(mutationOptions) {
     }
     
     const decoded = decodeRevert(abi, err);
-    if (decoded) return decoded;
+    if (decoded) {
+      console.log('[useRaffleWrite] Decoded revert:', decoded);
+      return decoded;
+    }
     // viem provides shortMessage/metaMessages frequently
-    if (err?.shortMessage) return err.shortMessage;
-    if (Array.isArray(err?.metaMessages) && err.metaMessages.length > 0) return err.metaMessages.join('\n');
-    if (err?.message) return err.message;
+    if (err?.shortMessage) {
+      console.log('[useRaffleWrite] Using shortMessage:', err.shortMessage);
+      return err.shortMessage;
+    }
+    if (Array.isArray(err?.metaMessages) && err.metaMessages.length > 0) {
+      console.log('[useRaffleWrite] Using metaMessages:', err.metaMessages);
+      return err.metaMessages.join('\n');
+    }
+    if (err?.message) {
+      console.log('[useRaffleWrite] Using message:', err.message);
+      return err.message;
+    }
+    console.log('[useRaffleWrite] Using fallback:', fallback, 'Full error:', err);
     return fallback;
   };
 

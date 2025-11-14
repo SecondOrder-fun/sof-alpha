@@ -168,6 +168,64 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
   const hasZeroBalance = !isBalanceLoading && requiresBalance && sofBalanceBigInt === 0n;
 
   const getReadableError = (err) => {
+    // Try to extract revert reason from error message
+    if (err?.message) {
+      // Custom error mapping - matches new custom error names
+      const errorMap = {
+        'CurveNotInitialized': 'Bonding curve not initialized',
+        'CurveAlreadyInitialized': 'Bonding curve already initialized',
+        'TradingLocked': 'Trading is locked - Season has ended',
+        'TradingNotLocked': 'Trading is not locked',
+        'AmountZero': 'Amount must be greater than 0',
+        'AmountTooLarge': 'Amount is too large',
+        'SlippageExceeded': 'Price slippage exceeded - try increasing slippage tolerance',
+        'ExceedsMaxSupply': 'Purchase would exceed maximum supply',
+        'InsufficientReserves': 'Insufficient reserves in bonding curve',
+        'InsufficientSupply': 'Insufficient supply to sell',
+        'InsufficientBalance': 'Insufficient balance',
+        'InvalidAddress': 'Invalid address provided',
+        'InvalidBondSteps': 'Invalid bond steps configuration',
+        'InvalidBondStepRange': 'Invalid bond step range',
+        'InvalidBondStepPrice': 'Invalid bond step price',
+        'InvalidBondStepOrder': 'Bond steps must be in ascending order',
+        'BondStepOverflow': 'Bond step value overflow',
+        'RaffleAlreadySet': 'Raffle contract already set',
+        'RaffleNotSet': 'Raffle contract not set',
+        'FeeTooHigh': 'Fee is too high',
+        'SeasonNotFound': 'Season not found',
+        'SeasonNotActive': 'Season is not active',
+        'SeasonNotEnded': 'Season has not ended',
+        'SeasonAlreadyStarted': 'Season already started',
+        'SeasonAlreadyEnded': 'Season already ended',
+        'InvalidSeasonStatus': 'Invalid season status',
+        'FactoryNotSet': 'Season factory not set',
+        'DistributorNotSet': 'Prize distributor not set',
+        'InvalidBasisPoints': 'Invalid basis points value',
+        'InvalidSeasonName': 'Season name cannot be empty',
+        'InvalidStartTime': 'Start time must be in the future',
+        'InvalidEndTime': 'End time must be after start time',
+      };
+
+      // Check for custom error names in the message
+      for (const [errorName, readableMsg] of Object.entries(errorMap)) {
+        if (err.message.includes(errorName)) {
+          return readableMsg;
+        }
+      }
+      
+      // Match common revert patterns
+      const revertMatch = err.message.match(/revert (.*?)(?:\n|$)/);
+      if (revertMatch && revertMatch[1]) {
+        return revertMatch[1];
+      }
+      
+      // If message contains "execution reverted" with no reason, it's likely a silent revert
+      if (err.message.includes('execution reverted') && !err.message.includes('reason')) {
+        return 'Transaction failed - please check that the season is active and you have sufficient balance';
+      }
+    }
+    
+    // Fall back to friendly contract error decoder
     return buildFriendlyContractError(curveAbi, err, t('transactions:genericFailure', { defaultValue: 'Transaction failed' }));
   };
 
@@ -203,24 +261,35 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       const tx = await buyTokens.mutateAsync({ tokenAmount: BigInt(buyAmount), maxSofAmount: cap });
       const hash = tx?.hash ?? tx ?? '';
       
-      // Notify immediately with transaction hash
-      try { 
-        onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); 
-      } catch {
-        /* no-op */
-      }
-      
-      // Wait for transaction to be mined before refreshing
+      // Wait for transaction to be mined before notifying
       if (client && hash) {
         try {
-          await client.waitForTransactionReceipt({ hash, confirmations: 1 });
-          onTxSuccess && onTxSuccess();
+          const receipt = await client.waitForTransactionReceipt({ hash, confirmations: 1 });
+
+          if (receipt.status === 'reverted') {
+            onNotify && onNotify({ 
+              type: 'error', 
+              message: 'Transaction reverted',
+              hash 
+            });
+          } else {
+            // Only notify success if transaction actually succeeded
+            onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); 
+            onTxSuccess && onTxSuccess();
+          }
         } catch (waitErr) {
+          const waitMsg = waitErr instanceof Error ? waitErr.message : 'Failed waiting for transaction receipt';
+          onNotify && onNotify({ type: 'error', message: waitMsg, hash });
           // If waiting fails, still trigger refresh after delay
           setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
         }
       } else {
-        // Fallback: trigger refresh after delay if no client
+        // Fallback: notify immediately if no client
+        try { 
+          onNotify && onNotify({ type: 'success', message: t('transactions:bought'), hash }); 
+        } catch {
+          /* no-op */
+        }
         setTimeout(() => onTxSuccess && onTxSuccess(), 2000);
       }
       
@@ -228,9 +297,12 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
       void refetchBalance?.();
     } catch (err) {
       try {
+        // Log full error for debugging
+        console.error('Buy transaction error:', err);
         const message = getReadableError(err);
         onNotify && onNotify({ type: 'error', message, hash: '' });
-      } catch {
+      } catch (fallbackErr) {
+        console.error('Error in error handler:', fallbackErr);
         onNotify && onNotify({ type: 'error', message: t('transactions:genericFailure', { defaultValue: 'Transaction failed' }), hash: '' });
       }
     }

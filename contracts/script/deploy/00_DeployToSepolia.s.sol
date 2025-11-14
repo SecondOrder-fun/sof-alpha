@@ -9,6 +9,7 @@ import {Raffle} from "src/core/Raffle.sol";
 import {SOFBondingCurve} from "src/curve/SOFBondingCurve.sol";
 import {SOFFaucet} from "src/faucet/SOFFaucet.sol";
 import {RafflePrizeDistributor} from "src/core/RafflePrizeDistributor.sol";
+import {IVRFCoordinatorV2Plus} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 
 /**
  * @title DeployToSepolia
@@ -34,16 +35,16 @@ contract DeployToSepolia is Script {
     // Configuration
     uint256 constant INITIAL_SOF_SUPPLY = 100_000_000e18; // 100M SOF
 
-    // VRF v2.5 Configuration (Base Sepolia)
-    address constant VRF_COORDINATOR = 0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE;
-    uint256 constant VRF_SUBSCRIPTION_ID = 1382014555192363513632434541237014010956192746964507769820896673428076803901;
-    bytes32 constant VRF_KEY_HASH = 0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71;
-
     function run() public {
         // Get sender from Frame wallet
         address deployer = msg.sender;
         console2.log("Deploying from:", deployer);
         console2.log("Chain ID:", block.chainid);
+
+        // Read VRF configuration from environment variables
+        address vrfCoordinator = vm.envAddress("VRF_COORDINATOR_ADDRESS_TESTNET");
+        uint256 vrfSubscriptionId = vm.envUint("VRF_SUBSCRIPTION_ID_TESTNET");
+        bytes32 vrfKeyHash = vm.envBytes32("VRF_KEY_HASH_TESTNET");
 
         vm.startBroadcast(deployer);
 
@@ -55,9 +56,14 @@ contract DeployToSepolia is Script {
 
         // 2. Deploy Raffle
         console2.log(unicode"\n📦 Deploying Raffle...");
-        Raffle raffle = new Raffle(sofTokenAddress, VRF_COORDINATOR, VRF_SUBSCRIPTION_ID, VRF_KEY_HASH);
+        Raffle raffle = new Raffle(sofTokenAddress, vrfCoordinator, vrfSubscriptionId, vrfKeyHash);
         raffleAddress = address(raffle);
         console2.log(unicode"\n✅ Raffle deployed:", raffleAddress);
+
+        // 2.5. Add Raffle as VRF consumer
+        console2.log(unicode"\n⚙️  Adding Raffle as VRF consumer...");
+        IVRFCoordinatorV2Plus(vrfCoordinator).addConsumer(vrfSubscriptionId, raffleAddress);
+        console2.log(unicode"\n✅ Raffle added as VRF consumer");
 
         // 3. Deploy SeasonFactory
         console2.log(unicode"\n📦 Deploying SeasonFactory...");

@@ -8,6 +8,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFaucet } from '@/hooks/useFaucet';
+import AddToMetamaskButton from './AddToMetamaskButton';
 
 /**
  * FaucetWidget component for claiming SOF tokens
@@ -121,6 +122,10 @@ const FaucetWidget = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Faucet Balance</h3>
                 <p className="text-2xl font-bold">{parseFloat(faucetBalance).toLocaleString()} SOF</p>
               </div>
+            </div>
+
+            <div className="mb-6">
+              <AddToMetamaskButton />
             </div>
             
             {timeRemaining ? (

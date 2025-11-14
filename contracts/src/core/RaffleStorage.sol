@@ -37,6 +37,7 @@ abstract contract RaffleStorage {
         uint256 totalPrizePool;
         address[] winners;
         uint256 vrfRequestId;
+        uint256[] vrfRandomWords;
         mapping(address => ParticipantPosition) participantPositions;
         address[] participants;
     }

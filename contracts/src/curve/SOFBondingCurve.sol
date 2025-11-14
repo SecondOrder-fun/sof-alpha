@@ -10,6 +10,31 @@ import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
 
+// ============================================================================
+// CUSTOM ERRORS - Clear, gas-efficient error reporting
+// ============================================================================
+
+error CurveNotInitialized();
+error CurveAlreadyInitialized();
+error TradingLocked();
+error TradingNotLocked();
+error InsufficientBalance(uint256 required, uint256 available);
+error SlippageExceeded(uint256 cost, uint256 maxAllowed);
+error ExceedsMaxSupply(uint256 requested, uint256 max);
+error InsufficientReserves(uint256 required, uint256 available);
+error InsufficientSupply(uint256 requested, uint256 available);
+error InvalidBondSteps();
+error InvalidBondStepRange();
+error InvalidBondStepPrice();
+error InvalidBondStepOrder();
+error BondStepOverflow();
+error RaffleAlreadySet();
+error RaffleNotSet();
+error AmountZero();
+error AmountTooLarge(uint256 amount);
+error InvalidAddress();
+error FeeTooHigh(uint256 fee);
+
 /**
  * @title SOF Bonding Curve
  * @notice Mint.club-inspired DBC bonding curve that only accepts $SOF as payment
@@ -65,14 +90,14 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 probabilityBps
     );
 
-    event TradingLocked(uint256 timestamp);
+    event TradingLockedEvent(uint256 timestamp);
     event SofExtracted(address indexed to, uint256 amount);
     event CurveInitialized(address raffleToken, uint256 stepCount);
     event FeesExtracted(address indexed to, uint256 amount);
 
     constructor(address _sofToken, address _admin) {
-        require(_sofToken != address(0), "SOF: token is zero");
-        require(_admin != address(0), "SOF: admin is zero");
+        if (_sofToken == address(0)) revert InvalidAddress();
+        if (_admin == address(0)) revert InvalidAddress();
         sofToken = IERC20(_sofToken);
         // Grant admin roles to both the deployer and the factory (msg.sender)
         // Factory needs DEFAULT_ADMIN_ROLE to grant other roles during initialization
@@ -95,27 +120,27 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint16 _buyFee,
         uint16 _sellFee
     ) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(!curveConfig.initialized, "Curve: initialized");
-        require(_raffleToken != address(0), "Curve: raffle zero");
-        require(_bondSteps.length > 0, "Curve: no steps");
-        require(_buyFee <= 1000, "Curve: buyFee > 10%");
-        require(_sellFee <= 1000, "Curve: sellFee > 10%");
+        if (curveConfig.initialized) revert CurveAlreadyInitialized();
+        if (_raffleToken == address(0)) revert InvalidAddress();
+        if (_bondSteps.length == 0) revert InvalidBondSteps();
+        if (_buyFee > 1000) revert FeeTooHigh(_buyFee);
+        if (_sellFee > 1000) revert FeeTooHigh(_sellFee);
 
         raffleToken = IRaffleToken(_raffleToken);
 
         // Replace steps
         delete bondSteps;
         for (uint256 i = 0; i < _bondSteps.length; i++) {
-            require(_bondSteps[i].rangeTo > 0, "Curve: range 0");
-            require(_bondSteps[i].price > 0, "Curve: price 0");
+            if (_bondSteps[i].rangeTo == 0) revert InvalidBondStepRange();
+            if (_bondSteps[i].price == 0) revert InvalidBondStepPrice();
             if (i > 0) {
-                require(_bondSteps[i].rangeTo > _bondSteps[i - 1].rangeTo, "Curve: steps order");
+                if (_bondSteps[i].rangeTo <= _bondSteps[i - 1].rangeTo) revert InvalidBondStepOrder();
             }
             // Guardrails: ensure step bounds fit within uint128 and multiplication safety expectations
             // Since rangeTo and price are uint128, tokensInStep * price fits into uint256 without overflow.
             // Additionally, cap the final range to avoid unrealistic supplies.
-            require(_bondSteps[i].rangeTo <= type(uint128).max, "Curve: range overflow");
-            require(_bondSteps[i].price <= type(uint128).max, "Curve: price overflow");
+            if (_bondSteps[i].rangeTo > type(uint128).max) revert BondStepOverflow();
+            if (_bondSteps[i].price > type(uint128).max) revert BondStepOverflow();
             bondSteps.push(_bondSteps[i]);
         }
 
@@ -138,8 +163,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param _seasonId Season identifier
      */
     function setRaffleInfo(address _raffle, uint256 _seasonId) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(_raffle != address(0), "Curve: raffle zero");
-        require(raffle == address(0), "Curve: raffle set");
+        if (_raffle == address(0)) revert InvalidAddress();
+        if (raffle != address(0)) revert RaffleAlreadySet();
         raffle = _raffle;
         raffleSeasonId = _seasonId;
     }
@@ -150,16 +175,16 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param maxSofAmount Maximum $SOF willing to spend (slippage protection)
      */
     function buyTokens(uint256 tokenAmount, uint256 maxSofAmount) external nonReentrant whenNotPaused {
-        require(curveConfig.initialized, "Curve: not init");
-        require(!curveConfig.tradingLocked, "Bonding_Curve_Is_Frozen");
-        require(tokenAmount > 0, "Curve: amount 0");
+        if (!curveConfig.initialized) revert CurveNotInitialized();
+        if (curveConfig.tradingLocked) revert TradingLocked();
+        if (tokenAmount == 0) revert AmountZero();
 
         // Guardrail: prevent addition overflow when computing target supply inside price calc
-        require(tokenAmount <= type(uint256).max - curveConfig.totalSupply, "Curve: amount too large");
+        if (tokenAmount > type(uint256).max - curveConfig.totalSupply) revert AmountTooLarge(tokenAmount);
         uint256 baseCost = calculateBuyPrice(tokenAmount);
         uint256 fee = (baseCost * curveConfig.buyFee) / 10000; // fee accrues to accumulatedFees
         uint256 totalCost = baseCost + fee; // fee on top to keep reserves consistent with pricing
-        require(totalCost <= maxSofAmount, "Curve: slippage");
+        if (totalCost > maxSofAmount) revert SlippageExceeded(totalCost, maxSofAmount);
         // Track old values prior to state mutation
         uint256 preTotal = curveConfig.totalSupply;
         uint256 oldTickets = playerTickets[msg.sender];
@@ -167,7 +192,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         // Do not allow supply to exceed the final bond step's cap
         if (bondSteps.length > 0) {
             uint256 lastCap = uint256(bondSteps[bondSteps.length - 1].rangeTo);
-            require(preTotal + tokenAmount <= lastCap, "Curve: exceeds max supply");
+            if (preTotal + tokenAmount > lastCap) revert ExceedsMaxSupply(preTotal + tokenAmount, lastCap);
         }
 
         // Transfer $SOF from buyer (base + fee)
@@ -207,13 +232,12 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param minSofAmount Minimum $SOF expected to receive (slippage protection)
      */
     function sellTokens(uint256 tokenAmount, uint256 minSofAmount) external nonReentrant whenNotPaused {
-        require(curveConfig.initialized, "Curve: not init");
-        require(!curveConfig.tradingLocked, "Bonding_Curve_Is_Frozen");
-        require(tokenAmount > 0, "Curve: amount 0");
-        require(tokenAmount <= curveConfig.totalSupply, "Curve: > supply");
+        if (!curveConfig.initialized) revert CurveNotInitialized();
+        if (curveConfig.tradingLocked) revert TradingLocked();
+        if (tokenAmount == 0) revert AmountZero();
+        if (tokenAmount > curveConfig.totalSupply) revert InsufficientSupply(tokenAmount, curveConfig.totalSupply);
 
         // Guardrail: ensure tokenAmount does not exceed current supply for pricing calc
-        require(tokenAmount <= curveConfig.totalSupply, "Curve: amount > supply");
         uint256 baseReturn = calculateSellPrice(tokenAmount);
 
         // Edge case: if selling all tokens, cap baseReturn to available reserves
@@ -225,8 +249,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint256 fee = (baseReturn * curveConfig.sellFee) / 10000; // fee accrues to accumulatedFees
         uint256 payout = baseReturn - fee;
 
-        require(payout >= minSofAmount, "Curve: slippage");
-        require(curveConfig.sofReserves >= baseReturn, "Curve: reserves");
+        if (payout < minSofAmount) revert SlippageExceeded(payout, minSofAmount);
+        if (curveConfig.sofReserves < baseReturn) revert InsufficientReserves(baseReturn, curveConfig.sofReserves);
 
         // Track old values before mutation
         uint256 oldTickets = playerTickets[msg.sender];
@@ -264,10 +288,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @notice Lock trading at season end (called by Raffle contract)
      */
     function lockTrading() external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(curveConfig.initialized, "Curve: not init");
-        require(!curveConfig.tradingLocked, "Curve: locked");
+        if (!curveConfig.initialized) revert CurveNotInitialized();
+        if (curveConfig.tradingLocked) revert TradingLocked();
         curveConfig.tradingLocked = true;
-        emit TradingLocked(block.timestamp);
+        emit TradingLockedEvent(block.timestamp);
     }
 
     /**
@@ -276,9 +300,9 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param amount Amount of $SOF to extract
      */
     function extractSof(address to, uint256 amount) external onlyRole(RAFFLE_MANAGER_ROLE) {
-        require(curveConfig.tradingLocked, "Curve: unlock");
-        require(amount <= curveConfig.sofReserves, "Curve: > reserves");
-        require(to != address(0), "Curve: zero to");
+        if (!curveConfig.tradingLocked) revert TradingNotLocked();
+        if (amount > curveConfig.sofReserves) revert InsufficientReserves(amount, curveConfig.sofReserves);
+        if (to == address(0)) revert InvalidAddress();
 
         sofToken.safeTransfer(to, amount);
         curveConfig.sofReserves -= amount;

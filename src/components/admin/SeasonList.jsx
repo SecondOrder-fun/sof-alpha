@@ -161,24 +161,23 @@ const SeasonList = ({
                       ? t('requestingEnd')
                       : t('requestEnd')}
                   </Button>
+                  
+                  {lastEndSeasonId === season.id && requestSeasonEnd?.error && (
+                    <div className="max-w-[260px] break-words text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                      <p className="font-semibold mb-1">{t('errorLabel')}</p>
+                      <p>{requestSeasonEnd.error.message}</p>
+                      <p className="text-xs text-red-500 mt-1">{t('checkConsoleForDetails')}</p>
+                    </div>
+                  )}
 
                   <Button
                     onClick={() => {
-                      console.log('Fund Distributor button clicked for season:', season.id);
-                      console.log('Season details:', {
-                        id: season.id,
-                        status: season.status,
-                        config: season.config,
-                        isActive: season.config.isActive,
-                        isCompleted: season.config.isCompleted
-                      });
                       fundDistributor(season.id);
                     }}
                     disabled={
                       endingE2EId === season.id ||
                       !hasCreatorRole ||
-                      !chainMatch ||
-                      season.status !== 3
+                      !chainMatch
                     }
                     title={`Status: ${season.status}, Creator Role: ${hasCreatorRole}, Chain Match: ${chainMatch}, EndingE2EId: ${endingE2EId === season.id ? 'Active' : 'Inactive'}`}
                     variant="outline"
@@ -236,8 +235,18 @@ const SeasonList = ({
 
                           return (
                             <>
+                              {v.prizeDistributor && (
+                                <p>
+                                  {t('prizeDistributor')}: <span className="font-mono">{`${v.prizeDistributor.slice(0, 6)}...${v.prizeDistributor.slice(-4)}`}</span>
+                                </p>
+                              )}
+                              {v.raffleRoleStatus && (
+                                <p>
+                                  {t('raffleRoleStatus')}: {v.raffleRoleStatus}
+                                </p>
+                              )}
                               <p>
-                                {t('winner')}:{" "}
+                                {t('winner')}: {" "}
                                 <span className="font-mono">
                                   {winner ===
                                   "0x0000000000000000000000000000000000000000"
@@ -259,8 +268,21 @@ const SeasonList = ({
                         })()}
                         {verify[season.id]?.requestId != null && (
                           <p>
-                            {t('vrfReqId')}:{" "}
+                            {t('vrfReqId')}: {" "}
                             {String(verify[season.id]?.requestId)}
+                          </p>
+                        )}
+                        {verify[season.id]?.finalizeHash && (
+                          <p>
+                            {t('finalizeTx')}: {" "}
+                            <a
+                              className="text-blue-600 underline"
+                              href={`${networkConfig.explorer}/tx/${verify[season.id].finalizeHash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {verify[season.id].finalizeHash.slice(0, 10)}...
+                            </a>
                           </p>
                         )}
                       </>

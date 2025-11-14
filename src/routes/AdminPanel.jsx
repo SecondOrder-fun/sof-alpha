@@ -17,6 +17,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { keccak256, stringToHex } from "viem";
 
+// Import debug component
+import { DebugSeasonStatus } from "@/components/DebugSeasonStatus";
+
 // Import refactored components
 import TransactionStatus from "@/components/admin/TransactionStatus";
 import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
@@ -113,6 +116,7 @@ function AdminPanel() {
           <TabsTrigger value="markets">InfoFi Markets</TabsTrigger>
           <TabsTrigger value="backend">Backend Wallet</TabsTrigger>
           <TabsTrigger value="manual">Manual Markets</TabsTrigger>
+          <TabsTrigger value="debug">Debug</TabsTrigger>
         </TabsList>
         
         <TabsContent value="seasons" className="space-y-4">
@@ -176,6 +180,18 @@ function AdminPanel() {
         
         <TabsContent value="manual" className="space-y-4">
           <ManualMarketCreation />
+        </TabsContent>
+        
+        <TabsContent value="debug" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Season 1 Debug</CardTitle>
+              <CardDescription>Current status of Season 1</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DebugSeasonStatus seasonId={1} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

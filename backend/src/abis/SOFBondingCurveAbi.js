@@ -828,7 +828,7 @@ export default [
   },
   {
     "type": "event",
-    "name": "TradingLocked",
+    "name": "TradingLockedEvent",
     "inputs": [
       {
         "name": "timestamp",
@@ -875,12 +875,132 @@ export default [
   },
   {
     "type": "error",
+    "name": "AmountTooLarge",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AmountZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BondStepOverflow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CurveAlreadyInitialized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CurveNotInitialized",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "EnforcedPause",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "ExceedsMaxSupply",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "max",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ExpectedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FeeTooHigh",
+    "inputs": [
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientReserves",
+    "inputs": [
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientSupply",
+    "inputs": [
+      {
+        "name": "requested",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBondStepOrder",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBondStepPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBondStepRange",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBondSteps",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RaffleAlreadySet",
     "inputs": []
   },
   {
@@ -898,5 +1018,31 @@ export default [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "SlippageExceeded",
+    "inputs": [
+      {
+        "name": "cost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxAllowed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TradingLocked",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TradingNotLocked",
+    "inputs": []
   }
 ];

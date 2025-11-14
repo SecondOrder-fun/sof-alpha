@@ -8,6 +8,7 @@ import { useRaffleHolders } from '@/hooks/useRaffleHolders';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getNetworkByKey } from '@/config/networks';
 import { SOFBondingCurveAbi } from '@/utils/abis';
+import AddTokenToMetamaskButton from '@/components/common/AddTokenToMetamaskButton';
 
 const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps, curveReserves, seasonStatus, totalPrizePool }) => {
   const { t } = useTranslation('common');
@@ -103,7 +104,18 @@ const TokenInfoTab = ({ bondingCurveAddress, seasonId, curveSupply, allBondSteps
           <div className="font-mono break-all text-xs">{bondingCurveAddress || '—'}</div>
         </div>
         <div className="p-3 border rounded">
-          <div className="text-sm text-muted-foreground">{t('raffleTokenAddress')}</div>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="text-sm text-muted-foreground">{t('raffleTokenAddress')}</div>
+            <AddTokenToMetamaskButton
+              address={raffleTokenAddress || bondingCurveAddress}
+              symbol="TIX"
+              decimals={18}
+              label="Add Tickets to MetaMask"
+              size="xs"
+              variant="outline"
+              disabled={!(raffleTokenAddress || bondingCurveAddress)}
+            />
+          </div>
           <div className="font-mono break-all text-xs">{raffleTokenAddress || bondingCurveAddress || '—'}</div>
         </div>
       </div>
