@@ -2,15 +2,20 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { cn } from '@/lib/utils';
 
-const Card = React.forwardRef(({ className, ...props }, ref) => (
+const Card = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      'rounded-lg border bg-card text-card-foreground shadow-sm',
+      // Outer shell: Cochineal Red border with small gap to inner panel
+      'rounded-lg border border-[#c82a54] p-1 shadow-sm',
       className
     )}
     {...props}
-  />
+  >
+    <div className="rounded-md bg-[#353e34]/65 text-[#a89e99] h-full overflow-hidden">
+      {children}
+    </div>
+  </div>
 ));
 Card.displayName = 'Card';
 

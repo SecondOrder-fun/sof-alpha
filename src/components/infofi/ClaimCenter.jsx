@@ -48,7 +48,7 @@ const ClaimCenter = ({ address, title, description }) => {
   const { t } = useTranslation(["market", "raffle", "common"]);
   const netKey = getStoredNetworkKey();
   const qc = useQueryClient();
-  const [tabValue, setTabValue] = useState("markets");
+  const [tabValue, setTabValue] = useState("raffles");
   const allSeasonsQuery = useAllSeasons();
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync: writeRaffleClaim } = useWriteContract();
@@ -398,8 +398,8 @@ const ClaimCenter = ({ address, title, description }) => {
         {address && (
           <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="markets">Prediction Markets</TabsTrigger>
               <TabsTrigger value="raffles">Raffle Prizes</TabsTrigger>
+              <TabsTrigger value="markets">Prediction Markets</TabsTrigger>
             </TabsList>
 
             {/* InfoFi Market Claims Tab */}

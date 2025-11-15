@@ -1,14 +1,21 @@
-import { useReadContract, useAccount, useWaitForTransactionReceipt, useWriteContract, useWatchContractEvent } from 'wagmi';
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { formatEther } from 'viem';
-import { getStoredNetworkKey } from '@/lib/wagmi';
-import { getContractAddresses } from '@/config/contracts';
-import PrizeDistributorAbi from '@/contracts/abis/RafflePrizeDistributor.json';
-import { getPrizeDistributor } from '@/services/onchainRaffleDistributor';
-import RaffleAbi from '@/contracts/abis/Raffle.json';
-import { useToast } from '@/hooks/useToast';
-
+import {
+  useReadContract,
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+  useWatchContractEvent,
+} from "wagmi";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { formatEther } from "viem";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getContractAddresses } from "@/config/contracts";
+import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
+import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
+import RaffleAbi from "@/contracts/abis/Raffle.json";
+import { useToast } from "@/hooks/useToast";
+import { createPublicClient, http } from "viem";
+import { getNetworkByKey } from "@/config/networks";
 
 export function useRafflePrizes(seasonId) {
   const netKey = getStoredNetworkKey();
@@ -16,12 +23,11 @@ export function useRafflePrizes(seasonId) {
   const { address } = useAccount();
   const [isWinner, setIsWinner] = useState(false);
   const [claimableAmount, setClaimableAmount] = useState(0n);
-  const [claimStatus, setClaimStatus] = useState('unclaimed'); // 'unclaimed', 'claiming', 'completed'
+  const [claimStatus, setClaimStatus] = useState("unclaimed"); // 'unclaimed', 'claiming', 'completed'
   const { toast } = useToast();
 
-
   const distributorQuery = useQuery({
-    queryKey: ['prize_distributor_addr', netKey],
+    queryKey: ["prize_distributor_addr", netKey],
     queryFn: () => getPrizeDistributor({ networkKey: netKey }),
     staleTime: 10_000,
   });
@@ -31,7 +37,7 @@ export function useRafflePrizes(seasonId) {
   const { data: distributorFromChain } = useReadContract({
     address: distributorQuery.data ? undefined : RAFFLE,
     abi: RaffleAbi,
-    functionName: 'prizeDistributor',
+    functionName: "prizeDistributor",
     args: [],
     query: {
       enabled: !distributorQuery.data && Boolean(RAFFLE),
@@ -44,10 +50,13 @@ export function useRafflePrizes(seasonId) {
   const { data: seasonPayouts, isLoading: isLoadingPayouts } = useReadContract({
     address: distributorAddress,
     abi: PrizeDistributorAbi,
-    functionName: 'getSeason',
+    functionName: "getSeason",
     args: [BigInt(seasonId)],
     query: {
-      enabled: !!seasonId && !!distributorAddress && distributorAddress !== '0x0000000000000000000000000000000000000000',
+      enabled:
+        !!seasonId &&
+        !!distributorAddress &&
+        distributorAddress !== "0x0000000000000000000000000000000000000000",
       refetchInterval: 5000, // Poll for updates
     },
   });
@@ -56,7 +65,7 @@ export function useRafflePrizes(seasonId) {
   const { data: raffleDetails } = useReadContract({
     address: RAFFLE,
     abi: RaffleAbi,
-    functionName: 'getSeasonDetails',
+    functionName: "getSeasonDetails",
     args: [BigInt(seasonId)],
     query: {
       enabled: Boolean(RAFFLE) && Boolean(seasonId),
@@ -73,60 +82,114 @@ export function useRafflePrizes(seasonId) {
         setIsWinner(true);
         setClaimableAmount(seasonPayouts.grandAmount || 0n);
       }
-  }
+    }
 
-  checkWinnerAndConsolation();
+    checkWinnerAndConsolation();
   }, [address, seasonId, seasonPayouts, isLoadingPayouts]);
 
-  const { writeContractAsync: claimGrandPrize, data: claimGrandHash } = useWriteContract();
+  const { writeContractAsync: claimGrandPrize, data: claimGrandHash } =
+    useWriteContract();
 
-  const { isLoading: isConfirmingGrand, isSuccess: isConfirmedGrand } = useWaitForTransactionReceipt({ hash: claimGrandHash });
+  const { isLoading: isConfirmingGrand, isSuccess: isConfirmedGrand } =
+    useWaitForTransactionReceipt({ hash: claimGrandHash });
 
   // Update claim status when transaction is confirmed
   useEffect(() => {
     if (isConfirmedGrand) {
-      setClaimStatus('completed');
+      setClaimStatus("completed");
     }
   }, [isConfirmedGrand]);
+
+  // Recover historical claim tx hash for already-completed prizes
+  const historicalClaimTxQuery = useQuery({
+    queryKey: ["grandClaimTx", netKey, distributorAddress, seasonId, address],
+    enabled: Boolean(
+      distributorAddress &&
+        address &&
+        seasonId &&
+        claimStatus === "completed" &&
+        !claimGrandHash
+    ),
+    queryFn: async () => {
+      const net = getNetworkByKey(netKey);
+      if (!net?.rpcUrl) return null;
+
+      const client = createPublicClient({
+        chain: {
+          id: net.id,
+          name: net.name,
+          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+          rpcUrls: { default: { http: [net.rpcUrl] } },
+        },
+        transport: http(net.rpcUrl),
+      });
+
+      const logs = await client.getLogs({
+        address: distributorAddress,
+        event: {
+          type: "event",
+          name: "GrandClaimed",
+          inputs: [
+            { indexed: true, name: "seasonId", type: "uint256" },
+            { indexed: true, name: "winner", type: "address" },
+            { indexed: false, name: "amount", type: "uint256" },
+          ],
+        },
+        args: { seasonId: BigInt(seasonId), winner: address },
+        fromBlock: 0n,
+        toBlock: "latest",
+      });
+
+      if (!logs || logs.length === 0) return null;
+      const last = logs[logs.length - 1];
+      return last.transactionHash || null;
+    },
+    staleTime: 60_000,
+  });
 
   // Watch for GrandClaimed events
   useWatchContractEvent({
     address: distributorAddress,
     abi: PrizeDistributorAbi,
-    eventName: 'GrandClaimed',
+    eventName: "GrandClaimed",
     onLogs: (logs) => {
       // Check if this event is for our season and address
-      logs.forEach(log => {
-        if (log.args && 
-            log.args.seasonId && 
-            BigInt(log.args.seasonId) === BigInt(seasonId) && 
-            log.args.winner && 
-            log.args.winner.toLowerCase() === address?.toLowerCase()) {
-          
-          setClaimStatus('completed');
+      logs.forEach((log) => {
+        if (
+          log.args &&
+          log.args.seasonId &&
+          BigInt(log.args.seasonId) === BigInt(seasonId) &&
+          log.args.winner &&
+          log.args.winner.toLowerCase() === address?.toLowerCase()
+        ) {
+          setClaimStatus("completed");
           toast({
             title: "Prize Claimed!",
-            description: `You've successfully claimed ${formatEther(log.args.amount)} SOF!`,
+            description: `You've successfully claimed ${formatEther(
+              log.args.amount
+            )} SOF!`,
             variant: "success",
           });
         }
       });
     },
-    enabled: Boolean(distributorAddress && address && seasonId && claimStatus !== 'completed'),
+    enabled: Boolean(
+      distributorAddress && address && seasonId && claimStatus !== "completed"
+    ),
   });
 
   const handleClaimGrandPrize = async () => {
     if (!distributorAddress) return;
     try {
-      setClaimStatus('claiming');
+      setClaimStatus("claiming");
       await claimGrandPrize({
         address: distributorAddress,
         abi: PrizeDistributorAbi,
-        functionName: 'claimGrand',
+        functionName: "claimGrand",
         args: [BigInt(seasonId)],
       });
     } catch (error) {
-      setClaimStatus('unclaimed');
+      setClaimStatus("unclaimed");
       toast({
         title: "Claim Failed",
         description: error.message || "Failed to claim prize",
@@ -138,7 +201,7 @@ export function useRafflePrizes(seasonId) {
   // Check if the prize has already been claimed when the component mounts or seasonPayouts changes
   useEffect(() => {
     if (seasonPayouts?.grandClaimed) {
-      setClaimStatus('completed');
+      setClaimStatus("completed");
     }
   }, [seasonPayouts]);
 
@@ -146,15 +209,23 @@ export function useRafflePrizes(seasonId) {
     isWinner,
     claimableAmount: formatEther(claimableAmount),
     isLoading: isLoadingPayouts,
-    isConfirming: isConfirmingGrand || claimStatus === 'claiming',
-    isConfirmed: isConfirmedGrand || claimStatus === 'completed',
+    isConfirming: isConfirmingGrand || claimStatus === "claiming",
+    isConfirmed: isConfirmedGrand || claimStatus === "completed",
     handleClaimGrandPrize,
     distributorAddress,
-    hasDistributor: Boolean(distributorAddress && distributorAddress !== '0x0000000000000000000000000000000000000000'),
+    hasDistributor: Boolean(
+      distributorAddress &&
+        distributorAddress !== "0x0000000000000000000000000000000000000000"
+    ),
     grandWinner: seasonPayouts?.grandWinner,
     funded: Boolean(seasonPayouts?.funded),
-    raffleWinner: Array.isArray(raffleDetails) ? raffleDetails[3] : raffleDetails?.winner,
-    raffleStatus: Array.isArray(raffleDetails) ? Number(raffleDetails[1]) : raffleDetails?.status,
+    raffleWinner: Array.isArray(raffleDetails)
+      ? raffleDetails[3]
+      : raffleDetails?.winner,
+    raffleStatus: Array.isArray(raffleDetails)
+      ? Number(raffleDetails[1])
+      : raffleDetails?.status,
     claimStatus,
+    claimTxHash: claimGrandHash || historicalClaimTxQuery.data,
   };
 }

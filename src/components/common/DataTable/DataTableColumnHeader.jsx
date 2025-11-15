@@ -7,22 +7,39 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
  */
 const DataTableColumnHeader = ({ column, children, className = '' }) => {
   if (!column.getCanSort()) {
-    return <div className={className}>{children}</div>;
+    return (
+      <div className={`flex items-center gap-2 text-white ${className}`}>
+        {children}
+      </div>
+    );
   }
 
   const sorted = column.getIsSorted();
 
+  const handleClick = () => {
+    column.toggleSorting();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      column.toggleSorting();
+    }
+  };
+
   return (
-    <button
-      type="button"
-      className={`flex items-center gap-2 hover:text-foreground transition-colors ${className}`}
-      onClick={() => column.toggleSorting()}
+    <div
+      role="button"
+      tabIndex={0}
+      className={`flex items-center gap-2 text-white cursor-pointer select-none ${className}`}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       {children}
       {sorted === 'asc' && <ArrowUp className="h-4 w-4" />}
       {sorted === 'desc' && <ArrowDown className="h-4 w-4" />}
       {!sorted && <ArrowUpDown className="h-4 w-4 opacity-50" />}
-    </button>
+    </div>
   );
 };
 

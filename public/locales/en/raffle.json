@@ -87,6 +87,7 @@
   "windowEndedOnChain": "Window ended on-chain, awaiting admin End.",
   "copy": "Copy",
   "view": "View",
+  "copyToClipboard": "Copy to clipboard",
   "activeSeasons": "Active Seasons",
   "activeSeasonsDescription": "All seasons currently available to participate in.",
   "allSeasons": "All Seasons",

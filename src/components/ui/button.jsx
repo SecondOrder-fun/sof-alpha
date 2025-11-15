@@ -8,10 +8,13 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
     <Comp
       className={cn(
         'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background',
-        variant === 'default' && 'bg-primary text-primary-foreground hover:bg-primary/90',
+        // Primary button: white text on Cochineal Red, Fabric Red on hover, Pastel Rose on active
+        variant === 'default' && 'bg-[#c82a54] text-white hover:bg-[#e25167] active:bg-[#f9d6de]',
         variant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
         variant === 'outline' && 'border border-input hover:bg-accent hover:text-accent-foreground',
-        variant === 'secondary' && 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        // Secondary button: Cement background, Asphalt text, Cochineal Red border,
+        // Fabric Red hover, Pastel Rose active
+        variant === 'secondary' && 'bg-[#a89e99] text-[#353e34] border border-[#c82a54] hover:bg-[#e25167] active:bg-[#f9d6de]',
         variant === 'ghost' && 'hover:bg-accent hover:text-accent-foreground',
         variant === 'link' && 'underline-offset-4 hover:underline text-primary',
         size === 'default' && 'h-10 py-2 px-4',

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Copy, Trophy } from "lucide-react";
+import PlayerLabel from "@/components/common/PlayerLabel";
 import { Badge } from "@/components/ui/badge";
 import { useRaffleHolders } from "@/hooks/useRaffleHolders";
 import { useAccount } from "wagmi";
@@ -102,31 +103,20 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
         ),
         cell: ({ row }) => {
           const player = row.getValue("player");
+          const original = row.original || {};
+          const username = original.playerUsername || original.username;
           const isConnected =
             connectedAddress &&
+            player &&
             player.toLowerCase() === connectedAddress.toLowerCase();
           return (
             <div className="flex items-center gap-2">
-              <span
-                className={`font-mono text-xs ${
-                  isConnected ? "font-bold text-blue-600" : ""
-                }`}
-              >
-                {player?.slice(0, 6)}...{player?.slice(-4)}
-              </span>
+              <PlayerLabel address={player} name={username} />
               {isConnected && (
                 <Badge variant="default" className="text-xs">
                   {t("yourPosition")}
                 </Badge>
               )}
-              <button
-                type="button"
-                onClick={() => copyToClipboard(player)}
-                className="text-muted-foreground hover:text-foreground"
-                title={t("copyAddress")}
-              >
-                <Copy className="h-3 w-3" />
-              </button>
             </div>
           );
         },

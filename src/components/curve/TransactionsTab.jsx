@@ -4,7 +4,9 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { ExternalLink, Copy } from 'lucide-react';
+import { Copy } from 'lucide-react';
+import PlayerLabel from '@/components/common/PlayerLabel';
+import ExplorerLink from '@/components/common/ExplorerLink';
 import { Badge } from '@/components/ui/badge';
 import { useRaffleTransactions } from '@/hooks/useRaffleTransactions';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
@@ -83,21 +85,9 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
         ),
         cell: ({ row }) => {
           const player = row.getValue('player');
-          return (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs">
-                {player?.slice(0, 6)}...{player?.slice(-4)}
-              </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(player)}
-                className="text-muted-foreground hover:text-foreground"
-                title={t('copyAddress')}
-              >
-                <Copy className="h-3 w-3" />
-              </button>
-            </div>
-          );
+          const original = row.original || {};
+          const username = original.playerUsername || original.username;
+          return <PlayerLabel address={player} name={username} />;
         },
         size: 120,
       },
@@ -147,23 +137,23 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
       },
       {
         accessorKey: 'txHash',
-        header: () => <span>{t('transaction')}</span>,
+        header: () => <span className="text-white">{t('transaction')}</span>,
         cell: ({ row }) => {
           const txHash = row.getValue('txHash');
-          const txUrl = explorerUrl ? `${explorerUrl.replace(/\/$/, '')}/tx/${txHash}` : '#';
+          if (!txHash) {
+            return <span className="text-xs text-muted-foreground">—</span>;
+          }
           return (
-            <a
-              href={txUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs font-mono text-blue-600 hover:text-blue-800 hover:underline"
-            >
-              {txHash?.slice(0, 10)}...
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            <ExplorerLink
+              value={txHash}
+              type="tx"
+              text="View txn on explorer."
+              className="text-xs font-mono"
+              showCopy={false}
+            />
           );
         },
-        size: 100,
+        size: 120,
         enableSorting: false,
       },
     ],

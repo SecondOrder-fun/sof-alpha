@@ -1,12 +1,13 @@
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 import { useRafflePrizes } from "@/hooks/useRafflePrizes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy } from "lucide-react";
+import { FaTrophy } from "react-icons/fa";
 import PropTypes from "prop-types";
+import ExplorerLink from "@/components/common/ExplorerLink";
 
 export function ClaimPrizeWidget({ seasonId }) {
-  const { t } = useTranslation(['raffle', 'common', 'transactions']);
+  const { t } = useTranslation(["raffle", "common", "transactions"]);
   const {
     isWinner,
     claimableAmount,
@@ -14,81 +15,76 @@ export function ClaimPrizeWidget({ seasonId }) {
     isConfirming,
     isConfirmed,
     handleClaimGrandPrize,
-    grandWinner,
-    hasDistributor,
-    distributorAddress,
-    raffleWinner,
-    raffleStatus,
     claimStatus,
+    claimTxHash,
   } = useRafflePrizes(seasonId);
 
   if (isLoading) {
-    return <div>{t('common:loading')}</div>;
+    return <div>{t("common:loading")}</div>;
   }
 
-  const winnerAddr = grandWinner || '0x0000000000000000000000000000000000000000';
+  // Only show this widget when the connected wallet is actually the
+  // grand prize winner. For non-winners or incomplete seasons, we
+  // hide the panel entirely so the Completed Season Prizes section
+  // only lists true wins for the current user.
+  if (!isWinner) {
+    return null;
+  }
 
-  const prizeType = t('raffle:grandPrize');
-  const Icon = Trophy;
+  const prizeType = t("raffle:grandPrize");
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-6 w-6 text-yellow-500" />
-          {isWinner ? t('raffle:youWon') : t('raffle:status')}
+        <CardTitle className="flex items-center justify-center gap-2">
+          <FaTrophy className="h-5 w-5 text-yellow-500" />
+          <span>Congratulations!</span>
+          <FaTrophy className="h-5 w-5 text-yellow-500" />
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {isWinner ? (
-            <>
-              <p className="text-lg">
-                {t('raffle:congratulations')}! {t('raffle:youWon')} {prizeType} {t('raffle:seasonNumber', { number: seasonId })}.
+          <>
+            <p className="text-lg text-center">
+              You won the {prizeType} of Season {String(seasonId)}!
+            </p>
+            <div className="text-2xl font-bold text-center">
+              {claimableAmount} SOF
+            </div>
+            <Button
+              onClick={handleClaimGrandPrize}
+              disabled={isConfirming || isConfirmed}
+              className="w-full"
+              variant={isConfirmed ? "outline" : "default"}
+            >
+              {isConfirming
+                ? t("transactions:claiming")
+                : isConfirmed
+                ? t("raffle:prizeClaimed")
+                : t("raffle:claimPrize")}
+            </Button>
+            {claimStatus === "completed" && (
+              <div className="text-center space-y-1">
+                {claimTxHash ? (
+                  <ExplorerLink
+                    value={claimTxHash}
+                    type="tx"
+                    text="View transaction on Explorer"
+                    className="text-sm text-[#a89e99] underline"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t("transactions:confirmed")}
+                  </p>
+                )}
+              </div>
+            )}
+            {claimStatus === "claiming" && !isConfirmed && (
+              <p className="text-center text-amber-600">
+                {t("transactions:confirming")}
               </p>
-              <div className="text-2xl font-bold text-center">
-                {claimableAmount} SOF
-              </div>
-              <Button
-                onClick={handleClaimGrandPrize}
-                disabled={isConfirming || isConfirmed}
-                className="w-full"
-                variant={isConfirmed ? "outline" : "default"}
-              >
-                {isConfirming
-                  ? t('transactions:claiming')
-                  : isConfirmed
-                  ? t('raffle:prizeClaimed')
-                  : t('raffle:claimPrize')}
-              </Button>
-              {claimStatus === 'completed' && (
-                <div className="text-center text-green-600 space-y-1">
-                  <p>{t('raffle:prizeClaimed')}</p>
-                  <p className="text-sm text-muted-foreground">{t('transactions:confirmed')}</p>
-                </div>
-              )}
-              {claimStatus === 'claiming' && !isConfirmed && (
-                <p className="text-center text-amber-600">{t('transactions:confirming')}</p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <div>
-                  {t('raffle:winner')}: <span className="font-mono">{winnerAddr}</span>
-                </div>
-                <div className="text-xs">
-                  {t('common:distributor', { defaultValue: 'Distributor' })}: <span className="font-mono">{hasDistributor ? distributorAddress : t('common:notAvailable')}</span>
-                </div>
-                <div>
-                  {t('raffle:winner')}: <span className="font-mono">{raffleWinner || '0x0000000000000000000000000000000000000000'}</span>
-                </div>
-                <div className="text-xs">
-                  {t('raffle:status')}: <span className="font-mono">{typeof raffleStatus === 'number' ? raffleStatus : (raffleStatus ?? '—')}</span>
-                </div>
-              </div>
-            </>
-          )}
+            )}
+          </>
         </div>
       </CardContent>
     </Card>

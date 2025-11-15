@@ -1,9 +1,9 @@
 // src/components/common/AddTokenToMetamaskButton.jsx
-import PropTypes from 'prop-types';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, Wallet } from 'lucide-react';
+import PropTypes from "prop-types";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Wallet } from "lucide-react";
 
 const AddTokenToMetamaskButton = ({
   address,
@@ -15,6 +15,7 @@ const AddTokenToMetamaskButton = ({
   size,
   variant,
   disabled,
+  onResult,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -23,9 +24,15 @@ const AddTokenToMetamaskButton = ({
   const handleAddToMetamask = async () => {
     if (!address) return;
 
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setMessageType('error');
-      setMessage('MetaMask is not installed. Please install MetaMask to use this feature.');
+    if (typeof window === "undefined" || !window.ethereum) {
+      const msg =
+        "MetaMask is not installed. Please install MetaMask to use this feature.";
+      if (onResult) {
+        onResult({ type: "error", message: msg });
+      } else {
+        setMessageType("error");
+        setMessage(msg);
+      }
       return;
     }
 
@@ -34,9 +41,9 @@ const AddTokenToMetamaskButton = ({
 
     try {
       const wasAdded = await window.ethereum.request({
-        method: 'wallet_watchAsset',
+        method: "wallet_watchAsset",
         params: {
-          type: 'ERC20',
+          type: "ERC20",
           options: {
             address,
             symbol,
@@ -47,18 +54,33 @@ const AddTokenToMetamaskButton = ({
       });
 
       if (wasAdded) {
-        setMessageType('success');
-        setMessage(`${symbol} token added to MetaMask successfully!`);
-        setTimeout(() => {
-          setMessage(null);
-        }, 5000);
+        const msg = `${symbol} token added to MetaMask successfully!`;
+        if (onResult) {
+          onResult({ type: "success", message: msg });
+        } else {
+          setMessageType("success");
+          setMessage(msg);
+          setTimeout(() => {
+            setMessage(null);
+          }, 5000);
+        }
       } else {
-        setMessageType('error');
-        setMessage(`Failed to add ${symbol} token to MetaMask.`);
+        const msg = `Failed to add ${symbol} token to MetaMask.`;
+        if (onResult) {
+          onResult({ type: "error", message: msg });
+        } else {
+          setMessageType("error");
+          setMessage(msg);
+        }
       }
     } catch (error) {
-      setMessageType('error');
-      setMessage(error?.message || 'An error occurred while adding the token.');
+      const msg = error?.message || "An error occurred while adding the token.";
+      if (onResult) {
+        onResult({ type: "error", message: msg });
+      } else {
+        setMessageType("error");
+        setMessage(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,25 +91,31 @@ const AddTokenToMetamaskButton = ({
       <Button
         onClick={handleAddToMetamask}
         disabled={isLoading || !address || disabled}
-        variant={variant || 'outline'}
-        size={size || 'default'}
-        className={fullWidth ? 'w-full' : ''}
+        variant={variant || "outline"}
+        size={size || "default"}
+        className={fullWidth ? "w-full pl-2 pr-3" : "pl-2 pr-3"}
       >
         <Wallet className="mr-2 h-4 w-4" />
-        {isLoading ? `Adding ${symbol}...` : (label || `Add ${symbol} to MetaMask`)}
+        {isLoading
+          ? `Adding ${symbol}...`
+          : label || `Add ${symbol} to MetaMask`}
       </Button>
 
-      {message && (
+      {!onResult && message && (
         <Alert
-          variant={messageType === 'error' ? 'destructive' : 'default'}
-          className={messageType === 'success' ? 'bg-green-50 border-green-200' : ''}
+          variant={messageType === "error" ? "destructive" : "default"}
+          className={
+            messageType === "success" ? "bg-green-50 border-green-200" : ""
+          }
         >
-          {messageType === 'success' ? (
+          {messageType === "success" ? (
             <CheckCircle2 className="h-4 w-4 text-green-600" />
           ) : (
             <AlertCircle className="h-4 w-4" />
           )}
-          <AlertTitle>{messageType === 'success' ? 'Success' : 'Error'}</AlertTitle>
+          <AlertTitle>
+            {messageType === "success" ? "Success" : "Error"}
+          </AlertTitle>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       )}
@@ -105,6 +133,7 @@ AddTokenToMetamaskButton.propTypes = {
   size: PropTypes.string,
   variant: PropTypes.string,
   disabled: PropTypes.bool,
+  onResult: PropTypes.func,
 };
 
 AddTokenToMetamaskButton.defaultProps = {
@@ -112,9 +141,10 @@ AddTokenToMetamaskButton.defaultProps = {
   image: undefined,
   label: undefined,
   fullWidth: false,
-  size: 'default',
-  variant: 'outline',
+  size: "default",
+  variant: "outline",
   disabled: false,
+  onResult: undefined,
 };
 
 export default AddTokenToMetamaskButton;

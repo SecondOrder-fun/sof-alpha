@@ -4,8 +4,10 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
+    /* Black background */
+    --background: 300 100% 3.7%;
+    /* Cement default text */
+    --foreground: 20 9% 63%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -37,8 +39,9 @@
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    /* Match dark mode to brand palette as well */
+    --background: 300 100% 3.7%;
+    --foreground: 20 9% 63%;
 
     --muted: 223 47% 11%;
     --muted-foreground: 215.4 16.3% 56.9%;
@@ -77,5 +80,34 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Global link styling */
+  a {
+    color: #a89e99; /* Cement */
+  }
+
+  a:hover {
+    color: #e25167; /* Fabric Red */
+  }
+
+  a:active {
+    color: #c82a54; /* Cochineal Red */
+  }
+
+  /* Global primary-style button override */
+  button {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
+    background-color: #c82a54; /* Cochineal Red */
+    color: #ffffff; /* White */
+  }
+
+  button:hover {
+    background-color: #e25167; /* Fabric Red */
+  }
+
+  button:active {
+    background-color: #f9d6de; /* Pastel Rose */
+    color: #130013; /* Black text for contrast on light background */
   }
 }

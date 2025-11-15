@@ -390,6 +390,33 @@ const calculateTimeRemaining = (endTime) => {
 
 ## Styling Guidelines
 
+### Color Palette
+
+**Primary colors**
+
+- Cochineal Red: `#c82a54`
+- Asphalt: `#353e34`
+- Cement: `#a89e99`
+
+**Secondary colors**
+
+- Black: `#130013`
+- Fabric Red: `#e25167`
+- Pastel Rose: `#f9d6de`
+
+**Recommended combinations**
+
+- **Pairs**
+  - Cochineal Red + Black
+  - Asphalt + Cement
+  - Fabric Red + Black
+  - Pastel Rose + Black
+
+- **Triples**
+  - Cochineal Red + Asphalt + Cement
+  - Cochineal Red + Black + Pastel Rose
+  - Cement + Black + Fabric Red
+
 ### Tailwind CSS Best Practices
 
 #### 1. Use Utility Classes

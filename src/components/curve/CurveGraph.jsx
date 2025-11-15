@@ -176,8 +176,8 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
         ) : (
           <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-80" onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}>
             {/* Axes */}
-            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#e5e7eb" />
-            <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#e5e7eb" />
+            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#e5e7eb" strokeWidth={3} />
+            <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#e5e7eb" strokeWidth={3} />
 
             {/* Y ticks */}
             {Array.from({ length: 5 }).map((_, i) => {
@@ -185,7 +185,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
               const y = yScale(yVal);
               return (
                 <g key={`y-${i}`}>
-                  <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#f3f4f6" />
+                  <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="#f3f4f6" strokeWidth={1} />
                   <text x={margin.left - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#6b7280">{yVal.toFixed(2)}</text>
                 </g>
               );
@@ -197,16 +197,16 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
               const x = xScale(xVal);
               return (
                 <g key={`x-${i}`}>
-                  <line x1={x} y1={height - margin.bottom} x2={x} y2={margin.top} stroke="#f9fafb" />
+                  <line x1={x} y1={height - margin.bottom} x2={x} y2={margin.top} stroke="#f9fafb" strokeWidth={1} />
                   <text x={x} y={height - margin.bottom + 14} textAnchor="middle" fontSize="10" fill="#6b7280">{xVal}</text>
                 </g>
               );
             })}
 
             {/* Shaded area under curve */}
-            <path d={buildArea()} fill="#93c5fd" fillOpacity="0.25" />
+            <path d={buildArea()} fill="#f9d6de" fillOpacity="0.55" />
             {/* Stepped curve path */}
-            <path d={buildPath()} fill="none" stroke="#2563eb" strokeWidth="2" />
+            <path d={buildPath()} fill="none" stroke="#e25167" strokeWidth="2" />
 
             {/* Current supply marker (at currentPrice horizontally) */}
             {(() => {
@@ -249,7 +249,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
             )}
 
             {/* Axis labels */}
-            <text x={width / 2} y={height - 4} textAnchor="middle" fontSize="11" fill="#6b7280">{t('supplyTickets')}</text>
+            <text x={width / 2} y={height + 1} textAnchor="middle" fontSize="11" fill="#6b7280">{t('supplyTickets')}</text>
             <text x={12} y={height / 2} textAnchor="middle" fontSize="11" fill="#6b7280" transform={`rotate(-90 12 ${height / 2})`}>{t('priceSof')}</text>
           </svg>
         )}
@@ -257,24 +257,24 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
 
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-2 border rounded">
-          <div className="text-muted-foreground">{t('currentStep')}</div>
+          <div className="text-[#c82a54]">{t('currentStep')}</div>
           <div className="font-mono text-lg">{curveStep?.step?.toString?.() ?? '0'}</div>
         </div>
         <div className="p-2 border rounded">
-          <div className="text-muted-foreground">{t('currentPrice')}</div>
+          <div className="text-[#c82a54]">{t('currentPrice')}</div>
           <div className="font-mono text-lg">{formatSOF(currentPrice)}</div>
         </div>
       </div>
 
       {/* Progress bar moved below the graph */}
       <div>
-        <div className="flex justify-between text-sm text-muted-foreground mb-1">
+        <div className="flex justify-between text-sm text-[#c82a54] mb-1">
           <span>{t('bondingCurveProgress')}</span>
           <span>{progressPct.toFixed(2)}%</span>
         </div>
         <div className="w-full" onMouseLeave={onProgressLeave}>
-          <div className="relative h-3 bg-muted rounded">
-            <div className="h-3 bg-primary rounded" style={{ width: `${progressPct}%` }} />
+          <div className="relative h-3 bg-[#130013] border border-[#c82a54] rounded">
+            <div className="h-3 bg-[#c82a54] rounded" style={{ width: `${progressPct}%` }} />
             {/* Step dots with custom tooltip */}
             {(() => {
               const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
@@ -286,12 +286,14 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
                   {steps.map((s, idx) => {
                     if (idx % stride !== 0 && idx !== count - 1) return null;
                     const leftPct = Math.min(100, Math.max(0, Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100));
+                    // Skip rendering a dot at the extreme right edge (100%) to remove the right-most circle
+                    if (leftPct >= 100) return null;
                     const price = Number(formatUnits(s.price ?? 0n, sofDecimals)).toFixed(4);
                     const stepNum = s?.step ?? (idx + 1);
                     return (
                       <div
                         key={`dot-${idx}`}
-                        className="absolute -top-1 translate-x-[-50%] w-2 h-2 rounded-full bg-primary border border-white shadow cursor-help"
+                        className="absolute -top-1 translate-x-[-50%] w-2 h-2 rounded-full bg-primary border border-[#c82a54] shadow cursor-help"
                         style={{ left: `${leftPct}%` }}
                         onMouseEnter={() => onStepEnter(leftPct, price, String(stepNum))}
                         aria-label={`${t('step')} ${String(stepNum)} ${t('common:price')} ${price} SOF`}
@@ -318,7 +320,7 @@ const BondingCurvePanel = ({ curveSupply, curveStep, allBondSteps }) => {
             })()}
           </div>
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
+        <div className="mt-1 text-xs text-[#f9d6de]">
           {t('supply')}: <span className="font-mono">{curveSupply?.toString?.() ?? '0'}</span> / <span className="font-mono">{maxSupply?.toString?.() ?? '0'}</span>
         </div>
       </div>

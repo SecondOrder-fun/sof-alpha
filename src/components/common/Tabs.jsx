@@ -18,7 +18,7 @@ Tabs.propTypes = {
 };
 
 export const TabsList = ({ children }) => (
-  <div className="inline-flex items-center gap-1 rounded-md border p-1 bg-muted/50 mb-3">
+  <div className="inline-flex items-center gap-1 mb-3">
     {children}
   </div>
 );
@@ -39,7 +39,7 @@ export const TabsTrigger = ({ value, children, onClick }) => {
         onValueChange?.(value);
         onClick?.();
       }}
-      className="px-3 py-1.5 rounded text-sm hover:bg-muted aria-selected:bg-background aria-selected:border aria-selected:shadow"
+      className="inline-flex items-center justify-center whitespace-nowrap rounded px-4 py-2 text-sm font-medium border-2 border-[#c82a54] bg-[#c82a54] text-white transition-colors aria-selected:bg-black aria-selected:text-[#e25167] aria-selected:border-[#c82a54]"
       aria-selected={isActive}
       data-value={value}
     >

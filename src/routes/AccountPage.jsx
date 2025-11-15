@@ -4,13 +4,7 @@ import PropTypes from "prop-types";
 import { useAccount, useWatchContractEvent } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatUnits } from "viem";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
@@ -26,8 +20,25 @@ import {
   useSetUsername,
   useCheckUsername,
 } from "@/hooks/useUsername";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import SecondaryCard from "@/components/common/SecondaryCard";
+import { FiEdit2 } from "react-icons/fi";
+import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import ExplorerLink from "@/components/common/ExplorerLink";
+import {
+  Carousel,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
+import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
+import RaffleAbi from "@/contracts/abis/Raffle.json";
 
 const AccountPage = () => {
   const { address, isConnected } = useAccount();
@@ -165,128 +176,226 @@ const AccountPage = () => {
     [sofBalanceQuery.data]
   );
 
+  // Winning seasons for Completed Season Prizes carousel
+  const winningSeasonsQuery = useQuery({
+    queryKey: [
+      "winningSeasons",
+      netKey,
+      address,
+      seasons.map((s) => s.id).join(","),
+    ],
+    enabled: isConnected && !!client && !!address && seasons.length > 0,
+    queryFn: async () => {
+      // Discover prize distributor address (service first, then on-chain RAFFLE fallback)
+      let distributorAddress;
+      try {
+        distributorAddress = await getPrizeDistributor({
+          networkKey: netKey,
+        });
+      } catch {
+        distributorAddress = undefined;
+      }
+
+      if (!distributorAddress && contracts.RAFFLE) {
+        try {
+          distributorAddress = await client.readContract({
+            address: contracts.RAFFLE,
+            abi: RaffleAbi,
+            functionName: "prizeDistributor",
+            args: [],
+          });
+        } catch {
+          distributorAddress = undefined;
+        }
+      }
+
+      if (
+        !distributorAddress ||
+        distributorAddress === "0x0000000000000000000000000000000000000000"
+      ) {
+        return [];
+      }
+
+      const lowerAddr = address?.toLowerCase();
+      const checks = await Promise.all(
+        seasons.map(async (s) => {
+          try {
+            const seasonData = await client.readContract({
+              address: distributorAddress,
+              abi: PrizeDistributorAbi,
+              functionName: "getSeason",
+              args: [BigInt(s.id)],
+            });
+            const gw = seasonData?.grandWinner;
+            if (
+              gw &&
+              typeof gw === "string" &&
+              lowerAddr &&
+              gw.toLowerCase() === lowerAddr
+            ) {
+              return s;
+            }
+          } catch {
+            // ignore failing season
+          }
+          return null;
+        })
+      );
+
+      return checks.filter(Boolean);
+    },
+    staleTime: 15_000,
+  });
+
+  const winningSeasons = winningSeasonsQuery.data || [];
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">
-        {username ? username : "My Account"}
-      </h1>
-      {/* Completed Season Prizes – moved to top */}
-      {Array.isArray(allSeasonsQuery.data) &&
-        (allSeasonsQuery.data || []).length > 0 && (
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold mb-2">
-              Completed Season Prizes
-            </h2>
-            <p className="text-sm text-muted-foreground mb-2">
-              If your connected wallet was the grand winner for a completed
-              season, a claim panel will appear here.
-            </p>
-            <div className="space-y-3">
-              {(allSeasonsQuery.data || []).map((s) => (
-                <ClaimPrizeWidget
-                  key={`claim-${String(s.id)}`}
-                  seasonId={s.id}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>Account Information</CardTitle>
-          <CardDescription>
-            Your wallet and raffle participation details.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!isConnected && (
+      <h1 className="text-2xl font-bold mb-4">Portfolio</h1>
+
+      {/* Completed Season Prizes – carousel of winning seasons only */}
+      {Array.isArray(allSeasonsQuery.data) && winningSeasons.length > 0 && (
+        <div className="mb-4 flex flex-col items-center w-full">
+          <Carousel className="w-full max-w-md">
+            {winningSeasons.length > 1 && <CarouselPrevious />}
+            {winningSeasons.length > 1 && <CarouselNext />}
+            {winningSeasons.map((s) => (
+              <CarouselItem key={`claim-${String(s.id)}`}>
+                <ClaimPrizeWidget seasonId={s.id} />
+              </CarouselItem>
+            ))}
+          </Carousel>
+        </div>
+      )}
+
+      {/* When not connected, show a single Account Information card with guidance */}
+      {!isConnected && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>Account Information</CardTitle>
+          </CardHeader>
+          <CardContent>
             <p>Please connect your wallet to view your account details.</p>
-          )}
-          {isConnected && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Username</p>
-                  <p className="text-muted-foreground">
-                    {username || "Not set"}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingUsername(!isEditingUsername)}
-                >
-                  {isEditingUsername ? "Cancel" : "Edit"}
-                </Button>
-              </div>
-              {isEditingUsername && (
-                <UsernameEditor
-                  address={address}
-                  currentUsername={username}
-                  onSuccess={() => setIsEditingUsername(false)}
-                />
-              )}
-              <p>
-                <span className="font-semibold">Address:</span> {address}
-              </p>
-              <div>
-                <p className="font-semibold">$SOF Balance</p>
-                {sofBalanceQuery.isLoading ? (
-                  <p className="text-muted-foreground">Loading...</p>
-                ) : sofBalanceQuery.error ? (
-                  <p className="text-red-500">Error loading SOF balance</p>
-                ) : (
-                  <p>{sofBalance} SOF</p>
-                )}
-              </div>
-              <div>
-                <p className="font-semibold">Raffle Ticket Balances</p>
-                {seasonBalancesQuery.isLoading && (
-                  <p className="text-muted-foreground">Loading...</p>
-                )}
-                {seasonBalancesQuery.error && (
-                  <p className="text-red-500">Error loading ticket balances</p>
-                )}
-                {!seasonBalancesQuery.isLoading &&
-                  !seasonBalancesQuery.error && (
-                    <div className="space-y-2">
-                      {(seasonBalancesQuery.data || []).length === 0 && (
-                        <p className="text-muted-foreground">
-                          No ticket balances found.
-                        </p>
-                      )}
-                      {(seasonBalancesQuery.data || []).map((row) => (
-                        <RaffleEntryRow
-                          key={row.seasonId}
-                          row={row}
-                          address={address}
-                          client={client}
-                        />
-                      ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* When connected, lay out Account Information and Raffle Ticket Balances side by side (30/70 split) */}
+      {isConnected && (
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-[30%_70%] gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <SecondaryCard title="Username">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#a89e99]">
+                      {username || "Not set"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUsername(!isEditingUsername)}
+                      className="p-0 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+                      aria-label={
+                        isEditingUsername
+                          ? "Cancel username edit"
+                          : "Edit username"
+                      }
+                      title={
+                        isEditingUsername
+                          ? "Cancel username edit"
+                          : "Edit username"
+                      }
+                    >
+                      <FiEdit2 />
+                    </button>
+                  </div>
+                  {isEditingUsername && (
+                    <div className="mt-3">
+                      <UsernameEditor
+                        address={address}
+                        currentUsername={username}
+                        onSuccess={() => setIsEditingUsername(false)}
+                      />
                     </div>
                   )}
+                </SecondaryCard>
+
+                <SecondaryCard title="$SOF Balance">
+                  {sofBalanceQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : sofBalanceQuery.error ? (
+                    <p className="text-sm text-red-500">
+                      Error loading SOF balance
+                    </p>
+                  ) : (
+                    <p className="font-mono text-sm">{sofBalance} SOF</p>
+                  )}
+                </SecondaryCard>
+
+                <SecondaryCard title="Address">
+                  <p className="font-mono text-xs break-all">{address}</p>
+                </SecondaryCard>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Raffle Ticket Balances</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {seasonBalancesQuery.isLoading && (
+                <p className="text-muted-foreground">Loading...</p>
+              )}
+              {seasonBalancesQuery.error && (
+                <p className="text-red-500">Error loading ticket balances</p>
+              )}
+              {!seasonBalancesQuery.isLoading && !seasonBalancesQuery.error && (
+                <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
+                  {(seasonBalancesQuery.data || []).length === 0 && (
+                    <p className="text-muted-foreground">
+                      No ticket balances found.
+                    </p>
+                  )}
+                  {(seasonBalancesQuery.data || []).length > 0 && (
+                    <Accordion type="multiple" className="space-y-2">
+                      {(seasonBalancesQuery.data || [])
+                        .slice()
+                        .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
+                        .map((row) => (
+                          <RaffleEntryRow
+                            key={row.seasonId}
+                            row={row}
+                            address={address}
+                            client={client}
+                          />
+                        ))}
+                    </Accordion>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Claims */}
       <ClaimCenter address={address} />
     </div>
   );
 };
-
 // Subcomponent: one raffle entry with expandable transaction history
 const RaffleEntryRow = ({ row, address, client }) => {
-  const [open, setOpen] = useState(false);
-
   // Note: We intentionally removed a generic transfersQuery due to lack of OR filters; we
   // query IN and OUT separately below and merge for clarity and ESLint cleanliness.
 
   // Separate queries for IN and OUT, then merge
   const inQuery = useQuery({
     queryKey: ["raffleTransfersIn", row.token, address],
-    enabled: open && !!client && !!row?.token && !!address,
+    enabled: !!client && !!row?.token && !!address,
     queryFn: async () => {
       const currentBlock = await client.getBlockNumber();
       const lookbackBlocks = 100000n; // Last 100k blocks
@@ -317,7 +426,7 @@ const RaffleEntryRow = ({ row, address, client }) => {
 
   const outQuery = useQuery({
     queryKey: ["raffleTransfersOut", row.token, address],
-    enabled: open && !!client && !!row?.token && !!address,
+    enabled: !!client && !!row?.token && !!address,
     queryFn: async () => {
       const currentBlock = await client.getBlockNumber();
       const lookbackBlocks = 100000n; // Last 100k blocks
@@ -373,21 +482,21 @@ const RaffleEntryRow = ({ row, address, client }) => {
   }, [inQuery.data, outQuery.data]);
 
   return (
-    <div className="border rounded p-2">
-      <button className="w-full text-left" onClick={() => setOpen((v) => !v)}>
-        <div className="flex justify-between">
-          <span>
-            Season #{row.seasonId}
-            {row.name ? ` — ${row.name}` : ""}
-          </span>
-          <span className="font-mono">{tickets.toString()} Tickets</span>
+    <AccordionItem value={`season-${row.seasonId}`}>
+      <AccordionTrigger className="px-3 py-2 text-left">
+        <div className="flex flex-col w-full">
+          <div className="flex items-center justify-between">
+            <span>
+              Season #{row.seasonId}
+              {row.name ? ` — ${row.name}` : ""}
+            </span>
+            <span className="font-mono">{tickets.toString()} Tickets</span>
+          </div>
+          <p className="text-xs break-all text-[#f9d6de]">Token: {row.token}</p>
         </div>
-        <p className="text-xs text-muted-foreground break-all">
-          Token: {row.token}
-        </p>
-      </button>
-      {open && (
-        <div className="mt-2 border-t pt-2">
+      </AccordionTrigger>
+      <AccordionContent>
+        <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
           <p className="font-semibold mb-2">Transactions</p>
           {(inQuery.isLoading || outQuery.isLoading) && (
             <p className="text-muted-foreground">Loading...</p>
@@ -403,7 +512,7 @@ const RaffleEntryRow = ({ row, address, client }) => {
               {merged.map((t) => (
                 <div
                   key={t.txHash + String(t.blockNumber)}
-                  className="text-sm flex justify-between"
+                  className="text-sm flex justify-between items-center gap-2"
                 >
                   <span
                     className={
@@ -413,19 +522,24 @@ const RaffleEntryRow = ({ row, address, client }) => {
                     {t.dir === "IN" ? "+" : "-"}
                     {((t.value ?? 0n) / base).toString()} tickets
                   </span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[60%]">
-                    {t.txHash}
-                  </span>
+                  <div className="max-w-[60%] flex-1">
+                    <ExplorerLink
+                      value={t.txHash}
+                      type="tx"
+                      text="View transaction on Explorer"
+                      className="text-xs text-[#a89e99] underline truncate"
+                      copyLabelText="Copy transaction ID to clipboard."
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
-    </div>
+      </AccordionContent>
+    </AccordionItem>
   );
 };
-
 /**
  * UsernameEditor - Component for editing username
  */
