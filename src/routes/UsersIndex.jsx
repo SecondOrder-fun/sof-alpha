@@ -1,13 +1,13 @@
 // src/routes/UsersIndex.jsx
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useAccount } from 'wagmi';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import UsernameDisplay from '@/components/user/UsernameDisplay';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useAccount } from "wagmi";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
 
 const UsersIndex = () => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation("common");
   const { address: myAddress } = useAccount();
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState([]);
@@ -20,25 +20,29 @@ const UsersIndex = () => {
     async function load() {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Fetch players from backend API (which queries Supabase database)
-        const response = await fetch('http://localhost:3000/api/users');
-        
+        const response = await fetch("http://localhost:3000/api/users");
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!cancelled) {
           setPlayers(data.players || []);
           // eslint-disable-next-line no-console
-          console.log('[UsersIndex] Loaded', data.count, 'players from database');
+          console.log(
+            "[UsersIndex] Loaded",
+            data.count,
+            "players from database"
+          );
         }
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[UsersIndex] Error loading players:', err);
+        console.error("[UsersIndex] Error loading players:", err);
         if (!cancelled) {
           setError(err.message);
           setPlayers([]);
@@ -47,13 +51,17 @@ const UsersIndex = () => {
         if (!cancelled) setLoading(false);
       }
     }
-    
+
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Reset to first page when players list changes
-  useEffect(() => { setPage(1); }, [players.length]);
+  useEffect(() => {
+    setPage(1);
+  }, [players.length]);
 
   const total = players.length;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -63,13 +71,13 @@ const UsersIndex = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{t('users')}</h1>
+      <h1 className="text-2xl font-bold mb-4">{t("leaderboard")}</h1>
       <Card>
         <CardHeader>
-          <CardTitle>{t('allUserProfiles')}</CardTitle>
+          <CardTitle>{t("allUserProfiles")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading && <p className="text-muted-foreground">{t('loading')}</p>}
+          {loading && <p className="text-muted-foreground">{t("loading")}</p>}
           {error && (
             <div className="space-y-2">
               <p className="text-red-600">Error loading players: {error}</p>
@@ -80,27 +88,33 @@ const UsersIndex = () => {
           )}
           {!loading && !error && players.length === 0 && (
             <div className="space-y-2">
-              <p className="text-muted-foreground">{t('noUsersFound')}</p>
+              <p className="text-muted-foreground">{t("noUsersFound")}</p>
               <p className="text-sm text-muted-foreground">
-                No players have participated in any seasons yet. 
-                Players will appear here once they buy tickets in a season.
+                No players have participated in any seasons yet. Players will
+                appear here once they buy tickets in a season.
               </p>
             </div>
           )}
           {!loading && !error && players.length > 0 && (
             <div className="divide-y rounded border">
               {pageSlice.map((addr) => {
-                const isMyAddress = myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase();
-                const linkTo = isMyAddress ? '/account' : `/users/${addr}`;
-                const linkText = isMyAddress ? t('viewYourAccount') : t('viewProfile');
-                
+                const isMyAddress =
+                  myAddress &&
+                  addr?.toLowerCase?.() === myAddress.toLowerCase();
+                const linkTo = isMyAddress ? "/account" : `/users/${addr}`;
+                const linkText = isMyAddress
+                  ? t("viewYourAccount")
+                  : t("viewProfile");
+
                 return (
-                  <div key={addr} className="flex items-center justify-between px-3 py-2">
-                    <UsernameDisplay 
-                      address={addr} 
-                      showBadge={true}
-                    />
-                    <Link to={linkTo} className="text-primary hover:underline">{linkText}</Link>
+                  <div
+                    key={addr}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <UsernameDisplay address={addr} showBadge={true} />
+                    <Link to={linkTo} className="text-primary hover:underline">
+                      {linkText}
+                    </Link>
                   </div>
                 );
               })}
@@ -110,7 +124,11 @@ const UsersIndex = () => {
           {!loading && !error && players.length > 0 && (
             <div className="flex items-center justify-between mt-3">
               <div className="text-sm text-muted-foreground">
-                {t('showingRange', { start: start + 1, end: Math.min(end, total), total })}
+                {t("showingRange", {
+                  start: start + 1,
+                  end: Math.min(end, total),
+                  total,
+                })}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -118,15 +136,17 @@ const UsersIndex = () => {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
                 >
-                  {t('previous')}
+                  {t("previous")}
                 </button>
-                <span className="text-sm">{t('page')} {page} / {pageCount}</span>
+                <span className="text-sm">
+                  {t("page")} {page} / {pageCount}
+                </span>
                 <button
                   className="px-3 py-1 rounded border disabled:opacity-50"
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                   disabled={page >= pageCount}
                 >
-                  {t('next')}
+                  {t("next")}
                 </button>
               </div>
             </div>

@@ -100,6 +100,7 @@
   "showingRange": "Showing {{start}}-{{end}} of {{total}}",
   "page": "Page",
   "noUsersFound": "No users found yet.",
+  "leaderboard": "Leaderboard",
   "username": "Username",
   "setUsername": "Set Username",
   "editUsername": "Edit Username",

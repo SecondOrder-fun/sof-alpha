@@ -89,7 +89,7 @@ const router = createBrowserRouter([
         element: <RaffleDetails />,
       },
       {
-        path: "users",
+        path: "leaderboard",
         element: <UsersIndex />,
       },
       {

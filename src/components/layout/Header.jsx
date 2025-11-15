@@ -74,7 +74,7 @@ const Header = () => {
               {t("predictionMarkets")}
             </NavLink>
             <NavLink
-              to="/users"
+              to="/leaderboard"
               className={({ isActive }) =>
                 `transition-colors ${
                   isActive
@@ -83,7 +83,7 @@ const Header = () => {
                 }`
               }
             >
-              {t("users")}
+              {t("leaderboard")}
             </NavLink>
             {isAdmin && (
               <>
