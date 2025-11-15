@@ -1,4 +1,4 @@
-import { db } from '../../shared/supabaseClient.js';
+import { db } from "../../shared/supabaseClient.js";
 
 /**
  * User routes for fetching user-specific data
@@ -10,29 +10,70 @@ export async function userRoutes(fastify, options) {
   }
 
   /**
+   * GET /api/users
+   * Return a list of all player addresses for the leaderboard page.
+   */
+  fastify.get("/", async (_request, reply) => {
+    try {
+      // Fetch all players from the players table, ordered by creation time
+      const { data, error } = await db.client
+        .from("players")
+        .select("address")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        fastify.log.error({ error }, "Failed to fetch players from database");
+        return reply.status(500).send({
+          error: "Failed to fetch players",
+          details: error.message,
+        });
+      }
+
+      const players = (data || []).map((row) => row.address);
+
+      return reply.send({
+        players,
+        count: players.length,
+      });
+    } catch (error) {
+      fastify.log.error(
+        { error, stack: error.stack },
+        "Unexpected error fetching players"
+      );
+      return reply.status(500).send({
+        error: "Failed to fetch players",
+        details: error.message,
+      });
+    }
+  });
+
+  /**
    * GET /api/users/:address/positions
    * Fetch all InfoFi positions for a user address
    */
-  fastify.get('/:address/positions', async (request, reply) => {
+  fastify.get("/:address/positions", async (request, reply) => {
     try {
       const { address } = request.params;
 
       if (!address) {
-        return reply.code(400).send({ error: 'Address parameter is required' });
+        return reply.code(400).send({ error: "Address parameter is required" });
       }
 
       // Validate address format (basic check)
       if (!address.match(/^0x[a-fA-F0-9]{40}$/i)) {
-        return reply.code(400).send({ error: 'Invalid Ethereum address format' });
+        return reply
+          .code(400)
+          .send({ error: "Invalid Ethereum address format" });
       }
 
-      fastify.log.info({ address }, 'Fetching positions for user');
+      fastify.log.info({ address }, "Fetching positions for user");
 
       // Query positions from infofi_positions table joined with markets
       // Using ACTUAL database schema from migrations
       const { data: positions, error } = await db.client
-        .from('infofi_positions')
-        .select(`
+        .from("infofi_positions")
+        .select(
+          `
           id,
           market_id,
           user_address,
@@ -48,30 +89,40 @@ export async function userRoutes(fastify, options) {
             initial_probability_bps,
             current_probability_bps
           )
-        `)
-        .eq('user_address', address.toLowerCase());
+        `
+        )
+        .eq("user_address", address.toLowerCase());
 
       if (error) {
-        fastify.log.error({ error, address }, 'Failed to fetch positions from database');
+        fastify.log.error(
+          { error, address },
+          "Failed to fetch positions from database"
+        );
 
         // Return empty array instead of error if no markets exist yet
         // This handles the case where the join fails because there are no markets
-        if (error.message && error.message.includes('does not exist')) {
-          fastify.log.info({ address }, 'No markets exist yet, returning empty positions');
+        if (error.message && error.message.includes("does not exist")) {
+          fastify.log.info(
+            { address },
+            "No markets exist yet, returning empty positions"
+          );
           return reply.send({
             positions: [],
             count: 0,
-            message: 'No prediction markets available yet',
+            message: "No prediction markets available yet",
           });
         }
 
         return reply.status(500).send({
-          error: 'Failed to fetch positions',
+          error: "Failed to fetch positions",
           details: error.message,
         });
       }
 
-      fastify.log.info({ count: (positions || []).length, address }, 'Positions fetched successfully');
+      fastify.log.info(
+        { count: (positions || []).length, address },
+        "Positions fetched successfully"
+      );
 
       // Transform data for frontend consumption
       const transformedPositions = (positions || []).map((pos) => {
@@ -109,9 +160,12 @@ export async function userRoutes(fastify, options) {
         count: transformedPositions.length,
       });
     } catch (error) {
-      fastify.log.error({ error, stack: error.stack }, 'Unexpected error fetching positions');
+      fastify.log.error(
+        { error, stack: error.stack },
+        "Unexpected error fetching positions"
+      );
       return reply.status(500).send({
-        error: 'Failed to fetch positions',
+        error: "Failed to fetch positions",
         details: error.message,
       });
     }

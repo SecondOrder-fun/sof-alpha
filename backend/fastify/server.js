@@ -16,6 +16,10 @@ import simpleFpmmAbi from "../src/abis/SimpleFPMMAbi.js";
 // Create Fastify instance
 const app = fastify({ logger: true });
 
+// Select network ("LOCAL" or "TESTNET") for on-chain listeners
+const NETWORK = process.env.NETWORK || "LOCAL";
+app.log.info({ NETWORK }, "Using backend network configuration");
+
 // Log Supabase connection status at startup
 if (hasSupabase) {
   app.log.info("✅ Supabase configured and connected");
@@ -113,11 +117,15 @@ const tradeListeners = new Map(); // Map of fpmmAddress -> unwatch function
 
 async function startListeners() {
   try {
-    const raffleAddress = process.env.RAFFLE_ADDRESS_LOCAL;
+    const isTestnet = NETWORK === "TESTNET";
+
+    const raffleAddress = isTestnet
+      ? process.env.RAFFLE_ADDRESS_TESTNET
+      : process.env.RAFFLE_ADDRESS_LOCAL;
 
     if (!raffleAddress) {
       app.log.warn(
-        "⚠️  RAFFLE_ADDRESS_LOCAL not set in environment - SeasonStarted listener will not start"
+        `⚠️  Raffle address env not set for NETWORK=${NETWORK} - SeasonStarted listener will not start`
       );
       return;
     }
@@ -176,6 +184,7 @@ async function startListeners() {
       }
     }
 
+    // Start SeasonStarted listener (which will trigger PositionUpdate listeners)
     unwatchSeasonStarted = await startSeasonStartedListener(
       raffleAddress,
       raffleAbi,
@@ -183,8 +192,10 @@ async function startListeners() {
       onSeasonCreated
     );
 
-    // Start MarketCreated listener
-    const infoFiFactoryAddress = process.env.INFOFI_FACTORY_ADDRESS_LOCAL;
+    // Resolve InfoFi factory address based on NETWORK
+    const infoFiFactoryAddress = isTestnet
+      ? process.env.INFOFI_FACTORY_ADDRESS_TESTNET
+      : process.env.INFOFI_FACTORY_ADDRESS_LOCAL;
     if (infoFiFactoryAddress) {
       try {
         app.log.info("🎧 Starting MarketCreated listener...");
@@ -200,8 +211,11 @@ async function startListeners() {
         );
       }
     } else {
-      app.log.warn(
-        "⚠️  INFOFI_FACTORY_ADDRESS_LOCAL not set in environment - MarketCreated listener will not start"
+      // No InfoFi factory configured for this environment; skip listener entirely
+      app.log.error(
+        "No INFOFI_MARKET_FACTORY contract configured (INFOFI_FACTORY_ADDRESS_" +
+          (NETWORK === "TESTNET" ? "TESTNET" : "LOCAL") +
+          ") - MarketCreated listener will not start"
       );
     }
 
