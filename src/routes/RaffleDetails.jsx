@@ -1,41 +1,62 @@
 // src/routes/RaffleDetails.jsx
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useRaffleState } from '@/hooks/useRaffleState';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import PageTitle from '@/components/layout/PageTitle';
+import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useRaffleState } from "@/hooks/useRaffleState";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import PageTitle from "@/components/layout/PageTitle";
 // removed inline buy/sell form controls
-import { getStoredNetworkKey } from '@/lib/wagmi';
-import { getNetworkByKey } from '@/config/networks';
-import { createPublicClient, http } from 'viem';
-import { SOFBondingCurveAbi, ERC20Abi } from '@/utils/abis';
-import { useCurveState } from '@/hooks/useCurveState';
-import BondingCurvePanel from '@/components/curve/CurveGraph';
-import BuySellWidget from '@/components/curve/BuySellWidget';
-import TransactionsTab from '@/components/curve/TransactionsTab';
-import TokenInfoTab from '@/components/curve/TokenInfoTab';
-import HoldersTab from '@/components/curve/HoldersTab';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/common/Tabs';
-import { useCurveEvents } from '@/hooks/useCurveEvents';
-import { useAccount } from 'wagmi';
-import { RaffleAdminControls } from '@/components/admin/RaffleAdminControls';
-import { TreasuryControls } from '@/components/admin/TreasuryControls';
-import SecondaryCard from '@/components/common/SecondaryCard';
-import ExplorerLink from '@/components/common/ExplorerLink';
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getNetworkByKey } from "@/config/networks";
+import { createPublicClient, http } from "viem";
+import { SOFBondingCurveAbi, ERC20Abi } from "@/utils/abis";
+import { useCurveState } from "@/hooks/useCurveState";
+import BondingCurvePanel from "@/components/curve/CurveGraph";
+import BuySellWidget from "@/components/curve/BuySellWidget";
+import TransactionsTab from "@/components/curve/TransactionsTab";
+import TokenInfoTab from "@/components/curve/TokenInfoTab";
+import HoldersTab from "@/components/curve/HoldersTab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/common/Tabs";
+import { useCurveEvents } from "@/hooks/useCurveEvents";
+import { useAccount } from "wagmi";
+import { RaffleAdminControls } from "@/components/admin/RaffleAdminControls";
+import { TreasuryControls } from "@/components/admin/TreasuryControls";
+import SecondaryCard from "@/components/common/SecondaryCard";
+import ExplorerLink from "@/components/common/ExplorerLink";
 
 const RaffleDetails = () => {
-  const { t, i18n } = useTranslation('raffle');
+  const { t, i18n } = useTranslation("raffle");
   const { seasonId } = useParams();
+  const [searchParams] = useSearchParams();
+  const modeParam = searchParams.get("mode");
+  const initialTradeTab =
+    modeParam === "sell" || modeParam === "buy" ? modeParam : undefined;
   const { seasonDetailsQuery } = useRaffleState(seasonId);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
-  const [activeTab, setActiveTab] = useState('token-info');
-  const { curveSupply, curveReserves, curveStep, /* bondStepsPreview, */ allBondSteps, debouncedRefresh } = useCurveState(
-    bondingCurveAddress,
-    { isActive: seasonDetailsQuery?.data?.status === 1, pollMs: 12000 }
-  );
+  const [activeTab, setActiveTab] = useState("token-info");
+  const {
+    curveSupply,
+    curveReserves,
+    curveStep,
+    /* bondStepsPreview, */ allBondSteps,
+    debouncedRefresh,
+  } = useCurveState(bondingCurveAddress, {
+    isActive: seasonDetailsQuery?.data?.status === 1,
+    pollMs: 12000,
+  });
   // removed inline estimator state used by old form
   // helpers now imported from lib/curveMath
 
@@ -63,7 +84,7 @@ const RaffleDetails = () => {
         chain: {
           id: net.id,
           name: net.name,
-          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
           rpcUrls: { default: { http: [net.rpcUrl] } },
         },
         transport: http(net.rpcUrl),
@@ -71,8 +92,18 @@ const RaffleDetails = () => {
       // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
       try {
         const [pt, cfg] = await Promise.all([
-          client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'playerTickets', args: [address] }),
-          client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: 'curveConfig', args: [] }),
+          client.readContract({
+            address: bondingCurveAddress,
+            abi: SOFBondingCurveAbi,
+            functionName: "playerTickets",
+            args: [address],
+          }),
+          client.readContract({
+            address: bondingCurveAddress,
+            abi: SOFBondingCurveAbi,
+            functionName: "curveConfig",
+            args: [],
+          }),
         ]);
         const tickets = BigInt(pt ?? 0n);
         const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
@@ -85,17 +116,31 @@ const RaffleDetails = () => {
 
       // 2) Fallback: discover ERC20 tickets token from the curve if the curve is not the token itself
       // Prefer explicit token from season details if available
-      let tokenAddress = (
+      let tokenAddress =
         seasonDetailsQuery?.data?.ticketToken ||
         seasonDetailsQuery?.data?.config?.ticketToken ||
         seasonDetailsQuery?.data?.config?.token ||
-        bondingCurveAddress
-      );
-      for (const fn of ['token', 'raffleToken', 'ticketToken', 'tickets', 'asset']) {
+        bondingCurveAddress;
+      for (const fn of [
+        "token",
+        "raffleToken",
+        "ticketToken",
+        "tickets",
+        "asset",
+      ]) {
         try {
           // eslint-disable-next-line no-await-in-loop
-          const addr = await client.readContract({ address: bondingCurveAddress, abi: SOFBondingCurveAbi, functionName: fn, args: [] });
-          if (typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr) && addr !== '0x0000000000000000000000000000000000000000') {
+          const addr = await client.readContract({
+            address: bondingCurveAddress,
+            abi: SOFBondingCurveAbi,
+            functionName: fn,
+            args: [],
+          });
+          if (
+            typeof addr === "string" &&
+            /^0x[a-fA-F0-9]{40}$/.test(addr) &&
+            addr !== "0x0000000000000000000000000000000000000000"
+          ) {
             tokenAddress = addr;
             break;
           }
@@ -105,8 +150,18 @@ const RaffleDetails = () => {
       }
 
       const [bal, supply] = await Promise.all([
-        client.readContract({ address: tokenAddress, abi: ERC20Abi, functionName: 'balanceOf', args: [address] }),
-        client.readContract({ address: tokenAddress, abi: ERC20Abi, functionName: 'totalSupply', args: [] }),
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20Abi,
+          functionName: "balanceOf",
+          args: [address],
+        }),
+        client.readContract({
+          address: tokenAddress,
+          abi: ERC20Abi,
+          functionName: "totalSupply",
+          args: [],
+        }),
       ]);
       const tickets = BigInt(bal ?? 0n);
       const total = BigInt(supply ?? 0n);
@@ -121,16 +176,23 @@ const RaffleDetails = () => {
   const [toasts, setToasts] = useState([]);
   const netKeyOuter = getStoredNetworkKey();
   const netOuter = getNetworkByKey(netKeyOuter);
-  const addToast = ({ type = 'success', message, hash }) => {
+  const addToast = ({ type = "success", message, hash }) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const url = hash && netOuter?.explorer ? `${netOuter.explorer.replace(/\/$/, '')}/tx/${hash}` : undefined;
+    const url =
+      hash && netOuter?.explorer
+        ? `${netOuter.explorer.replace(/\/$/, "")}/tx/${hash}`
+        : undefined;
     setToasts((t) => [{ id, type, message, hash, url }, ...t]);
     setTimeout(() => {
       setToasts((t) => t.filter((x) => x.id !== id));
     }, 120000); // 2 minutes
   };
   const copyHash = async (hash) => {
-    try { await navigator.clipboard.writeText(hash); } catch (_) { /* no-op */ }
+    try {
+      await navigator.clipboard.writeText(hash);
+    } catch (_) {
+      /* no-op */
+    }
   };
 
   // Initial load: fetch position immediately
@@ -140,7 +202,6 @@ const RaffleDetails = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address, bondingCurveAddress]);
-
 
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
@@ -154,7 +215,7 @@ const RaffleDetails = () => {
       chain: {
         id: net.id,
         name: net.name,
-        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
         rpcUrls: { default: { http: [net.rpcUrl] } },
       },
       transport: http(net.rpcUrl),
@@ -176,7 +237,10 @@ const RaffleDetails = () => {
         // silent: non-fatal
       }
     }, 15000);
-    return () => { mounted = false; clearInterval(id); };
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
   }, []);
 
   // removed old inline buy/sell handlers (now in BuySellWidget)
@@ -192,14 +256,17 @@ const RaffleDetails = () => {
   return (
     <div>
       {seasonDetailsQuery.isLoading && <p>Loading season details...</p>}
-      {seasonDetailsQuery.error && <p>Error: {seasonDetailsQuery.error.message}</p>}
-      {seasonDetailsQuery.data && seasonDetailsQuery.data.config && (
+      {seasonDetailsQuery.error && (
+        <p>Error: {seasonDetailsQuery.error.message}</p>
+      )}
+      {seasonDetailsQuery.data &&
+        seasonDetailsQuery.data.config &&
         (() => {
           const cfg = seasonDetailsQuery.data.config;
           const start = Number(cfg?.startTime || 0);
           const end = Number(cfg?.endTime || 0);
           const bc = cfg?.bondingCurve;
-          const isZeroAddr = typeof bc === 'string' && /^0x0{40}$/i.test(bc);
+          const isZeroAddr = typeof bc === "string" && /^0x0{40}$/i.test(bc);
           const isValid = start > 0 && end > 0 && bc && !isZeroAddr;
 
           if (!isValid) {
@@ -207,10 +274,14 @@ const RaffleDetails = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Season #{seasonId}</CardTitle>
-                  <CardDescription>Detailed view of the raffle season.</CardDescription>
+                  <CardDescription>
+                    Detailed view of the raffle season.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">Season not found or not initialized.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Season not found or not initialized.
+                  </p>
                 </CardContent>
               </Card>
             );
@@ -219,19 +290,25 @@ const RaffleDetails = () => {
           return (
             <>
               <PageTitle
-                title={(
+                title={
                   <>
-                    {t('season')} #{seasonId} - {cfg.name}
+                    {t("season")} #{seasonId} - {cfg.name}
                   </>
-                )}
+                }
               />
 
               <div className="px-6 text-xs text-[#f9d6de]">
                 <span className="mr-4">
-                  {t('start')}: {new Date(Number(cfg.startTime) * 1000).toLocaleString(i18n.language)}
+                  {t("start")}:{" "}
+                  {new Date(Number(cfg.startTime) * 1000).toLocaleString(
+                    i18n.language
+                  )}
                 </span>
                 <span>
-                  {t('end')}: {new Date(Number(cfg.endTime) * 1000).toLocaleString(i18n.language)}
+                  {t("end")}:{" "}
+                  {new Date(Number(cfg.endTime) * 1000).toLocaleString(
+                    i18n.language
+                  )}
                 </span>
               </div>
 
@@ -265,22 +342,30 @@ const RaffleDetails = () => {
                     <CardTitle>Bonding Curve</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <BondingCurvePanel curveSupply={curveSupply} curveStep={curveStep} allBondSteps={allBondSteps} />
+                    <BondingCurvePanel
+                      curveSupply={curveSupply}
+                      curveStep={curveStep}
+                      allBondSteps={allBondSteps}
+                    />
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent>
                     <BuySellWidget
                       bondingCurveAddress={bc}
+                      initialTab={initialTradeTab}
                       onTxSuccess={() => {
                         setIsRefreshing(true);
                         debouncedRefresh(250);
                         refreshPositionNow();
                         // schedule a couple of follow-ups in case indexers are lagging
-                        setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); }, 1500);
-                        setTimeout(() => { 
-                          debouncedRefresh(0); 
-                          refreshPositionNow(); 
+                        setTimeout(() => {
+                          debouncedRefresh(0);
+                          refreshPositionNow();
+                        }, 1500);
+                        setTimeout(() => {
+                          debouncedRefresh(0);
+                          refreshPositionNow();
                           setIsRefreshing(false);
                         }, 4000);
                       }}
@@ -289,10 +374,13 @@ const RaffleDetails = () => {
                         setIsRefreshing(true);
                         debouncedRefresh(0);
                         refreshPositionNow();
-                        setTimeout(() => { debouncedRefresh(0); refreshPositionNow(); }, 1500);
-                        setTimeout(() => { 
-                          debouncedRefresh(0); 
-                          refreshPositionNow(); 
+                        setTimeout(() => {
+                          debouncedRefresh(0);
+                          refreshPositionNow();
+                        }, 1500);
+                        setTimeout(() => {
+                          debouncedRefresh(0);
+                          refreshPositionNow();
                           setIsRefreshing(false);
                         }, 4000);
                       }}
@@ -300,38 +388,51 @@ const RaffleDetails = () => {
                     {/* Player position display - only visible when a wallet is connected */}
                     {isConnected && (
                       <SecondaryCard
-                        title={t('yourCurrentPosition')}
-                        right={isRefreshing ? (
-                          <Badge variant="outline" className="animate-pulse">
-                            {t('updating')}
-                          </Badge>
-                        ) : null}
+                        title={t("yourCurrentPosition")}
+                        right={
+                          isRefreshing ? (
+                            <Badge variant="outline" className="animate-pulse">
+                              {t("updating")}
+                            </Badge>
+                          ) : null
+                        }
                       >
                         {localPosition ? (
                           <div className="space-y-1">
                             <div>
-                              <span className="text-[#c82a54]">{t('tickets')}:</span>{' '}
-                              <span className="font-mono">{localPosition.tickets.toString()}</span>
+                              <span className="text-[#c82a54]">
+                                {t("tickets")}:
+                              </span>{" "}
+                              <span className="font-mono">
+                                {localPosition.tickets.toString()}
+                              </span>
                             </div>
                             <div>
-                              <span className="text-[#c82a54]">{t('winProbability')}:</span>{' '}
+                              <span className="text-[#c82a54]">
+                                {t("winProbability")}:
+                              </span>{" "}
                               <span className="font-mono">
                                 {(() => {
                                   try {
                                     const bps = Number(localPosition.probBps);
                                     return `${(bps / 100).toFixed(2)}%`;
                                   } catch {
-                                    return '0.00%';
+                                    return "0.00%";
                                   }
                                 })()}
                               </span>
                             </div>
                             <div className="text-xs text-[#f9d6de]">
-                              {t('totalTicketsAtSnapshot')}: <span className="font-mono">{localPosition.total.toString()}</span>
+                              {t("totalTicketsAtSnapshot")}:{" "}
+                              <span className="font-mono">
+                                {localPosition.total.toString()}
+                              </span>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">No position yet.</span>
+                          <span className="text-muted-foreground">
+                            No position yet.
+                          </span>
                         )}
                       </SecondaryCard>
                     )}
@@ -339,8 +440,13 @@ const RaffleDetails = () => {
                     {toasts.length > 0 && (
                       <div className="mt-3 space-y-2">
                         {toasts.map((t) => (
-                          <div key={t.id} className="p-3 rounded-md border border-[#353e34] bg-[#130013] shadow">
-                            <div className="text-sm font-medium mb-1">{t.message}</div>
+                          <div
+                            key={t.id}
+                            className="p-3 rounded-md border border-[#353e34] bg-[#130013] shadow"
+                          >
+                            <div className="text-sm font-medium mb-1">
+                              {t.message}
+                            </div>
                             {t.hash && (
                               <div className="text-xs flex items-center gap-2">
                                 <ExplorerLink
@@ -361,14 +467,20 @@ const RaffleDetails = () => {
 
               <Card className="mt-4">
                 <CardHeader>
-                  <CardTitle>{t('activityAndDetails')}</CardTitle>
+                  <CardTitle>{t("activityAndDetails")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList>
-                      <TabsTrigger value="token-info">{t('tokenInfo')}</TabsTrigger>
-                      <TabsTrigger value="transactions">{t('common:transactions')}</TabsTrigger>
-                      <TabsTrigger value="holders">{t('tokenHolders')}</TabsTrigger>
+                      <TabsTrigger value="token-info">
+                        {t("tokenInfo")}
+                      </TabsTrigger>
+                      <TabsTrigger value="transactions">
+                        {t("common:transactions")}
+                      </TabsTrigger>
+                      <TabsTrigger value="holders">
+                        {t("tokenHolders")}
+                      </TabsTrigger>
                     </TabsList>
                     <TabsContent value="token-info">
                       <TokenInfoTab
@@ -382,10 +494,16 @@ const RaffleDetails = () => {
                       />
                     </TabsContent>
                     <TabsContent value="transactions">
-                      <TransactionsTab bondingCurveAddress={bc} seasonId={seasonId} />
+                      <TransactionsTab
+                        bondingCurveAddress={bc}
+                        seasonId={seasonId}
+                      />
                     </TabsContent>
                     <TabsContent value="holders">
-                      <HoldersTab bondingCurveAddress={bc} seasonId={seasonId} />
+                      <HoldersTab
+                        bondingCurveAddress={bc}
+                        seasonId={seasonId}
+                      />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -394,8 +512,7 @@ const RaffleDetails = () => {
               <TreasuryControls seasonId={seasonId} bondingCurveAddress={bc} />
             </>
           );
-        })()
-      )}
+        })()}
     </div>
   );
 };

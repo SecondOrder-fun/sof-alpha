@@ -33,7 +33,12 @@ function useFormatSOF(decimals) {
   );
 }
 
-const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
+const BuySellWidget = ({
+  bondingCurveAddress,
+  onTxSuccess,
+  onNotify,
+  initialTab,
+}) => {
   const { t } = useTranslation(["common", "transactions"]);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
   const sofDecimalsState = useSofDecimals();
@@ -47,7 +52,20 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     isLoading: isBalanceLoading,
     refetchBalance,
   } = useSOFToken();
-  const [activeTab, setActiveTab] = useState("buy");
+  const [activeTab, setActiveTab] = useState(() => {
+    // Prefer explicit initial tab from caller when provided
+    if (initialTab === "buy" || initialTab === "sell") {
+      return initialTab;
+    }
+    // Fallback to last saved tab in localStorage
+    try {
+      const saved = localStorage.getItem("buySell.activeTab");
+      if (saved === "buy" || saved === "sell") return saved;
+    } catch {
+      // no-op
+    }
+    return "buy";
+  });
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
   const [buyEstBase, setBuyEstBase] = useState(0n);
@@ -122,15 +140,17 @@ const BuySellWidget = ({ bondingCurveAddress, onTxSuccess, onNotify }) => {
     [client, bondingCurveAddress, curveAbi]
   );
 
-  // Persist active tab in localStorage
+  // Persist active tab in localStorage. If an explicit initialTab was passed,
+  // we respect it and do not override from storage on mount.
   useEffect(() => {
+    if (initialTab === "buy" || initialTab === "sell") return;
     try {
       const saved = localStorage.getItem("buySell.activeTab");
       if (saved === "buy" || saved === "sell") setActiveTab(saved);
     } catch {
       /* no-op */
     }
-  }, []);
+  }, [initialTab]);
   useEffect(() => {
     try {
       localStorage.setItem("buySell.activeTab", activeTab);
@@ -765,6 +785,7 @@ BuySellWidget.propTypes = {
   bondingCurveAddress: PropTypes.string,
   onTxSuccess: PropTypes.func,
   onNotify: PropTypes.func,
+  initialTab: PropTypes.oneOf(["buy", "sell"]),
 };
 
 export default BuySellWidget;

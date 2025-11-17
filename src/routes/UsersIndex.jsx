@@ -102,20 +102,15 @@ const UsersIndex = () => {
                   myAddress &&
                   addr?.toLowerCase?.() === myAddress.toLowerCase();
                 const linkTo = isMyAddress ? "/account" : `/users/${addr}`;
-                const linkText = isMyAddress
-                  ? t("viewYourAccount")
-                  : t("viewProfile");
 
                 return (
-                  <div
+                  <Link
                     key={addr}
-                    className="flex items-center justify-between px-3 py-2"
+                    to={linkTo}
+                    className="flex items-center justify-between px-3 py-2 hover:bg-accent/40 transition-colors"
                   >
                     <UsernameDisplay address={addr} showBadge={true} />
-                    <Link to={linkTo} className="text-primary hover:underline">
-                      {linkText}
-                    </Link>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
