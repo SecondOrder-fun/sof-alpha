@@ -1,31 +1,31 @@
 // backend/fastify/routes/infoFiRoutes.js
-import { supabase } from '../../shared/supabaseClient.js';
+import { supabase } from "../../shared/supabaseClient.js";
 
 /**
  * InfoFi Markets API Routes
  * Provides endpoints for fetching prediction market data from Supabase
  */
 export default async function infoFiRoutes(fastify) {
-  
   /**
    * GET /api/infofi/markets
    * Get all markets, optionally filtered by season, status, or type
-   * 
+   *
    * Query params:
    * - seasonId: Filter by season (optional)
    * - isActive: Filter by active status (optional, boolean)
    * - marketType: Filter by market type (optional)
-   * 
+   *
    * Returns: { markets: { "1": [...], "2": [...] } }
    */
-  fastify.get('/markets', async (request, reply) => {
+  fastify.get("/markets", async (request, reply) => {
     try {
       const { seasonId, isActive, marketType } = request.query;
-      
+
       // Build query with optional filters
       let query = supabase
-        .from('infofi_markets')
-        .select(`
+        .from("infofi_markets")
+        .select(
+          `
           id,
           season_id,
           player_address,
@@ -39,42 +39,43 @@ export default async function infoFiRoutes(fastify) {
           winning_outcome,
           created_at,
           updated_at
-        `)
-        .order('created_at', { ascending: false });
-      
+        `
+        )
+        .order("created_at", { ascending: false });
+
       // Apply filters if provided
       if (seasonId) {
-        query = query.eq('season_id', seasonId);
+        query = query.eq("season_id", seasonId);
       }
-      
+
       if (isActive !== undefined) {
-        query = query.eq('is_active', isActive === 'true');
+        query = query.eq("is_active", isActive === "true");
       }
-      
+
       if (marketType) {
-        query = query.eq('market_type', marketType);
+        query = query.eq("market_type", marketType);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) {
-        fastify.log.error({ error }, 'Failed to fetch markets');
-        return reply.code(500).send({ 
-          error: 'Failed to fetch markets',
-          details: error.message 
+        fastify.log.error({ error }, "Failed to fetch markets");
+        return reply.code(500).send({
+          error: "Failed to fetch markets",
+          details: error.message,
         });
       }
-      
+
       // Group markets by season_id
       const marketsBySeason = {};
-      
+
       if (data && Array.isArray(data)) {
         for (const market of data) {
           const sid = String(market.season_id);
           if (!marketsBySeason[sid]) {
             marketsBySeason[sid] = [];
           }
-          
+
           // Transform to match frontend expectations
           marketsBySeason[sid].push({
             id: market.id,
@@ -96,34 +97,34 @@ export default async function infoFiRoutes(fastify) {
           });
         }
       }
-      
-      return reply.send({ 
+
+      return reply.send({
         markets: marketsBySeason,
-        total: data?.length || 0 
+        total: data?.length || 0,
       });
-      
     } catch (error) {
-      fastify.log.error({ error }, 'Unexpected error fetching markets');
-      return reply.code(500).send({ 
-        error: 'Internal server error',
-        details: error.message 
+      fastify.log.error({ error }, "Unexpected error fetching markets");
+      return reply.code(500).send({
+        error: "Internal server error",
+        details: error.message,
       });
     }
   });
-  
+
   /**
    * GET /api/infofi/markets/:marketId
    * Get a single market by ID
-   * 
+   *
    * Returns: { market: {...} }
    */
-  fastify.get('/markets/:marketId', async (request, reply) => {
+  fastify.get("/markets/:marketId", async (request, reply) => {
     try {
       const { marketId } = request.params;
-      
+
       const { data, error } = await supabase
-        .from('infofi_markets')
-        .select(`
+        .from("infofi_markets")
+        .select(
+          `
           id,
           season_id,
           player_address,
@@ -137,21 +138,22 @@ export default async function infoFiRoutes(fastify) {
           winning_outcome,
           created_at,
           updated_at
-        `)
-        .eq('id', marketId)
+        `
+        )
+        .eq("id", marketId)
         .single();
-      
+
       if (error) {
-        if (error.code === 'PGRST116') {
-          return reply.code(404).send({ error: 'Market not found' });
+        if (error.code === "PGRST116") {
+          return reply.code(404).send({ error: "Market not found" });
         }
-        fastify.log.error({ error }, 'Failed to fetch market');
-        return reply.code(500).send({ 
-          error: 'Failed to fetch market',
-          details: error.message 
+        fastify.log.error({ error }, "Failed to fetch market");
+        return reply.code(500).send({
+          error: "Failed to fetch market",
+          details: error.message,
         });
       }
-      
+
       // Transform to match frontend expectations
       const market = {
         id: data.id,
@@ -171,32 +173,32 @@ export default async function infoFiRoutes(fastify) {
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      
+
       return reply.send({ market });
-      
     } catch (error) {
-      fastify.log.error({ error }, 'Unexpected error fetching market');
-      return reply.code(500).send({ 
-        error: 'Internal server error',
-        details: error.message 
+      fastify.log.error({ error }, "Unexpected error fetching market");
+      return reply.code(500).send({
+        error: "Internal server error",
+        details: error.message,
       });
     }
   });
-  
+
   /**
    * GET /api/infofi/seasons/:seasonId/markets
    * Get all markets for a specific season
-   * 
+   *
    * Returns: { markets: [...], total: number }
    */
-  fastify.get('/seasons/:seasonId/markets', async (request, reply) => {
+  fastify.get("/seasons/:seasonId/markets", async (request, reply) => {
     try {
       const { seasonId } = request.params;
       const { isActive, marketType } = request.query;
-      
+
       let query = supabase
-        .from('infofi_markets')
-        .select(`
+        .from("infofi_markets")
+        .select(
+          `
           id,
           season_id,
           player_address,
@@ -210,30 +212,31 @@ export default async function infoFiRoutes(fastify) {
           winning_outcome,
           created_at,
           updated_at
-        `)
-        .eq('season_id', seasonId)
-        .order('created_at', { ascending: false });
-      
+        `
+        )
+        .eq("season_id", seasonId)
+        .order("created_at", { ascending: false });
+
       if (isActive !== undefined) {
-        query = query.eq('is_active', isActive === 'true');
+        query = query.eq("is_active", isActive === "true");
       }
-      
+
       if (marketType) {
-        query = query.eq('market_type', marketType);
+        query = query.eq("market_type", marketType);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) {
-        fastify.log.error({ error }, 'Failed to fetch season markets');
-        return reply.code(500).send({ 
-          error: 'Failed to fetch season markets',
-          details: error.message 
+        fastify.log.error({ error }, "Failed to fetch season markets");
+        return reply.code(500).send({
+          error: "Failed to fetch season markets",
+          details: error.message,
         });
       }
-      
+
       // Transform markets
-      const markets = (data || []).map(market => ({
+      const markets = (data || []).map((market) => ({
         id: market.id,
         seasonId: market.season_id,
         raffle_id: market.season_id,
@@ -251,64 +254,118 @@ export default async function infoFiRoutes(fastify) {
         created_at: market.created_at,
         updated_at: market.updated_at,
       }));
-      
-      return reply.send({ 
+
+      return reply.send({
         markets,
         total: markets.length,
-        seasonId: Number(seasonId)
+        seasonId: Number(seasonId),
       });
-      
     } catch (error) {
-      fastify.log.error({ error }, 'Unexpected error fetching season markets');
-      return reply.code(500).send({ 
-        error: 'Internal server error',
-        details: error.message 
+      fastify.log.error({ error }, "Unexpected error fetching season markets");
+      return reply.code(500).send({
+        error: "Internal server error",
+        details: error.message,
       });
     }
   });
-  
+
   /**
    * GET /api/infofi/stats
    * Get aggregate statistics across all markets
-   * 
+   *
    * Returns: { totalMarkets, activeMarkets, settledMarkets, marketsByType }
    */
-  fastify.get('/stats', async (request, reply) => {
+  fastify.get("/stats", async (request, reply) => {
     try {
       const { data, error } = await supabase
-        .from('infofi_markets')
-        .select('id, is_active, is_settled, market_type');
-      
+        .from("infofi_markets")
+        .select("id, is_active, is_settled, market_type");
+
       if (error) {
-        fastify.log.error({ error }, 'Failed to fetch market stats');
-        return reply.code(500).send({ 
-          error: 'Failed to fetch market stats',
-          details: error.message 
+        fastify.log.error({ error }, "Failed to fetch market stats");
+        return reply.code(500).send({
+          error: "Failed to fetch market stats",
+          details: error.message,
         });
       }
-      
+
       const stats = {
         totalMarkets: data?.length || 0,
-        activeMarkets: data?.filter(m => m.is_active).length || 0,
-        settledMarkets: data?.filter(m => m.is_settled).length || 0,
-        marketsByType: {}
+        activeMarkets: data?.filter((m) => m.is_active).length || 0,
+        settledMarkets: data?.filter((m) => m.is_settled).length || 0,
+        marketsByType: {},
       };
-      
+
       // Count by market type
       if (data) {
         for (const market of data) {
-          const type = market.market_type || 'UNKNOWN';
+          const type = market.market_type || "UNKNOWN";
           stats.marketsByType[type] = (stats.marketsByType[type] || 0) + 1;
         }
       }
-      
+
       return reply.send(stats);
-      
     } catch (error) {
-      fastify.log.error({ error }, 'Unexpected error fetching stats');
-      return reply.code(500).send({ 
-        error: 'Internal server error',
-        details: error.message 
+      fastify.log.error({ error }, "Unexpected error fetching stats");
+      return reply.code(500).send({
+        error: "Internal server error",
+        details: error.message,
+      });
+    }
+  });
+
+  fastify.get("/markets/admin-summary", async (_request, reply) => {
+    try {
+      const { data, error } = await supabase
+        .from("infofi_markets")
+        .select("season_id, is_active, is_settled, market_type");
+
+      if (error) {
+        fastify.log.error({ error }, "Failed to fetch admin markets summary");
+        return reply.code(500).send({
+          error: "Failed to fetch markets summary",
+          details: error.message,
+        });
+      }
+
+      const seasons = {};
+
+      if (Array.isArray(data)) {
+        for (const row of data) {
+          const sid = String(row.season_id);
+          if (!seasons[sid]) {
+            seasons[sid] = {
+              seasonId: row.season_id,
+              totalMarkets: 0,
+              activeMarkets: 0,
+              settledMarkets: 0,
+              marketsByType: {},
+            };
+          }
+
+          const season = seasons[sid];
+          season.totalMarkets += 1;
+          if (row.is_active) season.activeMarkets += 1;
+          if (row.is_settled) season.settledMarkets += 1;
+
+          const type = row.market_type || "UNKNOWN";
+          season.marketsByType[type] = (season.marketsByType[type] || 0) + 1;
+        }
+      }
+
+      return reply.send({
+        seasons,
+        totalSeasons: Object.keys(seasons).length,
+        totalMarkets: data?.length || 0,
+      });
+    } catch (error) {
+      fastify.log.error(
+        { error },
+        "Unexpected error fetching markets admin summary"
+      );
+      return reply.code(500).send({
+        error: "Internal server error",
+        details: error.message,
       });
     }
   });

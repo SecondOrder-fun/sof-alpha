@@ -5,7 +5,8 @@ import SOFBondingCurveAbi from "../abis/SOFBondingCurveAbi.js";
 // Market type hash mapping (matches contract constants)
 // These are keccak256 hashes of the market type strings
 const MARKET_TYPE_HASHES = {
-  '0x9af7ac054212f2f6f51aadd6392aae69c37a65182710ccc31fc2ce8679842eab': 'WINNER_PREDICTION',
+  "0x9af7ac054212f2f6f51aadd6392aae69c37a65182710ccc31fc2ce8679842eab":
+    "WINNER_PREDICTION",
   // Add more market types here as they're added to the contract
 };
 
@@ -20,7 +21,7 @@ async function calculateProbability(seasonId, playerAddress, logger) {
   try {
     // Step 1: Get bonding curve address for this season from database
     const seasonContracts = await db.getSeasonContracts(seasonId);
-    
+
     if (!seasonContracts || !seasonContracts.bonding_curve_address) {
       logger.warn(`⚠️  No bonding curve found for season ${seasonId}`);
       return 0;
@@ -32,21 +33,23 @@ async function calculateProbability(seasonId, playerAddress, logger) {
     const playerTickets = await publicClient.readContract({
       address: bondingCurveAddress,
       abi: SOFBondingCurveAbi,
-      functionName: 'playerTickets',
-      args: [playerAddress]
+      functionName: "playerTickets",
+      args: [playerAddress],
     });
 
     // Step 3: Read total supply from bonding curve config
     const curveConfig = await publicClient.readContract({
       address: bondingCurveAddress,
       abi: SOFBondingCurveAbi,
-      functionName: 'curveConfig',
-      args: []
+      functionName: "curveConfig",
+      args: [],
     });
 
     // Handle both array and object return formats
     // Viem can return structs as arrays [totalSupply, sofReserves, ...] or objects {totalSupply, sofReserves, ...}
-    const totalSupply = Array.isArray(curveConfig) ? curveConfig[0] : curveConfig.totalSupply;
+    const totalSupply = Array.isArray(curveConfig)
+      ? curveConfig[0]
+      : curveConfig.totalSupply;
 
     // Step 4: Calculate probability in basis points
     if (totalSupply === 0n) {
@@ -55,33 +58,47 @@ async function calculateProbability(seasonId, playerAddress, logger) {
     }
 
     // Convert BigInt to Number safely
-    const ticketCount = typeof playerTickets === 'bigint' ? Number(playerTickets) : playerTickets;
-    const totalTickets = typeof totalSupply === 'bigint' ? Number(totalSupply) : totalSupply;
+    const ticketCount =
+      typeof playerTickets === "bigint" ? Number(playerTickets) : playerTickets;
+    const totalTickets =
+      typeof totalSupply === "bigint" ? Number(totalSupply) : totalSupply;
 
     // Validate numbers
     if (isNaN(ticketCount) || isNaN(totalTickets)) {
-      logger.error(`❌ Invalid numbers: ticketCount=${ticketCount}, totalTickets=${totalTickets}`);
+      logger.error(
+        `❌ Invalid numbers: ticketCount=${ticketCount}, totalTickets=${totalTickets}`
+      );
       return 0;
     }
 
     if (totalTickets === 0) {
-      logger.warn(`⚠️  Total tickets is 0 after conversion for season ${seasonId}`);
+      logger.warn(
+        `⚠️  Total tickets is 0 after conversion for season ${seasonId}`
+      );
       return 0;
     }
 
     const probabilityBps = Math.floor((ticketCount / totalTickets) * 10000);
-    
-    logger.debug(`📊 Probability calculated for season ${seasonId}, player ${playerAddress}`);
+
+    logger.debug(
+      `📊 Probability calculated for season ${seasonId}, player ${playerAddress}`
+    );
     logger.debug(`   Player tickets: ${ticketCount}`);
     logger.debug(`   Total tickets: ${totalTickets}`);
-    logger.debug(`   Probability: ${probabilityBps} bps (${(probabilityBps/100).toFixed(2)}%)`);
+    logger.debug(
+      `   Probability: ${probabilityBps} bps (${(probabilityBps / 100).toFixed(
+        2
+      )}%)`
+    );
 
     return probabilityBps;
   } catch (error) {
-    logger.error(`❌ Failed to calculate probability for season ${seasonId}, player ${playerAddress}`);
+    logger.error(
+      `❌ Failed to calculate probability for season ${seasonId}, player ${playerAddress}`
+    );
     logger.error(`   Error: ${error.message}`);
     logger.debug(`   Full error:`, error);
-    
+
     // Return 0 as fallback (will be updated by positionUpdateListener)
     return 0;
   }
@@ -122,9 +139,11 @@ export async function startMarketCreatedListener(
         logger.info(`   Address: ${log.address}`);
         logger.info(`   Topics: ${JSON.stringify(log.topics)}`);
         logger.info(`   Data: ${log.data}`);
-        logger.info(`   Args (raw): ${JSON.stringify(log.args, (key, value) => 
-          typeof value === 'bigint' ? value.toString() : value
-        )}`);
+        logger.info(
+          `   Args (raw): ${JSON.stringify(log.args, (key, value) =>
+            typeof value === "bigint" ? value.toString() : value
+          )}`
+        );
 
         const { seasonId, player, marketType, conditionId, fpmmAddress } =
           log.args;
@@ -136,12 +155,12 @@ export async function startMarketCreatedListener(
 
           // Debug: Log raw value
           logger.info(`🔍 Raw marketType hash: ${marketType}`);
-          
+
           // Decode marketType hash to string using mapping
           // Contract emits keccak256(marketType) for gas efficiency
-          const marketTypeStr = MARKET_TYPE_HASHES[marketType] || 'UNKNOWN';
-          
-          if (marketTypeStr === 'UNKNOWN') {
+          const marketTypeStr = MARKET_TYPE_HASHES[marketType] || "UNKNOWN";
+
+          if (marketTypeStr === "UNKNOWN") {
             logger.warn(`⚠️  Unknown marketType hash: ${marketType}`);
             logger.warn(`⚠️  Add this hash to MARKET_TYPE_HASHES mapping`);
           } else {
@@ -160,9 +179,15 @@ export async function startMarketCreatedListener(
           // Create complete market entry in database
           try {
             // Check if market already exists (prevent duplicates from case sensitivity)
-            const existingMarket = await db.hasInfoFiMarket(seasonIdNum, player, marketTypeStr);
+            const existingMarket = await db.hasInfoFiMarket(
+              seasonIdNum,
+              player,
+              marketTypeStr
+            );
             if (existingMarket) {
-              logger.warn(`⚠️  Market already exists for season ${seasonIdNum}, player ${player}, type ${marketTypeStr}`);
+              logger.warn(
+                `⚠️  Market already exists for season ${seasonIdNum}, player ${player}, type ${marketTypeStr}`
+              );
               logger.warn(`   Skipping duplicate market creation`);
               continue; // Skip to next log
             }
@@ -173,13 +198,19 @@ export async function startMarketCreatedListener(
               playerId = await db.getOrCreatePlayerId(player);
               logger.info(`   Player ID retrieved: ${playerId}`);
             } catch (playerError) {
-              logger.error(`   Failed to get/create player ID: ${playerError.message}`);
+              logger.error(
+                `   Failed to get/create player ID: ${playerError.message}`
+              );
               logger.debug(`   Player error details:`, playerError);
               playerId = null; // Explicitly set to null if failed
             }
 
             // Calculate current probability
-            const probabilityBps = await calculateProbability(seasonIdNum, player, logger);
+            const probabilityBps = await calculateProbability(
+              seasonIdNum,
+              player,
+              logger
+            );
 
             // Create market entry with all required fields
             const timestamp = new Date().toISOString();
@@ -193,13 +224,17 @@ export async function startMarketCreatedListener(
               is_active: true,
               is_settled: false,
               created_at: timestamp,
-              updated_at: timestamp
+              updated_at: timestamp,
             });
 
             logger.info(`✅ InfoFi market created in database`);
             logger.info(`   Player ID: ${playerId}`);
             logger.info(`   Market Type: ${marketTypeStr}`);
-            logger.info(`   Probability: ${probabilityBps} bps (${(probabilityBps/100).toFixed(2)}%)`);
+            logger.info(
+              `   Probability: ${probabilityBps} bps (${(
+                probabilityBps / 100
+              ).toFixed(2)}%)`
+            );
             logger.info(`   Status: Market created successfully`);
           } catch (dbError) {
             logger.error(
@@ -232,11 +267,35 @@ export async function startMarketCreatedListener(
           stack: error?.stack || undefined,
         };
 
-        logger.error({ errorDetails }, "❌ MarketCreated Listener Error");
+        const isFilterNotFound =
+          (errorDetails.details &&
+            String(errorDetails.details).includes("filter not found")) ||
+          (errorDetails.message &&
+            String(errorDetails.message).includes("filter not found"));
+
+        if (isFilterNotFound) {
+          logger.debug(
+            { errorDetails },
+            "MarketCreated Listener filter not found (silenced)"
+          );
+        } else {
+          logger.error({ errorDetails }, "❌ MarketCreated Listener Error");
+        }
       } catch (logError) {
         // Fallback if error object can't be serialized
-        logger.error(`❌ MarketCreated Listener Error: ${String(error)}`);
-        logger.debug("Raw error:", error);
+        const isFilterNotFoundFallback =
+          String(error).includes("filter not found") ||
+          String(logError).includes("filter not found");
+        if (isFilterNotFoundFallback) {
+          logger.debug(
+            `MarketCreated Listener filter not found (silenced): ${String(
+              error
+            )}`
+          );
+        } else {
+          logger.error(`❌ MarketCreated Listener Error: ${String(error)}`);
+          logger.debug("Raw error:", error);
+        }
       }
 
       // Future: Implement retry logic or alerting

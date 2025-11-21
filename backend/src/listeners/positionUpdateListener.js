@@ -1,8 +1,7 @@
 import { publicClient } from "../lib/viemClient.js";
 import { db } from "../../shared/supabaseClient.js";
 import { oracleCallService } from "../services/oracleCallService.js";
-// TODO: Re-enable Paymaster service once viem account-abstraction is properly configured
-// import { getPaymasterService } from '../services/paymasterService.js';
+import { getPaymasterService } from "../services/paymasterService.js";
 import { getSSEService } from "../services/sseService.js";
 
 // Simple ERC20 ABI for totalSupply() call
@@ -26,6 +25,7 @@ const erc20Abi = [
  * @param {string} raffleAddress - Raffle contract address
  * @param {object} raffleAbi - Raffle ABI
  * @param {string} raffleTokenAddress - RaffleToken contract address (for max supply)
+ * @param {string} infoFiFactoryAddress - InfoFiMarketFactory contract address (for gasless market creation)
  * @param {object} logger - Fastify logger instance (app.log)
  * @returns {function} Unwatch function to stop listening
  */
@@ -35,6 +35,7 @@ export async function startPositionUpdateListener(
   raffleAddress,
   raffleAbi,
   raffleTokenAddress,
+  infoFiFactoryAddress,
   logger
 ) {
   // Validate inputs
@@ -53,19 +54,20 @@ export async function startPositionUpdateListener(
   }
 
   // Initialize services
-  // TODO: Re-enable Paymaster service once viem account-abstraction is properly configured
-  // const paymasterService = getPaymasterService(logger);
+  const paymasterService = getPaymasterService(logger);
   const sseService = getSSEService(logger);
 
   // Initialize Paymaster service if not already done
-  // if (!paymasterService.initialized) {
-  //   try {
-  //     await paymasterService.initialize();
-  //   } catch (error) {
-  //     logger.warn(`⚠️  PaymasterService initialization failed: ${error.message}`);
-  //     logger.warn(`   Market creation will not be available`);
-  //   }
-  // }
+  if (!paymasterService.initialized) {
+    try {
+      await paymasterService.initialize();
+    } catch (error) {
+      logger.warn(
+        `⚠️  PaymasterService initialization failed: ${error.message}`
+      );
+      logger.warn(`   Market creation will not be available`);
+    }
+  }
 
   // Fetch max supply once at listener startup
   let maxSupply = null;
@@ -287,59 +289,85 @@ export async function startPositionUpdateListener(
               probability: newProbabilityBps,
             });
 
-            // TODO: Re-enable Paymaster market creation once viem account-abstraction is properly configured
-            // Trigger Paymaster market creation if service is initialized
-            // if (paymasterService.initialized) {
-            //   try {
-            //     logger.info(`🚀 Submitting gasless market creation via Paymaster...`);
-            //     const result = await paymasterService.createMarket(
-            //       {
-            //         seasonId: seasonIdNum,
-            //         player,
-            //         oldTickets: oldTicketsNum,
-            //         newTickets: newTicketsNum,
-            //         totalTickets: totalTicketsNum,
-            //         infoFiFactoryAddress,
-            //       },
-            //       logger
-            //     );
+            if (paymasterService.initialized && infoFiFactoryAddress) {
+              try {
+                logger.info(
+                  "🚀 Submitting gasless market creation via Paymaster..."
+                );
+                const result = await paymasterService.createMarket(
+                  {
+                    seasonId: seasonIdNum,
+                    player,
+                    oldTickets: oldTicketsNum,
+                    newTickets: newTicketsNum,
+                    totalTickets: totalTicketsNum,
+                    infoFiFactoryAddress,
+                  },
+                  logger
+                );
 
-            //     if (result.success) {
-            //       logger.info(
-            //         `✅ Market creation confirmed: ${result.hash} (attempts: ${result.attempts})`
-            //       );
-            //       // Broadcast market creation confirmed event
-            //       sseService.broadcastMarketCreationConfirmed({
-            //         seasonId: seasonIdNum,
-            //         player,
-            //         transactionHash: result.hash,
-            //         marketAddress: 'pending', // Will be updated when market is created
-            //       });
-            //     } else {
-            //       logger.error(
-            //         `❌ Market creation failed: ${result.error} (attempts: ${result.attempts})`
-            //       );
-            //       // Broadcast market creation failed event
-            //       sseService.broadcastMarketCreationFailed({
-            //         seasonId: seasonIdNum,
-            //         player,
-            //         error: result.error,
-            //       });
-            //     }
-            //   } catch (error) {
-            //     logger.error(`❌ Market creation error: ${error.message}`);
-            //     sseService.broadcastMarketCreationFailed({
-            //       seasonId: seasonIdNum,
-            //       player,
-            //       error: error.message,
-            //     });
-            //   }
-            // } else {
-            //   logger.warn(`⚠️  PaymasterService not initialized, skipping market creation`);
-            // }
-            logger.info(
-              `⏭️  Paymaster market creation temporarily disabled (viem account-abstraction pending)`
-            );
+                if (result.success) {
+                  logger.info(
+                    `✅ Market creation confirmed: ${result.hash} (attempts: ${result.attempts})`
+                  );
+                  sseService.broadcastMarketCreationConfirmed({
+                    seasonId: seasonIdNum,
+                    player,
+                    transactionHash: result.hash,
+                    marketAddress: "pending", // Will be updated when MarketCreated event is processed
+                  });
+                } else {
+                  logger.error(
+                    `❌ Market creation failed: ${result.error} (attempts: ${result.attempts})`
+                  );
+                  sseService.broadcastMarketCreationFailed({
+                    seasonId: seasonIdNum,
+                    player,
+                    error: result.error,
+                  });
+
+                  // Persist failed attempt for admin visibility and manual retry
+                  try {
+                    await db.logFailedMarketAttempt({
+                      seasonId: seasonIdNum,
+                      playerAddress: player,
+                      source: "LISTENER",
+                      errorMessage: result.error,
+                      attempts: result.attempts,
+                    });
+                  } catch (logError) {
+                    logger.warn(
+                      `   ⚠️  Failed to record failed market attempt: ${logError.message}`
+                    );
+                  }
+                }
+              } catch (error) {
+                logger.error(`❌ Market creation error: ${error.message}`);
+                sseService.broadcastMarketCreationFailed({
+                  seasonId: seasonIdNum,
+                  player,
+                  error: error.message,
+                });
+
+                // Persist unexpected errors during market creation
+                try {
+                  await db.logFailedMarketAttempt({
+                    seasonId: seasonIdNum,
+                    playerAddress: player,
+                    source: "LISTENER",
+                    errorMessage: error.message,
+                  });
+                } catch (logError) {
+                  logger.warn(
+                    `   ⚠️  Failed to record failed market attempt: ${logError.message}`
+                  );
+                }
+              }
+            } else {
+              logger.warn(
+                "⚠️  PaymasterService not initialized or InfoFi factory not configured, skipping market creation"
+              );
+            }
           }
 
           // Log success with detailed information
@@ -407,11 +435,35 @@ export async function startPositionUpdateListener(
           stack: error?.stack || undefined,
         };
 
-        logger.error({ errorDetails }, "❌ PositionUpdate Listener Error");
+        const isFilterNotFound =
+          (errorDetails.details &&
+            String(errorDetails.details).includes("filter not found")) ||
+          (errorDetails.message &&
+            String(errorDetails.message).includes("filter not found"));
+
+        if (isFilterNotFound) {
+          logger.debug(
+            { errorDetails },
+            "PositionUpdate Listener filter not found (silenced)"
+          );
+        } else {
+          logger.error({ errorDetails }, "❌ PositionUpdate Listener Error");
+        }
       } catch (logError) {
         // Fallback if error object can't be serialized
-        logger.error(`❌ PositionUpdate Listener Error: ${String(error)}`);
-        logger.debug("Raw error:", error);
+        const isFilterNotFoundFallback =
+          String(error).includes("filter not found") ||
+          String(logError).includes("filter not found");
+        if (isFilterNotFoundFallback) {
+          logger.debug(
+            `PositionUpdate Listener filter not found (silenced): ${String(
+              error
+            )}`
+          );
+        } else {
+          logger.error(`❌ PositionUpdate Listener Error: ${String(error)}`);
+          logger.debug("Raw error:", error);
+        }
       }
 
       // Future: Implement retry logic or alerting

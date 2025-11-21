@@ -1,16 +1,13 @@
 /**
  * @file paymasterService.js
  * @description Service for submitting gasless transactions via Base Paymaster
- * Uses Viem Account Abstraction to create UserOperations and submit them to the Paymaster
+ * Uses viem wallet client for backend operations with Paymaster RPC
  * @author SecondOrder.fun
  */
 
-import {
-  createSmartAccountClient,
-  toSoladySmartAccount,
-} from 'viem/account-abstraction';
-import { http, publicActions } from 'viem';
-import { base } from 'viem/chains';
+import { createWalletClient, http, encodeFunctionData } from "viem";
+import { baseSepolia, base } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 
 /**
  * PaymasterService - Handles gasless transaction submission via Base Paymaster
@@ -19,13 +16,13 @@ import { base } from 'viem/chains';
 export class PaymasterService {
   constructor(logger) {
     this.logger = logger;
-    this.smartAccountClient = null;
-    this.smartAccountAddress = null;
+    this.walletClient = null;
+    this.account = null;
     this.initialized = false;
   }
 
   /**
-   * Initialize the Paymaster service with Smart Account
+   * Initialize the Paymaster service with viem wallet client
    * @async
    * @returns {Promise<void>}
    * @throws {Error} If initialization fails
@@ -33,58 +30,58 @@ export class PaymasterService {
   async initialize() {
     try {
       const {
-        PAYMASTER_RPC_URL,
-        ENTRY_POINT_ADDRESS,
-        BACKEND_SMART_ACCOUNT_KEY,
-        BASE_RPC_URL,
+        DEFAULT_NETWORK,
+        PAYMASTER_RPC_URL_TESTNET,
+        BACKEND_WALLET_PRIVATE_KEY,
       } = process.env;
 
+      const isTestnet = DEFAULT_NETWORK === "TESTNET";
+
       // Validate required environment variables
-      if (!PAYMASTER_RPC_URL) {
-        throw new Error('PAYMASTER_RPC_URL not configured');
-      }
-      if (!ENTRY_POINT_ADDRESS) {
-        throw new Error('ENTRY_POINT_ADDRESS not configured');
-      }
-      if (!BACKEND_SMART_ACCOUNT_KEY) {
-        throw new Error('BACKEND_SMART_ACCOUNT_KEY not configured');
-      }
-      if (!BASE_RPC_URL) {
-        throw new Error('BASE_RPC_URL not configured');
+      if (!PAYMASTER_RPC_URL_TESTNET && isTestnet) {
+        throw new Error("PAYMASTER_RPC_URL_TESTNET not configured");
       }
 
-      // Create Solady Smart Account
-      const account = await toSoladySmartAccount({
-        client: publicActions(http(BASE_RPC_URL)),
-        owner: {
-          address: this._getAddressFromPrivateKey(BACKEND_SMART_ACCOUNT_KEY),
-          type: 'privateKey',
-          privateKey: BACKEND_SMART_ACCOUNT_KEY,
-        },
-        entryPoint: ENTRY_POINT_ADDRESS,
+      if (!BACKEND_WALLET_PRIVATE_KEY) {
+        throw new Error("BACKEND_WALLET_PRIVATE_KEY not configured");
+      }
+
+      // Create account from private key
+      const normalizedKey = BACKEND_WALLET_PRIVATE_KEY.startsWith("0x")
+        ? BACKEND_WALLET_PRIVATE_KEY
+        : `0x${BACKEND_WALLET_PRIVATE_KEY}`;
+
+      this.account = privateKeyToAccount(normalizedKey);
+
+      // Create wallet client with Paymaster RPC
+      const chain = isTestnet ? baseSepolia : base;
+      const rpcUrl = PAYMASTER_RPC_URL_TESTNET; // Paymaster RPC will sponsor transactions
+
+      this.walletClient = createWalletClient({
+        account: this.account,
+        chain,
+        transport: http(rpcUrl),
       });
 
-      // Create smart account client
-      this.smartAccountClient = createSmartAccountClient({
-        account,
-        chain: base,
-        bundlerTransport: http(PAYMASTER_RPC_URL),
-        paymasterTransport: http(PAYMASTER_RPC_URL),
-      });
-
-      this.smartAccountAddress = account.address;
       this.initialized = true;
 
-      this.logger.info(`✅ PaymasterService initialized`);
-      this.logger.info(`   Smart Account: ${this.smartAccountAddress}`);
+      this.logger.info(
+        `✅ PaymasterService initialized with viem wallet client`
+      );
+      this.logger.info(
+        `   Network: ${isTestnet ? "Base Sepolia" : "Base Mainnet"}`
+      );
+      this.logger.info(`   Account: ${this.account.address}`);
     } catch (error) {
-      this.logger.error(`❌ PaymasterService initialization failed: ${error.message}`);
+      this.logger.error(
+        `❌ PaymasterService initialization failed: ${error.message}`
+      );
       throw error;
     }
   }
 
   /**
-   * Create a market via gasless transaction
+   * Create a market via gasless transaction using viem wallet client
    * @async
    * @param {Object} params - Market creation parameters
    * @param {number} params.seasonId - Season identifier
@@ -99,7 +96,9 @@ export class PaymasterService {
    */
   async createMarket(params, logger) {
     if (!this.initialized) {
-      throw new Error('PaymasterService not initialized. Call initialize() first.');
+      throw new Error(
+        "PaymasterService not initialized. Call initialize() first."
+      );
     }
 
     const {
@@ -121,53 +120,85 @@ export class PaymasterService {
         );
 
         // Encode the onPositionUpdate function call
-        const functionData = this._encodeOnPositionUpdate(
-          seasonId,
-          player,
-          oldTickets,
-          newTickets,
-          totalTickets
-        );
-
-        // Submit UserOperation via Paymaster
-        const hash = await this.smartAccountClient.sendUserOperation({
-          calls: [
+        const data = encodeFunctionData({
+          abi: [
             {
-              to: infoFiFactoryAddress,
-              data: functionData,
-              value: 0n,
+              name: "onPositionUpdate",
+              type: "function",
+              stateMutability: "nonpayable",
+              inputs: [
+                { name: "seasonId", type: "uint256" },
+                { name: "player", type: "address" },
+                { name: "oldTickets", type: "uint256" },
+                { name: "newTickets", type: "uint256" },
+                { name: "totalTickets", type: "uint256" },
+              ],
+              outputs: [],
             },
+          ],
+          functionName: "onPositionUpdate",
+          args: [
+            BigInt(seasonId),
+            player,
+            BigInt(oldTickets),
+            BigInt(newTickets),
+            BigInt(totalTickets),
           ],
         });
 
-        logger.info(`✅ Market creation submitted: ${hash}`);
-
-        // Wait for transaction confirmation
-        const receipt = await this.smartAccountClient.waitForUserOperationReceipt({
-          hash,
+        // Send transaction - Paymaster RPC will sponsor if contract is in allowlist
+        const hash = await this.walletClient.sendTransaction({
+          to: infoFiFactoryAddress,
+          data,
+          value: 0n,
         });
 
-        if (receipt.success) {
-          logger.info(`✅ Market creation confirmed: ${receipt.transactionHash}`);
-          return {
-            success: true,
-            hash: receipt.transactionHash,
-            attempts: attempt,
-          };
-        } else {
-          throw new Error(`UserOperation failed: ${receipt.reason}`);
-        }
+        logger.info(`✅ Market creation transaction submitted: ${hash}`);
+
+        return {
+          success: true,
+          hash,
+          attempts: attempt,
+        };
       } catch (error) {
-        logger.error(
-          `❌ Attempt ${attempt} failed: ${error.message}`
-        );
+        logger.error(`❌ Attempt ${attempt} failed: ${error.message}`);
+
+        try {
+          logger.error({
+            msg: "Full error object from sendTransaction",
+            error,
+          });
+        } catch (serializationError) {
+          logger.error(
+            `Failed to serialize full error object: ${String(
+              serializationError
+            )}`
+          );
+        }
+
+        if (error && error.cause) {
+          try {
+            logger.error({
+              msg: "Nested error.cause",
+              cause: error.cause,
+            });
+          } catch (causeSerializationError) {
+            logger.error(
+              `Failed to serialize error.cause: ${String(
+                causeSerializationError
+              )}`
+            );
+          }
+        }
 
         if (attempt < maxRetries) {
           const delayMs = retryDelays[attempt - 1];
           logger.info(`⏳ Retrying in ${delayMs / 1000}s...`);
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         } else {
-          logger.error(`❌ Market creation failed after ${maxRetries} attempts`);
+          logger.error(
+            `❌ Market creation failed after ${maxRetries} attempts`
+          );
           return {
             success: false,
             error: error.message,
@@ -179,64 +210,14 @@ export class PaymasterService {
   }
 
   /**
-   * Get the Smart Account address
-   * @returns {string} Smart Account address
+   * Get the backend wallet address
+   * @returns {string} Wallet address
    */
-  getSmartAccountAddress() {
+  getWalletAddress() {
     if (!this.initialized) {
-      throw new Error('PaymasterService not initialized');
+      throw new Error("PaymasterService not initialized");
     }
-    return this.smartAccountAddress;
-  }
-
-  /**
-   * Encode onPositionUpdate function call
-   * @private
-   * @param {number} seasonId - Season identifier
-   * @param {string} player - Player address
-   * @param {number} oldTickets - Previous ticket count
-   * @param {number} newTickets - New ticket count
-   * @param {number} totalTickets - Total tickets in season
-   * @returns {string} Encoded function data
-   */
-  _encodeOnPositionUpdate(seasonId, player, oldTickets, newTickets, totalTickets) {
-    // Function signature: onPositionUpdate(uint256 seasonId, address player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)
-    // Selector: 0x1a1d1f6f (calculated from keccak256 of function signature)
-    const selector = '0x1a1d1f6f';
-
-    // Encode parameters
-    // uint256 seasonId (32 bytes)
-    const seasonIdEncoded = seasonId.toString(16).padStart(64, '0');
-    // address player (32 bytes, padded)
-    const playerEncoded = player.slice(2).padStart(64, '0');
-    // uint256 oldTickets (32 bytes)
-    const oldTicketsEncoded = oldTickets.toString(16).padStart(64, '0');
-    // uint256 newTickets (32 bytes)
-    const newTicketsEncoded = newTickets.toString(16).padStart(64, '0');
-    // uint256 totalTickets (32 bytes)
-    const totalTicketsEncoded = totalTickets.toString(16).padStart(64, '0');
-
-    return (
-      selector +
-      seasonIdEncoded +
-      playerEncoded +
-      oldTicketsEncoded +
-      newTicketsEncoded +
-      totalTicketsEncoded
-    );
-  }
-
-  /**
-   * Extract address from private key
-   * @private
-   * @param {string} privateKey - Private key (0x prefixed hex string)
-   * @returns {string} Address derived from private key
-   */
-  _getAddressFromPrivateKey(privateKey) {
-    // This is a simplified version - in production, use proper key derivation
-    // For now, we'll use the private key as-is and let viem derive the address
-    // The actual address derivation happens in toSoladySmartAccount
-    return privateKey;
+    return this.account.address;
   }
 }
 

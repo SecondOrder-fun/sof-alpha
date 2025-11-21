@@ -30,6 +30,7 @@
     "dev:stack": "sh -c \"concurrently -k -n anvil,deploy,backend,frontend -c magenta,yellow,blue,green 'npm:anvil' 'sh -c \\\"until curl -s http://127.0.0.1:8545 >/dev/null 2>&1; do sleep 1; done; npm run deploy:anvil; tail -f /dev/null\\\"' 'npm:start:backend' 'npm:start:frontend'\""
   },
   "dependencies": {
+    "@base-org/account": "^2.4.2",
     "@farcaster/auth-kit": "^0.1.4",
     "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^13.0.1",

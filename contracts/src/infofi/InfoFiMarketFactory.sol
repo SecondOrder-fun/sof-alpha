@@ -56,7 +56,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
     RaffleOracleAdapter public immutable oracleAdapter;
     InfoFiFPMMV2 public immutable fpmmManager;
     IERC20 public immutable sofToken;
-    MarketTypeRegistry public immutable marketTypeRegistry;
+    MarketTypeRegistry public marketTypeRegistry;
 
     address public treasury;
 
@@ -77,11 +77,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
     /// @notice Emitted when a market is successfully created
     event MarketCreated(
-        uint256 indexed seasonId,
-        address indexed player,
-        bytes32 marketType,
-        bytes32 conditionId,
-        address fpmmAddress
+        uint256 indexed seasonId, address indexed player, bytes32 marketType, bytes32 conditionId, address fpmmAddress
     );
 
     /// @notice Emitted when a player's win probability is updated
@@ -100,7 +96,10 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
     /// @notice Emitted when treasury address is updated
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
-    /// @notice Emitted when treasury balance falls below safe threshold
+    /// @notice Emitted when market type registry is updated
+    event MarketTypeRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+
+    /// @notice Emitted when treasury balance is low
     event TreasuryLow(uint256 currentBalance, uint256 requiredPerMarket);
 
     /// @notice Emitted when market creation status changes
@@ -331,20 +330,26 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         if (conditionId == bytes32(0)) {
             // Condition not yet prepared, prepare it now
             marketStatus[seasonId][player] = MarketCreationStatus.ConditionPrepared;
-            emit MarketStatusChanged(seasonId, player, oldStatus, MarketCreationStatus.ConditionPrepared, "Condition prepared");
+            emit MarketStatusChanged(
+                seasonId, player, oldStatus, MarketCreationStatus.ConditionPrepared, "Condition prepared"
+            );
 
             conditionId = oracleAdapter.preparePlayerCondition(seasonId, player);
         } else {
             // Condition already prepared (idempotent retry scenario)
             // Update status to reflect we're reusing it
             marketStatus[seasonId][player] = MarketCreationStatus.ConditionPrepared;
-            emit MarketStatusChanged(seasonId, player, oldStatus, MarketCreationStatus.ConditionPrepared, "Reusing existing condition");
+            emit MarketStatusChanged(
+                seasonId, player, oldStatus, MarketCreationStatus.ConditionPrepared, "Reusing existing condition"
+            );
         }
 
         // ✅ STEP 2: TRANSFER LIQUIDITY
         oldStatus = marketStatus[seasonId][player];
         marketStatus[seasonId][player] = MarketCreationStatus.LiquidityTransferred;
-        emit MarketStatusChanged(seasonId, player, oldStatus, MarketCreationStatus.LiquidityTransferred, "Liquidity transferred");
+        emit MarketStatusChanged(
+            seasonId, player, oldStatus, MarketCreationStatus.LiquidityTransferred, "Liquidity transferred"
+        );
 
         require(sofToken.transferFrom(treasury, address(this), INITIAL_LIQUIDITY), "Treasury transfer failed");
 
@@ -367,7 +372,9 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
         oldStatus = marketStatus[seasonId][player];
         marketStatus[seasonId][player] = MarketCreationStatus.MarketCreated;
-        emit MarketStatusChanged(seasonId, player, oldStatus, MarketCreationStatus.MarketCreated, "Market created successfully");
+        emit MarketStatusChanged(
+            seasonId, player, oldStatus, MarketCreationStatus.MarketCreated, "Market created successfully"
+        );
 
         emit MarketCreated(seasonId, player, marketType, conditionId, fpmm);
     }
@@ -412,6 +419,22 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
         // ✅ EMIT UPDATE EVENT
         emit TreasuryUpdated(oldTreasury, newTreasury);
+    }
+
+    /**
+     * @notice Updates the MarketTypeRegistry address
+     * @dev Only callable by admin, allows updating registry without redeploying factory
+     * @param newRegistry The new MarketTypeRegistry address
+     */
+    function setMarketTypeRegistry(address newRegistry) external onlyRole(ADMIN_ROLE) {
+        // ✅ INPUT VALIDATION
+        if (newRegistry == address(0)) revert InvalidAddress();
+
+        address oldRegistry = address(marketTypeRegistry);
+        marketTypeRegistry = MarketTypeRegistry(newRegistry);
+
+        // ✅ EMIT UPDATE EVENT
+        emit MarketTypeRegistryUpdated(oldRegistry, newRegistry);
     }
 
     /**

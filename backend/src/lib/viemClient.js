@@ -7,7 +7,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getChainByKey } from "../config/chain.js";
 
 // Select network from environment ("LOCAL" or "TESTNET")
-const NETWORK = process.env.NETWORK || "LOCAL";
+const NETWORK = process.env.NETWORK || process.env.DEFAULT_NETWORK || "LOCAL";
 
 // Default public client for event listeners (uses configured NETWORK)
 const defaultChain = getChainByKey(NETWORK);

@@ -23,7 +23,7 @@ const UsersIndex = () => {
 
       try {
         // Fetch players from backend API (which queries Supabase database)
-        const response = await fetch("http://localhost:3000/api/users");
+        const response = await fetch("/api/users");
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

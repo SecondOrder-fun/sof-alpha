@@ -87,6 +87,15 @@ try {
   app.log.error({ err }, "Failed to mount /api/infofi");
 }
 
+try {
+  await app.register((await import("./routes/adminRoutes.js")).default, {
+    prefix: "/api/admin",
+  });
+  app.log.info("Mounted /api/admin");
+} catch (err) {
+  app.log.error({ err }, "Failed to mount /api/admin");
+}
+
 // Debug: print all mounted routes
 // app.ready(() => {
 //   try {
@@ -123,6 +132,10 @@ async function startListeners() {
       ? process.env.RAFFLE_ADDRESS_TESTNET
       : process.env.RAFFLE_ADDRESS_LOCAL;
 
+    const infoFiFactoryAddress = isTestnet
+      ? process.env.INFOFI_FACTORY_ADDRESS_TESTNET
+      : process.env.INFOFI_FACTORY_ADDRESS_LOCAL;
+
     if (!raffleAddress) {
       app.log.warn(
         `⚠️  Raffle address env not set for NETWORK=${NETWORK} - SeasonStarted listener will not start`
@@ -145,6 +158,7 @@ async function startListeners() {
           raffleAddress,
           raffleAbi,
           raffleTokenAddress,
+          infoFiFactoryAddress,
           app.log
         );
 
@@ -192,10 +206,7 @@ async function startListeners() {
       onSeasonCreated
     );
 
-    // Resolve InfoFi factory address based on NETWORK
-    const infoFiFactoryAddress = isTestnet
-      ? process.env.INFOFI_FACTORY_ADDRESS_TESTNET
-      : process.env.INFOFI_FACTORY_ADDRESS_LOCAL;
+    // Resolve InfoFi factory address based on NETWORK (already computed above)
     if (infoFiFactoryAddress) {
       try {
         app.log.info("🎧 Starting MarketCreated listener...");

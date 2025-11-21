@@ -68,7 +68,7 @@ export class DatabaseService {
   async getInfoFiMarketByComposite(seasonId, playerAddress, marketType) {
     // Normalize address to lowercase for case-insensitive comparison
     const normalizedAddress = playerAddress.toLowerCase();
-    
+
     const { data, error } = await this.client
       .from("infofi_markets")
       .select("*")
@@ -162,7 +162,7 @@ export class DatabaseService {
   ) {
     // Normalize address to lowercase for case-insensitive comparison
     const normalizedAddress = playerAddress.toLowerCase();
-    
+
     const { data, error } = await this.client
       .from("infofi_markets")
       .select("*")
@@ -231,7 +231,9 @@ export class DatabaseService {
       player_address: marketData.player_address.toLowerCase(),
       player_id: marketData.player_id || null,
       market_type: marketData.market_type,
-      contract_address: marketData.contract_address ? marketData.contract_address.toLowerCase() : null,
+      contract_address: marketData.contract_address
+        ? marketData.contract_address.toLowerCase()
+        : null,
       current_probability_bps: marketData.current_probability_bps || 0,
       is_active:
         marketData.is_active !== undefined ? marketData.is_active : true,
@@ -342,6 +344,84 @@ export class DatabaseService {
       .neq("market_id", 0); // Delete all rows
 
     if (error) throw new Error(error.message);
+  }
+
+  /**
+   * Log a failed InfoFi market creation attempt
+   * @param {Object} params
+   * @param {number} params.seasonId - Season identifier
+   * @param {string} params.playerAddress - Player wallet address
+   * @param {string} [params.source] - 'LISTENER' | 'ADMIN' | 'UNKNOWN'
+   * @param {string} [params.errorMessage] - Error message, if any
+   * @param {number} [params.attempts] - Number of attempts made
+   * @returns {Promise<Object|null>} Inserted row or null on failure / no Supabase
+   */
+  async logFailedMarketAttempt({
+    seasonId,
+    playerAddress,
+    source,
+    errorMessage,
+    attempts,
+  }) {
+    if (!hasSupabase) {
+      this.getLogger().warn(
+        "[supabaseClient] logFailedMarketAttempt called without Supabase config"
+      );
+      return null;
+    }
+
+    const insertData = {
+      season_id: seasonId,
+      player_address: String(playerAddress || "").toLowerCase(),
+      source: source || "UNKNOWN",
+      error_message: errorMessage || null,
+      attempts: typeof attempts === "number" ? attempts : null,
+      last_attempt_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await this.client
+      .from("infofi_failed_markets")
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (error) {
+      this.getLogger().error(
+        { err: error },
+        "[supabaseClient] Failed to log failed market attempt"
+      );
+      return null;
+    }
+
+    return data;
+  }
+
+  /**
+   * Get recent failed InfoFi market creation attempts
+   * @param {number} [limit=50] - Maximum number of rows to return
+   * @returns {Promise<Array>} Array of failed attempts
+   */
+  async getFailedMarketAttempts(limit = 50) {
+    if (!hasSupabase) {
+      return [];
+    }
+
+    const { data, error } = await this.client
+      .from("infofi_failed_markets")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      this.getLogger().error(
+        { err: error },
+        "[supabaseClient] Failed to fetch failed market attempts"
+      );
+      throw new Error(error.message);
+    }
+
+    return data || [];
   }
 
   async getMarketOdds(marketId) {
@@ -636,9 +716,9 @@ export class DatabaseService {
     try {
       // Try to find existing player
       const { data: existingPlayer } = await this.client
-        .from('players')
-        .select('id')
-        .eq('address', playerAddress.toLowerCase())
+        .from("players")
+        .select("id")
+        .eq("address", playerAddress.toLowerCase())
         .maybeSingle();
 
       if (existingPlayer) {
@@ -647,12 +727,12 @@ export class DatabaseService {
 
       // Player doesn't exist, create new entry
       const { data: newPlayer, error: insertError } = await this.client
-        .from('players')
+        .from("players")
         .insert({
           address: playerAddress.toLowerCase(),
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         })
-        .select('id')
+        .select("id")
         .single();
 
       if (insertError) {
@@ -662,7 +742,10 @@ export class DatabaseService {
       return newPlayer.id;
     } catch (error) {
       const logger = this.getLogger();
-      logger.error(`Failed to get or create player ID for ${playerAddress}:`, error);
+      logger.error(
+        `Failed to get or create player ID for ${playerAddress}:`,
+        error
+      );
       throw error;
     }
   }
@@ -760,7 +843,7 @@ export class DatabaseService {
 
         // Normalize address to lowercase for case-insensitive comparison
         const normalizedPlayer = player.toLowerCase();
-        
+
         // Update market if it exists
         const { data, error } = await this.client
           .from("infofi_markets")
@@ -804,7 +887,7 @@ export class DatabaseService {
     try {
       // Normalize address to lowercase for case-insensitive comparison
       const normalizedAddress = playerAddress.toLowerCase();
-      
+
       const { data, error } = await this.client
         .from("infofi_markets")
         .update({
@@ -841,7 +924,7 @@ export class DatabaseService {
     try {
       // Normalize address to lowercase for case-insensitive comparison
       const normalizedAddress = playerAddress.toLowerCase();
-      
+
       const { data, error } = await this.client
         .from("infofi_markets")
         .select("contract_address")
