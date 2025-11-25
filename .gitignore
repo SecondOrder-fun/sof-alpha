@@ -249,6 +249,4 @@ local/
 # Exception: README.md is allowed
 /*.md
 !README.md
-!MIGRATION_SUMMARY.md
-!MIGRATION_COMPLETE.md
 .vercel
