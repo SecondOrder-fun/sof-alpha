@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useAccount, useWatchContractEvent, useWriteContract } from "wagmi";
+import { useAccount, useWatchContractEvent } from "wagmi";
 import {
   Card,
   CardContent,
@@ -23,21 +23,54 @@ import { useAllSeasons } from "@/hooks/useAllSeasons";
 import {
   enumerateAllMarkets,
   readBetFull,
-  claimPayoutTx,
-  redeemPositionTx,
   readFpmmPosition,
 } from "@/services/onchainInfoFi";
 import {
   getPrizeDistributor,
   getSeasonPayouts,
-  claimGrand,
-  claimConsolation,
   isConsolationClaimed,
 } from "@/services/onchainRaffleDistributor";
+import { executeClaim } from "@/services/claimService";
 import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
 import { useToast } from "@/hooks/useToast";
 // CSMM claims removed - FPMM claims will be implemented separately
 import { formatUnits } from "viem";
+
+/**
+ * Parse claim errors into user-friendly messages
+ * @param {Error} error - The error from the claim transaction
+ * @returns {string} - User-friendly error message
+ */
+function parseClaimError(error) {
+  const msg = error?.message || error?.toString() || "Unknown error";
+
+  // Common contract revert reasons
+  if (msg.includes("already claimed") || msg.includes("AlreadyClaimed")) {
+    return "This prize has already been claimed.";
+  }
+  if (msg.includes("not eligible") || msg.includes("NotEligible")) {
+    return "You are not eligible to claim this prize.";
+  }
+  if (msg.includes("not finalized") || msg.includes("SeasonNotFinalized")) {
+    return "The season has not been finalized yet. Please wait for the raffle to complete.";
+  }
+  if (msg.includes("not funded") || msg.includes("NotFunded")) {
+    return "The prize pool has not been funded yet.";
+  }
+  if (msg.includes("User rejected") || msg.includes("user rejected")) {
+    return "Transaction was cancelled.";
+  }
+  if (msg.includes("insufficient funds")) {
+    return "Insufficient funds for gas fees.";
+  }
+
+  // Truncate long technical errors
+  if (msg.length > 150) {
+    return msg.substring(0, 150) + "...";
+  }
+
+  return msg;
+}
 
 /**
  * ClaimCenter
@@ -51,8 +84,28 @@ const ClaimCenter = ({ address, title, description }) => {
   const [tabValue, setTabValue] = useState("raffles");
   const allSeasonsQuery = useAllSeasons();
   const { address: connectedAddress } = useAccount();
-  const { writeContractAsync: writeRaffleClaim } = useWriteContract();
   const { toast } = useToast();
+
+  // Track pending and successful claims by unique key
+  // Key format: "raffle-grand-{seasonId}", "raffle-consolation-{seasonId}", "infofi-{marketId}-{prediction}", "fpmm-{seasonId}-{player}"
+  const [pendingClaims, setPendingClaims] = useState(new Set());
+  const [successfulClaims, setSuccessfulClaims] = useState(new Set());
+
+  // Helper to generate claim keys
+  const getClaimKey = (type, params) => {
+    switch (type) {
+      case "raffle-grand":
+        return `raffle-grand-${params.seasonId}`;
+      case "raffle-consolation":
+        return `raffle-consolation-${params.seasonId}`;
+      case "infofi":
+        return `infofi-${params.marketId}-${params.prediction}`;
+      case "fpmm":
+        return `fpmm-${params.seasonId}-${params.player}`;
+      default:
+        return `unknown-${JSON.stringify(params)}`;
+    }
+  };
 
   // InfoFi Market Claims
   const discovery = useQuery({
@@ -166,10 +219,7 @@ const ClaimCenter = ({ address, title, description }) => {
             }
           } catch (err) {
             // Skip markets that error (not created yet, etc)
-            console.warn(
-              `Failed to check FPMM position for season ${seasonId}, player ${player}:`,
-              err
-            );
+            // Reason: individual season issues should not prevent other claims from showing
           }
         }
       }
@@ -203,7 +253,9 @@ const ClaimCenter = ({ address, title, description }) => {
           address &&
           participant.toLowerCase() === address.toLowerCase()
         ) {
+          // Invalidate raffle claims and SOF balance
           qc.invalidateQueries({ queryKey: ["raffle_claims"] });
+          qc.invalidateQueries({ queryKey: ["sofBalance"] });
           const amount = log?.args?.amount;
           toast({
             title: t("raffle:prizeClaimed"),
@@ -215,6 +267,37 @@ const ClaimCenter = ({ address, title, description }) => {
                     amount,
                     18
                   )} SOF`
+                : t("transactions:confirmed"),
+            variant: "success",
+          });
+        }
+      });
+    },
+  });
+
+  // Watch for GrandClaimed events to update UI and SOF balance
+  useWatchContractEvent({
+    address: distributorQuery.data,
+    abi: PrizeDistributorAbi,
+    eventName: "GrandClaimed",
+    enabled: Boolean(distributorQuery.data && address && connectedAddress),
+    onLogs: (logs) => {
+      logs.forEach((log) => {
+        const winner = log?.args?.winner;
+        if (
+          winner &&
+          address &&
+          winner.toLowerCase() === address.toLowerCase()
+        ) {
+          // Invalidate raffle claims and SOF balance
+          qc.invalidateQueries({ queryKey: ["raffle_claims"] });
+          qc.invalidateQueries({ queryKey: ["sofBalance"] });
+          const amount = log?.args?.amount;
+          toast({
+            title: t("raffle:prizeClaimed"),
+            description:
+              typeof amount === "bigint"
+                ? `${t("raffle:grandPrize")}: ${formatUnits(amount, 18)} SOF`
                 : t("transactions:confirmed"),
             variant: "success",
           });
@@ -315,51 +398,174 @@ const ClaimCenter = ({ address, title, description }) => {
 
   // Mutations for claiming
   const claimInfoFiOne = useMutation({
-    mutationFn: async ({ marketId, prediction }) =>
-      claimPayoutTx({ marketId, prediction, networkKey: netKey }),
-    onSuccess: () => {
+    mutationFn: async ({ marketId, prediction }) => {
+      const claimKey = getClaimKey("infofi", { marketId, prediction });
+      setPendingClaims((prev) => new Set(prev).add(claimKey));
+
+      const result = await executeClaim({
+        type: "infofi-payout",
+        params: { marketId, prediction },
+        networkKey: netKey,
+      });
+      if (!result.success) throw new Error(result.error);
+      return { hash: result.hash, claimKey };
+    },
+    onSuccess: (data) => {
+      const { claimKey } = data;
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
+      qc.invalidateQueries({ queryKey: ["claimcenter_claimables"] });
+      qc.invalidateQueries({ queryKey: ["sofBalance"] });
+    },
+    onError: (error, variables) => {
+      const claimKey = getClaimKey("infofi", variables);
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      const message = parseClaimError(error);
+      toast({
+        title: t("common:error"),
+        description: message,
+        variant: "destructive",
+      });
+      // Refresh claims list in case the claim was already processed
       qc.invalidateQueries({ queryKey: ["claimcenter_claimables"] });
     },
   });
 
   const claimRaffleConsolation = useMutation({
     mutationFn: async ({ seasonId }) => {
+      const claimKey = getClaimKey("raffle-consolation", { seasonId });
+      setPendingClaims((prev) => new Set(prev).add(claimKey));
+
       if (!distributorQuery.data) {
         throw new Error("Prize distributor not configured");
       }
-      return writeRaffleClaim({
-        address: distributorQuery.data,
-        abi: PrizeDistributorAbi,
-        functionName: "claimConsolation",
-        args: [BigInt(seasonId)],
+      const result = await executeClaim({
+        type: "raffle-consolation",
+        params: { seasonId },
+        networkKey: netKey,
       });
+      if (!result.success) throw new Error(result.error);
+      return { hash: result.hash, claimKey };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const { claimKey } = data;
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
       qc.invalidateQueries({ queryKey: ["raffle_claims"] });
+      qc.invalidateQueries({ queryKey: ["sofBalance"] });
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      const claimKey = getClaimKey("raffle-consolation", variables);
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      const message = parseClaimError(error);
       toast({
         title: t("common:error"),
-        description: error?.message || "Failed to claim consolation prize",
+        description: message,
         variant: "destructive",
       });
+      // Refresh claims list in case the claim was already processed
+      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
     },
   });
 
   // FPMM claim mutation - Redeems conditional tokens after market resolution
   const claimFPMMOne = useMutation({
     mutationFn: async ({ seasonId, player }) => {
-      return redeemPositionTx({ seasonId, player, networkKey: netKey });
+      const claimKey = getClaimKey("fpmm", { seasonId, player });
+      setPendingClaims((prev) => new Set(prev).add(claimKey));
+
+      const result = await executeClaim({
+        type: "fpmm-position",
+        params: { seasonId, player },
+        networkKey: netKey,
+      });
+      if (!result.success) throw new Error(result.error);
+      return { hash: result.hash, claimKey };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const { claimKey } = data;
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
       qc.invalidateQueries({ queryKey: ["claimcenter_fpmm_claimables"] });
       qc.invalidateQueries({ queryKey: ["infoFiPositions"] });
+      qc.invalidateQueries({ queryKey: ["sofBalance"] });
+    },
+    onError: (error, variables) => {
+      const claimKey = getClaimKey("fpmm", variables);
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      const message = parseClaimError(error);
+      toast({
+        title: t("common:error"),
+        description: message,
+        variant: "destructive",
+      });
+      // Refresh claims list in case the claim was already processed
+      qc.invalidateQueries({ queryKey: ["claimcenter_fpmm_claimables"] });
     },
   });
 
   const claimRaffleGrand = useMutation({
-    mutationFn: ({ seasonId }) => claimGrand({ seasonId, networkKey: netKey }),
-    onSuccess: () => {
+    mutationFn: async ({ seasonId }) => {
+      const claimKey = getClaimKey("raffle-grand", { seasonId });
+      setPendingClaims((prev) => new Set(prev).add(claimKey));
+
+      const result = await executeClaim({
+        type: "raffle-grand",
+        params: { seasonId },
+        networkKey: netKey,
+      });
+      if (!result.success) throw new Error(result.error);
+      return { hash: result.hash, claimKey };
+    },
+    onSuccess: (data) => {
+      const { claimKey } = data;
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
+      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
+      qc.invalidateQueries({ queryKey: ["sofBalance"] });
+    },
+    onError: (error, variables) => {
+      const claimKey = getClaimKey("raffle-grand", variables);
+      setPendingClaims((prev) => {
+        const next = new Set(prev);
+        next.delete(claimKey);
+        return next;
+      });
+      const message = parseClaimError(error);
+      toast({
+        title: t("common:error"),
+        description: message,
+        variant: "destructive",
+      });
+      // Refresh claims list in case the claim was already processed
       qc.invalidateQueries({ queryKey: ["raffle_claims"] });
     },
   });
@@ -473,6 +679,15 @@ const ClaimCenter = ({ address, title, description }) => {
                                 // FPMM claim (CTF redemption)
                                 const totalAmount =
                                   (r.yesAmount ?? 0n) + (r.noAmount ?? 0n);
+                                const fpmmClaimKey = getClaimKey("fpmm", {
+                                  seasonId: r.seasonId,
+                                  player: r.player,
+                                });
+                                const isFpmmPending =
+                                  pendingClaims.has(fpmmClaimKey);
+                                const isFpmmSuccessful =
+                                  successfulClaims.has(fpmmClaimKey);
+
                                 return (
                                   <div
                                     key={`fpmm-${r.player}`}
@@ -501,24 +716,44 @@ const ClaimCenter = ({ address, title, description }) => {
                                       </span>{" "}
                                       SOF
                                     </div>
-                                    <Button
-                                      variant="outline"
-                                      onClick={() =>
-                                        claimFPMMOne.mutate({
-                                          seasonId: r.seasonId,
-                                          player: r.player,
-                                        })
-                                      }
-                                      disabled={claimFPMMOne.isPending}
-                                    >
-                                      {claimFPMMOne.isPending
-                                        ? t("transactions:claiming")
-                                        : t("common:redeem")}
-                                    </Button>
+                                    {isFpmmSuccessful ? (
+                                      <span className="text-sm text-green-600 font-medium">
+                                        ✓{" "}
+                                        {t("transactions:confirmed", {
+                                          defaultValue: "Claimed",
+                                        })}
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        onClick={() =>
+                                          claimFPMMOne.mutate({
+                                            seasonId: r.seasonId,
+                                            player: r.player,
+                                          })
+                                        }
+                                        disabled={isFpmmPending}
+                                      >
+                                        {isFpmmPending
+                                          ? t("transactions:claimInProgress", {
+                                              defaultValue: "Claiming...",
+                                            })
+                                          : t("common:redeem")}
+                                      </Button>
+                                    )}
                                   </div>
                                 );
                               } else {
                                 // Old InfoFi claim
+                                const infofiClaimKey = getClaimKey("infofi", {
+                                  marketId: r.marketId,
+                                  prediction: r.prediction,
+                                });
+                                const isInfofiPending =
+                                  pendingClaims.has(infofiClaimKey);
+                                const isInfofiSuccessful =
+                                  successfulClaims.has(infofiClaimKey);
+
                                 return (
                                   <div
                                     key={`${r.marketId}-${String(
@@ -542,20 +777,31 @@ const ClaimCenter = ({ address, title, description }) => {
                                       </span>{" "}
                                       SOF
                                     </div>
-                                    <Button
-                                      variant="outline"
-                                      onClick={() =>
-                                        claimInfoFiOne.mutate({
-                                          marketId: r.marketId,
-                                          prediction: r.prediction,
-                                        })
-                                      }
-                                      disabled={claimInfoFiOne.isPending}
-                                    >
-                                      {claimInfoFiOne.isPending
-                                        ? t("transactions:claiming")
-                                        : t("common:claim")}
-                                    </Button>
+                                    {isInfofiSuccessful ? (
+                                      <span className="text-sm text-green-600 font-medium">
+                                        ✓{" "}
+                                        {t("transactions:confirmed", {
+                                          defaultValue: "Claimed",
+                                        })}
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        onClick={() =>
+                                          claimInfoFiOne.mutate({
+                                            marketId: r.marketId,
+                                            prediction: r.prediction,
+                                          })
+                                        }
+                                        disabled={isInfofiPending}
+                                      >
+                                        {isInfofiPending
+                                          ? t("transactions:claimInProgress", {
+                                              defaultValue: "Claiming...",
+                                            })
+                                          : t("common:claim")}
+                                      </Button>
+                                    )}
                                   </div>
                                 );
                               }
@@ -597,9 +843,12 @@ const ClaimCenter = ({ address, title, description }) => {
                       const labelKey = isGrand
                         ? "raffle:grandPrize"
                         : "raffle:consolationPrize";
-                      const isPending = isGrand
-                        ? claimRaffleGrand.isPending
-                        : claimRaffleConsolation.isPending;
+                      const claimKey = getClaimKey(
+                        isGrand ? "raffle-grand" : "raffle-consolation",
+                        { seasonId: row.seasonId }
+                      );
+                      const isThisPending = pendingClaims.has(claimKey);
+                      const isThisSuccessful = successfulClaims.has(claimKey);
 
                       return (
                         <div
@@ -619,25 +868,36 @@ const ClaimCenter = ({ address, title, description }) => {
                             </div>
                           </div>
                           <div className="mt-2">
-                            <Button
-                              onClick={() => {
-                                if (isGrand) {
-                                  claimRaffleGrand.mutate({
-                                    seasonId: row.seasonId,
-                                  });
-                                } else {
-                                  claimRaffleConsolation.mutate({
-                                    seasonId: row.seasonId,
-                                  });
-                                }
-                              }}
-                              disabled={isPending}
-                              className="w-full"
-                            >
-                              {isPending
-                                ? t("transactions:claiming")
-                                : t("raffle:claimPrize")}
-                            </Button>
+                            {isThisSuccessful ? (
+                              <p className="text-sm text-green-600 font-medium text-center py-2">
+                                ✓{" "}
+                                {t("transactions:confirmed", {
+                                  defaultValue: "Claim Successful",
+                                })}
+                              </p>
+                            ) : (
+                              <Button
+                                onClick={() => {
+                                  if (isGrand) {
+                                    claimRaffleGrand.mutate({
+                                      seasonId: row.seasonId,
+                                    });
+                                  } else {
+                                    claimRaffleConsolation.mutate({
+                                      seasonId: row.seasonId,
+                                    });
+                                  }
+                                }}
+                                disabled={isThisPending}
+                                className="w-full"
+                              >
+                                {isThisPending
+                                  ? t("transactions:claimInProgress", {
+                                      defaultValue: "Claim in Progress...",
+                                    })
+                                  : t("raffle:claimPrize")}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );

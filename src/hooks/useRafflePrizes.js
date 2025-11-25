@@ -1,17 +1,12 @@
-import {
-  useReadContract,
-  useAccount,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-  useWatchContractEvent,
-} from "wagmi";
+import { useReadContract, useAccount, useWatchContractEvent } from "wagmi";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatEther } from "viem";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getContractAddresses } from "@/config/contracts";
 import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
 import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
+import { executeClaim } from "@/services/claimService";
 import RaffleAbi from "@/contracts/abis/Raffle.json";
 import { useToast } from "@/hooks/useToast";
 import { createPublicClient, http } from "viem";
@@ -21,6 +16,7 @@ export function useRafflePrizes(seasonId) {
   const netKey = getStoredNetworkKey();
   // Using on-chain distributor discovery; no direct RAFFLE usage here.
   const { address } = useAccount();
+  const queryClient = useQueryClient();
   const [isWinner, setIsWinner] = useState(false);
   const [claimableAmount, setClaimableAmount] = useState(0n);
   const [claimStatus, setClaimStatus] = useState("unclaimed"); // 'unclaimed', 'claiming', 'completed'
@@ -87,18 +83,53 @@ export function useRafflePrizes(seasonId) {
     checkWinnerAndConsolation();
   }, [address, seasonId, seasonPayouts, isLoadingPayouts]);
 
-  const { writeContractAsync: claimGrandPrize, data: claimGrandHash } =
-    useWriteContract();
+  // Mutation for claiming grand prize
+  const claimGrandMutation = useMutation({
+    mutationFn: async () => {
+      if (!distributorAddress || !address) {
+        throw new Error("Distributor address or account not available");
+      }
 
-  const { isLoading: isConfirmingGrand, isSuccess: isConfirmedGrand } =
-    useWaitForTransactionReceipt({ hash: claimGrandHash });
+      setClaimStatus("claiming");
+      const result = await executeClaim({
+        type: "raffle-grand",
+        params: { seasonId },
+        networkKey: netKey,
+      });
 
-  // Update claim status when transaction is confirmed
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      return result.hash;
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ["raffle_claims"] });
+      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+    },
+    onError: (error) => {
+      setClaimStatus("unclaimed");
+      toast({
+        title: "Claim Failed",
+        description: error.message || "Failed to claim prize",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const {
+    data: claimHash,
+    isPending: isClaiming,
+    isSuccess: isClaimed,
+  } = claimGrandMutation;
+
+  // Update claim status when mutation succeeds
   useEffect(() => {
-    if (isConfirmedGrand) {
+    if (isClaimed) {
       setClaimStatus("completed");
     }
-  }, [isConfirmedGrand]);
+  }, [isClaimed]);
 
   // Recover historical claim tx hash for already-completed prizes
   const historicalClaimTxQuery = useQuery({
@@ -108,7 +139,7 @@ export function useRafflePrizes(seasonId) {
         address &&
         seasonId &&
         claimStatus === "completed" &&
-        !claimGrandHash
+        !claimHash
     ),
     queryFn: async () => {
       const net = getNetworkByKey(netKey);
@@ -178,24 +209,8 @@ export function useRafflePrizes(seasonId) {
     ),
   });
 
-  const handleClaimGrandPrize = async () => {
-    if (!distributorAddress) return;
-    try {
-      setClaimStatus("claiming");
-      await claimGrandPrize({
-        address: distributorAddress,
-        abi: PrizeDistributorAbi,
-        functionName: "claimGrand",
-        args: [BigInt(seasonId)],
-      });
-    } catch (error) {
-      setClaimStatus("unclaimed");
-      toast({
-        title: "Claim Failed",
-        description: error.message || "Failed to claim prize",
-        variant: "destructive",
-      });
-    }
+  const handleClaimGrandPrize = () => {
+    claimGrandMutation.mutate();
   };
 
   // Check if the prize has already been claimed when the component mounts or seasonPayouts changes
@@ -209,8 +224,8 @@ export function useRafflePrizes(seasonId) {
     isWinner,
     claimableAmount: formatEther(claimableAmount),
     isLoading: isLoadingPayouts,
-    isConfirming: isConfirmingGrand || claimStatus === "claiming",
-    isConfirmed: isConfirmedGrand || claimStatus === "completed",
+    isConfirming: isClaiming || claimStatus === "claiming",
+    isConfirmed: isClaimed || claimStatus === "completed",
     handleClaimGrandPrize,
     distributorAddress,
     hasDistributor: Boolean(
@@ -226,6 +241,6 @@ export function useRafflePrizes(seasonId) {
       ? Number(raffleDetails[1])
       : raffleDetails?.status,
     claimStatus,
-    claimTxHash: claimGrandHash || historicalClaimTxQuery.data,
+    claimTxHash: claimHash || historicalClaimTxQuery.data,
   };
 }
