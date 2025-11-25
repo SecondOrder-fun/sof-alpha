@@ -99,5 +99,9 @@
   "viewYourAccount": "View Your Account",
   "showingRange": "Showing {{start}}-{{end}} of {{total}}",
   "page": "Page",
-  "noUsersFound": "No users found yet."
+  "noUsersFound": "Nessun utente trovato ancora.",
+  "home": {
+    "welcome": "Benvenuto su SecondOrder.fun",
+    "blurb": "SecondOrder.fun è una piattaforma di lotteria trasparente basata su blockchain dove il tuo posto può aumentare di valore con ogni nuovo giocatore che si unisce. Quando acquisti i biglietti, il prezzo basato sulla curva di bonding crea valutazioni dinamiche, dando ai giocatori la possibilità di tenere fino al sorteggio o vendere in qualsiasi momento per guadagnare — offrendo un'esperienza di lotteria altamente ludica."
+  }
 }
