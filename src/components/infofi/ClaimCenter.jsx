@@ -29,6 +29,7 @@ import {
   getPrizeDistributor,
   getSeasonPayouts,
   isConsolationClaimed,
+  isSeasonParticipant,
 } from "@/services/onchainRaffleDistributor";
 import { executeClaim } from "@/services/claimService";
 import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
@@ -359,6 +360,19 @@ const ClaimCenter = ({ address, title, description }) => {
             // Reason: consolation is only meaningful when there are losers
             // and a non-zero consolationAmount configured.
           } else {
+            // First check if user actually participated in this season
+            const wasParticipant = await isSeasonParticipant({
+              seasonId,
+              account: address,
+              networkKey: netKey,
+            });
+
+            // Only show consolation if user was a participant
+            if (!wasParticipant) {
+              // User never participated - skip showing consolation
+              continue;
+            }
+
             const alreadyClaimed = await isConsolationClaimed({
               seasonId,
               account: address,

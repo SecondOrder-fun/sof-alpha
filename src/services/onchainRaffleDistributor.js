@@ -129,3 +129,35 @@ export async function isConsolationClaimed({
   });
   return !!claimed;
 }
+
+/**
+ * Check if an account was a participant in a given season.
+ * A participant is someone who has ticketCount > 0.
+ * @param {Object} params
+ * @param {number|string} params.seasonId - The season ID
+ * @param {string} params.account - The account address to check
+ * @param {string} [params.networkKey] - Network key
+ * @returns {Promise<boolean>} - True if the account participated
+ */
+export async function isSeasonParticipant({
+  seasonId,
+  account,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const { RAFFLE } = getContractAddresses(networkKey);
+  if (!RAFFLE) return false;
+
+  try {
+    const position = await client.readContract({
+      address: RAFFLE,
+      abi: RaffleAbi,
+      functionName: "getParticipantPosition",
+      args: [BigInt(seasonId), getAddress(account)],
+    });
+    // A participant has ticketCount > 0
+    return position && BigInt(position.ticketCount) > 0n;
+  } catch {
+    return false;
+  }
+}
