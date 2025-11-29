@@ -28,6 +28,27 @@ class RedisClient {
   }
 
   /**
+   * Resolve Redis URL based on environment
+   */
+  getRedisUrl() {
+    const env = process.env.REDIS_ENV || process.env.NODE_ENV || 'local';
+
+    if (env === 'prod') {
+      return process.env.REDIS_URL_PROD || process.env.REDIS_URL || 'redis://localhost:6379';
+    }
+
+    if (env === 'staging') {
+      return process.env.REDIS_URL_STAGING || process.env.REDIS_URL || 'redis://localhost:6379';
+    }
+
+    if (env === 'dev') {
+      return process.env.REDIS_URL_DEV || process.env.REDIS_URL || 'redis://localhost:6379';
+    }
+
+    return process.env.REDIS_URL || 'redis://localhost:6379';
+  }
+
+  /**
    * Initialize Redis connection
    */
   connect() {
@@ -35,8 +56,8 @@ class RedisClient {
       return this.client;
     }
 
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    
+    const redisUrl = this.getRedisUrl();
+
     try {
       this.client = new Redis(redisUrl, {
         // Enable TLS for production (Upstash uses rediss://)
