@@ -1,4 +1,5 @@
 import { db } from "../../shared/supabaseClient.js";
+import { usernameService } from "../../shared/usernameService.js";
 
 /**
  * User routes for fetching user-specific data
@@ -11,25 +12,20 @@ export async function userRoutes(fastify, options) {
 
   /**
    * GET /api/users
-   * Return a list of all player addresses for the leaderboard page.
+   * Return the canonical user list from Redis (Upstash),
+   * using UsernameService as the source of truth.
+   * Shape: { players: [{ address, username }], count }
    */
   fastify.get("/", async (_request, reply) => {
     try {
-      // Fetch all players from the players table, ordered by creation time
-      const { data, error } = await db.client
-        .from("players")
-        .select("address")
-        .order("created_at", { ascending: false });
+      // Use Redis-backed usernameService as canonical user list
+      const allUsernames = await usernameService.getAllUsernames();
 
-      if (error) {
-        fastify.log.error({ error }, "Failed to fetch players from database");
-        return reply.status(500).send({
-          error: "Failed to fetch players",
-          details: error.message,
-        });
-      }
-
-      const players = (data || []).map((row) => row.address);
+      // getAllUsernames already returns [{ address, username }]
+      const players = (allUsernames || []).map((entry) => ({
+        address: entry.address,
+        username: entry.username,
+      }));
 
       return reply.send({
         players,
@@ -38,7 +34,7 @@ export async function userRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(
         { error, stack: error.stack },
-        "Unexpected error fetching players"
+        "Unexpected error fetching players from Redis"
       );
       return reply.status(500).send({
         error: "Failed to fetch players",

@@ -97,11 +97,19 @@ const UsersIndex = () => {
           )}
           {!loading && !error && players.length > 0 && (
             <div className="divide-y rounded border">
-              {pageSlice.map((addr) => {
+              {pageSlice.map((player) => {
+                // Support both legacy string entries and new object shape { address, username }
+                const addr =
+                  typeof player === "string" ? player : player?.address;
+
+                if (!addr) {
+                  return null;
+                }
+
                 const isMyAddress =
                   myAddress &&
                   addr?.toLowerCase?.() === myAddress.toLowerCase();
-                const linkTo = isMyAddress ? "/account" : `/users/${addr}`;
+                const linkTo = isMyAddress ? "/portfolio" : `/users/${addr}`;
 
                 return (
                   <Link
