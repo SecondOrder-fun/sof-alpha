@@ -29,11 +29,24 @@ if (hasSupabase) {
 }
 
 // Register plugins
-await app.register(cors, {
-  origin:
+const corsOriginsEnv = process.env.CORS_ORIGINS;
+let corsOrigin;
+
+if (corsOriginsEnv && corsOriginsEnv.trim().length > 0) {
+  // Comma-separated list from env, e.g. "http://127.0.0.1:5173,http://localhost:5173,https://secondorder.fun"
+  corsOrigin = corsOriginsEnv
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+} else {
+  corsOrigin =
     process.env.NODE_ENV === "production"
       ? ["https://secondorder.fun", "https://www.secondorder.fun"]
-      : true, // Allow all origins in development
+      : true; // Allow all origins in development
+}
+
+await app.register(cors, {
+  origin: corsOrigin,
   credentials: true,
 });
 
