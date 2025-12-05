@@ -61,6 +61,15 @@ app.addHook("onRoute", (routeOptions) => {
 
 // Register routes (use default export from dynamic import)
 try {
+  await app.register((await import("./routes/healthRoutes.js")).default, {
+    prefix: "/api",
+  });
+  app.log.info("Mounted /api/health");
+} catch (err) {
+  app.log.error({ err }, "Failed to mount /api/health");
+}
+
+try {
   await app.register((await import("./routes/usernameRoutes.js")).default, {
     prefix: "/api/usernames",
   });
