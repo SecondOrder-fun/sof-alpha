@@ -1,13 +1,19 @@
 // src/components/admin/HealthStatus.jsx
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import PropTypes from 'prop-types';
+import { useQuery } from "@tanstack/react-query";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import PropTypes from "prop-types";
 
 function StatusBadge({ ok }) {
   return (
-    <Badge variant={ok ? 'secondary' : 'destructive'}>
-      {ok ? 'OK' : 'DEGRADED'}
+    <Badge variant={ok ? "secondary" : "destructive"}>
+      {ok ? "OK" : "DEGRADED"}
     </Badge>
   );
 }
@@ -16,20 +22,27 @@ StatusBadge.propTypes = {
   ok: PropTypes.bool,
 };
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+
 export default function HealthStatus() {
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['health'],
+    queryKey: ["health"],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch(`${API_BASE}/health`);
         if (!res.ok) {
           // Backend may be intentionally not running during pure-frontend flows.
           // Return a synthetic degraded payload instead of throwing to avoid console spam.
           return {
-            status: 'DEGRADED',
+            status: "DEGRADED",
             timestamp: new Date().toISOString(),
             env: {},
-            checks: { supabase: { ok: false }, rpc: { ok: false }, network: 'UNKNOWN' },
+            checks: {
+              supabase: { ok: false },
+              rpc: { ok: false },
+              network: "UNKNOWN",
+            },
             _note: `Backend unavailable (HTTP ${res.status})`,
           };
         }
@@ -37,11 +50,15 @@ export default function HealthStatus() {
       } catch (e) {
         // Network failure (e.g., server not running). Degrade gracefully.
         return {
-          status: 'DEGRADED',
+          status: "DEGRADED",
           timestamp: new Date().toISOString(),
           env: {},
-          checks: { supabase: { ok: false }, rpc: { ok: false }, network: 'UNKNOWN' },
-          _note: 'Backend unavailable (connection error)',
+          checks: {
+            supabase: { ok: false },
+            rpc: { ok: false },
+            network: "UNKNOWN",
+          },
+          _note: "Backend unavailable (connection error)",
         };
       }
     },
@@ -60,13 +77,11 @@ export default function HealthStatus() {
         {isLoading ? (
           <Badge variant="outline">Loading...</Badge>
         ) : (
-          <StatusBadge ok={data?.status === 'OK'} />
+          <StatusBadge ok={data?.status === "OK"} />
         )}
       </CardHeader>
       <CardContent className="space-y-2">
-        {error && (
-          <p className="text-sm text-red-600">{error.message}</p>
-        )}
+        {error && <p className="text-sm text-red-600">{error.message}</p>}
         {data && (
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-2">
@@ -83,25 +98,43 @@ export default function HealthStatus() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">ChainId:</span>
-              <Badge variant="outline">{data.checks?.rpc?.chainId || 'n/a'}</Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Env SUPABASE_URL:</span>
-              <Badge variant={data.env?.SUPABASE_URL ? 'secondary' : 'destructive'}>
-                {data.env?.SUPABASE_URL ? 'set' : 'missing'}
+              <Badge variant="outline">
+                {data.checks?.rpc?.chainId || "n/a"}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Env RPC Local/Testnet:</span>
-              <Badge variant={(data.env?.RPC_URL_LOCAL || data.env?.RPC_URL_TESTNET) ? 'secondary' : 'destructive'}>
-                {(data.env?.RPC_URL_LOCAL || data.env?.RPC_URL_TESTNET) ? 'set' : 'missing'}
+              <span className="text-muted-foreground">Env SUPABASE_URL:</span>
+              <Badge
+                variant={data.env?.SUPABASE_URL ? "secondary" : "destructive"}
+              >
+                {data.env?.SUPABASE_URL ? "set" : "missing"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">
+                Env RPC Local/Testnet:
+              </span>
+              <Badge
+                variant={
+                  data.env?.RPC_URL_LOCAL || data.env?.RPC_URL_TESTNET
+                    ? "secondary"
+                    : "destructive"
+                }
+              >
+                {data.env?.RPC_URL_LOCAL || data.env?.RPC_URL_TESTNET
+                  ? "set"
+                  : "missing"}
               </Badge>
             </div>
           </div>
         )}
         <div className="text-xs text-muted-foreground mt-2">
-          {data?._note ? `${data._note} · ` : ''}
-          {isFetching ? 'Refreshing...' : data?.timestamp ? `Updated: ${new Date(data.timestamp).toLocaleString()}` : ''}
+          {data?._note ? `${data._note} · ` : ""}
+          {isFetching
+            ? "Refreshing..."
+            : data?.timestamp
+            ? `Updated: ${new Date(data.timestamp).toLocaleString()}`
+            : ""}
         </div>
         <button
           type="button"

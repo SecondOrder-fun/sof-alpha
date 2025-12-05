@@ -187,13 +187,6 @@ const RaffleDetails = () => {
       setToasts((t) => t.filter((x) => x.id !== id));
     }, 120000); // 2 minutes
   };
-  const copyHash = async (hash) => {
-    try {
-      await navigator.clipboard.writeText(hash);
-    } catch (_) {
-      /* no-op */
-    }
-  };
 
   // Initial load: fetch position immediately
   useEffect(() => {

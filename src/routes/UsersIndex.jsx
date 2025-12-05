@@ -6,6 +6,9 @@ import { useAccount } from "wagmi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+
 const UsersIndex = () => {
   const { t } = useTranslation("common");
   const { address: myAddress } = useAccount();
@@ -23,7 +26,7 @@ const UsersIndex = () => {
 
       try {
         // Fetch players from backend API (which queries Supabase database)
-        const response = await fetch("/api/users");
+        const response = await fetch(`${API_BASE}/users`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

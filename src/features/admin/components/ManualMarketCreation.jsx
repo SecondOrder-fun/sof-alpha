@@ -1,111 +1,123 @@
 // src/features/admin/components/ManualMarketCreation.jsx
 // Manual market creation and failed market recovery component
 
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/useToast';
-import { AlertCircle, CheckCircle, Plus, RefreshCw } from 'lucide-react';
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/useToast";
+import { AlertCircle, CheckCircle, Plus, RefreshCw } from "lucide-react";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 export function ManualMarketCreation() {
-  const [seasonId, setSeasonId] = useState('');
-  const [playerAddress, setPlayerAddress] = useState('');
+  const [seasonId, setSeasonId] = useState("");
+  const [playerAddress, setPlayerAddress] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Query active seasons
   const { data: seasonsData, isLoading: isLoadingSeasons } = useQuery({
-    queryKey: ['activeSeasons'],
+    queryKey: ["activeSeasons"],
     queryFn: async () => {
-      const response = await fetch('/api/admin/active-seasons');
-      if (!response.ok) throw new Error('Failed to fetch seasons');
+      const response = await fetch(`${API_BASE}/admin/active-seasons`);
+      if (!response.ok) throw new Error("Failed to fetch seasons");
       return response.json();
     },
   });
-  
+
   // Query failed market attempts
   const { data: failedData, refetch: refetchFailed } = useQuery({
-    queryKey: ['failedMarketAttempts'],
+    queryKey: ["failedMarketAttempts"],
     queryFn: async () => {
-      const response = await fetch('/api/admin/failed-market-attempts');
-      if (!response.ok) throw new Error('Failed to fetch failed attempts');
+      const response = await fetch(`${API_BASE}/admin/failed-market-attempts`);
+      if (!response.ok) throw new Error("Failed to fetch failed attempts");
       return response.json();
     },
     refetchInterval: 60000, // Refresh every minute
   });
-  
+
   // Create market mutation
   const createMarket = useMutation({
     mutationFn: async ({ seasonId, playerAddress }) => {
-      const response = await fetch('/api/admin/create-market', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`${API_BASE}/admin/create-market`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seasonId: parseInt(seasonId), playerAddress }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create market');
+        throw new Error(data.error || "Failed to create market");
       }
-      
+
       return data;
     },
     onSuccess: (data) => {
       toast({
-        title: 'Market Created',
-        description: `Successfully created market. Gas used: ${data.gasUsed || 'N/A'}`,
+        title: "Market Created",
+        description: `Successfully created market. Gas used: ${
+          data.gasUsed || "N/A"
+        }`,
       });
-      setPlayerAddress('');
-      queryClient.invalidateQueries({ queryKey: ['marketCreationStats'] });
-      queryClient.invalidateQueries({ queryKey: ['failedMarketAttempts'] });
+      setPlayerAddress("");
+      queryClient.invalidateQueries({ queryKey: ["marketCreationStats"] });
+      queryClient.invalidateQueries({ queryKey: ["failedMarketAttempts"] });
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
-  
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!seasonId || !playerAddress) {
       toast({
-        title: 'Validation Error',
-        description: 'Please select a season and enter a player address',
-        variant: 'destructive',
+        title: "Validation Error",
+        description: "Please select a season and enter a player address",
+        variant: "destructive",
       });
       return;
     }
-    
+
     if (!/^0x[a-fA-F0-9]{40}$/.test(playerAddress)) {
       toast({
-        title: 'Invalid Address',
-        description: 'Please enter a valid Ethereum address',
-        variant: 'destructive',
+        title: "Invalid Address",
+        description: "Please enter a valid Ethereum address",
+        variant: "destructive",
       });
       return;
     }
-    
+
     createMarket.mutate({ seasonId, playerAddress });
   };
-  
+
   const handleRetryFailed = (failedMarket) => {
     setSeasonId(failedMarket.season_id.toString());
     setPlayerAddress(failedMarket.player_address);
     toast({
-      title: 'Retry Loaded',
-      description: 'Season and player pre-filled. Click Create Market to retry.',
+      title: "Retry Loaded",
+      description:
+        "Season and player pre-filled. Click Create Market to retry.",
     });
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -114,7 +126,7 @@ export function ManualMarketCreation() {
           Manual Market Creation
         </h2>
       </div>
-      
+
       {/* Create Market Form */}
       <Card>
         <CardHeader>
@@ -124,7 +136,11 @@ export function ManualMarketCreation() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Season</label>
-              <Select value={seasonId} onValueChange={setSeasonId} disabled={isLoadingSeasons}>
+              <Select
+                value={seasonId}
+                onValueChange={setSeasonId}
+                disabled={isLoadingSeasons}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select season" />
                 </SelectTrigger>
@@ -142,9 +158,11 @@ export function ManualMarketCreation() {
                 </p>
               )}
             </div>
-            
+
             <div>
-              <label className="text-sm font-medium mb-2 block">Player Address</label>
+              <label className="text-sm font-medium mb-2 block">
+                Player Address
+              </label>
               <Input
                 value={playerAddress}
                 onChange={(e) => setPlayerAddress(e.target.value)}
@@ -155,7 +173,7 @@ export function ManualMarketCreation() {
                 Enter the Ethereum address of the player
               </p>
             </div>
-            
+
             <Button
               type="submit"
               disabled={!seasonId || !playerAddress || createMarket.isPending}
@@ -174,23 +192,26 @@ export function ManualMarketCreation() {
               )}
             </Button>
           </form>
-          
+
           {createMarket.isSuccess && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2 text-green-700">
                 <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">Market created successfully!</span>
+                <span className="font-medium">
+                  Market created successfully!
+                </span>
               </div>
               {createMarket.data?.transactionHash && (
                 <p className="text-sm text-green-600 mt-2 font-mono">
-                  TX: {createMarket.data.transactionHash.slice(0, 10)}...{createMarket.data.transactionHash.slice(-8)}
+                  TX: {createMarket.data.transactionHash.slice(0, 10)}...
+                  {createMarket.data.transactionHash.slice(-8)}
                 </p>
               )}
             </div>
           )}
         </CardContent>
       </Card>
-      
+
       {/* Failed Market Attempts */}
       <Card>
         <CardHeader>
@@ -218,12 +239,15 @@ export function ManualMarketCreation() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="destructive">Failed</Badge>
-                      <span className="text-sm font-medium">Market #{attempt.id}</span>
+                      <span className="text-sm font-medium">
+                        Market #{attempt.id}
+                      </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <p>Season: {attempt.season_id}</p>
                       <p className="font-mono text-xs">
-                        Player: {attempt.player_address.slice(0, 10)}...{attempt.player_address.slice(-8)}
+                        Player: {attempt.player_address.slice(0, 10)}...
+                        {attempt.player_address.slice(-8)}
                       </p>
                       <p className="text-xs">
                         Created: {new Date(attempt.created_at).toLocaleString()}
@@ -244,7 +268,7 @@ export function ManualMarketCreation() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Help Card */}
       <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
@@ -255,13 +279,18 @@ export function ManualMarketCreation() {
         </CardHeader>
         <CardContent className="text-blue-700 space-y-2">
           <p className="text-sm">
-            <strong>Manual Market Creation:</strong> Use this when a market wasn&apos;t automatically created when a player crossed the 1% threshold.
+            <strong>Manual Market Creation:</strong> Use this when a market
+            wasn&apos;t automatically created when a player crossed the 1%
+            threshold.
           </p>
           <p className="text-sm">
-            <strong>Failed Attempts:</strong> Markets that were created in the database but failed to deploy on-chain. Click Retry to attempt creation again.
+            <strong>Failed Attempts:</strong> Markets that were created in the
+            database but failed to deploy on-chain. Click Retry to attempt
+            creation again.
           </p>
           <p className="text-sm">
-            <strong>Requirements:</strong> Player must have tickets in the selected season. Backend wallet must have sufficient ETH for gas.
+            <strong>Requirements:</strong> Player must have tickets in the
+            selected season. Backend wallet must have sufficient ETH for gas.
           </p>
         </CardContent>
       </Card>

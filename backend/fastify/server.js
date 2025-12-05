@@ -17,7 +17,7 @@ import simpleFpmmAbi from "../src/abis/SimpleFPMMAbi.js";
 const app = fastify({ logger: true });
 
 // Select network ("LOCAL" or "TESTNET") for on-chain listeners
-const NETWORK = process.env.NETWORK || "LOCAL";
+const NETWORK = process.env.DEFAULT_NETWORK || "LOCAL";
 app.log.info({ NETWORK }, "Using backend network configuration");
 
 // Log Supabase connection status at startup
@@ -275,7 +275,8 @@ async function startListeners() {
 const PORT = process.env.PORT || 3000;
 
 try {
-  await app.listen({ port: Number(PORT), host: "127.0.0.1" });
+  //await app.listen({ port: Number(PORT), host: "127.0.0.1" });
+  await app.listen({ port: Number(PORT), host: "0.0.0.0" });
   app.log.info(`🚀 Server listening on port ${PORT}`);
 
   // Start listeners after server is ready

@@ -1,17 +1,20 @@
 // src/pages/InfoFiMarketDetail.jsx
-import { useParams, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import OddsChart from '@/components/infofi/OddsChart';
-import BuySellWidget from '@/components/infofi/BuySellWidget';
-import UsernameDisplay from '@/components/user/UsernameDisplay';
-import { useQuery } from '@tanstack/react-query';
-import { useRaffleRead } from '@/hooks/useRaffleRead';
-import { buildMarketTitleParts } from '@/lib/marketTitle';
-import { formatDistanceToNow } from 'date-fns';
+import { useParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft, ExternalLink, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import OddsChart from "@/components/infofi/OddsChart";
+import BuySellWidget from "@/components/infofi/BuySellWidget";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { useQuery } from "@tanstack/react-query";
+import { useRaffleRead } from "@/hooks/useRaffleRead";
+import { buildMarketTitleParts } from "@/lib/marketTitle";
+import { formatDistanceToNow } from "date-fns";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 /**
  * InfoFiMarketDetail Page
@@ -20,15 +23,15 @@ import { formatDistanceToNow } from 'date-fns';
  */
 const InfoFiMarketDetail = () => {
   const { marketId } = useParams();
-  const { t } = useTranslation('market');
-  
+  const { t } = useTranslation("market");
+
   // Fetch market data from backend API (synced from blockchain on startup)
   const { data: marketData, isLoading } = useQuery({
-    queryKey: ['infofiMarket', marketId],
+    queryKey: ["infofiMarket", marketId],
     queryFn: async () => {
-      const response = await fetch(`/api/infofi/markets/${marketId}`);
+      const response = await fetch(`${API_BASE}/infofi/markets/${marketId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch market');
+        throw new Error("Failed to fetch market");
       }
       const data = await response.json();
       return data.market;
@@ -40,7 +43,11 @@ const InfoFiMarketDetail = () => {
   const market = marketData;
 
   const { currentSeasonQuery } = useRaffleRead();
-  const seasonId = market?.raffle_id ?? market?.seasonId ?? market?.season_id ?? currentSeasonQuery?.data;
+  const seasonId =
+    market?.raffle_id ??
+    market?.seasonId ??
+    market?.season_id ??
+    currentSeasonQuery?.data;
 
   if (isLoading) {
     return (
@@ -59,10 +66,10 @@ const InfoFiMarketDetail = () => {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">{t('marketNotFound')}</p>
+            <p className="text-muted-foreground">{t("marketNotFound")}</p>
             <Link to="/markets">
               <Button className="mt-4" variant="outline">
-                {t('backToMarkets')}
+                {t("backToMarkets")}
               </Button>
             </Link>
           </CardContent>
@@ -72,14 +79,17 @@ const InfoFiMarketDetail = () => {
   }
 
   const parts = buildMarketTitleParts(market);
-  const isWinnerPrediction = market.market_type === 'WINNER_PREDICTION';
+  const isWinnerPrediction = market.market_type === "WINNER_PREDICTION";
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       {/* Back button */}
-      <Link to="/markets" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
+      <Link
+        to="/markets"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+      >
         <ArrowLeft className="h-4 w-4" />
-        {t('backToMarkets')}
+        {t("backToMarkets")}
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -94,14 +104,14 @@ const InfoFiMarketDetail = () => {
                     {isWinnerPrediction ? (
                       <span className="flex flex-col gap-2">
                         <span>
-                          {parts.prefix}{' '}
-                          <UsernameDisplay 
+                          {parts.prefix}{" "}
+                          <UsernameDisplay
                             address={market.player}
                             linkTo={`/users/${market.player}`}
                             className="font-bold text-primary"
                           />
                         </span>
-                        <Link 
+                        <Link
                           to={`/raffles/${seasonId}`}
                           className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
                         >
@@ -113,20 +123,21 @@ const InfoFiMarketDetail = () => {
                       market.question || market.market_type
                     )}
                   </CardTitle>
-                  
+
                   {/* Market metadata */}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
                       <span>
-                        {market.created_at 
-                          ? formatDistanceToNow(new Date(market.created_at), { addSuffix: true })
-                          : t('unknown')
-                        }
+                        {market.created_at
+                          ? formatDistanceToNow(new Date(market.created_at), {
+                              addSuffix: true,
+                            })
+                          : t("unknown")}
                       </span>
                     </div>
                     <div className="font-medium">
-                      ${(market.volume || 0).toLocaleString()} {t('volume')}
+                      ${(market.volume || 0).toLocaleString()} {t("volume")}
                     </div>
                   </div>
                 </div>
@@ -136,7 +147,9 @@ const InfoFiMarketDetail = () => {
                   <div className="text-3xl font-bold text-emerald-600">
                     {((market.current_probability || 0) / 100).toFixed(1)}%
                   </div>
-                  <div className="text-xs text-muted-foreground">{t('yesOdds')}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t("yesOdds")}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -152,38 +165,44 @@ const InfoFiMarketDetail = () => {
             <CardContent className="pt-6">
               <Tabs defaultValue="activity">
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="activity">{t('activity')}</TabsTrigger>
-                  <TabsTrigger value="holders">{t('topHolders')}</TabsTrigger>
-                  <TabsTrigger value="info">{t('marketInfo')}</TabsTrigger>
+                  <TabsTrigger value="activity">{t("activity")}</TabsTrigger>
+                  <TabsTrigger value="holders">{t("topHolders")}</TabsTrigger>
+                  <TabsTrigger value="info">{t("marketInfo")}</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="activity" className="mt-4">
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>{t('activityComingSoon')}</p>
+                    <p>{t("activityComingSoon")}</p>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="holders" className="mt-4">
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>{t('holdersComingSoon')}</p>
+                    <p>{t("holdersComingSoon")}</p>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="info" className="mt-4">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-2">{t('marketType')}</h4>
-                      <p className="text-sm text-muted-foreground">{market.market_type}</p>
+                      <h4 className="font-medium mb-2">{t("marketType")}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {market.market_type}
+                      </p>
                     </div>
                     {market.description && (
                       <div>
-                        <h4 className="font-medium mb-2">{t('description')}</h4>
-                        <p className="text-sm text-muted-foreground">{market.description}</p>
+                        <h4 className="font-medium mb-2">{t("description")}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {market.description}
+                        </p>
                       </div>
                     )}
                     <div>
-                      <h4 className="font-medium mb-2">{t('marketId')}</h4>
-                      <p className="text-sm font-mono text-muted-foreground">{marketId}</p>
+                      <h4 className="font-medium mb-2">{t("marketId")}</h4>
+                      <p className="text-sm font-mono text-muted-foreground">
+                        {marketId}
+                      </p>
                     </div>
                   </div>
                 </TabsContent>
