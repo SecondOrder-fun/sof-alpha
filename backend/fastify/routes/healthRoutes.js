@@ -43,7 +43,21 @@ async function healthRoutes(fastify) {
     }
 
     // RPC check: call eth_blockNumber on configured RPC, if available
-    const rpcUrl = process.env.RPC_HTTP_URL || process.env.ANVIL_RPC_URL;
+    const network = process.env.DEFAULT_NETWORK || "LOCAL";
+    let rpcUrl = null;
+
+    if (network === "TESTNET") {
+      // Prefer explicit backend RPC for Base Sepolia / testnet
+      rpcUrl =
+        process.env.RPC_URL_TESTNET ||
+        process.env.BASE_SEPOLIA_RPC_URL ||
+        process.env.BASE_RPC_URL ||
+        null;
+    } else {
+      // Local / dev
+      rpcUrl = process.env.RPC_URL_LOCAL || null;
+    }
+
     if (rpcUrl) {
       try {
         const res = await fetch(rpcUrl, {
@@ -70,7 +84,10 @@ async function healthRoutes(fastify) {
       }
     } else {
       checks.rpc.ok = false;
-      checks.rpc.error = "RPC_HTTP_URL/ANVIL_RPC_URL not configured";
+      checks.rpc.error =
+        network === "TESTNET"
+          ? "RPC_URL_TESTNET / BASE_SEPOLIA_RPC_URL / BASE_RPC_URL not configured in this environment"
+          : "RPC_URL_LOCAL not configured in this environment";
     }
 
     const overallStatus =
