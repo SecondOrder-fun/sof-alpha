@@ -24,6 +24,7 @@ export const publicClient = createPublicClient({
     rpcUrls: { default: { http: [defaultChain.rpcUrl] } },
   },
   transport: http(defaultChain.rpcUrl),
+  pollingInterval: 4_000, // Force polling mode for public RPC compatibility
 });
 
 /**
@@ -40,6 +41,7 @@ export function getPublicClient(key) {
       rpcUrls: { default: { http: [chain.rpcUrl] } },
     },
     transport: http(chain.rpcUrl),
+    pollingInterval: 4_000, // Force polling mode for public RPC compatibility
   });
 }
 
