@@ -9,6 +9,7 @@ import { startSeasonCompletedListener } from "../src/listeners/seasonCompletedLi
 import { startPositionUpdateListener } from "../src/listeners/positionUpdateListener.js";
 import { startMarketCreatedListener } from "../src/listeners/marketCreatedListener.js";
 import { startTradeListener } from "../src/listeners/tradeListener.js";
+import { infoFiPositionService } from "../src/services/infoFiPositionService.js";
 import raffleAbi from "../src/abis/RaffleAbi.js";
 import sofBondingCurveAbi from "../src/abis/SOFBondingCurveAbi.js";
 import infoFiMarketFactoryAbi from "../src/abis/InfoFiMarketFactoryAbi.js";
@@ -309,6 +310,36 @@ async function startListeners() {
   }
 }
 
+/**
+ * Sync historical positions for all active markets
+ * Runs on server startup to catch any missed trades
+ */
+async function syncHistoricalPositions() {
+  try {
+    app.log.info("🔄 Starting historical position sync...");
+
+    const result = await infoFiPositionService.syncAllActiveMarkets();
+
+    if (result.success) {
+      app.log.info(
+        `✅ Historical sync complete: ${result.totalRecorded} new positions recorded, ` +
+          `${result.totalSkipped} already synced, ${
+            result.totalErrors || 0
+          } errors`
+      );
+
+      if (result.details && result.details.length > 0) {
+        app.log.debug({ markets: result.details }, "Sync details by market");
+      }
+    } else {
+      app.log.warn("⚠️  Historical sync completed with issues");
+    }
+  } catch (error) {
+    app.log.error("Failed to sync historical positions:", error);
+    // Don't crash server, but log the error
+  }
+}
+
 // Start server
 const PORT = process.env.PORT || 3000;
 
@@ -323,7 +354,12 @@ try {
     app.log.error({ err }, "Failed to start listeners");
   });
 
-  app.log.info("✅ Server ready - listeners starting in background");
+  // Sync historical positions in background (non-blocking)
+  syncHistoricalPositions().catch((err) => {
+    app.log.error({ err }, "Failed to sync historical positions");
+  });
+
+  app.log.info("✅ Server ready - listeners and sync starting in background");
 } catch (err) {
   app.log.error(err);
   process.exit(1);

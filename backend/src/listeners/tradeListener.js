@@ -12,6 +12,7 @@
 
 import { publicClient } from "../lib/viemClient.js";
 import { oracleCallService } from "../services/oracleCallService.js";
+import { infoFiPositionService } from "../services/infoFiPositionService.js";
 
 /**
  * Starts listening for Trade events from SimpleFPMM contracts
@@ -55,20 +56,15 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
           for (const log of logs) {
             try {
               // Extract trade data from event
-              const { trader, collateralAmount, isLong } = log.args;
+              const { trader, buyYes, amountIn, amountOut } = log.args;
 
               logger.debug(
                 `📊 Trade Event: FPMM ${fpmmAddress}, Trader ${trader}, ` +
-                  `Amount: ${collateralAmount}, IsLong: ${isLong}`
+                  `BuyYes: ${buyYes}, AmountIn: ${amountIn}, AmountOut: ${amountOut}`
               );
 
-              // Calculate sentiment from trade
-              // Sentiment increases for long positions, decreases for short positions
-              const sentiment = calculateSentiment(
-                collateralAmount,
-                isLong,
-                logger
-              );
+              // Calculate sentiment from trade (using buyYes instead of isLong)
+              const sentiment = calculateSentiment(amountIn, buyYes, logger);
 
               // Update oracle with new sentiment
               const result = await oracleCallService.updateMarketSentiment(
@@ -85,6 +81,27 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
                 logger.warn(
                   `⚠️  Trade sentiment update failed for ${fpmmAddress}: ${result.error}`
                 );
+              }
+
+              // Record position to database
+              try {
+                await infoFiPositionService.recordPosition({
+                  fpmmAddress,
+                  trader,
+                  buyYes,
+                  amountIn,
+                  amountOut,
+                  txHash: log.transactionHash,
+                });
+
+                logger.info(
+                  `✅ Recorded position for ${trader} in market ${fpmmAddress}`
+                );
+              } catch (positionError) {
+                logger.error(
+                  `Failed to record position: ${positionError.message}`
+                );
+                // Don't crash listener - just log and continue
               }
             } catch (tradeError) {
               logger.warn(

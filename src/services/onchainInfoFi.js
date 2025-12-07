@@ -654,6 +654,12 @@ export async function readBet({
 
     return { amount: balance };
   } catch (error) {
+    // Contract reverted - likely user has no position or token ID doesn't exist yet
+    // This is expected for users who haven't placed bets, so just return 0
+    if (error.message?.includes("reverted")) {
+      return { amount: 0n };
+    }
+    // Log unexpected errors
     console.error("Error reading FPMM position:", error);
     return { amount: 0n };
   }

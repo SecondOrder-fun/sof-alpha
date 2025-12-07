@@ -30,6 +30,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExplorerLink from "@/components/common/ExplorerLink";
 import {
   Carousel,
@@ -38,6 +39,7 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel";
 import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
+import { readBet } from "@/services/onchainInfoFi";
 import RaffleAbi from "@/contracts/abis/Raffle.json";
 
 const AccountPage = () => {
@@ -344,39 +346,58 @@ const AccountPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Raffle Ticket Balances</CardTitle>
+              <CardTitle>Balances</CardTitle>
             </CardHeader>
             <CardContent>
-              {seasonBalancesQuery.isLoading && (
-                <p className="text-muted-foreground">Loading...</p>
-              )}
-              {seasonBalancesQuery.error && (
-                <p className="text-red-500">Error loading ticket balances</p>
-              )}
-              {!seasonBalancesQuery.isLoading && !seasonBalancesQuery.error && (
-                <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
-                  {(seasonBalancesQuery.data || []).length === 0 && (
-                    <p className="text-muted-foreground">
-                      No ticket balances found.
+              <Tabs defaultValue="raffle" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="raffle">Raffle Tickets</TabsTrigger>
+                  <TabsTrigger value="infofi">InfoFi Positions</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="raffle" className="mt-4">
+                  {seasonBalancesQuery.isLoading && (
+                    <p className="text-muted-foreground">Loading...</p>
+                  )}
+                  {seasonBalancesQuery.error && (
+                    <p className="text-red-500">
+                      Error loading ticket balances
                     </p>
                   )}
-                  {(seasonBalancesQuery.data || []).length > 0 && (
-                    <Accordion type="multiple" className="space-y-2">
-                      {(seasonBalancesQuery.data || [])
-                        .slice()
-                        .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
-                        .map((row) => (
-                          <RaffleEntryRow
-                            key={row.seasonId}
-                            row={row}
-                            address={address}
-                            client={client}
-                          />
-                        ))}
-                    </Accordion>
-                  )}
-                </div>
-              )}
+                  {!seasonBalancesQuery.isLoading &&
+                    !seasonBalancesQuery.error && (
+                      <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
+                        {(seasonBalancesQuery.data || []).length === 0 && (
+                          <p className="text-muted-foreground">
+                            No ticket balances found.
+                          </p>
+                        )}
+                        {(seasonBalancesQuery.data || []).length > 0 && (
+                          <Accordion type="multiple" className="space-y-2">
+                            {(seasonBalancesQuery.data || [])
+                              .slice()
+                              .sort(
+                                (a, b) =>
+                                  Number(b.seasonId) - Number(a.seasonId)
+                              )
+                              .map((row) => (
+                                <RaffleEntryRow
+                                  key={row.seasonId}
+                                  row={row}
+                                  address={address}
+                                  client={client}
+                                />
+                              ))}
+                          </Accordion>
+                        )}
+                      </div>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="infofi" className="mt-4">
+                  <InfoFiPositionsTab address={address} />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
@@ -621,6 +642,188 @@ const UsernameEditor = ({ address, currentUsername, onSuccess }) => {
       </div>
     </div>
   );
+};
+
+const InfoFiPositionsTab = ({ address }) => {
+  const netKey = getStoredNetworkKey();
+  const seasonsQry = useAllSeasons();
+  const seasons = seasonsQry.data || [];
+
+  // Get current active season (highest season ID)
+  const currentSeason = useMemo(() => {
+    if (!seasons || seasons.length === 0) return null;
+    return seasons.reduce((max, s) => (s.id > max.id ? s : max), seasons[0]);
+  }, [seasons]);
+
+  const positionsQuery = useQuery({
+    queryKey: [
+      "infofiPositionsOnchainActive",
+      address,
+      currentSeason?.id,
+      netKey,
+    ],
+    enabled: !!address && !!currentSeason,
+    queryFn: async () => {
+      const seasonId = currentSeason.id;
+
+      // Fetch markets from Supabase (includes contract_address)
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BACKEND_URL ||
+          "https://sof-alpha-production.up.railway.app"
+        }/api/infofi/markets?seasonId=${seasonId}&isActive=true`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch markets");
+      }
+
+      const data = await response.json();
+      const markets = data.markets?.[seasonId] || [];
+
+      if (!markets || markets.length === 0) {
+        return [];
+      }
+
+      const positions = [];
+
+      for (const m of markets) {
+        try {
+          const fpmmAddress = m.contract_address;
+
+          if (
+            !fpmmAddress ||
+            fpmmAddress === "0x0000000000000000000000000000000000000000"
+          ) {
+            continue; // Skip if no FPMM exists
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          const yes = await readBet({
+            marketId: m.id,
+            account: address,
+            prediction: true,
+            networkKey: netKey,
+            fpmmAddress,
+          });
+          // eslint-disable-next-line no-await-in-loop
+          const no = await readBet({
+            marketId: m.id,
+            account: address,
+            prediction: false,
+            networkKey: netKey,
+            fpmmAddress,
+          });
+
+          const yesAmt = yes?.amount ?? 0n;
+          const noAmt = no?.amount ?? 0n;
+
+          if (yesAmt > 0n || noAmt > 0n) {
+            positions.push({
+              marketId: m.id,
+              marketType: m.market_type || "Winner Prediction",
+              player: m.player_address,
+              yesAmount: yesAmt,
+              noAmount: noAmt,
+            });
+          }
+        } catch (error) {
+          // Error handling: log the error and continue to the next market
+          // This ensures that a single market error does not prevent the entire query from succeeding
+          console.error(`Error reading position for market ${m.id}:`, error);
+        }
+      }
+
+      return positions;
+    },
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+  });
+
+  return (
+    <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
+      {!currentSeason && (
+        <p className="text-muted-foreground">No active season found.</p>
+      )}
+      {currentSeason && (
+        <>
+          <div className="mb-3 text-sm text-muted-foreground">
+            Season #{currentSeason.id}{" "}
+            {currentSeason.name ? `— ${currentSeason.name}` : ""}
+          </div>
+          {positionsQuery.isLoading && (
+            <p className="text-muted-foreground">Loading positions...</p>
+          )}
+          {positionsQuery.error && (
+            <p className="text-red-500">
+              {positionsQuery.error?.message?.includes("does not exist") ||
+              positionsQuery.error?.message?.includes("No prediction markets")
+                ? "No prediction markets available yet."
+                : `Error: ${String(
+                    positionsQuery.error?.message || positionsQuery.error
+                  )}`}
+            </p>
+          )}
+          {!positionsQuery.isLoading && !positionsQuery.error && (
+            <>
+              {(positionsQuery.data || []).length === 0 && (
+                <p className="text-muted-foreground">
+                  No open positions in current season.
+                </p>
+              )}
+              {(positionsQuery.data || []).length > 0 && (
+                <div className="space-y-2">
+                  {(positionsQuery.data || []).map((pos) => (
+                    <div
+                      key={`${pos.marketId}`}
+                      className="border rounded p-3 text-sm space-y-2"
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-medium">{pos.marketType}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Market #{pos.marketId}
+                        </span>
+                      </div>
+                      {pos.player && (
+                        <div className="text-xs text-muted-foreground">
+                          Player: {pos.player.slice(0, 6)}...
+                          {pos.player.slice(-4)}
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        {pos.yesAmount > 0n && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-green-600">
+                              YES Position:
+                            </span>
+                            <span className="font-mono">
+                              {formatUnits(pos.yesAmount, 18)} SOF
+                            </span>
+                          </div>
+                        )}
+                        {pos.noAmount > 0n && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-red-600">NO Position:</span>
+                            <span className="font-mono">
+                              {formatUnits(pos.noAmount, 18)} SOF
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+InfoFiPositionsTab.propTypes = {
+  address: PropTypes.string,
 };
 
 export default AccountPage;

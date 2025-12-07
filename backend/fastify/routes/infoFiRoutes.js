@@ -1,5 +1,6 @@
 // backend/fastify/routes/infoFiRoutes.js
 import { supabase } from "../../shared/supabaseClient.js";
+import { infoFiPositionService } from "../../src/services/infoFiPositionService.js";
 
 /**
  * InfoFi Markets API Routes
@@ -365,6 +366,134 @@ export default async function infoFiRoutes(fastify) {
       );
       return reply.code(500).send({
         error: "Internal server error",
+        details: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/infofi/positions/:userAddress
+   * Get all positions for a user, optionally filtered by market
+   *
+   * Query params:
+   * - marketId: Filter by specific market (optional)
+   *
+   * Returns: { positions: [...] }
+   */
+  fastify.get("/positions/:userAddress", async (request, reply) => {
+    try {
+      const { userAddress } = request.params;
+      const { marketId } = request.query;
+
+      const positions = await infoFiPositionService.getUserPositions(
+        userAddress,
+        marketId ? parseInt(marketId) : null
+      );
+
+      return { positions };
+    } catch (error) {
+      fastify.log.error({ error }, "Error fetching user positions");
+      return reply.code(500).send({
+        error: "Failed to fetch positions",
+        details: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/infofi/positions/:userAddress/aggregated
+   * Get aggregated positions for a user in a specific market
+   *
+   * Query params:
+   * - marketId: Market ID (required)
+   *
+   * Returns: { positions: [...] }
+   */
+  fastify.get("/positions/:userAddress/aggregated", async (request, reply) => {
+    try {
+      const { userAddress } = request.params;
+      const { marketId } = request.query;
+
+      if (!marketId) {
+        return reply.code(400).send({
+          error: "marketId query parameter is required",
+        });
+      }
+
+      const positions = await infoFiPositionService.getAggregatedPosition(
+        userAddress,
+        parseInt(marketId)
+      );
+
+      return { positions };
+    } catch (error) {
+      fastify.log.error({ error }, "Error fetching aggregated positions");
+      return reply.code(500).send({
+        error: "Failed to fetch aggregated positions",
+        details: error.message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/infofi/positions/:userAddress/net
+   * Get net position for a user in a binary market
+   *
+   * Query params:
+   * - marketId: Market ID (required)
+   *
+   * Returns: { yes, no, net, isHedged, numTradesYes, numTradesNo }
+   */
+  fastify.get("/positions/:userAddress/net", async (request, reply) => {
+    try {
+      const { userAddress } = request.params;
+      const { marketId } = request.query;
+
+      if (!marketId) {
+        return reply.code(400).send({
+          error: "marketId query parameter is required",
+        });
+      }
+
+      const netPosition = await infoFiPositionService.getNetPosition(
+        userAddress,
+        parseInt(marketId)
+      );
+
+      return netPosition;
+    } catch (error) {
+      fastify.log.error({ error }, "Error fetching net position");
+      return reply.code(500).send({
+        error: "Failed to fetch net position",
+        details: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /api/infofi/markets/:fpmmAddress/sync
+   * Sync historical trades for a market from blockchain
+   *
+   * Query params:
+   * - fromBlock: Starting block number (optional)
+   *
+   * Returns: { success, recorded, skipped, totalEvents, fromBlock, toBlock }
+   */
+  fastify.post("/markets/:fpmmAddress/sync", async (request, reply) => {
+    try {
+      const { fpmmAddress } = request.params;
+      const { fromBlock } = request.query;
+
+      const result = await infoFiPositionService.syncMarketPositions(
+        fpmmAddress,
+        fromBlock ? BigInt(fromBlock) : null
+      );
+
+      return result;
+    } catch (error) {
+      fastify.log.error({ error }, "Error syncing market positions");
+      return reply.code(500).send({
+        error: "Failed to sync market positions",
         details: error.message,
       });
     }
