@@ -11,7 +11,12 @@ import { getPaymasterService } from "../../src/services/paymasterService.js";
  * Admin API routes
  */
 export default async function adminRoutes(fastify) {
-  const NETWORK = process.env.NETWORK || process.env.DEFAULT_NETWORK || "LOCAL";
+  // Respect DEFAULT_NETWORK from .env, with LOCAL as final fallback
+  const NETWORK =
+    process.env.NETWORK ||
+    process.env.DEFAULT_NETWORK ||
+    process.env.VITE_DEFAULT_NETWORK ||
+    "LOCAL";
 
   /**
    * GET /api/admin/active-seasons
@@ -285,7 +290,11 @@ export default async function adminRoutes(fastify) {
         ENTRY_POINT_ADDRESS,
       } = process.env;
 
-      const network = DEFAULT_NETWORK || NETWORK || "LOCAL";
+      const network =
+        DEFAULT_NETWORK ||
+        NETWORK ||
+        process.env.VITE_DEFAULT_NETWORK ||
+        "LOCAL";
       const isTestnet = network === "TESTNET";
       const paymasterUrl = isTestnet
         ? PAYMASTER_RPC_URL_TESTNET

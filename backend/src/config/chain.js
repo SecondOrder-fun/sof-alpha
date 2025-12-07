@@ -23,6 +23,9 @@ export function loadChainEnv() {
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_LOCAL || "",
       // InfoFi on-chain hybrid price oracle (required for SSE transport)
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_LOCAL || "",
+      // Network-specific configuration
+      avgBlockTime: 1, // Anvil produces blocks instantly
+      lookbackBlocks: 10000n, // Smaller lookback for local testing
     },
     TESTNET: {
       id: Number(process.env.TESTNET_CHAIN_ID || 84532),
@@ -34,6 +37,23 @@ export function loadChainEnv() {
       infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_TESTNET || "",
       // InfoFi on-chain hybrid price oracle (required for SSE transport)
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_TESTNET || "",
+      // Network-specific configuration
+      avgBlockTime: 2, // Base has ~2 second block time
+      lookbackBlocks: 100000n, // Larger lookback for testnet
+    },
+    MAINNET: {
+      id: Number(process.env.MAINNET_CHAIN_ID || 8453),
+      name: process.env.MAINNET_NAME || "Base",
+      rpcUrl: process.env.RPC_URL_MAINNET || "",
+      raffle: process.env.RAFFLE_ADDRESS_MAINNET || "",
+      sof: process.env.SOF_ADDRESS_MAINNET || "",
+      curve: process.env.CURVE_ADDRESS_MAINNET || "",
+      infofiFactory: process.env.INFOFI_FACTORY_ADDRESS_MAINNET || "",
+      // InfoFi on-chain hybrid price oracle (required for SSE transport)
+      infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_MAINNET || "",
+      // Network-specific configuration
+      avgBlockTime: 2, // Base has ~2 second block time
+      lookbackBlocks: 100000n, // Larger lookback for mainnet
     },
   };
 
@@ -48,11 +68,17 @@ export function loadChainEnv() {
 }
 
 /**
- * Get a chain config by key (LOCAL/TESTNET), fallback to LOCAL.
+ * Get a chain config by key (LOCAL/TESTNET), fallback to DEFAULT_NETWORK from .env.
  * @param {string} key
  */
 export function getChainByKey(key) {
   const env = loadChainEnv();
-  const k = (key || process.env.DEFAULT_NETWORK || "LOCAL").toUpperCase();
-  return env[k] || env.LOCAL;
+  // Respect DEFAULT_NETWORK from .env instead of hardcoding LOCAL
+  const defaultNet = (
+    process.env.DEFAULT_NETWORK ||
+    process.env.VITE_DEFAULT_NETWORK ||
+    "LOCAL"
+  ).toUpperCase();
+  const k = (key || defaultNet).toUpperCase();
+  return env[k] || env[defaultNet] || env.LOCAL;
 }

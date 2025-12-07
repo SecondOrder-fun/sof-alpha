@@ -23,7 +23,10 @@ export function getChainConfig(networkKey) {
     id: cfg.id,
     name: cfg.name,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-    rpcUrls: { default: { http: [cfg.rpcUrl] }, public: { http: [cfg.rpcUrl] } },
+    rpcUrls: {
+      default: { http: [cfg.rpcUrl] },
+      public: { http: [cfg.rpcUrl] },
+    },
   };
 
   const transport = http(cfg.rpcUrl);
@@ -47,9 +50,15 @@ export function getStoredNetworkKey() {
 
 export function setStoredNetworkKey(key) {
   try {
-    localStorage.setItem(STORAGE_KEY, (key || "LOCAL").toUpperCase());
+    // Respect DEFAULT_NETWORK from .env instead of hardcoding LOCAL
+    const defaultNet = (
+      import.meta.env.VITE_DEFAULT_NETWORK || "LOCAL"
+    ).toUpperCase();
+    localStorage.setItem(STORAGE_KEY, (key || defaultNet).toUpperCase());
     // Notify app to re-initialize providers if needed
-    window.dispatchEvent(new CustomEvent("sof:network-changed", { detail: { key } }));
+    window.dispatchEvent(
+      new CustomEvent("sof:network-changed", { detail: { key } })
+    );
   } catch (e) {
     // Reason: some environments (SSR/tests) may not have localStorage; safely ignore.
     return;

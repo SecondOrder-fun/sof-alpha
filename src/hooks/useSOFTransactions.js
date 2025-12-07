@@ -1,10 +1,11 @@
 // src/hooks/useSOFTransactions.js
-import { useQuery } from '@tanstack/react-query';
-import { usePublicClient } from 'wagmi';
-import { formatUnits } from 'viem';
-import { getContractAddresses } from '@/config/contracts';
-import { getStoredNetworkKey } from '@/lib/wagmi';
-import { queryLogsInChunks } from '@/utils/blockRangeQuery';
+import { useQuery } from "@tanstack/react-query";
+import { usePublicClient } from "wagmi";
+import { formatUnits } from "viem";
+import { getContractAddresses } from "@/config/contracts";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getNetworkByKey } from "@/config/networks";
+import { queryLogsInChunks } from "@/utils/blockRangeQuery";
 
 /**
  * Hook to fetch all $SOF transaction history for an address
@@ -15,14 +16,21 @@ export function useSOFTransactions(address, options = {}) {
   const publicClient = usePublicClient();
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
-  
+  const chain = getNetworkByKey(netKey);
+
   const {
-    lookbackBlocks = 500000n, // ~11.5 days on Base (2s blocks), ~57 days on Ethereum (12s blocks)
-    enabled = true
+    lookbackBlocks = chain.lookbackBlocks, // Use network-specific default
+    enabled = true,
   } = options;
 
   return useQuery({
-    queryKey: ['sofTransactions', address, contracts.SOF, lookbackBlocks.toString(), netKey],
+    queryKey: [
+      "sofTransactions",
+      address,
+      contracts.SOF,
+      lookbackBlocks.toString(),
+      netKey,
+    ],
     queryFn: async () => {
       if (!address || !contracts.SOF || !publicClient) {
         return [];
@@ -30,7 +38,8 @@ export function useSOFTransactions(address, options = {}) {
 
       // Get current block and calculate fromBlock
       const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
+      const fromBlock =
+        currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
       const toBlock = currentBlock;
 
       const transactions = [];
@@ -40,12 +49,12 @@ export function useSOFTransactions(address, options = {}) {
         queryLogsInChunks(publicClient, {
           address: contracts.SOF,
           event: {
-            type: 'event',
-            name: 'Transfer',
+            type: "event",
+            name: "Transfer",
             inputs: [
-              { indexed: true, name: 'from', type: 'address' },
-              { indexed: true, name: 'to', type: 'address' },
-              { indexed: false, name: 'value', type: 'uint256' },
+              { indexed: true, name: "from", type: "address" },
+              { indexed: true, name: "to", type: "address" },
+              { indexed: false, name: "value", type: "uint256" },
             ],
           },
           args: { to: address },
@@ -55,12 +64,12 @@ export function useSOFTransactions(address, options = {}) {
         queryLogsInChunks(publicClient, {
           address: contracts.SOF,
           event: {
-            type: 'event',
-            name: 'Transfer',
+            type: "event",
+            name: "Transfer",
             inputs: [
-              { indexed: true, name: 'from', type: 'address' },
-              { indexed: true, name: 'to', type: 'address' },
-              { indexed: false, name: 'value', type: 'uint256' },
+              { indexed: true, name: "from", type: "address" },
+              { indexed: true, name: "to", type: "address" },
+              { indexed: false, name: "value", type: "uint256" },
             ],
           },
           args: { from: address },
@@ -71,9 +80,11 @@ export function useSOFTransactions(address, options = {}) {
 
       // Process incoming transfers
       for (const log of transfersIn) {
-        const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+        const block = await publicClient.getBlock({
+          blockNumber: log.blockNumber,
+        });
         transactions.push({
-          type: 'TRANSFER_IN',
+          type: "TRANSFER_IN",
           hash: log.transactionHash,
           blockNumber: log.blockNumber,
           timestamp: Number(block.timestamp),
@@ -81,17 +92,19 @@ export function useSOFTransactions(address, options = {}) {
           to: log.args.to,
           amount: formatUnits(log.args.value, 18),
           amountRaw: log.args.value,
-          direction: 'IN',
-          description: 'Received SOF',
+          direction: "IN",
+          description: "Received SOF",
         });
       }
 
       // Store outgoing transfers for later categorization
       const outgoingTransfers = [];
       for (const log of transfersOut) {
-        const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+        const block = await publicClient.getBlock({
+          blockNumber: log.blockNumber,
+        });
         outgoingTransfers.push({
-          type: 'TRANSFER_OUT',
+          type: "TRANSFER_OUT",
           hash: log.transactionHash,
           blockNumber: log.blockNumber,
           timestamp: Number(block.timestamp),
@@ -99,8 +112,8 @@ export function useSOFTransactions(address, options = {}) {
           to: log.args.to,
           amount: formatUnits(log.args.value, 18),
           amountRaw: log.args.value,
-          direction: 'OUT',
-          description: 'Sent SOF',
+          direction: "OUT",
+          description: "Sent SOF",
         });
       }
 
@@ -110,13 +123,13 @@ export function useSOFTransactions(address, options = {}) {
           const buyEvents = await queryLogsInChunks(publicClient, {
             address: contracts.SOFBondingCurve,
             event: {
-              type: 'event',
-              name: 'TokensPurchased',
+              type: "event",
+              name: "TokensPurchased",
               inputs: [
-                { indexed: true, name: 'buyer', type: 'address' },
-                { indexed: false, name: 'sofSpent', type: 'uint256' },
-                { indexed: false, name: 'tokensReceived', type: 'uint256' },
-                { indexed: false, name: 'newPrice', type: 'uint256' },
+                { indexed: true, name: "buyer", type: "address" },
+                { indexed: false, name: "sofSpent", type: "uint256" },
+                { indexed: false, name: "tokensReceived", type: "uint256" },
+                { indexed: false, name: "newPrice", type: "uint256" },
               ],
             },
             args: { buyer: address },
@@ -125,17 +138,19 @@ export function useSOFTransactions(address, options = {}) {
           });
 
           for (const log of buyEvents) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
             transactions.push({
-              type: 'BONDING_CURVE_BUY',
+              type: "BONDING_CURVE_BUY",
               hash: log.transactionHash,
               blockNumber: log.blockNumber,
               timestamp: Number(block.timestamp),
               amount: formatUnits(log.args.sofSpent, 18),
               amountRaw: log.args.sofSpent,
               tokensReceived: formatUnits(log.args.tokensReceived, 18),
-              direction: 'OUT',
-              description: 'Bought raffle tickets',
+              direction: "OUT",
+              description: "Bought raffle tickets",
             });
           }
         } catch (err) {
@@ -149,13 +164,13 @@ export function useSOFTransactions(address, options = {}) {
           const sellEvents = await queryLogsInChunks(publicClient, {
             address: contracts.SOFBondingCurve,
             event: {
-              type: 'event',
-              name: 'TokensSold',
+              type: "event",
+              name: "TokensSold",
               inputs: [
-                { indexed: true, name: 'seller', type: 'address' },
-                { indexed: false, name: 'tokensSold', type: 'uint256' },
-                { indexed: false, name: 'sofReceived', type: 'uint256' },
-                { indexed: false, name: 'newPrice', type: 'uint256' },
+                { indexed: true, name: "seller", type: "address" },
+                { indexed: false, name: "tokensSold", type: "uint256" },
+                { indexed: false, name: "sofReceived", type: "uint256" },
+                { indexed: false, name: "newPrice", type: "uint256" },
               ],
             },
             args: { seller: address },
@@ -164,17 +179,19 @@ export function useSOFTransactions(address, options = {}) {
           });
 
           for (const log of sellEvents) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
             transactions.push({
-              type: 'BONDING_CURVE_SELL',
+              type: "BONDING_CURVE_SELL",
               hash: log.transactionHash,
               blockNumber: log.blockNumber,
               timestamp: Number(block.timestamp),
               amount: formatUnits(log.args.sofReceived, 18),
               amountRaw: log.args.sofReceived,
               tokensSold: formatUnits(log.args.tokensSold, 18),
-              direction: 'IN',
-              description: 'Sold raffle tickets',
+              direction: "IN",
+              description: "Sold raffle tickets",
             });
           }
         } catch (err) {
@@ -189,12 +206,12 @@ export function useSOFTransactions(address, options = {}) {
             queryLogsInChunks(publicClient, {
               address: contracts.RafflePrizeDistributor,
               event: {
-                type: 'event',
-                name: 'GrandPrizeClaimed',
+                type: "event",
+                name: "GrandPrizeClaimed",
                 inputs: [
-                  { indexed: true, name: 'seasonId', type: 'uint256' },
-                  { indexed: true, name: 'winner', type: 'address' },
-                  { indexed: false, name: 'amount', type: 'uint256' },
+                  { indexed: true, name: "seasonId", type: "uint256" },
+                  { indexed: true, name: "winner", type: "address" },
+                  { indexed: false, name: "amount", type: "uint256" },
                 ],
               },
               args: { winner: address },
@@ -204,12 +221,12 @@ export function useSOFTransactions(address, options = {}) {
             queryLogsInChunks(publicClient, {
               address: contracts.RafflePrizeDistributor,
               event: {
-                type: 'event',
-                name: 'ConsolationClaimed',
+                type: "event",
+                name: "ConsolationClaimed",
                 inputs: [
-                  { indexed: true, name: 'seasonId', type: 'uint256' },
-                  { indexed: true, name: 'participant', type: 'address' },
-                  { indexed: false, name: 'amount', type: 'uint256' },
+                  { indexed: true, name: "seasonId", type: "uint256" },
+                  { indexed: true, name: "participant", type: "address" },
+                  { indexed: false, name: "amount", type: "uint256" },
                 ],
               },
               args: { participant: address },
@@ -219,31 +236,35 @@ export function useSOFTransactions(address, options = {}) {
           ]);
 
           for (const log of grandPrizeClaims) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
             transactions.push({
-              type: 'PRIZE_CLAIM_GRAND',
+              type: "PRIZE_CLAIM_GRAND",
               hash: log.transactionHash,
               blockNumber: log.blockNumber,
               timestamp: Number(block.timestamp),
               seasonId: Number(log.args.seasonId),
               amount: formatUnits(log.args.amount, 18),
               amountRaw: log.args.amount,
-              direction: 'IN',
+              direction: "IN",
               description: `Won Grand Prize (Season #${log.args.seasonId})`,
             });
           }
 
           for (const log of consolationClaims) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
             transactions.push({
-              type: 'PRIZE_CLAIM_CONSOLATION',
+              type: "PRIZE_CLAIM_CONSOLATION",
               hash: log.transactionHash,
               blockNumber: log.blockNumber,
               timestamp: Number(block.timestamp),
               seasonId: Number(log.args.seasonId),
               amount: formatUnits(log.args.amount, 18),
               amountRaw: log.args.amount,
-              direction: 'IN',
+              direction: "IN",
               description: `Claimed Consolation Prize (Season #${log.args.seasonId})`,
             });
           }
@@ -258,11 +279,11 @@ export function useSOFTransactions(address, options = {}) {
           const feeEvents = await queryLogsInChunks(publicClient, {
             address: contracts.SOFBondingCurve,
             event: {
-              type: 'event',
-              name: 'FeesCollected',
+              type: "event",
+              name: "FeesCollected",
               inputs: [
-                { indexed: true, name: 'collector', type: 'address' },
-                { indexed: false, name: 'amount', type: 'uint256' },
+                { indexed: true, name: "collector", type: "address" },
+                { indexed: false, name: "amount", type: "uint256" },
               ],
             },
             args: { collector: address },
@@ -271,16 +292,18 @@ export function useSOFTransactions(address, options = {}) {
           });
 
           for (const log of feeEvents) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
             transactions.push({
-              type: 'FEE_COLLECTED',
+              type: "FEE_COLLECTED",
               hash: log.transactionHash,
               blockNumber: log.blockNumber,
               timestamp: Number(block.timestamp),
               amount: formatUnits(log.args.amount, 18),
               amountRaw: log.args.amount,
-              direction: 'IN',
-              description: 'Collected platform fees',
+              direction: "IN",
+              description: "Collected platform fees",
             });
           }
         } catch (err) {
@@ -295,13 +318,13 @@ export function useSOFTransactions(address, options = {}) {
 
       for (const transfer of outgoingTransfers) {
         const recipientLower = transfer.to?.toLowerCase();
-        
+
         // Check if this transfer was to a bonding curve (purchase)
         if (bondingCurveAddresses.includes(recipientLower)) {
           transactions.push({
             ...transfer,
-            type: 'BONDING_CURVE_PURCHASE',
-            description: 'Purchased raffle tickets',
+            type: "BONDING_CURVE_PURCHASE",
+            description: "Purchased raffle tickets",
           });
         } else {
           // Regular transfer to another address
@@ -310,7 +333,9 @@ export function useSOFTransactions(address, options = {}) {
       }
 
       // Sort by block number (most recent first)
-      transactions.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
+      transactions.sort(
+        (a, b) => Number(b.blockNumber) - Number(a.blockNumber)
+      );
 
       return transactions;
     },

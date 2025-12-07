@@ -483,11 +483,13 @@ const RaffleHoldingRow = ({ row, address, client }) => {
   const [open, setOpen] = useState(false);
 
   const inQuery = useQuery({
-    queryKey: ["raffleTransfersIn_profile", row.token, address],
+    queryKey: ["raffleTransfersIn", row.token, address],
     enabled: open && !!client && !!row?.token && !!address,
     queryFn: async () => {
+      const netKey = getStoredNetworkKey();
+      const chain = getNetworkByKey(netKey);
       const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = 100000n; // Last 100k blocks
+      const lookbackBlocks = chain.lookbackBlocks;
       const fromBlock =
         currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
 
@@ -514,11 +516,13 @@ const RaffleHoldingRow = ({ row, address, client }) => {
   });
 
   const outQuery = useQuery({
-    queryKey: ["raffleTransfersOut_profile", row.token, address],
+    queryKey: ["raffleTransfersOut", row.token, address],
     enabled: open && !!client && !!row?.token && !!address,
     queryFn: async () => {
+      const netKey = getStoredNetworkKey();
+      const chain = getNetworkByKey(netKey);
       const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = 100000n; // Last 100k blocks
+      const lookbackBlocks = chain.lookbackBlocks;
       const fromBlock =
         currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
 

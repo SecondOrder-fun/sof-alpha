@@ -1,5 +1,6 @@
 import { publicClient } from "../lib/viemClient.js";
 import { db } from "../../shared/supabaseClient.js";
+import { getChainByKey } from "../config/chain.js";
 
 /**
  * Process a SeasonCompleted event log
@@ -53,8 +54,11 @@ async function scanHistoricalSeasonCompletedEvents(
     // Get current block
     const currentBlock = await publicClient.getBlockNumber();
 
-    // Scan last 10,000 blocks (approximately 2 days on Base Sepolia at 2s block time)
-    const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+    // Scan using network-specific lookback blocks
+    const chain = getChainByKey(process.env.DEFAULT_NETWORK);
+    const lookbackBlocks = chain.lookbackBlocks;
+    const fromBlock =
+      currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
 
     logger.info(`   Scanning from block ${fromBlock} to ${currentBlock}`);
 

@@ -176,13 +176,20 @@ const InfoFiMarketCard = ({ market }) => {
 
   // Read my current YES/NO positions
   const yesPos = useQuery({
-    queryKey: ["infofiBet", effectiveMarketId, address, true],
+    queryKey: [
+      "infofiBet",
+      effectiveMarketId,
+      address,
+      true,
+      market.contract_address,
+    ],
     enabled: !!address && !!effectiveMarketId,
     queryFn: () =>
       readBet({
         marketId: effectiveMarketId,
         account: address,
         prediction: true,
+        fpmmAddress: market.contract_address,
       }),
     staleTime: 5_000,
     refetchInterval: 5_000,
@@ -217,13 +224,20 @@ const InfoFiMarketCard = ({ market }) => {
   }, [address, effectiveMarketId]);
 
   const noPos = useQuery({
-    queryKey: ["infofiBet", effectiveMarketId, address, false],
+    queryKey: [
+      "infofiBet",
+      effectiveMarketId,
+      address,
+      false,
+      market.contract_address,
+    ],
     enabled: !!address && !!effectiveMarketId,
     queryFn: () =>
       readBet({
         marketId: effectiveMarketId,
         account: address,
         prediction: false,
+        fpmmAddress: market.contract_address,
       }),
     staleTime: 5_000,
     refetchInterval: 5_000,
@@ -239,6 +253,7 @@ const InfoFiMarketCard = ({ market }) => {
         amount: amt,
         seasonId: seasonId,
         player: market.player,
+        fpmmAddress: market.contract_address,
       });
     },
     onSuccess: (hash) => {
