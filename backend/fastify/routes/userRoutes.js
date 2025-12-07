@@ -95,12 +95,17 @@ export async function userRoutes(fastify, options) {
           "Failed to fetch positions from database"
         );
 
-        // Return empty array instead of error if no markets exist yet
-        // This handles the case where the join fails because there are no markets
-        if (error.message && error.message.includes("does not exist")) {
+        // Return empty array instead of error if schema is not fully migrated yet
+        // or if join fails because there are no markets / positions tables
+        const msg = error.message || "";
+        if (
+          msg.includes("does not exist") ||
+          msg.includes("infofi_positions") ||
+          msg.includes("schema cache")
+        ) {
           fastify.log.info(
             { address },
-            "No markets exist yet, returning empty positions"
+            "No positions/markets table yet, returning empty positions"
           );
           return reply.send({
             positions: [],

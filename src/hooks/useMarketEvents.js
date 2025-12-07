@@ -5,21 +5,24 @@
  * @author SecondOrder.fun
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from "react";
 
 /**
  * Hook for subscribing to real-time market creation events
  * @param {Object} options - Configuration options
- * @param {string} options.apiUrl - Backend API URL (default: window.location.origin)
+ * @param {string} options.apiUrl - Backend API URL (default: API_BASE)
  * @param {boolean} options.enabled - Whether to enable SSE connection (default: true)
  * @param {Function} options.onMarketCreationStarted - Callback when market creation starts
  * @param {Function} options.onMarketCreationConfirmed - Callback when market creation confirmed
  * @param {Function} options.onMarketCreationFailed - Callback when market creation fails
  * @returns {Object} Hook state and methods
  */
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+
 export function useMarketEvents(options = {}) {
   const {
-    apiUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
+    apiUrl = API_BASE,
     enabled = true,
     onMarketCreationStarted,
     onMarketCreationConfirmed,
@@ -34,55 +37,58 @@ export function useMarketEvents(options = {}) {
   /**
    * Handle incoming SSE message
    */
-  const handleMessage = useCallback((event) => {
-    try {
-      const data = JSON.parse(event.data);
+  const handleMessage = useCallback(
+    (event) => {
+      try {
+        const data = JSON.parse(event.data);
 
-      // Add event to history
-      setEvents((prev) => [
-        ...prev.slice(-99), // Keep last 100 events
-        {
-          ...data,
-          receivedAt: new Date().toISOString(),
-        },
-      ]);
+        // Add event to history
+        setEvents((prev) => [
+          ...prev.slice(-99), // Keep last 100 events
+          {
+            ...data,
+            receivedAt: new Date().toISOString(),
+          },
+        ]);
 
-      // Call appropriate callback based on event type
-      switch (data.event) {
-        case 'connected':
-          console.log('✅ Connected to market events stream');
-          setIsConnected(true);
-          setConnectionError(null);
-          break;
+        // Call appropriate callback based on event type
+        switch (data.event) {
+          case "connected":
+            console.log("✅ Connected to market events stream");
+            setIsConnected(true);
+            setConnectionError(null);
+            break;
 
-        case 'market-creation-started':
-          console.log('🎯 Market creation started:', data.data);
-          if (onMarketCreationStarted) {
-            onMarketCreationStarted(data.data);
-          }
-          break;
+          case "market-creation-started":
+            console.log("🎯 Market creation started:", data.data);
+            if (onMarketCreationStarted) {
+              onMarketCreationStarted(data.data);
+            }
+            break;
 
-        case 'market-creation-confirmed':
-          console.log('✅ Market creation confirmed:', data.data);
-          if (onMarketCreationConfirmed) {
-            onMarketCreationConfirmed(data.data);
-          }
-          break;
+          case "market-creation-confirmed":
+            console.log("✅ Market creation confirmed:", data.data);
+            if (onMarketCreationConfirmed) {
+              onMarketCreationConfirmed(data.data);
+            }
+            break;
 
-        case 'market-creation-failed':
-          console.error('❌ Market creation failed:', data.data);
-          if (onMarketCreationFailed) {
-            onMarketCreationFailed(data.data);
-          }
-          break;
+          case "market-creation-failed":
+            console.error("❌ Market creation failed:", data.data);
+            if (onMarketCreationFailed) {
+              onMarketCreationFailed(data.data);
+            }
+            break;
 
-        default:
-          console.debug('📨 Received event:', data.event);
+          default:
+            console.debug("📨 Received event:", data.event);
+        }
+      } catch (error) {
+        console.error("Error parsing SSE message:", error);
       }
-    } catch (error) {
-      console.error('Error parsing SSE message:', error);
-    }
-  }, [onMarketCreationStarted, onMarketCreationConfirmed, onMarketCreationFailed]);
+    },
+    [onMarketCreationStarted, onMarketCreationConfirmed, onMarketCreationFailed]
+  );
 
   /**
    * Connect to SSE stream (defined before handleError to avoid circular dependency)
@@ -95,23 +101,23 @@ export function useMarketEvents(options = {}) {
 
       eventSource.onmessage = handleMessage;
       eventSource.onerror = (error) => {
-        console.error('❌ SSE connection error:', error);
+        console.error("❌ SSE connection error:", error);
         setIsConnected(false);
-        setConnectionError(error.message || 'Connection error');
+        setConnectionError(error.message || "Connection error");
 
         // Attempt to reconnect after 5 seconds
         setTimeout(() => {
           if (enabled && !eventSourceRef.current) {
-            console.log('🔄 Attempting to reconnect...');
+            console.log("🔄 Attempting to reconnect...");
             connectToStream();
           }
         }, 5000);
       };
 
       eventSourceRef.current = eventSource;
-      console.log('📡 Connecting to market events stream...');
+      console.log("📡 Connecting to market events stream...");
     } catch (error) {
-      console.error('Failed to create EventSource:', error);
+      console.error("Failed to create EventSource:", error);
       setConnectionError(error.message);
     }
   }, [apiUrl, enabled, handleMessage]);
@@ -124,7 +130,7 @@ export function useMarketEvents(options = {}) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
       setIsConnected(false);
-      console.log('📡 Disconnected from market events stream');
+      console.log("📡 Disconnected from market events stream");
     }
   }, []);
 
@@ -149,7 +155,7 @@ export function useMarketEvents(options = {}) {
       }
       return await response.json();
     } catch (error) {
-      console.error('Failed to get health status:', error);
+      console.error("Failed to get health status:", error);
       return null;
     }
   }, [apiUrl]);

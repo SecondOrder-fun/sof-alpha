@@ -36,7 +36,12 @@ if (corsOriginsEnv && corsOriginsEnv.trim().length > 0) {
   // Comma-separated list from env, e.g. "http://127.0.0.1:5173,http://localhost:5173,https://secondorder.fun"
   corsOrigin = corsOriginsEnv
     .split(",")
-    .map((v) => v.trim())
+    .map((v) => {
+      const trimmed = v.trim();
+      // Normalize: strip a single trailing slash so
+      // "https://foo.com/" matches origin "https://foo.com".
+      return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+    })
     .filter(Boolean);
 } else {
   corsOrigin =
