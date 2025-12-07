@@ -23,13 +23,7 @@ export const publicClient = createPublicClient({
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [defaultChain.rpcUrl] } },
   },
-  transport: http(defaultChain.rpcUrl, {
-    batch: false, // Disable batching to ensure polling works correctly
-  }),
-  pollingInterval: 3000, // Set default polling interval for all watch operations
-  batch: {
-    multicall: false, // Disable multicall batching for public RPC compatibility
-  },
+  transport: http(defaultChain.rpcUrl),
 });
 
 /**
@@ -45,13 +39,7 @@ export function getPublicClient(key) {
       nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
       rpcUrls: { default: { http: [chain.rpcUrl] } },
     },
-    transport: http(chain.rpcUrl, {
-      batch: false, // Disable batching to ensure polling works correctly
-    }),
-    pollingInterval: 3000, // Set default polling interval for all watch operations
-    batch: {
-      multicall: false, // Disable multicall batching for public RPC compatibility
-    },
+    transport: http(chain.rpcUrl),
   });
 }
 

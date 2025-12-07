@@ -317,8 +317,13 @@ try {
   await app.listen({ port: Number(PORT), host: "0.0.0.0" });
   app.log.info(`🚀 Server listening on port ${PORT}`);
 
-  // Start listeners after server is ready
-  await startListeners();
+  // Start listeners in background (non-blocking)
+  // This prevents slow listener initialization from blocking server readiness
+  startListeners().catch((err) => {
+    app.log.error({ err }, "Failed to start listeners");
+  });
+
+  app.log.info("✅ Server ready - listeners starting in background");
 } catch (err) {
   app.log.error(err);
   process.exit(1);
