@@ -21,6 +21,7 @@ import { createPublicClient, http, getAddress, formatUnits } from "viem";
 import { computeWinnerMarketId } from "@/services/onchainInfoFi";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useRaffleRead, useSeasonDetailsQuery } from "@/hooks/useRaffleRead";
+import ExplorerLink from "@/components/common/ExplorerLink";
 
 /**
  * InfoFiMarketCard
@@ -495,8 +496,24 @@ const InfoFiMarketCard = ({ market }) => {
           </button>
         </div>
 
-        {/* Market stats: Total volume and user positions */}
+        {/* Market stats: Total volume, contract address, and user positions */}
         <div className="border-t pt-3 space-y-2">
+          {/* Contract Address */}
+          {market.contract_address && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">InfoFi Market:</span>
+              <ExplorerLink
+                value={market.contract_address}
+                type="address"
+                text={`${market.contract_address.slice(
+                  0,
+                  6
+                )}...${market.contract_address.slice(-4)}`}
+                className="font-mono text-xs"
+              />
+            </div>
+          )}
+
           {/* Total Volume */}
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">{t("totalVolume")}</span>
@@ -606,6 +623,7 @@ InfoFiMarketCard.propTypes = {
     raffle_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     player: PropTypes.string,
+    contract_address: PropTypes.string,
     volume24h: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     volume: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     current_probability: PropTypes.number,
