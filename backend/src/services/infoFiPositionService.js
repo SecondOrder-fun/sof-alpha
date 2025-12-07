@@ -1,6 +1,7 @@
-import { db } from "../../shared/supabaseClient.js";
-import { publicClient } from "../lib/viemClient.js";
-import simpleFpmmAbi from "../abis/SimpleFPMMAbi.js";
+import { publicClient } from "../config/viemClient.js";
+import { db } from "../config/supabaseClient.js";
+import simpleFpmmAbi from "../abis/SimpleFPMM.json" assert { type: "json" };
+import { queryLogsInChunks } from "../utils/blockRangeQuery.js";
 
 /**
  * Service for managing InfoFi positions
@@ -113,14 +114,25 @@ class InfoFiPositionService {
         };
       }
 
-      // Get all Trade events from contract
-      const logs = await publicClient.getContractEvents({
-        address: fpmmAddress,
-        abi: simpleFpmmAbi,
-        eventName: "Trade",
-        fromBlock: startBlock,
-        toBlock: latestBlock,
-      });
+      // Get all Trade events from contract using chunked queries
+      const tradeEvent = simpleFpmmAbi.find(
+        (item) => item.type === "event" && item.name === "Trade"
+      );
+
+      const logs = await queryLogsInChunks(
+        publicClient,
+        {
+          address: fpmmAddress,
+          event: {
+            type: "event",
+            name: "Trade",
+            inputs: tradeEvent.inputs,
+          },
+          fromBlock: startBlock,
+          toBlock: latestBlock,
+        },
+        10000n // 10k block chunks
+      );
 
       let recorded = 0;
       let skipped = 0;
