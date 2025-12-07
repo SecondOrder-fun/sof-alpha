@@ -10,8 +10,8 @@
  * - Graceful error handling and logging
  */
 
-import { publicClient } from '../lib/viemClient.js';
-import { oracleCallService } from '../services/oracleCallService.js';
+import { publicClient } from "../lib/viemClient.js";
+import { oracleCallService } from "../services/oracleCallService.js";
 
 /**
  * Starts listening for Trade events from SimpleFPMM contracts
@@ -24,16 +24,20 @@ import { oracleCallService } from '../services/oracleCallService.js';
  */
 export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
   // Validate inputs
-  if (!fpmmAddresses || !Array.isArray(fpmmAddresses) || fpmmAddresses.length === 0) {
-    throw new Error('fpmmAddresses must be a non-empty array');
+  if (
+    !fpmmAddresses ||
+    !Array.isArray(fpmmAddresses) ||
+    fpmmAddresses.length === 0
+  ) {
+    throw new Error("fpmmAddresses must be a non-empty array");
   }
 
   if (!fpmmAbi) {
-    throw new Error('fpmmAbi is required');
+    throw new Error("fpmmAbi is required");
   }
 
   if (!logger) {
-    throw new Error('logger instance is required');
+    throw new Error("logger instance is required");
   }
 
   const unwatchFunctions = [];
@@ -46,7 +50,7 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
       const unwatch = publicClient.watchContractEvent({
         address: fpmmAddress,
         abi: fpmmAbi,
-        eventName: 'Trade',
+        eventName: "Trade",
         onLogs: async (logs) => {
           for (const log of logs) {
             try {
@@ -55,7 +59,7 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
 
               logger.debug(
                 `📊 Trade Event: FPMM ${fpmmAddress}, Trader ${trader}, ` +
-                `Amount: ${collateralAmount}, IsLong: ${isLong}`
+                  `Amount: ${collateralAmount}, IsLong: ${isLong}`
               );
 
               // Calculate sentiment from trade
@@ -92,7 +96,7 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
         onError: (error) => {
           try {
             const errorDetails = {
-              type: error?.name || 'Unknown',
+              type: error?.name || "Unknown",
               message: error?.message || String(error),
               code: error?.code || undefined,
               details: error?.details || undefined,
@@ -135,9 +139,10 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
 function calculateSentiment(collateralAmount, isLong, logger) {
   try {
     // Convert to number if BigInt
-    const amount = typeof collateralAmount === 'bigint'
-      ? Number(collateralAmount)
-      : collateralAmount;
+    const amount =
+      typeof collateralAmount === "bigint"
+        ? Number(collateralAmount)
+        : collateralAmount;
 
     // Simple sentiment calculation:
     // - Long positions increase sentiment (bullish)
@@ -162,12 +167,14 @@ function calculateSentiment(collateralAmount, isLong, logger) {
 
     logger.debug(
       `   Sentiment calculation: amount=${amount}, isLong=${isLong}, ` +
-      `sentiment=${sentiment} bps`
+        `sentiment=${sentiment} bps`
     );
 
     return sentiment;
   } catch (error) {
-    logger.warn(`⚠️  Error calculating sentiment: ${error.message}, defaulting to 5000`);
+    logger.warn(
+      `⚠️  Error calculating sentiment: ${error.message}, defaulting to 5000`
+    );
     return 5000; // Default to neutral
   }
 }
