@@ -1,15 +1,8 @@
 // backend/src/config/chain.js
 // Env-driven chain configuration for backend services (read-only onchain)
 
-const REQUIRED = [
-  // local
-  "RPC_URL_LOCAL",
-  // optional testnet
-  // "RPC_URL_TESTNET",
-];
-
 /**
- * Load env with sane defaults. Do not throw for missing testnet by default.
+ * Load env with sane defaults. Validates based on DEFAULT_NETWORK.
  */
 export function loadChainEnv() {
   const env = {
@@ -57,13 +50,31 @@ export function loadChainEnv() {
     },
   };
 
-  // Validate required
-  const missing = REQUIRED.filter((k) => !process.env[k]);
+  // Validate only the network we're actually using
+  const defaultNet = (
+    process.env.DEFAULT_NETWORK ||
+    process.env.VITE_DEFAULT_NETWORK ||
+    "LOCAL"
+  ).toUpperCase();
+
+  // Define required env vars per network
+  const REQUIRED_BY_NETWORK = {
+    LOCAL: ["RPC_URL_LOCAL"],
+    TESTNET: ["RPC_URL_TESTNET"],
+    MAINNET: ["RPC_URL_MAINNET"],
+  };
+
+  const required = REQUIRED_BY_NETWORK[defaultNet] || [];
+  const missing = required.filter((k) => !process.env[k]);
+
   if (missing.length) {
     // Log warning rather than crash; healthcheck will surface failures
     // eslint-disable-next-line no-console
-    console.warn(`[chain] Missing required env: ${missing.join(", ")}`);
+    console.warn(
+      `[chain] Missing required env for ${defaultNet}: ${missing.join(", ")}`
+    );
   }
+
   return env;
 }
 
