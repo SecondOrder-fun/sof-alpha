@@ -771,6 +771,47 @@ export class DatabaseService {
   }
 
   /**
+   * Get the latest season ID from database
+   * @returns {Promise<number|null>} Latest season ID or null if no seasons exist
+   */
+  async getLatestSeasonId() {
+    const { data, error } = await this.client
+      .from("season_contracts")
+      .select("season_id")
+      .order("season_id", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = no rows found
+      throw new Error(error.message);
+    }
+
+    return data ? data.season_id : null;
+  }
+
+  /**
+   * Update season active status
+   * @param {number} seasonId - Season ID
+   * @param {boolean} isActive - New active status
+   * @returns {Promise<Object>} Updated season contract record
+   */
+  async updateSeasonStatus(seasonId, isActive) {
+    const { data, error } = await this.client
+      .from("season_contracts")
+      .update({
+        is_active: isActive,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("season_id", seasonId)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  /**
    * Get all active season contracts
    * @returns {Promise<Array>} Array of active season contract records
    */

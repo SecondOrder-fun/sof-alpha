@@ -5,6 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 import process from "node:process";
 import { hasSupabase, db } from "../shared/supabaseClient.js";
 import { startSeasonStartedListener } from "../src/listeners/seasonStartedListener.js";
+import { startSeasonCompletedListener } from "../src/listeners/seasonCompletedListener.js";
 import { startPositionUpdateListener } from "../src/listeners/positionUpdateListener.js";
 import { startMarketCreatedListener } from "../src/listeners/marketCreatedListener.js";
 import { startTradeListener } from "../src/listeners/tradeListener.js";
@@ -147,6 +148,7 @@ app.setNotFoundHandler((_request, reply) => {
 
 // Initialize listeners
 let unwatchSeasonStarted;
+let unwatchSeasonCompleted;
 let unwatchMarketCreated;
 const positionUpdateListeners = new Map(); // Map of seasonId -> unwatch function
 const tradeListeners = new Map(); // Map of fpmmAddress -> unwatch function
@@ -231,6 +233,13 @@ async function startListeners() {
       raffleAbi,
       app.log,
       onSeasonCreated
+    );
+
+    // Start SeasonCompleted listener (marks seasons as inactive when they end)
+    unwatchSeasonCompleted = await startSeasonCompletedListener(
+      raffleAddress,
+      raffleAbi,
+      app.log
     );
 
     // Resolve InfoFi factory address based on NETWORK (already computed above)
@@ -331,6 +340,11 @@ process.on("SIGINT", async () => {
     if (unwatchSeasonStarted) {
       unwatchSeasonStarted();
       app.log.info("🛑 Stopped SeasonStarted listener");
+    }
+
+    if (unwatchSeasonCompleted) {
+      unwatchSeasonCompleted();
+      app.log.info("🛑 Stopped SeasonCompleted listener");
     }
 
     if (unwatchMarketCreated) {
