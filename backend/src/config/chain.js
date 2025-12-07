@@ -32,7 +32,7 @@ export function loadChainEnv() {
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_TESTNET || "",
       // Network-specific configuration
       avgBlockTime: 2, // Base has ~2 second block time
-      lookbackBlocks: 100000n, // Larger lookback for testnet
+      lookbackBlocks: 50000n, // Safe lookback under RPC limit (Base Sepolia limit is 100k)
     },
     MAINNET: {
       id: Number(process.env.MAINNET_CHAIN_ID || 8453),
@@ -46,7 +46,7 @@ export function loadChainEnv() {
       infofiOracle: process.env.INFOFI_ORACLE_ADDRESS_MAINNET || "",
       // Network-specific configuration
       avgBlockTime: 2, // Base has ~2 second block time
-      lookbackBlocks: 100000n, // Larger lookback for mainnet
+      lookbackBlocks: 50000n, // Safe lookback under RPC limit (Base mainnet limit is 100k)
     },
   };
 

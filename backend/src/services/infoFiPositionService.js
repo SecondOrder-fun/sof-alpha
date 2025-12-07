@@ -1,6 +1,6 @@
-import { publicClient } from "../config/viemClient.js";
-import { db } from "../config/supabaseClient.js";
-import simpleFpmmAbi from "../abis/SimpleFPMM.json" assert { type: "json" };
+import { publicClient } from "../lib/viemClient.js";
+import { db } from "../../shared/supabaseClient.js";
+import simpleFpmmAbi from "../abis/SimpleFPMMAbi.js";
 import { queryLogsInChunks } from "../utils/blockRangeQuery.js";
 
 /**
