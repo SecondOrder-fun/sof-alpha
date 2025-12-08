@@ -870,6 +870,7 @@ export async function placeBetTx({
   });
 
   if ((allowance ?? 0n) < parsed) {
+    // Approve exact amount needed (secure, low gas fees on Base make this practical)
     const approveHash = await walletClient.writeContract({
       address: addrs.SOF,
       abi: ERC20Abi.abi,
@@ -877,8 +878,20 @@ export async function placeBetTx({
       args: [fpmmAddress, parsed],
       account: from,
     });
-    // Wait for approval to be mined
-    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+    // Wait for approval to be confirmed before proceeding
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: approveHash,
+      confirmations: 1, // Ensure approval is confirmed
+    });
+
+    // Verify approval was successful
+    if (receipt.status !== "success") {
+      throw new Error("Approval transaction failed");
+    }
+
+    // Small delay to ensure state is propagated
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   // Execute buy on FPMM
