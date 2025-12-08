@@ -160,7 +160,11 @@ class InfoFiPositionService {
         } catch (error) {
           console.error(
             `Failed to record trade ${log.transactionHash}:`,
-            error.message
+            error.message,
+            "\nFull error:",
+            error,
+            "\nLog args:",
+            log.args
           );
           errors++;
         }
