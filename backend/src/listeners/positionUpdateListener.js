@@ -3,6 +3,7 @@ import { db } from "../../shared/supabaseClient.js";
 import { oracleCallService } from "../services/oracleCallService.js";
 import { getPaymasterService } from "../services/paymasterService.js";
 import { getSSEService } from "../services/sseService.js";
+import { raffleTransactionService } from "../services/raffleTransactionService.js";
 
 // Simple ERC20 ABI for totalSupply() call
 const erc20Abi = [
@@ -384,6 +385,39 @@ export async function startPositionUpdateListener(
                 marketCreationTriggered ? "✅ Triggered" : "⏭️  Not triggered"
               }`
           );
+
+          // Record transaction in database
+          try {
+            const ticketDelta = newTicketsNum - oldTicketsNum;
+            const transactionType = ticketDelta > 0 ? "BUY" : "SELL";
+
+            // Get block timestamp
+            const block = await publicClient.getBlock({
+              blockNumber: log.blockNumber,
+            });
+
+            await raffleTransactionService.recordTransaction({
+              seasonId: seasonIdNum,
+              userAddress: player,
+              transactionType,
+              ticketAmount: Math.abs(ticketDelta),
+              sofAmount: 0, // Will be updated when we can extract from tx
+              txHash: log.transactionHash,
+              blockNumber: Number(log.blockNumber),
+              blockTimestamp: new Date(
+                Number(block.timestamp) * 1000
+              ).toISOString(),
+              ticketsBefore: oldTicketsNum,
+              ticketsAfter: newTicketsNum,
+            });
+
+            logger.info(`   💾 Transaction recorded: ${log.transactionHash}`);
+          } catch (txError) {
+            logger.error(
+              `   ❌ Failed to record transaction: ${txError.message}`
+            );
+            // Don't crash listener - just log and continue
+          }
 
           // Only validate probabilities if markets were actually updated
           if (updatedCount > 0) {
