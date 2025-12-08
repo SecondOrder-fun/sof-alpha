@@ -28,20 +28,43 @@ class InfoFiPositionService {
     txHash,
   }) {
     try {
+      console.log(`[recordPosition] Starting for tx: ${txHash}`);
+      console.log(`[recordPosition] FPMM: ${fpmmAddress}, Trader: ${trader}`);
+
       // 1. Check if already recorded (idempotency)
-      const { data: existing } = await db.client
+      console.log(`[recordPosition] Checking if tx already recorded...`);
+      const { data: existing, error: checkError } = await db.client
         .from("infofi_positions")
         .select("id")
         .eq("tx_hash", txHash)
         .maybeSingle();
 
+      if (checkError) {
+        console.error(
+          `[recordPosition] Error checking existing position:`,
+          checkError
+        );
+        throw checkError;
+      }
+
       if (existing) {
+        console.log(
+          `[recordPosition] Position already recorded with id: ${existing.id}`
+        );
         return { alreadyRecorded: true, id: existing.id };
       }
 
       // 2. Get market_id from FPMM address
+      console.log(
+        `[recordPosition] Looking up market_id for FPMM: ${fpmmAddress}`
+      );
       const marketId = await this.getMarketIdFromFpmm(fpmmAddress);
+      console.log(`[recordPosition] Market ID: ${marketId}`);
+
       if (!marketId) {
+        console.error(
+          `[recordPosition] No market found for FPMM: ${fpmmAddress}`
+        );
         throw new Error(`No market found for FPMM: ${fpmmAddress}`);
       }
 
@@ -50,30 +73,51 @@ class InfoFiPositionService {
       const amountOutNum = Number(amountOut) / 1e18;
       const price = amountOutNum > 0 ? amountInNum / amountOutNum : 0;
 
+      console.log(
+        `[recordPosition] Converted amounts - In: ${amountInNum}, Out: ${amountOutNum}, Price: ${price}`
+      );
+
       // 4. Map outcome
       const outcome = buyYes ? "YES" : "NO";
+      console.log(`[recordPosition] Outcome: ${outcome}`);
 
       // 5. Insert position (player_id auto-populated by trigger)
+      const insertData = {
+        market_id: marketId,
+        user_address: trader.toLowerCase(),
+        outcome,
+        amount: amountInNum.toString(),
+        price: price.toString(),
+        tx_hash: txHash,
+        created_at: new Date().toISOString(),
+      };
+
+      console.log(`[recordPosition] Inserting position:`, insertData);
+
       const { data, error } = await db.client
         .from("infofi_positions")
-        .insert({
-          market_id: marketId,
-          user_address: trader.toLowerCase(),
-          outcome,
-          amount: amountInNum.toString(),
-          price: price.toString(),
-          tx_hash: txHash,
-          created_at: new Date().toISOString(),
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`[recordPosition] Database insert error:`, error);
+        console.error(`[recordPosition] Error details:`, {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
 
+      console.log(
+        `[recordPosition] Successfully inserted position with id: ${data.id}`
+      );
       return { success: true, data };
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Error recording position:", error);
+      console.error("[recordPosition] Fatal error:", error);
+      console.error("[recordPosition] Error stack:", error.stack);
       throw error;
     }
   }
@@ -200,11 +244,31 @@ class InfoFiPositionService {
    * @returns {Promise<number|null>} Market ID or null
    */
   async getMarketIdFromFpmm(fpmmAddress) {
-    const { data } = await db.client
+    console.log(
+      `[getMarketIdFromFpmm] Looking up market for FPMM: ${fpmmAddress}`
+    );
+    console.log(
+      `[getMarketIdFromFpmm] Normalized address: ${fpmmAddress.toLowerCase()}`
+    );
+
+    const { data, error } = await db.client
       .from("infofi_markets")
-      .select("id")
+      .select("id, contract_address, player_id, is_active")
       .eq("contract_address", fpmmAddress.toLowerCase())
       .maybeSingle();
+
+    if (error) {
+      console.error(`[getMarketIdFromFpmm] Database query error:`, error);
+      return null;
+    }
+
+    if (data) {
+      console.log(`[getMarketIdFromFpmm] Found market:`, data);
+    } else {
+      console.warn(
+        `[getMarketIdFromFpmm] No market found for address: ${fpmmAddress.toLowerCase()}`
+      );
+    }
 
     return data?.id || null;
   }
