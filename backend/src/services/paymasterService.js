@@ -152,6 +152,7 @@ export class PaymasterService {
           to: infoFiFactoryAddress,
           data,
           value: 0n,
+          gas: 5000000n, // Increased gas limit for market creation (FPMM deployment needs ~3M gas)
         });
 
         logger.info(`✅ Market creation transaction submitted: ${hash}`);
