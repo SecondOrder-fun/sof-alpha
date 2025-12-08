@@ -74,9 +74,9 @@ class RaffleTransactionService {
     try {
       // Get season's last synced block
       const { data: season } = await db.client
-        .from("seasons")
+        .from("season_contracts")
         .select("created_at, last_tx_sync_block")
-        .eq("id", seasonId)
+        .eq("season_id", seasonId)
         .single();
 
       if (!season) {
@@ -187,11 +187,11 @@ class RaffleTransactionService {
 
       // Update last synced block
       await db.client
-        .from("seasons")
+        .from("season_contracts")
         .update({
           last_tx_sync_block: latestBlock.toString(),
         })
-        .eq("id", seasonId);
+        .eq("season_id", seasonId);
 
       // Refresh materialized view
       await this.refreshUserPositions(seasonId);
@@ -217,15 +217,18 @@ class RaffleTransactionService {
    */
   async syncAllActiveSeasons(bondingCurveAddress) {
     const { data: seasons } = await db.client
-      .from("seasons")
-      .select("id, bonding_curve_address")
+      .from("season_contracts")
+      .select("season_id, bonding_curve_address")
       .eq("is_active", true);
 
     const results = [];
     for (const season of seasons || []) {
       const curveAddress = season.bonding_curve_address || bondingCurveAddress;
-      const result = await this.syncSeasonTransactions(season.id, curveAddress);
-      results.push({ seasonId: season.id, ...result });
+      const result = await this.syncSeasonTransactions(
+        season.season_id,
+        curveAddress
+      );
+      results.push({ seasonId: season.season_id, ...result });
     }
 
     return results;
