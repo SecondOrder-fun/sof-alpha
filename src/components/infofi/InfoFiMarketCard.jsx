@@ -195,21 +195,21 @@ const InfoFiMarketCard = ({ market }) => {
     refetchInterval: 5_000,
   });
 
-  // Read market info to compute total volume
+  // Read market info to compute total volume from the FPMM contract
   const marketInfo = useQuery({
-    queryKey: ["infofiMarketInfo", effectiveMarketId],
-    enabled: !!effectiveMarketId && !!addrs.INFOFI_MARKET,
+    queryKey: ["infofiMarketInfo", market?.contract_address],
+    enabled: !!market?.contract_address,
     queryFn: async () => {
       const info = await publicClient.readContract({
-        address: addrs.INFOFI_MARKET,
+        address: market.contract_address,
         abi: InfoFiMarketAbi,
-        functionName: "getMarket",
-        args: [BigInt(effectiveMarketId)],
+        functionName: "getMarketInfo",
+        args: [],
       });
-      // Viem returns tuple as array with named props; normalize
-      const yes = info?.totalYesPool ?? (Array.isArray(info) ? info[6] : 0n);
-      const no = info?.totalNoPool ?? (Array.isArray(info) ? info[7] : 0n);
-      return { totalYesPool: yes ?? 0n, totalNoPool: no ?? 0n };
+      // getMarketInfo returns [totalYesPool, totalNoPool, lpTokenSupply]
+      const yes = info?.[0] ?? 0n;
+      const no = info?.[1] ?? 0n;
+      return { totalYesPool: yes, totalNoPool: no };
     },
     staleTime: 5_000,
     refetchInterval: 5_000,
