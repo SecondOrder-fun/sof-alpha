@@ -45,9 +45,9 @@ class InfoFiPositionService {
         throw new Error(`No market found for FPMM: ${fpmmAddress}`);
       }
 
-      // 3. Calculate price per share
-      const amountInNum = Number(amountIn);
-      const amountOutNum = Number(amountOut);
+      // 3. Convert from wei to human-readable units (divide by 10^18)
+      const amountInNum = Number(amountIn) / 1e18;
+      const amountOutNum = Number(amountOut) / 1e18;
       const price = amountOutNum > 0 ? amountInNum / amountOutNum : 0;
 
       // 4. Map outcome
