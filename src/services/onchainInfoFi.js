@@ -861,7 +861,7 @@ export async function placeBetTx({
     minAmountOut = 0n;
   }
 
-  // Ensure SOF allowance for FPMM contract
+  // Check current allowance
   const allowance = await publicClient.readContract({
     address: addrs.SOF,
     abi: ERC20Abi.abi,
@@ -869,8 +869,8 @@ export async function placeBetTx({
     args: [from, fpmmAddress],
   });
 
+  // If insufficient allowance, approve first (separate transaction)
   if ((allowance ?? 0n) < parsed) {
-    // Approve exact amount needed (secure, low gas fees on Base make this practical)
     const approveHash = await walletClient.writeContract({
       address: addrs.SOF,
       abi: ERC20Abi.abi,
@@ -879,36 +879,22 @@ export async function placeBetTx({
       account: from,
     });
 
-    // Wait for approval to be confirmed before proceeding
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: approveHash,
-      confirmations: 1, // Ensure approval is confirmed
-    });
-
-    // Verify approval was successful
-    if (receipt.status !== "success") {
-      throw new Error("Approval transaction failed");
-    }
-
-    // Small delay to ensure state is propagated
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for approval to be mined
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
   }
 
-  // Execute buy on FPMM
-  try {
-    // Don't simulate - just write directly after approval is confirmed
-    const txHash = await walletClient.writeContract({
-      address: fpmmAddress,
-      abi: fpmmAbi,
-      functionName: "buy",
-      args: [Boolean(prediction), parsed, minAmountOut],
-      account: from,
-    });
-    await publicClient.waitForTransactionReceipt({ hash: txHash });
-    return txHash;
-  } catch (e) {
-    throw new Error(`FPMM buy failed: ${e.message}`);
-  }
+  // Execute buy on FPMM (separate transaction)
+  const txHash = await walletClient.writeContract({
+    address: fpmmAddress,
+    abi: fpmmAbi,
+    functionName: "buy",
+    args: [Boolean(prediction), parsed, minAmountOut],
+    account: from,
+  });
+
+  // Wait for buy transaction to be mined
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  return txHash;
 }
 
 // Claim payout for a market. If prediction is provided, use the two-arg overload.
