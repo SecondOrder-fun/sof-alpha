@@ -896,14 +896,14 @@ export async function placeBetTx({
 
   // Execute buy on FPMM
   try {
-    const sim = await publicClient.simulateContract({
+    // Don't simulate - just write directly after approval is confirmed
+    const txHash = await walletClient.writeContract({
       address: fpmmAddress,
       abi: fpmmAbi,
       functionName: "buy",
       args: [Boolean(prediction), parsed, minAmountOut],
       account: from,
     });
-    const txHash = await walletClient.writeContract(sim.request);
     await publicClient.waitForTransactionReceipt({ hash: txHash });
     return txHash;
   } catch (e) {
