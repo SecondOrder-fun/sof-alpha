@@ -5,6 +5,18 @@
  * Load env with sane defaults. Validates based on DEFAULT_NETWORK.
  */
 export function loadChainEnv() {
+  // Helper to get required env var or throw
+  const getRequiredEnv = (key, networkName) => {
+    const value = process.env[key];
+    if (!value) {
+      throw new Error(
+        `Missing required environment variable: ${key} for ${networkName}. ` +
+          `Set this in your .env file or Railway environment variables.`
+      );
+    }
+    return value;
+  };
+
   const env = {
     LOCAL: {
       id: Number(process.env.LOCAL_CHAIN_ID || 31337),
@@ -23,7 +35,7 @@ export function loadChainEnv() {
     TESTNET: {
       id: Number(process.env.TESTNET_CHAIN_ID || 84532),
       name: process.env.TESTNET_NAME || "Base Sepolia",
-      rpcUrl: process.env.RPC_URL_TESTNET || "",
+      rpcUrl: getRequiredEnv("RPC_URL_TESTNET", "TESTNET"),
       raffle: process.env.RAFFLE_ADDRESS_TESTNET || "",
       sof: process.env.SOF_ADDRESS_TESTNET || "",
       curve: process.env.CURVE_ADDRESS_TESTNET || "",
@@ -37,7 +49,7 @@ export function loadChainEnv() {
     MAINNET: {
       id: Number(process.env.MAINNET_CHAIN_ID || 8453),
       name: process.env.MAINNET_NAME || "Base",
-      rpcUrl: process.env.RPC_URL_MAINNET || "",
+      rpcUrl: getRequiredEnv("RPC_URL_MAINNET", "MAINNET"),
       raffle: process.env.RAFFLE_ADDRESS_MAINNET || "",
       sof: process.env.SOF_ADDRESS_MAINNET || "",
       curve: process.env.CURVE_ADDRESS_MAINNET || "",
