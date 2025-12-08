@@ -8,6 +8,7 @@
 import { createWalletClient, http, encodeFunctionData } from "viem";
 import { baseSepolia, base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
+import { publicClient } from "../lib/viemClient.js";
 
 /**
  * PaymasterService - Handles gasless transaction submission via Base Paymaster
@@ -154,6 +155,24 @@ export class PaymasterService {
         });
 
         logger.info(`✅ Market creation transaction submitted: ${hash}`);
+
+        // Wait for transaction confirmation (don't block the listener)
+        publicClient
+          .waitForTransactionReceipt({ hash, timeout: 60000 })
+          .then((receipt) => {
+            if (receipt.status === "success") {
+              logger.info(`✅ Market creation confirmed: ${hash}`);
+              logger.info(`   Block: ${receipt.blockNumber}`);
+              logger.info(`   Gas used: ${receipt.gasUsed}`);
+            } else {
+              logger.error(`❌ Market creation transaction reverted: ${hash}`);
+            }
+          })
+          .catch((error) => {
+            logger.error(
+              `❌ Failed to wait for market creation receipt: ${error.message}`
+            );
+          });
 
         return {
           success: true,
