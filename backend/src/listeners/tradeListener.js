@@ -111,6 +111,17 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
           }
         },
         onError: (error) => {
+          // Silently ignore "filter not found" errors - they're expected when filters expire
+          if (
+            error?.code === -32602 &&
+            error?.details?.includes("filter not found")
+          ) {
+            logger.debug(
+              `🔄 Filter expired for ${fpmmAddress}, will be recreated automatically`
+            );
+            return;
+          }
+
           try {
             const errorDetails = {
               type: error?.name || "Unknown",
@@ -130,7 +141,7 @@ export async function startTradeListener(fpmmAddresses, fpmmAbi, logger) {
           }
         },
         poll: true,
-        pollingInterval: 3000, // Check every 3 seconds
+        pollingInterval: 4000, // Check every 4 seconds (slightly longer to reduce RPC load)
       });
 
       unwatchFunctions.push(unwatch);
