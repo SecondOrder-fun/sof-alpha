@@ -346,12 +346,42 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
         // ✅ STEP 2: TRANSFER LIQUIDITY
         oldStatus = marketStatus[seasonId][player];
-        marketStatus[seasonId][player] = MarketCreationStatus.LiquidityTransferred;
-        emit MarketStatusChanged(
-            seasonId, player, oldStatus, MarketCreationStatus.LiquidityTransferred, "Liquidity transferred"
+
+        // Check treasury allowance first
+        uint256 treasuryAllowance = sofToken.allowance(treasury, address(this));
+        require(
+            treasuryAllowance >= INITIAL_LIQUIDITY,
+            string(
+                abi.encodePacked(
+                    "Treasury allowance insufficient: has ",
+                    _uint2str(treasuryAllowance),
+                    " needs ",
+                    _uint2str(INITIAL_LIQUIDITY)
+                )
+            )
         );
 
-        require(sofToken.transferFrom(treasury, address(this), INITIAL_LIQUIDITY), "Treasury transfer failed");
+        // Check treasury balance
+        uint256 treasuryBalance = sofToken.balanceOf(treasury);
+        require(
+            treasuryBalance >= INITIAL_LIQUIDITY,
+            string(
+                abi.encodePacked(
+                    "Treasury balance insufficient: has ",
+                    _uint2str(treasuryBalance),
+                    " needs ",
+                    _uint2str(INITIAL_LIQUIDITY)
+                )
+            )
+        );
+
+        marketStatus[seasonId][player] = MarketCreationStatus.LiquidityTransferred;
+        emit MarketStatusChanged(
+            seasonId, player, oldStatus, MarketCreationStatus.LiquidityTransferred, "Starting liquidity transfer"
+        );
+
+        bool transferSuccess = sofToken.transferFrom(treasury, address(this), INITIAL_LIQUIDITY);
+        require(transferSuccess, "Treasury transfer failed - transferFrom returned false");
 
         // ✅ STEP 3: APPROVE AND CREATE MARKET
         // Use defensive approval pattern: reset to 0 first, then approve exact amount
@@ -502,6 +532,30 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
         // ✅ CALCULATE PROBABILITY
         probabilityBps = (pos.ticketCount * 10000) / totalTickets;
+    }
+
+    /**
+     * @notice Converts uint256 to string for error messages
+     * @param value The uint256 value to convert
+     * @return The string representation
+     */
+    function _uint2str(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 }
 

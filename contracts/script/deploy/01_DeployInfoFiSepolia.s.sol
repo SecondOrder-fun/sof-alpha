@@ -157,15 +157,29 @@ contract DeployInfoFiSepolia is Script {
         console2.log("[OK] RESOLVER_ROLE granted");
 
         // 10. Approve InfoFiMarketFactory to spend SOF tokens from treasury
-        // The factory needs this approval to transfer liquidity when creating markets
+        // CRITICAL: The factory needs this approval to transfer liquidity when creating markets
+        // Without this approval, market creation will fail with "Treasury allowance insufficient"
         console2.log("\nApproving InfoFiMarketFactory to spend SOF from treasury:");
         console2.log("Treasury:", deployer);
         console2.log("Spender:", infoFiMarketFactoryAddress);
-        // Import IERC20 interface
+
         IERC20 sofToken = IERC20(sofTokenAddress);
+
+        // Check current allowance
+        uint256 currentAllowance = sofToken.allowance(deployer, infoFiMarketFactoryAddress);
+        console2.log("Current allowance:", currentAllowance);
+
         // Approve max uint256 for unlimited spending
-        sofToken.approve(infoFiMarketFactoryAddress, type(uint256).max);
+        bool approvalSuccess = sofToken.approve(infoFiMarketFactoryAddress, type(uint256).max);
+        require(approvalSuccess, "SOF approval failed");
+
+        // Verify new allowance
+        uint256 newAllowance = sofToken.allowance(deployer, infoFiMarketFactoryAddress);
+        console2.log("New allowance:", newAllowance);
+        require(newAllowance == type(uint256).max, "Allowance not set correctly");
+
         console2.log("[OK] SOF approval granted (max uint256)");
+        console2.log("[OK] Treasury setup complete - factory can now create markets");
 
         vm.stopBroadcast();
 
