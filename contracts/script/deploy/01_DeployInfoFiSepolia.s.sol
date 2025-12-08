@@ -41,7 +41,10 @@ contract DeployInfoFiSepolia is Script {
     address public priceOracleAddress;
 
     function run() public {
-        address deployer = msg.sender;
+        // Get deployer private key from environment
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
+
         console2.log("Deploying InfoFi system from:", deployer);
         console2.log("Chain ID:", block.chainid);
 
@@ -50,7 +53,7 @@ contract DeployInfoFiSepolia is Script {
         sofTokenAddress = vm.envAddress("SOF_ADDRESS_TESTNET");
         priceOracleAddress = vm.envAddress("INFOFI_ORACLE_ADDRESS_TESTNET");
 
-        vm.startBroadcast(deployer);
+        vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy ConditionalTokenSOF (local CTF implementation)
         console2.log("\nDeploying ConditionalTokenSOF...");

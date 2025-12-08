@@ -28,16 +28,19 @@ contract SetupTreasuryApproval is Script {
     uint256 constant APPROVAL_AMOUNT = 1_000_000 ether;
 
     function run() external {
-        // Get SOF token address from environment or use default
-        address sofToken = vm.envOr("SOF_ADDRESS_TESTNET", SOF_TOKEN_TESTNET);
-        address infoFiFactory = vm.envOr("INFOFI_FACTORY_ADDRESS_TESTNET", INFOFI_FACTORY_TESTNET);
+        // Get addresses from environment - REQUIRED, no fallbacks
+        address sofToken = vm.envAddress("SOF_ADDRESS_TESTNET");
+        address infoFiFactory = vm.envAddress("INFOFI_FACTORY_ADDRESS_TESTNET");
+        address backendWallet = vm.envAddress("BACKEND_WALLET_ADDRESS");
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
 
         console.log("Setting up treasury approval...");
         console.log("SOF Token:", sofToken);
         console.log("InfoFi Factory:", infoFiFactory);
+        console.log("Backend Wallet (Treasury):", backendWallet);
         console.log("Approval Amount:", APPROVAL_AMOUNT);
 
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
 
         IERC20 sof = IERC20(sofToken);
 

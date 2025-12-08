@@ -297,11 +297,69 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
      * @return The decoded error message
      */
     function _decodeRevertReason(bytes memory data) external pure returns (string memory) {
-        if (data.length < 68) return "Unknown error";
-        assembly {
-            data := add(data, 0x04)
+        if (data.length == 0) return "Empty revert data";
+        if (data.length < 4) return "Invalid revert data";
+
+        // Extract the error selector (first 4 bytes) - simple high-level approach
+        bytes4 errorSelector = bytes4(data);
+
+        // Map custom error selectors to human-readable messages
+        if (errorSelector == InvalidAddress.selector) return "InvalidAddress";
+        if (errorSelector == InsufficientTreasuryBalance.selector) return "InsufficientTreasuryBalance";
+        if (errorSelector == MarketAlreadyCreated.selector) return "MarketAlreadyCreated";
+        if (errorSelector == NotInFailedState.selector) return "NotInFailedState";
+        if (errorSelector == ZeroTotalTickets.selector) return "ZeroTotalTickets";
+        if (errorSelector == ConditionPreparationFailed.selector) return "ConditionPreparationFailed";
+        if (errorSelector == LiquidityTransferFailed.selector) return "LiquidityTransferFailed";
+        if (errorSelector == ApprovalFailed.selector) return "ApprovalFailed";
+        if (errorSelector == MarketCreationInternalFailed.selector) return "MarketCreationInternalFailed";
+        if (errorSelector == UnauthorizedCaller.selector) return "UnauthorizedCaller";
+
+        // Check for InvalidMarketType (has parameter)
+        if (errorSelector == InvalidMarketType.selector) {
+            if (data.length >= 36) {
+                return "InvalidMarketType";
+            }
         }
-        return abi.decode(data, (string));
+
+        // Try to decode as Error(string) for require() messages
+        if (data.length >= 68 && errorSelector == 0x08c379a0) {
+            // Skip the first 4 bytes (selector) and decode the string
+            bytes memory errorData = new bytes(data.length - 4);
+            for (uint256 i = 0; i < errorData.length; i++) {
+                errorData[i] = data[i + 4];
+            }
+            return abi.decode(errorData, (string));
+        }
+
+        // Return hex representation of unknown selector
+        return string(abi.encodePacked("Unknown error: 0x", _toHexString(uint32(errorSelector))));
+    }
+
+    /**
+     * @notice Converts uint32 to hex string
+     * @param value The uint32 value to convert
+     * @return The hex string representation
+     */
+    function _toHexString(uint32 value) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(8);
+        for (uint256 i = 8; i > 0; --i) {
+            buffer[i - 1] = _toHexChar(uint8(value & 0xf));
+            value >>= 4;
+        }
+        return string(buffer);
+    }
+
+    /**
+     * @notice Converts a uint8 to its hex character
+     * @param value The uint8 value (0-15)
+     * @return The hex character
+     */
+    function _toHexChar(uint8 value) internal pure returns (bytes1) {
+        if (value < 10) {
+            return bytes1(uint8(bytes1("0")) + value);
+        }
+        return bytes1(uint8(bytes1("a")) + value - 10);
     }
 
     /**
