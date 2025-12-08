@@ -11,18 +11,34 @@
  * - Graceful degradation if oracle unavailable
  */
 
-import { getWalletClient, publicClient } from '../lib/viemClient.js';
-import InfoFiPriceOracleAbi from '../abis/InfoFiPriceOracleAbi.js';
-import { adminAlertService } from './adminAlertService.js';
+import { getWalletClient, publicClient } from "../lib/viemClient.js";
+import InfoFiPriceOracleAbi from "../abis/InfoFiPriceOracleAbi.js";
+import { adminAlertService } from "./adminAlertService.js";
 
 /**
  * OracleCallService - Manages all oracle contract interactions
  */
 class OracleCallService {
   constructor() {
-    this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_LOCAL || process.env.INFOFI_ORACLE_ADDRESS;
-    this.maxRetries = parseInt(process.env.ORACLE_MAX_RETRIES || '5', 10);
-    this.alertCutoff = parseInt(process.env.ORACLE_ALERT_CUTOFF || '3', 10);
+    // Get network from environment
+    const network =
+      process.env.DEFAULT_NETWORK ||
+      process.env.VITE_DEFAULT_NETWORK ||
+      "LOCAL";
+
+    // Select oracle address based on network
+    if (network === "TESTNET") {
+      this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_TESTNET;
+    } else if (network === "MAINNET") {
+      this.oracleAddress =
+        process.env.INFOFI_ORACLE_ADDRESS_MAINNET ||
+        process.env.INFOFI_ORACLE_ADDRESS;
+    } else {
+      this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_LOCAL;
+    }
+
+    this.maxRetries = parseInt(process.env.ORACLE_MAX_RETRIES || "5", 10);
+    this.alertCutoff = parseInt(process.env.ORACLE_ALERT_CUTOFF || "3", 10);
     this.baseDelayMs = 1000;
     this.maxDelayMs = 30000;
   }
@@ -35,18 +51,23 @@ class OracleCallService {
    * @returns {Promise<{success: boolean, hash?: string, error?: string}>}
    */
   async updateRaffleProbability(fpmmAddress, raffleProbabilityBps, logger) {
-    if (!fpmmAddress || fpmmAddress === '0x0000000000000000000000000000000000000000') {
-      logger?.error('❌ Invalid FPMM address for updateRaffleProbability');
-      return { success: false, error: 'Invalid FPMM address' };
+    if (
+      !fpmmAddress ||
+      fpmmAddress === "0x0000000000000000000000000000000000000000"
+    ) {
+      logger?.error("❌ Invalid FPMM address for updateRaffleProbability");
+      return { success: false, error: "Invalid FPMM address" };
     }
 
     if (raffleProbabilityBps < 0 || raffleProbabilityBps > 10000) {
-      logger?.error(`❌ Invalid probability ${raffleProbabilityBps} (must be 0-10000)`);
-      return { success: false, error: 'Invalid probability basis points' };
+      logger?.error(
+        `❌ Invalid probability ${raffleProbabilityBps} (must be 0-10000)`
+      );
+      return { success: false, error: "Invalid probability basis points" };
     }
 
     return this._callOracleWithRetry(
-      'updateRaffleProbability',
+      "updateRaffleProbability",
       [fpmmAddress, BigInt(raffleProbabilityBps)],
       logger
     );
@@ -60,18 +81,23 @@ class OracleCallService {
    * @returns {Promise<{success: boolean, hash?: string, error?: string}>}
    */
   async updateMarketSentiment(fpmmAddress, marketSentimentBps, logger) {
-    if (!fpmmAddress || fpmmAddress === '0x0000000000000000000000000000000000000000') {
-      logger?.error('❌ Invalid FPMM address for updateMarketSentiment');
-      return { success: false, error: 'Invalid FPMM address' };
+    if (
+      !fpmmAddress ||
+      fpmmAddress === "0x0000000000000000000000000000000000000000"
+    ) {
+      logger?.error("❌ Invalid FPMM address for updateMarketSentiment");
+      return { success: false, error: "Invalid FPMM address" };
     }
 
     if (marketSentimentBps < 0 || marketSentimentBps > 10000) {
-      logger?.error(`❌ Invalid sentiment ${marketSentimentBps} (must be 0-10000)`);
-      return { success: false, error: 'Invalid sentiment basis points' };
+      logger?.error(
+        `❌ Invalid sentiment ${marketSentimentBps} (must be 0-10000)`
+      );
+      return { success: false, error: "Invalid sentiment basis points" };
     }
 
     return this._callOracleWithRetry(
-      'updateMarketSentiment',
+      "updateMarketSentiment",
       [fpmmAddress, BigInt(marketSentimentBps)],
       logger
     );
@@ -86,14 +112,14 @@ class OracleCallService {
   async getPrice(fpmmAddress, logger) {
     try {
       if (!this.oracleAddress) {
-        logger?.warn('⚠️  Oracle address not configured, skipping price read');
+        logger?.warn("⚠️  Oracle address not configured, skipping price read");
         return null;
       }
 
       const priceData = await publicClient.readContract({
         address: this.oracleAddress,
         abi: InfoFiPriceOracleAbi,
-        functionName: 'getPrice',
+        functionName: "getPrice",
         args: [fpmmAddress],
       });
 
@@ -120,26 +146,43 @@ class OracleCallService {
    */
   async _callOracleWithRetry(functionName, args, logger) {
     if (!this.oracleAddress) {
-      logger?.warn('⚠️  Oracle address not configured, skipping oracle call');
-      return { success: false, error: 'Oracle address not configured', attempts: 0 };
+      logger?.warn("⚠️  Oracle address not configured, skipping oracle call");
+      return {
+        success: false,
+        error: "Oracle address not configured",
+        attempts: 0,
+      };
     }
 
-    const wallet = getWalletClient('LOCAL');
+    const wallet = getWalletClient("LOCAL");
     if (!wallet) {
-      logger?.error('❌ Wallet client not initialized, cannot call oracle');
-      return { success: false, error: 'Wallet client not initialized', attempts: 0 };
+      logger?.error("❌ Wallet client not initialized, cannot call oracle");
+      return {
+        success: false,
+        error: "Wallet client not initialized",
+        attempts: 0,
+      };
     }
 
     // Log wallet account for verification - ALWAYS FRESH
     const accountAddress = wallet.account.address;
-    const expectedAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-    const isCorrect = accountAddress.toLowerCase() === expectedAddress.toLowerCase();
-    
+    const expectedAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const isCorrect =
+      accountAddress.toLowerCase() === expectedAddress.toLowerCase();
+
     logger?.info(`📝 Oracle call using account: ${accountAddress}`);
     if (!isCorrect) {
-      logger?.error(`❌ WRONG ACCOUNT! Expected ${expectedAddress}, got ${accountAddress}`);
-      logger?.error(`❌ PRIVATE_KEY env var: ${process.env.BACKEND_WALLET_PRIVATE_KEY ? 'SET' : 'NOT SET'}`);
-      logger?.error(`❌ PRIVATE_KEY env var: ${process.env.PRIVATE_KEY ? 'SET' : 'NOT SET'}`);
+      logger?.error(
+        `❌ WRONG ACCOUNT! Expected ${expectedAddress}, got ${accountAddress}`
+      );
+      logger?.error(
+        `❌ PRIVATE_KEY env var: ${
+          process.env.BACKEND_WALLET_PRIVATE_KEY ? "SET" : "NOT SET"
+        }`
+      );
+      logger?.error(
+        `❌ PRIVATE_KEY env var: ${process.env.PRIVATE_KEY ? "SET" : "NOT SET"}`
+      );
     }
 
     let lastError = null;
@@ -158,17 +201,25 @@ class OracleCallService {
           args,
         });
 
-        logger?.info(`✅ Oracle call succeeded: ${functionName} (hash: ${hash})`);
+        logger?.info(
+          `✅ Oracle call succeeded: ${functionName} (hash: ${hash})`
+        );
 
         // Record success and reset failure count
         adminAlertService.recordSuccess(args[0], logger);
 
         // Wait for receipt (optional, but good for confirmation)
         try {
-          const receipt = await publicClient.waitForTransactionReceipt({ hash });
-          logger?.info(`✅ Transaction confirmed: ${hash} (block: ${receipt.blockNumber})`);
+          const receipt = await publicClient.waitForTransactionReceipt({
+            hash,
+          });
+          logger?.info(
+            `✅ Transaction confirmed: ${hash} (block: ${receipt.blockNumber})`
+          );
         } catch (receiptError) {
-          logger?.warn(`⚠️  Could not confirm transaction receipt: ${receiptError.message}`);
+          logger?.warn(
+            `⚠️  Could not confirm transaction receipt: ${receiptError.message}`
+          );
         }
 
         return { success: true, hash, attempts: attempt };
@@ -184,7 +235,13 @@ class OracleCallService {
             `🚨 ALERT: Oracle call failed ${this.alertCutoff} times. Will continue retrying but admin should be notified.`
           );
           // Record failure and potentially send alert
-          adminAlertService.recordFailure(args[0], functionName, error, attempt, logger);
+          adminAlertService.recordFailure(
+            args[0],
+            functionName,
+            error,
+            attempt,
+            logger
+          );
         }
 
         // Don't retry on last attempt
@@ -204,7 +261,7 @@ class OracleCallService {
     );
     return {
       success: false,
-      error: lastError?.message || 'Unknown error',
+      error: lastError?.message || "Unknown error",
       attempts: this.maxRetries,
     };
   }
