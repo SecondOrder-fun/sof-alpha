@@ -3,18 +3,27 @@
 
 /**
  * Load env with sane defaults. Validates based on DEFAULT_NETWORK.
+ * Only validates RPC URL for the network that's actually being used.
  */
 export function loadChainEnv() {
-  // Helper to get required env var or throw
+  // Determine which network we're using
+  const defaultNet = (
+    process.env.DEFAULT_NETWORK ||
+    process.env.VITE_DEFAULT_NETWORK ||
+    "LOCAL"
+  ).toUpperCase();
+
+  // Helper to get required env var or throw (only for active network)
   const getRequiredEnv = (key, networkName) => {
     const value = process.env[key];
-    if (!value) {
+    // Only enforce requirement if this is the active network
+    if (!value && networkName === defaultNet) {
       throw new Error(
         `Missing required environment variable: ${key} for ${networkName}. ` +
           `Set this in your .env file or Railway environment variables.`
       );
     }
-    return value;
+    return value || "";
   };
 
   const env = {
