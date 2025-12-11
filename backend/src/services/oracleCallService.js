@@ -20,21 +20,27 @@ import { adminAlertService } from "./adminAlertService.js";
  */
 class OracleCallService {
   constructor() {
-    // Get network from environment
+    // Get network from environment - NO FALLBACKS
     const network =
-      process.env.DEFAULT_NETWORK ||
-      process.env.VITE_DEFAULT_NETWORK ||
-      "LOCAL";
+      process.env.DEFAULT_NETWORK || process.env.VITE_DEFAULT_NETWORK;
+
+    if (!network) {
+      throw new Error(
+        "DEFAULT_NETWORK environment variable not set. Cannot initialize OracleCallService."
+      );
+    }
 
     // Select oracle address based on network
     if (network === "TESTNET") {
       this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_TESTNET;
     } else if (network === "MAINNET") {
-      this.oracleAddress =
-        process.env.INFOFI_ORACLE_ADDRESS_MAINNET ||
-        process.env.INFOFI_ORACLE_ADDRESS;
-    } else {
+      this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_MAINNET;
+    } else if (network === "LOCAL") {
       this.oracleAddress = process.env.INFOFI_ORACLE_ADDRESS_LOCAL;
+    } else {
+      throw new Error(
+        `Invalid DEFAULT_NETWORK value: ${network}. Must be LOCAL, TESTNET, or MAINNET.`
+      );
     }
 
     this.maxRetries = parseInt(process.env.ORACLE_MAX_RETRIES || "5", 10);
@@ -154,7 +160,22 @@ class OracleCallService {
       };
     }
 
-    const wallet = getWalletClient("LOCAL");
+    // Get network from environment - NO FALLBACKS
+    const network =
+      process.env.DEFAULT_NETWORK || process.env.VITE_DEFAULT_NETWORK;
+
+    if (!network) {
+      logger?.error(
+        "❌ DEFAULT_NETWORK not set - cannot determine which network to use"
+      );
+      return {
+        success: false,
+        error: "DEFAULT_NETWORK environment variable not set",
+        attempts: 0,
+      };
+    }
+
+    const wallet = getWalletClient(network);
     if (!wallet) {
       logger?.error("❌ Wallet client not initialized, cannot call oracle");
       return {

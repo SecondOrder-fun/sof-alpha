@@ -95,20 +95,32 @@ export function loadChainEnv() {
 }
 
 /**
- * Get a chain config by key (LOCAL/TESTNET), fallback to DEFAULT_NETWORK from .env.
+ * Get a chain config by key (LOCAL/TESTNET) - NO FALLBACKS.
  * Validates RPC URL when accessed.
  * @param {string} key
  */
 export function getChainByKey(key) {
   const env = loadChainEnv();
-  // Respect DEFAULT_NETWORK from .env instead of hardcoding LOCAL
-  const defaultNet = (
-    process.env.DEFAULT_NETWORK ||
-    process.env.VITE_DEFAULT_NETWORK ||
-    "LOCAL"
-  ).toUpperCase();
+
+  // Get network from environment - NO FALLBACKS
+  const defaultNet =
+    process.env.DEFAULT_NETWORK || process.env.VITE_DEFAULT_NETWORK;
+
+  if (!defaultNet && !key) {
+    throw new Error(
+      "DEFAULT_NETWORK environment variable not set and no network key provided. " +
+        "Set DEFAULT_NETWORK in your .env file or Railway environment variables."
+    );
+  }
+
   const k = (key || defaultNet).toUpperCase();
-  const chain = env[k] || env[defaultNet] || env.LOCAL;
+  const chain = env[k];
+
+  if (!chain) {
+    throw new Error(
+      `Invalid network: ${k}. Must be LOCAL, TESTNET, or MAINNET.`
+    );
+  }
 
   // Validate RPC URL when chain config is accessed (not at module load time)
   if (!chain.rpcUrl && k !== "LOCAL") {

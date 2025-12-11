@@ -6,13 +6,17 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getChainByKey } from "../config/chain.js";
 
-// Select network from environment ("LOCAL" or "TESTNET")
-// Fallback to DEFAULT_NETWORK from .env, not hardcoded "LOCAL"
+// Select network from environment - NO FALLBACKS
 const NETWORK =
   process.env.NETWORK ||
   process.env.DEFAULT_NETWORK ||
-  process.env.VITE_DEFAULT_NETWORK ||
-  "LOCAL";
+  process.env.VITE_DEFAULT_NETWORK;
+
+if (!NETWORK) {
+  throw new Error(
+    "DEFAULT_NETWORK environment variable not set. Cannot initialize viem clients."
+  );
+}
 
 // Default public client for event listeners (uses configured NETWORK)
 const defaultChain = getChainByKey(NETWORK);
