@@ -655,6 +655,29 @@ const InfoFiPositionsTab = ({ address }) => {
     return seasons.reduce((max, s) => (s.id > max.id ? s : max), seasons[0]);
   }, [seasons]);
 
+  // Fetch trade history from database
+  const tradesQuery = useQuery({
+    queryKey: ["infofiTrades", address],
+    enabled: !!address,
+    queryFn: async () => {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BACKEND_URL ||
+          "https://sof-alpha-production.up.railway.app"
+        }/api/infofi/positions/${address}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch trade history");
+      }
+
+      const data = await response.json();
+      return data.positions || [];
+    },
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+  });
+
   const positionsQuery = useQuery({
     queryKey: [
       "infofiPositionsOnchainActive",
@@ -740,6 +763,22 @@ const InfoFiPositionsTab = ({ address }) => {
     refetchInterval: 10_000,
   });
 
+  // Group trades by market
+  const tradesByMarket = useMemo(() => {
+    const trades = tradesQuery.data || [];
+    const grouped = {};
+
+    for (const trade of trades) {
+      const marketId = trade.market_id;
+      if (!grouped[marketId]) {
+        grouped[marketId] = [];
+      }
+      grouped[marketId].push(trade);
+    }
+
+    return grouped;
+  }, [tradesQuery.data]);
+
   return (
     <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
       {!currentSeason && (
@@ -751,71 +790,127 @@ const InfoFiPositionsTab = ({ address }) => {
             Season #{currentSeason.id}{" "}
             {currentSeason.name ? `— ${currentSeason.name}` : ""}
           </div>
-          {positionsQuery.isLoading && (
+          {(positionsQuery.isLoading || tradesQuery.isLoading) && (
             <p className="text-muted-foreground">Loading positions...</p>
           )}
-          {positionsQuery.error && (
+          {(positionsQuery.error || tradesQuery.error) && (
             <p className="text-red-500">
               {positionsQuery.error?.message?.includes("does not exist") ||
               positionsQuery.error?.message?.includes("No prediction markets")
                 ? "No prediction markets available yet."
                 : `Error: ${String(
-                    positionsQuery.error?.message || positionsQuery.error
+                    positionsQuery.error?.message ||
+                      tradesQuery.error?.message ||
+                      positionsQuery.error ||
+                      tradesQuery.error
                   )}`}
             </p>
           )}
-          {!positionsQuery.isLoading && !positionsQuery.error && (
-            <>
-              {(positionsQuery.data || []).length === 0 && (
-                <p className="text-muted-foreground">
-                  No open positions in current season.
-                </p>
-              )}
-              {(positionsQuery.data || []).length > 0 && (
-                <div className="space-y-2">
-                  {(positionsQuery.data || []).map((pos) => (
-                    <div
-                      key={`${pos.marketId}`}
-                      className="border rounded p-3 text-sm space-y-2"
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className="font-medium">{pos.marketType}</span>
-                        <span className="text-xs text-muted-foreground">
-                          Market #{pos.marketId}
-                        </span>
-                      </div>
-                      {pos.player && (
-                        <div className="text-xs text-muted-foreground">
-                          Player: {pos.player.slice(0, 6)}...
-                          {pos.player.slice(-4)}
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        {pos.yesAmount > 0n && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-green-600">
-                              YES Position:
-                            </span>
-                            <span className="font-mono">
-                              {formatUnits(pos.yesAmount, 18)} SOF
-                            </span>
-                          </div>
-                        )}
-                        {pos.noAmount > 0n && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-red-600">NO Position:</span>
-                            <span className="font-mono">
-                              {formatUnits(pos.noAmount, 18)} SOF
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+          {!positionsQuery.isLoading &&
+            !tradesQuery.isLoading &&
+            !positionsQuery.error &&
+            !tradesQuery.error && (
+              <>
+                {(positionsQuery.data || []).length === 0 &&
+                  Object.keys(tradesByMarket).length === 0 && (
+                    <p className="text-muted-foreground">
+                      No positions or trades found.
+                    </p>
+                  )}
+                {((positionsQuery.data || []).length > 0 ||
+                  Object.keys(tradesByMarket).length > 0) && (
+                  <Accordion type="multiple" className="space-y-2">
+                    {(positionsQuery.data || []).map((pos) => {
+                      const marketTrades = tradesByMarket[pos.marketId] || [];
+                      return (
+                        <AccordionItem
+                          key={`market-${pos.marketId}`}
+                          value={`market-${pos.marketId}`}
+                        >
+                          <AccordionTrigger className="px-3 py-2 text-left">
+                            <div className="flex flex-col w-full">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">
+                                  {pos.marketType}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  Market #{pos.marketId}
+                                </span>
+                              </div>
+                              {pos.player && (
+                                <p className="text-xs text-[#f9d6de]">
+                                  Player: {pos.player.slice(0, 6)}...
+                                  {pos.player.slice(-4)}
+                                </p>
+                              )}
+                              <div className="flex gap-4 mt-1">
+                                {pos.yesAmount > 0n && (
+                                  <span className="text-xs text-green-600">
+                                    YES: {formatUnits(pos.yesAmount, 18)} SOF
+                                  </span>
+                                )}
+                                {pos.noAmount > 0n && (
+                                  <span className="text-xs text-red-600">
+                                    NO: {formatUnits(pos.noAmount, 18)} SOF
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
+                              <p className="font-semibold mb-2">
+                                Trade History
+                              </p>
+                              {marketTrades.length === 0 && (
+                                <p className="text-muted-foreground text-sm">
+                                  No trades recorded yet.
+                                </p>
+                              )}
+                              {marketTrades.length > 0 && (
+                                <div className="space-y-1">
+                                  {marketTrades
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.created_at) -
+                                        new Date(a.created_at)
+                                    )
+                                    .map((trade, idx) => (
+                                      <div
+                                        key={`${trade.id}-${idx}`}
+                                        className="text-sm flex justify-between items-center gap-2 py-1"
+                                      >
+                                        <span
+                                          className={
+                                            trade.outcome === "YES"
+                                              ? "text-green-600"
+                                              : "text-red-600"
+                                          }
+                                        >
+                                          {trade.outcome === "YES" ? "+" : "-"}
+                                          {parseFloat(trade.amount).toFixed(
+                                            4
+                                          )}{" "}
+                                          SOF ({trade.outcome})
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(
+                                            trade.created_at
+                                          ).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                )}
+              </>
+            )}
         </>
       )}
     </div>
