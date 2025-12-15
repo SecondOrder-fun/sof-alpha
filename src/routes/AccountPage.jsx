@@ -660,18 +660,26 @@ const InfoFiPositionsTab = ({ address }) => {
     queryKey: ["infofiTrades", address],
     enabled: !!address,
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BACKEND_URL ||
-          "https://sof-alpha-production.up.railway.app"
-        }/api/infofi/positions/${address}`
-      );
+      const url = `${
+        import.meta.env.VITE_BACKEND_URL ||
+        "https://sof-alpha-production.up.railway.app"
+      }/api/infofi/positions/${address}`;
+
+      console.log("[InfoFi] Fetching trades from:", url);
+
+      const response = await fetch(url);
 
       if (!response.ok) {
+        console.error(
+          "[InfoFi] Failed to fetch trades:",
+          response.status,
+          response.statusText
+        );
         throw new Error("Failed to fetch trade history");
       }
 
       const data = await response.json();
+      console.log("[InfoFi] Trades response:", data);
       return data.positions || [];
     },
     staleTime: 5_000,
@@ -757,6 +765,7 @@ const InfoFiPositionsTab = ({ address }) => {
         }
       }
 
+      console.log("[InfoFi] Positions found:", positions.length);
       return positions;
     },
     staleTime: 5_000,
@@ -768,6 +777,8 @@ const InfoFiPositionsTab = ({ address }) => {
     const trades = tradesQuery.data || [];
     const grouped = {};
 
+    console.log("[InfoFi] Grouping trades:", trades.length, "trades");
+
     for (const trade of trades) {
       const marketId = trade.market_id;
       if (!grouped[marketId]) {
@@ -775,6 +786,12 @@ const InfoFiPositionsTab = ({ address }) => {
       }
       grouped[marketId].push(trade);
     }
+
+    console.log(
+      "[InfoFi] Grouped by market:",
+      Object.keys(grouped).length,
+      "markets"
+    );
 
     return grouped;
   }, [tradesQuery.data]);
@@ -817,57 +834,61 @@ const InfoFiPositionsTab = ({ address }) => {
                       No positions or trades found.
                     </p>
                   )}
-                {((positionsQuery.data || []).length > 0 ||
-                  Object.keys(tradesByMarket).length > 0) && (
+                {Object.keys(tradesByMarket).length > 0 && (
                   <Accordion type="multiple" className="space-y-2">
-                    {(positionsQuery.data || []).map((pos) => {
-                      const marketTrades = tradesByMarket[pos.marketId] || [];
-                      return (
-                        <AccordionItem
-                          key={`market-${pos.marketId}`}
-                          value={`market-${pos.marketId}`}
-                        >
-                          <AccordionTrigger className="px-3 py-2 text-left">
-                            <div className="flex flex-col w-full">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">
-                                  {pos.marketType}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  Market #{pos.marketId}
-                                </span>
-                              </div>
-                              {pos.player && (
-                                <p className="text-xs text-[#f9d6de]">
-                                  Player: {pos.player.slice(0, 6)}...
-                                  {pos.player.slice(-4)}
-                                </p>
-                              )}
-                              <div className="flex gap-4 mt-1">
-                                {pos.yesAmount > 0n && (
-                                  <span className="text-xs text-green-600">
-                                    YES: {formatUnits(pos.yesAmount, 18)} SOF
+                    {Object.entries(tradesByMarket).map(
+                      ([marketId, marketTrades]) => {
+                        // Find matching position if exists
+                        const pos = (positionsQuery.data || []).find(
+                          (p) => p.marketId === parseInt(marketId)
+                        );
+
+                        return (
+                          <AccordionItem
+                            key={`market-${marketId}`}
+                            value={`market-${marketId}`}
+                          >
+                            <AccordionTrigger className="px-3 py-2 text-left">
+                              <div className="flex flex-col w-full">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {pos?.marketType || "Winner Prediction"}
                                   </span>
-                                )}
-                                {pos.noAmount > 0n && (
-                                  <span className="text-xs text-red-600">
-                                    NO: {formatUnits(pos.noAmount, 18)} SOF
+                                  <span className="text-xs text-muted-foreground">
+                                    Market #{marketId}
                                   </span>
+                                </div>
+                                {pos?.player && (
+                                  <p className="text-xs text-[#f9d6de]">
+                                    Player: {pos.player.slice(0, 6)}...
+                                    {pos.player.slice(-4)}
+                                  </p>
                                 )}
+                                <div className="flex gap-4 mt-1">
+                                  {pos?.yesAmount > 0n && (
+                                    <span className="text-xs text-green-600">
+                                      YES: {formatUnits(pos.yesAmount, 18)} SOF
+                                    </span>
+                                  )}
+                                  {pos?.noAmount > 0n && (
+                                    <span className="text-xs text-red-600">
+                                      NO: {formatUnits(pos.noAmount, 18)} SOF
+                                    </span>
+                                  )}
+                                  {!pos && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {marketTrades.length} trade
+                                      {marketTrades.length !== 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
-                              <p className="font-semibold mb-2">
-                                Trade History
-                              </p>
-                              {marketTrades.length === 0 && (
-                                <p className="text-muted-foreground text-sm">
-                                  No trades recorded yet.
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
+                                <p className="font-semibold mb-2">
+                                  Trade History
                                 </p>
-                              )}
-                              {marketTrades.length > 0 && (
                                 <div className="space-y-1">
                                   {marketTrades
                                     .sort(
@@ -901,12 +922,12 @@ const InfoFiPositionsTab = ({ address }) => {
                                       </div>
                                     ))}
                                 </div>
-                              )}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      }
+                    )}
                   </Accordion>
                 )}
               </>
