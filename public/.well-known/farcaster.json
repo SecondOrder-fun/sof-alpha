@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "REPLACE_WITH_HEADER",
+    "payload": "REPLACE_WITH_PAYLOAD",
+    "signature": "REPLACE_WITH_SIGNATURE"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "SecondOrder.fun",
+    "iconUrl": "https://secondorder.fun/images/logo.png",
+    "homeUrl": "https://secondorder.fun",
+    "imageUrl": "https://secondorder.fun/og/season/1",
+    "buttonTitle": "Join Raffle",
+    "splashImageUrl": "https://secondorder.fun/images/logo.png",
+    "splashBackgroundColor": "#0d0d0d",
+    "webhookUrl": "https://secondorder.fun/api/webhook/farcaster"
+  }
+}

@@ -56,11 +56,17 @@ import UserProfile from "./routes/UserProfile";
 import FaucetPage from "./routes/FaucetPage";
 import LocalizationAdmin from "./routes/LocalizationAdmin";
 import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
+import Landing from "./routes/Landing";
 
 // Create router
 const router = createBrowserRouter([
   {
     path: "/",
+    element: <Landing />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: "/app",
     element: <App />,
     errorElement: <ErrorPage />,
     children: [
