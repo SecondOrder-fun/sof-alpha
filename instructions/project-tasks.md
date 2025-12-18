@@ -60,11 +60,13 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### 1. Raffle Name Validation (HIGHEST PRIORITY) ✅ COMPLETED
 
 - [x] **Smart Contract Validation**
+
   - [x] Add `require(bytes(config.name).length > 0, "Raffle: name empty")` in `Raffle.sol::createSeason()`
   - [x] Add Foundry test for empty name rejection in `contracts/test/RaffleVRF.t.sol`
   - [x] Test that transaction reverts with "Raffle: name empty" error message
 
 - [x] **Frontend UI Validation**
+
   - [x] Add required attribute to name input in `CreateSeasonForm.jsx`
   - [x] Add client-side validation before form submission
   - [x] Display error message if name field is empty
@@ -78,6 +80,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### 2. Prize Pool Sponsorship Feature
 
 - [ ] **Smart Contract Implementation (Multi-Token Support)**
+
   - [ ] Add `sponsorPrizeERC20(uint256 seasonId, address token, uint256 amount)` function to `SOFBondingCurve.sol`
     - Accept any ERC-20 token from any address
     - Store in separate mapping: `mapping(uint256 => mapping(address => uint256)) public sponsoredTokens`
@@ -105,6 +108,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
     - Test SafeERC20 transfer failures
 
 - [ ] **Prize Distribution Integration**
+
   - [ ] Update `RafflePrizeDistributor.sol` to handle multi-token prizes
     - Add `claimSponsoredToken(uint256 seasonId, address token)` function
     - Winner can claim all sponsored ERC-20 tokens
@@ -115,6 +119,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
     - Configure distributor with sponsored token list
 
 - [ ] **Frontend UI Implementation**
+
   - [ ] Add "Initial Sponsorship" section to `CreateSeasonForm.jsx`
     - Token selector dropdown (common ERC-20s + custom address input)
     - Amount input with balance display
@@ -140,12 +145,14 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
     - Batch claim option for all tokens
 
 - [ ] **Hook Implementation**
+
   - [ ] Extend `useCurve.js` with `sponsorPrizeERC20` mutation
   - [ ] Add `useTokenApproval` hook for ERC-20 approvals
   - [ ] Add `useSponsoredTokens` hook to fetch sponsored token list
   - [ ] Add transaction status handling
 
 - [ ] **Testing**
+
   - [ ] Vitest tests for multi-token sponsor UI components
   - [ ] Test token selector and amount validation
   - [ ] Test approval flow for different tokens
@@ -162,6 +169,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### 3. Trading Lock UI Improvements ✅ COMPLETED
 
 - [x] **Frontend Implementation**
+
   - [x] Add `tradingLocked` state check in `BuySellWidget.jsx`
     - Read `curveConfig.tradingLocked` from bonding curve contract
     - Cached with useEffect hook
@@ -177,6 +185,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
     - Tooltip shows "Trading is locked" on hover
 
 - [x] **Smart Contract Enhancement**
+
   - [x] Update error messages in `SOFBondingCurve.sol`
     - Changed `"Curve: locked"` to `"Bonding_Curve_Is_Frozen"`
     - Applied to both `buyTokens()` and `sellTokens()` functions
@@ -193,6 +202,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### 4. Wallet Connection Guard ✅ COMPLETED
 
 - [x] **Frontend Implementation**
+
   - [x] Add wallet connection check to `BuySellWidget.jsx`
     - Check `connectedAddress` from `useWallet()`
     - Show overlay when wallet not connected
@@ -215,12 +225,14 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### 5. Position Display Fix (Name Dependency) ✅ RESOLVED
 
 - [x] **Investigation**
+
   - [x] Identified that position display does NOT depend on raffle name
   - [x] Checked `RaffleDetailsCard.jsx` - uses seasonId as primary identifier
   - [x] Reviewed data fetching hooks - no name-based filtering
   - [x] Created `POSITION_DISPLAY_INVESTIGATION.md` with findings
 
 - [x] **Resolution**
+
   - [x] Position display already uses season ID as primary identifier
   - [x] Fallback display already exists ("Season #{seasonId}")
   - [x] Name validation prevents empty names (implemented earlier today)
@@ -256,6 +268,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ## Latest Progress (2025-10-04)
 
 - [x] **$SOF Transaction History Feature - COMPLETED**
+
   - **Hook Implementation**:
     - Created `src/hooks/useSOFTransactions.js` comprehensive transaction fetching hook
     - Uses chunked block range queries via `queryLogsInChunks` utility to prevent RPC timeouts
@@ -348,26 +361,31 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 The following enhancements were identified during username feature implementation but are deferred for future development:
 
 - [ ] **Username History Tracking**
+
   - Store username change history: `wallet:{address}:history` → array of `{username, timestamp}`
   - Display previous usernames on profile page
   - Useful for moderation and user trust
 
 - [ ] **Username Search**
+
   - Implement search endpoint: `GET /api/usernames/search?q=alice`
   - Use Redis SCAN for pattern matching
   - Add search UI to Users page
 
 - [ ] **Username Verification/Badges**
+
   - Store verification status: `wallet:{address}:verified` → `true/false`
   - Display verified badge next to username
   - Admin interface for managing verification
 
 - [ ] **Username Expiry/Reclamation**
+
   - Set TTL on inactive usernames (e.g., 1 year of no activity)
   - Reclaim usernames for reuse
   - Notify users before expiry
 
 - [ ] **ENS Integration**
+
   - Auto-populate username from ENS if available
   - Fallback to Redis username if no ENS
   - Display ENS badge for ENS-based usernames
@@ -554,6 +572,29 @@ No changes to open Known Issues at this time.
 
 - [x] Frontend subscribe to `MarketCreated` and `PriceUpdated` (no DB insertion)
   - Use viem `watchContractEvent` when WS provided; fall back to periodic refetch
+
+### Farcaster Mini App Integration (2025-12-18)
+
+- [x] **Vercel Edge Functions for Shareable URLs**
+
+  - [x] Update `vercel.json` with rewrite rules for `/s/:seasonId`, `/m/:marketId`, `/og/season/:seasonId`, `/og/market/:marketId`
+  - [x] Create `api/embed-season.js` - returns HTML with `fc:miniapp` meta tags for season shares
+  - [x] Create `api/embed-market.js` - returns HTML with `fc:miniapp` meta tags for market shares
+  - [x] Create `api/og-season.js` - returns SVG OG image for season shares
+  - [x] Create `api/og-market.js` - returns SVG OG image for market shares
+  - [x] Add shared utilities `src/utils/miniappEmbed.js` and `src/utils/miniappOg.js`
+  - [x] Add Vitest tests for embed and OG utilities (34 tests passing)
+
+- [ ] **TLD Mini App Behavior** (Future)
+
+  - [ ] Add generic `fc:miniapp` meta tag to `index.html` for TLD
+  - [ ] Implement runtime Farcaster client detection in SPA
+  - [ ] Conditional UI rendering for Mini App vs browser context
+  - [ ] Add `sdk.actions.ready()` call for Mini App host
+
+- [ ] **Manifest File** (Future)
+  - [ ] Create `/.well-known/farcaster.json` manifest
+  - [ ] Configure notification webhooks if needed
 
 ### Development Servers & Start Scripts
 
@@ -1616,6 +1657,7 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 **Changes Made:**
 
 - [x] **Raffle.sol modifications**
+
   - [x] Removed `address public infoFiFactory` state variable
   - [x] Removed `InfoFiSkippedInsufficientGas` event
   - [x] Removed `setInfoFiFactory()` function
@@ -1631,16 +1673,19 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
   - [x] Updated NatSpec to document Paymaster integration
 
 **Impact:**
+
 - Gas savings: ~100K per ticket purchase (no 800K gas forwarding)
 - Simplified Raffle contract logic
 - Decoupled architecture
 - Maintained backward compatibility with existing tests
 
 **Documentation:**
+
 - [x] Created `PHASE1-IMPLEMENTATION-COMPLETE.md` with detailed changes
 - [x] Updated `.env.example` with Base Paymaster configuration
 
 **Next Steps:**
+
 - [ ] Phase 2: Environment Setup (dependencies, Paymaster config)
 - [ ] Phase 3: Backend Services (PaymasterService, SSEService)
 - [ ] Phase 4: Frontend Integration (useMarketEvents hook)
