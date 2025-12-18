@@ -113,7 +113,10 @@ const AddMiniAppButton = ({
     setError(null);
 
     try {
-      const response = await sdk.actions.addMiniApp();
+      // Base App uses addFrame, Farcaster uses addMiniApp (they're aliases in SDK but host differs)
+      console.log("[AddMiniApp] Calling sdk.actions.addFrame()...");
+      const response = await sdk.actions.addFrame();
+      console.log("[AddMiniApp] Response:", JSON.stringify(response));
 
       // Base App format per docs: response has notificationDetails if notifications enabled
       // Success is indicated by not throwing an error
@@ -127,6 +130,7 @@ const AddMiniAppButton = ({
         onAdded?.(response);
       }
     } catch (err) {
+      console.error("[AddMiniApp] Error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add app";
       setError(errorMessage);
