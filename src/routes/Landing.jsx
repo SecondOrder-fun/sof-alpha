@@ -59,26 +59,17 @@ const Landing = () => {
             first to know when we launch.
           </p>
 
-          <div className="mb-8">
-            <h3
-              className="text-lg font-semibold mb-4"
-              style={{ color: "#e25167" }}
-            >
-              Memecoins without the hangover
-            </h3>
-            <ul
-              className="space-y-2 text-sm"
-              style={{ color: "#a89e99", fontFamily: "monospace" }}
-            >
-              <li>• Transparent raffle mechanics with clear rules</li>
-              <li>• Time-limited seasons with defined outcomes</li>
-              <li>• Second-order prediction markets</li>
-              <li>• Fair play through game design</li>
-            </ul>
-          </div>
+          <h3
+            className="text-lg font-semibold mb-6"
+            style={{ color: "#e25167" }}
+          >
+            Memecoins without the hangover
+          </h3>
 
-          {/* Add to Farcaster Button - only shows in Farcaster client */}
-          <AddMiniAppButton className="mb-6" />
+          {/* Add to Farcaster Button - only shows in Farcaster client, hidden when added */}
+          <div className="flex justify-center mb-6">
+            <AddMiniAppButton hideWhenAdded />
+          </div>
 
           {/* Social Links */}
           <div className="flex items-center justify-center gap-6 pt-6 border-t border-[#333]">
