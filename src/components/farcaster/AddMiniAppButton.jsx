@@ -65,7 +65,8 @@ const AddMiniAppButton = ({
     loadSDK();
   }, []);
 
-  const handleAddApp = useCallback(async () => {
+  // Farcaster client handler (working - don't change)
+  const handleAddAppFarcaster = useCallback(async () => {
     if (!sdk || !isInFarcasterClient || isLoading) return;
 
     setIsLoading(true);
@@ -88,19 +89,11 @@ const AddMiniAppButton = ({
         return;
       }
 
-      // Success cases:
-      // 1. Farcaster format: { added: true, notificationDetails?: {...} }
-      // 2. Base App format: { notificationDetails?: { url, token } } or just {}
-      // 3. Alternative format: { url, token }
-
-      // If we get here and it's an object (not a failure), treat as success
+      // Success: { added: true, notificationDetails?: {...} }
       setIsAdded(true);
-
-      // Check for notification details in various formats
-      if (result.notificationDetails?.token || result.token) {
+      if (result.notificationDetails) {
         setHasNotifications(true);
       }
-
       onAdded?.(result);
     } catch (err) {
       const errorMessage =
@@ -111,6 +104,40 @@ const AddMiniAppButton = ({
       setIsLoading(false);
     }
   }, [sdk, isInFarcasterClient, isLoading, onAdded, onError]);
+
+  // Base App handler (per Base docs - different response format)
+  const handleAddAppBase = useCallback(async () => {
+    if (!sdk || !isInFarcasterClient || isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await sdk.actions.addMiniApp();
+
+      // Base App format per docs: response has notificationDetails if notifications enabled
+      // Success is indicated by not throwing an error
+      if (response?.notificationDetails) {
+        setIsAdded(true);
+        setHasNotifications(true);
+        onAdded?.(response);
+      } else {
+        // Added without notifications
+        setIsAdded(true);
+        onAdded?.(response);
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to add app";
+      setError(errorMessage);
+      onError?.(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sdk, isInFarcasterClient, isLoading, onAdded, onError]);
+
+  // Use appropriate handler based on client
+  const handleAddApp = isBaseApp ? handleAddAppBase : handleAddAppFarcaster;
 
   // Don't render if not in Farcaster client or SDK not loaded
   if (!isSDKLoaded || !isInFarcasterClient) {
