@@ -4,8 +4,13 @@
  */
 
 import MeltyLines from "@/components/backgrounds/MeltyLines";
+import AddMiniAppButton from "@/components/farcaster/AddMiniAppButton";
+import useFarcasterSDK from "@/hooks/useFarcasterSDK";
 
 const Landing = () => {
+  // Initialize Farcaster SDK and call ready() to hide splash screen
+  useFarcasterSDK();
+
   return (
     <div className="relative min-h-screen bg-[#0d0d0d]">
       {/* Animated Melty Lines Background */}
@@ -71,6 +76,9 @@ const Landing = () => {
               <li>• Fair play through game design</li>
             </ul>
           </div>
+
+          {/* Add to Farcaster Button - only shows in Farcaster client */}
+          <AddMiniAppButton className="mb-6" />
 
           {/* Social Links */}
           <div className="flex items-center justify-center gap-6 pt-6 border-t border-[#333]">
