@@ -13,6 +13,17 @@ export const config = {
   runtime: "edge",
 };
 
+// Decode base64url encoded string (per Base template)
+function decodeBase64Url(encoded) {
+  // Convert base64url to base64
+  let base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  // Add padding if needed
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  return JSON.parse(atob(base64));
+}
+
 export default async function handler(request) {
   // Only accept POST requests
   if (request.method !== "POST") {
@@ -22,35 +33,25 @@ export default async function handler(request) {
     });
   }
 
-  // Return 200 immediately for Base App compatibility
-  // Base App waits for webhook response before activating tokens
   try {
     const body = await request.json();
 
-    // Log full payload for debugging
-    console.log("[Webhook] Raw payload:", JSON.stringify(body));
-
-    // Handle both signed (Base/Farcaster) and unsigned formats
-    // Signed format has: header, payload, signature wrapping the event data
-    // Unsigned format has: event, fid, notificationDetails directly
+    // Log raw payload for debugging
+    console.log("[Webhook] Raw:", JSON.stringify(body));
 
     let eventData;
+    let headerData;
 
-    if (body.header && body.payload && body.signature) {
-      // Signed webhook format - decode the payload
+    // Check for signed format (Base App / Farcaster signed webhooks)
+    // Format: { header: base64url, payload: base64url, signature: string }
+    if (body.header && body.payload) {
       try {
-        const payloadStr = atob(body.payload);
-        eventData = JSON.parse(payloadStr);
-        console.log(
-          "[Webhook] Decoded signed payload:",
-          JSON.stringify(eventData)
-        );
+        headerData = decodeBase64Url(body.header);
+        eventData = decodeBase64Url(body.payload);
+        console.log("[Webhook] Header:", JSON.stringify(headerData));
+        console.log("[Webhook] Event:", JSON.stringify(eventData));
       } catch (decodeError) {
-        console.error(
-          "[Webhook] Failed to decode signed payload:",
-          decodeError
-        );
-        // Still return 200 to not block the add
+        console.error("[Webhook] Decode error:", decodeError.message);
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -59,50 +60,46 @@ export default async function handler(request) {
     } else {
       // Direct format (legacy or test)
       eventData = body;
+      console.log("[Webhook] Direct format:", JSON.stringify(eventData));
     }
 
     const event = eventData.event;
-    const fid = eventData.fid;
+    const fid = headerData?.fid || eventData.fid;
     const notificationDetails = eventData.notificationDetails;
 
     console.log(
-      "[Webhook] Event:",
+      "[Webhook] Parsed:",
       JSON.stringify({ event, fid, hasNotifications: !!notificationDetails })
     );
 
     switch (event) {
       case "miniapp_added":
-        if (notificationDetails?.token) {
-          console.log(`[Webhook] User ${fid} added app with notifications`);
-        } else {
-          console.log(`[Webhook] User ${fid} added app`);
-        }
+        console.log(
+          `[Webhook] User ${fid} added app${
+            notificationDetails ? " with notifications" : ""
+          }`
+        );
         break;
-
       case "notifications_enabled":
         console.log(`[Webhook] User ${fid} enabled notifications`);
         break;
-
       case "notifications_disabled":
         console.log(`[Webhook] User ${fid} disabled notifications`);
         break;
-
       case "miniapp_removed":
         console.log(`[Webhook] User ${fid} removed app`);
         break;
-
       default:
         console.log(`[Webhook] Unknown event: ${event}`);
     }
 
-    // Return 200 to acknowledge receipt
+    // Return 200 to acknowledge receipt - Base App waits for this
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[Webhook Error]", error);
-
+    console.error("[Webhook] Error:", error.message);
     // Return 200 anyway - don't block the add operation
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
