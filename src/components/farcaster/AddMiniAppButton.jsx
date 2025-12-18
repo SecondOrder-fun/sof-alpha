@@ -74,20 +74,34 @@ const AddMiniAppButton = ({
     try {
       const result = await sdk.actions.addMiniApp();
 
-      if (result.added) {
-        setIsAdded(true);
+      // Handle case where result might be undefined/null (user dismissed)
+      if (result === null || result === undefined) {
+        setError("Cancelled");
+        return;
+      }
 
-        if (result.notificationDetails) {
-          setHasNotifications(true);
-        }
-
-        onAdded?.(result);
-      } else {
-        // Handle failure with reason from SDK
+      // Check for explicit failure: { added: false, reason: string }
+      if (result.added === false) {
         const reason = result.reason || "unknown";
         setError(`Failed: ${reason}`);
         onError?.(new Error(reason));
+        return;
       }
+
+      // Success cases:
+      // 1. Farcaster format: { added: true, notificationDetails?: {...} }
+      // 2. Base App format: { notificationDetails?: { url, token } } or just {}
+      // 3. Alternative format: { url, token }
+
+      // If we get here and it's an object (not a failure), treat as success
+      setIsAdded(true);
+
+      // Check for notification details in various formats
+      if (result.notificationDetails?.token || result.token) {
+        setHasNotifications(true);
+      }
+
+      onAdded?.(result);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to add app";

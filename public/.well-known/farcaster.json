@@ -4,7 +4,7 @@
     "payload": "eyJkb21haW4iOiJzZWNvbmRvcmRlci5mdW4ifQ",
     "signature": "FYzz+K+LaA+WlfnJw3sQJzpiv4/q4o2bm/V19633VwMs9Irtp8TxjiYxwglqzs4uVVKeMRiOCrQWWFq+BJPnthw="
   },
-  "frame": {
+  "miniapp": {
     "version": "1",
     "name": "SecondOrder.fun",
     "subtitle": "Memecoins without the hangover",
