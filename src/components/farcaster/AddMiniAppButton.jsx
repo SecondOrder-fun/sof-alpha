@@ -37,10 +37,18 @@ const AddMiniAppButton = ({
 
         if (context) {
           setIsInFarcasterClient(true);
-          // Check if client is Base App (clientFid 309857) vs Warpcast (9152)
+          // Check if client is Base App (clientFid 309857) vs Farcaster (9152)
           const clientFid = context.client?.clientFid;
           if (clientFid === 309857) {
             setIsBaseApp(true);
+          }
+          // Check if app is already added (context.client.added)
+          if (context.client?.added) {
+            setIsAdded(true);
+            // Check if notifications are enabled
+            if (context.client?.notificationDetails) {
+              setHasNotifications(true);
+            }
           }
           // Signal that the app is ready
           sdkInstance.actions.ready();
@@ -74,6 +82,11 @@ const AddMiniAppButton = ({
         }
 
         onAdded?.(result);
+      } else {
+        // Handle failure with reason from SDK
+        const reason = result.reason || "unknown";
+        setError(`Failed: ${reason}`);
+        onError?.(new Error(reason));
       }
     } catch (err) {
       const errorMessage =
