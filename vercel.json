@@ -1,5 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "headers": [
+    {
+      "source": "/.well-known/farcaster.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/s/:seasonId",
@@ -18,7 +33,7 @@
       "destination": "/api/og-market?marketId=:marketId"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!.well-known).*)",
       "destination": "/"
     }
   ]
