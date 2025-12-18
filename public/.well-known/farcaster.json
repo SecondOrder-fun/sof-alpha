@@ -14,7 +14,7 @@
     "imageUrl": "https://secondorder.fun/images/image.png",
     "splashImageUrl": "https://secondorder.fun/images/logo.png",
     "splashBackgroundColor": "#0d0d0d",
-    "webhookUrl": "https://secondorder.fun/api/webhook/farcaster",
+    "webhookUrl": "https://sof-alpha-production.up.railway.app/api/webhook/farcaster",
     "primaryCategory": "games",
     "tags": [
       "raffle",
