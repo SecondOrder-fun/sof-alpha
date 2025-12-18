@@ -22,85 +22,91 @@ export default async function handler(request) {
     });
   }
 
+  // Return 200 immediately for Base App compatibility
+  // Base App waits for webhook response before activating tokens
   try {
     const body = await request.json();
-    const { event, fid, notificationDetails } = body;
 
-    // Log the event for debugging (in production, store in database)
+    // Log full payload for debugging
+    console.log("[Webhook] Raw payload:", JSON.stringify(body));
+
+    // Handle both signed (Base/Farcaster) and unsigned formats
+    // Signed format has: header, payload, signature wrapping the event data
+    // Unsigned format has: event, fid, notificationDetails directly
+
+    let eventData;
+
+    if (body.header && body.payload && body.signature) {
+      // Signed webhook format - decode the payload
+      try {
+        const payloadStr = atob(body.payload);
+        eventData = JSON.parse(payloadStr);
+        console.log(
+          "[Webhook] Decoded signed payload:",
+          JSON.stringify(eventData)
+        );
+      } catch (decodeError) {
+        console.error(
+          "[Webhook] Failed to decode signed payload:",
+          decodeError
+        );
+        // Still return 200 to not block the add
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      // Direct format (legacy or test)
+      eventData = body;
+    }
+
+    const event = eventData.event;
+    const fid = eventData.fid;
+    const notificationDetails = eventData.notificationDetails;
+
     console.log(
-      "[Farcaster Webhook]",
-      JSON.stringify({
-        event,
-        fid,
-        notificationDetails: notificationDetails
-          ? {
-              url: notificationDetails.url,
-              tokenPrefix: notificationDetails.token?.substring(0, 10) + "...",
-            }
-          : null,
-        timestamp: new Date().toISOString(),
-      })
+      "[Webhook] Event:",
+      JSON.stringify({ event, fid, hasNotifications: !!notificationDetails })
     );
 
     switch (event) {
       case "miniapp_added":
-        // User added the mini app
-        // Store FID and notification token if provided
         if (notificationDetails?.token) {
-          // TODO: Store in database
-          // await storeNotificationToken(fid, notificationDetails.token, notificationDetails.url);
-          console.log(
-            `[Farcaster] User ${fid} added app with notifications enabled`
-          );
+          console.log(`[Webhook] User ${fid} added app with notifications`);
         } else {
-          console.log(
-            `[Farcaster] User ${fid} added app without notifications`
-          );
+          console.log(`[Webhook] User ${fid} added app`);
         }
         break;
 
       case "notifications_enabled":
-        // User enabled notifications after previously disabling
-        if (notificationDetails?.token) {
-          // TODO: Update token in database
-          // await updateNotificationToken(fid, notificationDetails.token, notificationDetails.url);
-          console.log(`[Farcaster] User ${fid} enabled notifications`);
-        }
+        console.log(`[Webhook] User ${fid} enabled notifications`);
         break;
 
       case "notifications_disabled":
-        // User disabled notifications
-        // TODO: Mark token as inactive in database
-        // await disableNotificationToken(fid);
-        console.log(`[Farcaster] User ${fid} disabled notifications`);
+        console.log(`[Webhook] User ${fid} disabled notifications`);
         break;
 
       case "miniapp_removed":
-        // User removed the mini app
-        // TODO: Remove or mark inactive in database
-        // await removeUser(fid);
-        console.log(`[Farcaster] User ${fid} removed app`);
+        console.log(`[Webhook] User ${fid} removed app`);
         break;
 
       default:
-        console.log(`[Farcaster] Unknown event: ${event}`);
+        console.log(`[Webhook] Unknown event: ${event}`);
     }
 
-    // Always return 200 to acknowledge receipt
+    // Return 200 to acknowledge receipt
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[Farcaster Webhook Error]", error);
+    console.error("[Webhook Error]", error);
 
-    // Return 200 anyway to prevent retries for malformed requests
-    return new Response(
-      JSON.stringify({ success: true, error: "Processing error" }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    // Return 200 anyway - don't block the add operation
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

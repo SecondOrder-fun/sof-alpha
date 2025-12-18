@@ -12,7 +12,7 @@
     "iconUrl": "https://secondorder.fun/images/logo.png",
     "homeUrl": "https://secondorder.fun",
     "imageUrl": "https://secondorder.fun/images/image.png",
-    "splashImageUrl": "https://secondorder.fun/images/splash.png",
+    "splashImageUrl": "https://secondorder.fun/images/logo.png",
     "splashBackgroundColor": "#0d0d0d",
     "webhookUrl": "https://secondorder.fun/api/webhook/farcaster",
     "primaryCategory": "games",
@@ -21,6 +21,7 @@
       "memecoin",
       "prediction-markets",
       "web3"
-    ]
+    ],
+    "baseBuilder": "bc_o3nkdl9b"
   }
 }
