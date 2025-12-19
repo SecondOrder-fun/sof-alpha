@@ -1,14 +1,22 @@
 // src/components/farcaster/LaunchAppButtons.jsx
 import PropTypes from "prop-types";
 import { useSupportsBaseApp } from "@/hooks/useIsMobile";
+import { useFarcasterSDK } from "@/hooks/useFarcasterSDK";
 
 /**
  * LaunchAppButtons - Buttons to launch the MiniApp in Farcaster or Base App
  * - Desktop: Shows only Farcaster button
  * - Mobile/Tablet: Shows both Farcaster and Base App buttons
+ * - Hidden when already inside a Farcaster client (Farcaster or Base App)
  */
 const LaunchAppButtons = ({ domain = "secondorder.fun" }) => {
   const showBaseApp = useSupportsBaseApp();
+  const { isInFarcasterClient } = useFarcasterSDK();
+
+  // Don't show launch buttons if already inside a Farcaster client
+  if (isInFarcasterClient) {
+    return null;
+  }
 
   const farcasterUrl = `https://farcaster.xyz/~/mini-apps/launch?domain=${domain}`;
   const baseAppUrl = `https://base.app/app/${domain}`;
