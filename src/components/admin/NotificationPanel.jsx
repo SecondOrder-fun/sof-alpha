@@ -299,28 +299,50 @@ function NotificationPanel() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-2 px-2">FID</th>
+                    <th className="text-left py-2 px-2">Client</th>
                     <th className="text-left py-2 px-2">Status</th>
                     <th className="text-left py-2 px-2">Created</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tokensQuery.data?.tokens?.map((token) => (
-                    <tr key={token.id} className="border-b border-border/50">
-                      <td className="py-2 px-2 font-mono">{token.fid}</td>
-                      <td className="py-2 px-2">
-                        {token.notifications_enabled ? (
-                          <Badge variant="default" className="bg-green-500">
-                            Enabled
+                  {tokensQuery.data?.tokens?.map((token) => {
+                    const getClientName = (appKey) => {
+                      if (!appKey) return "Unknown";
+                      if (
+                        appKey.includes("base") ||
+                        appKey.startsWith("0x73de7de2")
+                      )
+                        return "Base";
+                      if (
+                        appKey.includes("warpcast") ||
+                        appKey.startsWith("0xbe5ab039")
+                      )
+                        return "Warpcast";
+                      return appKey.substring(0, 10) + "...";
+                    };
+                    return (
+                      <tr key={token.id} className="border-b border-border/50">
+                        <td className="py-2 px-2 font-mono">{token.fid}</td>
+                        <td className="py-2 px-2">
+                          <Badge variant="outline">
+                            {getClientName(token.app_key)}
                           </Badge>
-                        ) : (
-                          <Badge variant="secondary">Disabled</Badge>
-                        )}
-                      </td>
-                      <td className="py-2 px-2 text-muted-foreground">
-                        {new Date(token.created_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2 px-2">
+                          {token.notifications_enabled ? (
+                            <Badge variant="default" className="bg-green-500">
+                              Enabled
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Disabled</Badge>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground">
+                          {new Date(token.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

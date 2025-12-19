@@ -1,148 +1,187 @@
 // React import not needed with Vite JSX transform
-import { NavLink } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const Footer = () => {
-  const { t } = useTranslation('navigation');
-  
+  const { t } = useTranslation("navigation");
+
   return (
     <footer className="border-t bg-background text-foreground mt-12">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t('brandName')}</h3>
-            <p className="text-sm text-muted-foreground">
-              {t('tagline')}
-            </p>
+            <h3 className="text-lg font-semibold mb-4">{t("brandName")}</h3>
+            <p className="text-sm text-muted-foreground">{t("tagline")}</p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t('platform')}</h3>
+            <h3 className="text-lg font-semibold mb-4">{t("platform")}</h3>
             <ul className="space-y-2">
               <li>
                 <NavLink
                   to="/raffles"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('raffles')}
+                  {t("raffles")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/markets"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('predictionMarkets')}
+                  {t("predictionMarkets")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/portfolio"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('portfolio')}
+                  {t("portfolio")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/leaderboard"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('leaderboard')}
+                  {t("leaderboard")}
                 </NavLink>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t('resources')}</h3>
+            <h3 className="text-lg font-semibold mb-4">{t("resources")}</h3>
             <ul className="space-y-2">
               <li>
                 <NavLink
                   to="/docs"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('documentation')}
+                  {t("documentation")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/api"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('api')}
+                  {t("api")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/guides"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('guides')}
+                  {t("guides")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/faq"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('faq')}
+                  {t("faq")}
                 </NavLink>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t('legal')}</h3>
+            <h3 className="text-lg font-semibold mb-4">{t("legal")}</h3>
             <ul className="space-y-2">
               <li>
                 <NavLink
                   to="/terms"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('termsOfService')}
+                  {t("termsOfService")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/privacy"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('privacyPolicy')}
+                  {t("privacyPolicy")}
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/disclaimer"
                   className={({ isActive }) =>
-                    `text-sm transition-colors ${isActive ? 'text-[#c82a54]' : 'text-[#a89e99] hover:text-[#e25167]'}`
+                    `text-sm transition-colors ${
+                      isActive
+                        ? "text-[#c82a54]"
+                        : "text-[#a89e99] hover:text-[#e25167]"
+                    }`
                   }
                 >
-                  {t('disclaimer')}
+                  {t("disclaimer")}
                 </NavLink>
               </li>
             </ul>
           </div>
-        </div>
-        <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>{t('copyright', { year: new Date().getFullYear() })}</p>
         </div>
       </div>
     </footer>

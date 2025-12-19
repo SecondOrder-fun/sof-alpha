@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -59,68 +59,74 @@ import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 import Landing from "./routes/Landing";
 
 // Create router
+// TEMPORARY: Root redirects to /landing, but app routes work directly
+
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Landing />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: "/app",
-    element: <App />,
+    element: <Outlet />,
     errorElement: <ErrorPage />,
     children: [
       {
         index: true,
-        element: <Home />,
+        element: <Landing />,
       },
       {
-        path: "test",
-        element: <Test />,
-      },
-      {
-        path: "raffles",
-        element: <RaffleList />,
-      },
-      {
-        path: "markets",
-        element: <MarketsIndex />,
-      },
-      {
-        path: "markets/:marketId",
-        element: <InfoFiMarketDetail />,
-      },
-      {
-        path: "raffles/:seasonId",
-        element: <RaffleDetails />,
-      },
-      {
-        path: "leaderboard",
-        element: <UsersIndex />,
-      },
-      {
-        path: "users/:address",
-        element: <UserProfile />,
-      },
-      {
-        path: "admin",
-        element: <AdminPanel />,
-      },
-      {
-        path: "admin/localization",
-        element: <LocalizationAdmin />,
-      },
-      {
-        path: "portfolio",
-        element: <AccountPage />,
-      },
-      {
-        path: "faucet",
-        element: <FaucetPage />,
-      },
-      {
-        path: "*",
-        element: <NotFound />,
+        element: <App />,
+        children: [
+          {
+            path: "home",
+            element: <Home />,
+          },
+          {
+            path: "test",
+            element: <Test />,
+          },
+          {
+            path: "raffles",
+            element: <RaffleList />,
+          },
+          {
+            path: "markets",
+            element: <MarketsIndex />,
+          },
+          {
+            path: "markets/:marketId",
+            element: <InfoFiMarketDetail />,
+          },
+          {
+            path: "raffles/:seasonId",
+            element: <RaffleDetails />,
+          },
+          {
+            path: "leaderboard",
+            element: <UsersIndex />,
+          },
+          {
+            path: "users/:address",
+            element: <UserProfile />,
+          },
+          {
+            path: "admin",
+            element: <AdminPanel />,
+          },
+          {
+            path: "admin/localization",
+            element: <LocalizationAdmin />,
+          },
+          {
+            path: "portfolio",
+            element: <AccountPage />,
+          },
+          {
+            path: "faucet",
+            element: <FaucetPage />,
+          },
+          {
+            path: "*",
+            element: <NotFound />,
+          },
+        ],
       },
     ],
   },

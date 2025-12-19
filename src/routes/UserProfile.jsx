@@ -1,7 +1,7 @@
 // src/routes/UserProfile.jsx
 import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatUnits } from "viem";
@@ -31,7 +31,7 @@ import { useUsername } from "@/hooks/useUsername";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { Badge } from "@/components/ui/badge";
 import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
-import { queryLogsInChunks } from "@/utils/blockRangeQuery";
+import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
 
 const UserProfile = () => {
   const { t } = useTranslation("account");
@@ -280,7 +280,6 @@ const UserProfile = () => {
                   key={row.seasonId}
                   row={row}
                   address={address}
-                  client={client}
                 />
               ))}
             </div>
@@ -476,181 +475,6 @@ ClaimsPanel.propTypes = {
   profileAddress: PropTypes.string.isRequired,
   seasons: PropTypes.array,
   netKey: PropTypes.string.isRequired,
-};
-
-// Subcomponent: One raffle holding row with expandable buy/sell history
-const RaffleHoldingRow = ({ row, address, client }) => {
-  const [open, setOpen] = useState(false);
-
-  const inQuery = useQuery({
-    queryKey: ["raffleTransfersIn", row.token, address],
-    enabled: open && !!client && !!row?.token && !!address,
-    queryFn: async () => {
-      const netKey = getStoredNetworkKey();
-      const chain = getNetworkByKey(netKey);
-      const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = chain.lookbackBlocks;
-      const fromBlock =
-        currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
-
-      return queryLogsInChunks(
-        client,
-        {
-          address: row.token,
-          event: {
-            type: "event",
-            name: "Transfer",
-            inputs: [
-              { indexed: true, name: "from", type: "address" },
-              { indexed: true, name: "to", type: "address" },
-              { indexed: false, name: "value", type: "uint256" },
-            ],
-          },
-          args: { to: address },
-          fromBlock,
-          toBlock: "latest",
-        },
-        10000n
-      );
-    },
-  });
-
-  const outQuery = useQuery({
-    queryKey: ["raffleTransfersOut", row.token, address],
-    enabled: open && !!client && !!row?.token && !!address,
-    queryFn: async () => {
-      const netKey = getStoredNetworkKey();
-      const chain = getNetworkByKey(netKey);
-      const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = chain.lookbackBlocks;
-      const fromBlock =
-        currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
-
-      return queryLogsInChunks(
-        client,
-        {
-          address: row.token,
-          event: {
-            type: "event",
-            name: "Transfer",
-            inputs: [
-              { indexed: true, name: "from", type: "address" },
-              { indexed: true, name: "to", type: "address" },
-              { indexed: false, name: "value", type: "uint256" },
-            ],
-          },
-          args: { from: address },
-          fromBlock,
-          toBlock: "latest",
-        },
-        10000n
-      );
-    },
-  });
-
-  const decimals = Number(row.decimals || 0);
-  const base = 10n ** BigInt(decimals);
-  const tickets = (row.balance ?? 0n) / base;
-
-  const merged = useMemo(() => {
-    const ins = (inQuery.data || []).map((l) => ({
-      dir: "IN",
-      value: l.args?.value ?? 0n,
-      blockNumber: l.blockNumber,
-      txHash: l.transactionHash,
-      from: l.args?.from,
-      to: l.args?.to,
-    }));
-    const outs = (outQuery.data || []).map((l) => ({
-      dir: "OUT",
-      value: l.args?.value ?? 0n,
-      blockNumber: l.blockNumber,
-      txHash: l.transactionHash,
-      from: l.args?.from,
-      to: l.args?.to,
-    }));
-    return [...ins, ...outs].sort((a, b) =>
-      Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n))
-    );
-  }, [inQuery.data, outQuery.data]);
-
-  return (
-    <div className="border rounded p-2">
-      <button className="w-full text-left" onClick={() => setOpen((v) => !v)}>
-        <div className="flex justify-between items-center">
-          <div>
-            <span>
-              Season #{row.seasonId}
-              {row.name ? ` — ${row.name}` : ""}
-            </span>
-            <p className="text-xs text-muted-foreground break-all">
-              Token: {row.token}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono">{tickets.toString()} Tickets</span>
-            <Link
-              to={`/raffles/${row.seasonId}`}
-              className="text-primary hover:underline"
-            >
-              View
-            </Link>
-          </div>
-        </div>
-      </button>
-      {open && (
-        <div className="mt-2 border-t pt-2">
-          <p className="font-semibold mb-2">Buy/Sell History</p>
-          {(inQuery.isLoading || outQuery.isLoading) && (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-          {(inQuery.error || outQuery.error) && (
-            <p className="text-red-500">Error loading transfers</p>
-          )}
-          {!inQuery.isLoading && !outQuery.isLoading && (
-            <div className="space-y-1">
-              {merged.length === 0 && (
-                <p className="text-muted-foreground">No transfers found.</p>
-              )}
-              {merged.map((t) => (
-                <div
-                  key={t.txHash + String(t.blockNumber)}
-                  className="text-sm flex justify-between"
-                >
-                  <span
-                    className={
-                      t.dir === "IN" ? "text-green-600" : "text-red-600"
-                    }
-                  >
-                    {t.dir === "IN" ? "+" : "-"}
-                    {((t.value ?? 0n) / base).toString()} tickets
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[60%]">
-                    {t.txHash}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-RaffleHoldingRow.propTypes = {
-  row: PropTypes.shape({
-    token: PropTypes.string,
-    decimals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    balance: PropTypes.any,
-    seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    name: PropTypes.string,
-  }).isRequired,
-  address: PropTypes.string,
-  client: PropTypes.shape({
-    getBlockNumber: PropTypes.func,
-    getLogs: PropTypes.func,
-  }),
 };
 
 // Prediction positions — on-chain aggregation across all seasons

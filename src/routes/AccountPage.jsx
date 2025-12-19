@@ -13,7 +13,6 @@ import ERC20Abi from "@/contracts/abis/ERC20.json";
 import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import ClaimCenter from "@/components/infofi/ClaimCenter";
-import { queryLogsInChunks } from "@/utils/blockRangeQuery";
 import { ClaimPrizeWidget } from "@/components/prizes/ClaimPrizeWidget";
 import {
   useUsername,
@@ -31,7 +30,7 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ExplorerLink from "@/components/common/ExplorerLink";
+import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
 import {
   Carousel,
   CarouselItem,
@@ -373,7 +372,7 @@ const AccountPage = () => {
                           </p>
                         )}
                         {(seasonBalancesQuery.data || []).length > 0 && (
-                          <Accordion type="multiple" className="space-y-2">
+                          <div className="space-y-2">
                             {(seasonBalancesQuery.data || [])
                               .slice()
                               .sort(
@@ -381,14 +380,14 @@ const AccountPage = () => {
                                   Number(b.seasonId) - Number(a.seasonId)
                               )
                               .map((row) => (
-                                <RaffleEntryRow
+                                <RaffleHoldingRow
                                   key={row.seasonId}
                                   row={row}
                                   address={address}
-                                  client={client}
+                                  showViewLink={false}
                                 />
                               ))}
-                          </Accordion>
+                          </div>
                         )}
                       </div>
                     )}
@@ -406,163 +405,6 @@ const AccountPage = () => {
       {/* Claims */}
       <ClaimCenter address={address} />
     </div>
-  );
-};
-// Subcomponent: one raffle entry with expandable transaction history
-const RaffleEntryRow = ({ row, address, client }) => {
-  // Note: We intentionally removed a generic transfersQuery due to lack of OR filters; we
-  // query IN and OUT separately below and merge for clarity and ESLint cleanliness.
-
-  // Separate queries for IN and OUT, then merge
-  const inQuery = useQuery({
-    queryKey: ["raffleTransfersIn", row.token, address],
-    enabled: !!client && !!row?.token && !!address,
-    queryFn: async () => {
-      const netKey = getStoredNetworkKey();
-      const chain = getNetworkByKey(netKey);
-      const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = chain.lookbackBlocks;
-      const fromBlock =
-        currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
-
-      return queryLogsInChunks(
-        client,
-        {
-          address: row.token,
-          event: {
-            type: "event",
-            name: "Transfer",
-            inputs: [
-              { indexed: true, name: "from", type: "address" },
-              { indexed: true, name: "to", type: "address" },
-              { indexed: false, name: "value", type: "uint256" },
-            ],
-          },
-          args: { to: address },
-          fromBlock,
-          toBlock: "latest",
-        },
-        10000n
-      );
-    },
-  });
-
-  const outQuery = useQuery({
-    queryKey: ["raffleTransfersOut", row.token, address],
-    enabled: !!client && !!row?.token && !!address,
-    queryFn: async () => {
-      const netKey = getStoredNetworkKey();
-      const chain = getNetworkByKey(netKey);
-      const currentBlock = await client.getBlockNumber();
-      const lookbackBlocks = chain.lookbackBlocks;
-      const fromBlock =
-        currentBlock > lookbackBlocks ? currentBlock - lookbackBlocks : 0n;
-
-      return queryLogsInChunks(
-        client,
-        {
-          address: row.token,
-          event: {
-            type: "event",
-            name: "Transfer",
-            inputs: [
-              { indexed: true, name: "from", type: "address" },
-              { indexed: true, name: "to", type: "address" },
-              { indexed: false, name: "value", type: "uint256" },
-            ],
-          },
-          args: { from: address },
-          fromBlock,
-          toBlock: "latest",
-        },
-        10000n
-      );
-    },
-  });
-
-  const decimals = Number(row.decimals || 0);
-  const base = 10n ** BigInt(decimals);
-  const tickets = (row.balance ?? 0n) / base;
-
-  const merged = useMemo(() => {
-    const ins = (inQuery.data || []).map((l) => ({
-      dir: "IN",
-      value: l.args?.value ?? 0n,
-      blockNumber: l.blockNumber,
-      txHash: l.transactionHash,
-      from: l.args?.from,
-      to: l.args?.to,
-    }));
-    const outs = (outQuery.data || []).map((l) => ({
-      dir: "OUT",
-      value: l.args?.value ?? 0n,
-      blockNumber: l.blockNumber,
-      txHash: l.transactionHash,
-      from: l.args?.from,
-      to: l.args?.to,
-    }));
-    return [...ins, ...outs].sort((a, b) =>
-      Number((b.blockNumber ?? 0n) - (a.blockNumber ?? 0n))
-    );
-  }, [inQuery.data, outQuery.data]);
-
-  return (
-    <AccordionItem value={`season-${row.seasonId}`}>
-      <AccordionTrigger className="px-3 py-2 text-left">
-        <div className="flex flex-col w-full">
-          <div className="flex items-center justify-between">
-            <span>
-              Season #{row.seasonId}
-              {row.name ? ` — ${row.name}` : ""}
-            </span>
-            <span className="font-mono">{tickets.toString()} Tickets</span>
-          </div>
-          <p className="text-xs break-all text-[#f9d6de]">Token: {row.token}</p>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent>
-        <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
-          <p className="font-semibold mb-2">Transactions</p>
-          {(inQuery.isLoading || outQuery.isLoading) && (
-            <p className="text-muted-foreground">Loading...</p>
-          )}
-          {(inQuery.error || outQuery.error) && (
-            <p className="text-red-500">Error loading transfers</p>
-          )}
-          {!inQuery.isLoading && !outQuery.isLoading && (
-            <div className="space-y-1">
-              {merged.length === 0 && (
-                <p className="text-muted-foreground">No transfers found.</p>
-              )}
-              {merged.map((t) => (
-                <div
-                  key={t.txHash + String(t.blockNumber)}
-                  className="text-sm flex justify-between items-center gap-2"
-                >
-                  <span
-                    className={
-                      t.dir === "IN" ? "text-green-600" : "text-red-600"
-                    }
-                  >
-                    {t.dir === "IN" ? "+" : "-"}
-                    {((t.value ?? 0n) / base).toString()} tickets
-                  </span>
-                  <div className="max-w-[60%] flex-1">
-                    <ExplorerLink
-                      value={t.txHash}
-                      type="tx"
-                      text="View transaction on Explorer"
-                      className="text-xs text-[#a89e99] underline truncate"
-                      copyLabelText="Copy transaction ID to clipboard."
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </AccordionContent>
-    </AccordionItem>
   );
 };
 /**
@@ -945,23 +787,6 @@ InfoFiPositionsTab.propTypes = {
 export default AccountPage;
 
 // PropTypes appended at end of file to satisfy ESLint prop validation
-RaffleEntryRow.propTypes = {
-  row: PropTypes.shape({
-    token: PropTypes.string,
-    decimals: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    // Accept any type for balance to support BigInt in dev
-    balance: PropTypes.any,
-    seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    name: PropTypes.string,
-  }).isRequired,
-  address: PropTypes.string,
-  client: PropTypes.shape({
-    getLogs: PropTypes.func,
-    getBlockNumber: PropTypes.func,
-    readContract: PropTypes.func,
-  }),
-};
-
 UsernameEditor.propTypes = {
   address: PropTypes.string.isRequired,
   currentUsername: PropTypes.string,
