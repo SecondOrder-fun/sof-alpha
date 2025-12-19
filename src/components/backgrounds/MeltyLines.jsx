@@ -1,22 +1,52 @@
 // src/components/backgrounds/MeltyLines.jsx
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 /**
  * MeltyLines - Animated SVG background with organic bezier curves
  * Uses setInterval + setAttribute pattern with CSS transitions for smooth motion
  * Colors: SecondOrder.fun brand palette
+ *
+ * Mobile optimizations:
+ * - Fewer lines on mobile (3 vs 5)
+ * - No blur filter on mobile (expensive on GPU)
+ * - Longer update interval on mobile
+ * - will-change hint for GPU acceleration
  */
 const MeltyLines = () => {
   const svgRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Brand colors from tailwind.css
-  const colors = [
+  useEffect(() => {
+    // Detect mobile for performance optimizations
+    const checkMobile = () => {
+      const mobile =
+        window.innerWidth <= 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        );
+      setIsMobile(mobile);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Brand colors from tailwind.css - fewer on mobile
+  const desktopColors = [
     "#c82a54", // Cochineal Red
     "#e25167", // Fabric Red
     "#f9d6de", // Pastel Rose
     "#a89e99", // Cement
     "#c82a54", // Cochineal Red (repeat for more lines)
   ];
+
+  const mobileColors = [
+    "#c82a54", // Cochineal Red
+    "#e25167", // Fabric Red
+    "#a89e99", // Cement
+  ];
+
+  const colors = isMobile ? mobileColors : desktopColors;
 
   // Generate random bezier curve path for organic movement
   const generatePath = useCallback((index, total) => {
@@ -54,7 +84,6 @@ const MeltyLines = () => {
     ).matches;
 
     if (prefersReducedMotion) {
-      // Set initial paths but don&apos;t animate
       updatePaths();
       return;
     }
@@ -62,27 +91,28 @@ const MeltyLines = () => {
     // Initial path generation
     updatePaths();
 
-    // Update paths every 2.5 seconds for smooth, hypnotic motion
-    const interval = setInterval(updatePaths, 2500);
+    // Longer interval on mobile for better performance (3.5s vs 2.5s)
+    const intervalTime = isMobile ? 3500 : 2500;
+    const interval = setInterval(updatePaths, intervalTime);
 
-    // Also update on click for interactivity
-    const svg = svgRef.current;
-    if (svg) {
-      svg.addEventListener("click", updatePaths);
-    }
-
-    // Handle window resize
-    const handleResize = () => updatePaths();
+    // Handle window resize (debounced on mobile)
+    let resizeTimeout;
+    const handleResize = () => {
+      if (isMobile) {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updatePaths, 200);
+      } else {
+        updatePaths();
+      }
+    };
     window.addEventListener("resize", handleResize);
 
     return () => {
       clearInterval(interval);
+      clearTimeout(resizeTimeout);
       window.removeEventListener("resize", handleResize);
-      if (svg) {
-        svg.removeEventListener("click", updatePaths);
-      }
     };
-  }, [updatePaths]);
+  }, [updatePaths, isMobile]);
 
   return (
     <svg
@@ -91,33 +121,37 @@ const MeltyLines = () => {
       style={{
         zIndex: 0,
         opacity: 0.25,
-        mixBlendMode: "screen",
+        willChange: "contents",
+        transform: "translateZ(0)", // Force GPU layer
       }}
       aria-hidden="true"
     >
-      <defs>
-        {/* Optional glow filter for extra visual effect */}
-        <filter id="melty-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
+      {!isMobile && (
+        <defs>
+          <filter id="melty-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      )}
 
       {colors.map((color, i) => (
         <path
-          key={i}
+          key={`${isMobile ? "m" : "d"}-${i}`}
           d={`M 0 ${(i + 1) * 150} L ${
             typeof window !== "undefined" ? window.innerWidth : 1920
           } ${(i + 1) * 150}`}
           stroke={color}
-          strokeWidth={2 + Math.random()}
+          strokeWidth={isMobile ? 2 : 2 + Math.random()}
           fill="none"
-          filter="url(#melty-glow)"
+          filter={isMobile ? undefined : "url(#melty-glow)"}
           style={{
-            transition: "d 1.8s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: `d ${
+              isMobile ? "2.5s" : "1.8s"
+            } cubic-bezier(0.4, 0, 0.2, 1)`,
           }}
         />
       ))}
