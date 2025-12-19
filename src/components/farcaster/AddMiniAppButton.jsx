@@ -54,25 +54,17 @@ const AddMiniAppButton = ({
           sdkInstance.actions.ready();
 
           // Listen for miniapp removed event to show Add button again
-          // SDK uses camelCase: miniappRemoved (not miniAppRemoved)
           sdkInstance.on("miniappRemoved", () => {
-            console.log("[AddMiniAppButton] miniappRemoved event received");
             setIsAdded(false);
             setHasNotifications(false);
           });
 
           // Listen for notifications enabled/disabled events
           sdkInstance.on("notificationsEnabled", () => {
-            console.log(
-              "[AddMiniAppButton] notificationsEnabled event received"
-            );
             setHasNotifications(true);
           });
 
           sdkInstance.on("notificationsDisabled", () => {
-            console.log(
-              "[AddMiniAppButton] notificationsDisabled event received"
-            );
             setHasNotifications(false);
           });
         }
@@ -87,6 +79,31 @@ const AddMiniAppButton = ({
 
     loadSDK();
   }, []);
+
+  // Base App workaround: re-check context when app becomes visible
+  // Base App doesn't fire miniappRemoved SDK event, only sends webhook
+  useEffect(() => {
+    if (!sdk || !isBaseApp) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const freshContext = await sdk.context;
+          if (freshContext?.client) {
+            setIsAdded(freshContext.client.added);
+            setHasNotifications(!!freshContext.client.notificationDetails);
+          }
+        } catch {
+          // Ignore errors during context refresh
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [sdk, isBaseApp]);
 
   // Farcaster client handler (working - don't change)
   const handleAddAppFarcaster = useCallback(async () => {
