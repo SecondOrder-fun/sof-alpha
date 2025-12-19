@@ -28,6 +28,7 @@ import InfoFiMarketsPanel from "@/components/admin/InfoFiMarketsPanel";
 import useFundDistributor from "@/hooks/useFundDistributor";
 import { BackendWalletManager } from "@/features/admin/components/BackendWalletManager";
 import { ManualMarketCreation } from "@/features/admin/components/ManualMarketCreation";
+import NotificationPanel from "@/components/admin/NotificationPanel";
 
 function AdminPanel() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
@@ -83,7 +84,6 @@ function AdminPanel() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-
   // Initialize the FundDistributor hook
   const { fundDistributorManual } = useFundDistributor({
     seasonId: null, // Set to null initially, will be provided when button is clicked
@@ -109,16 +109,17 @@ function AdminPanel() {
           Manage raffle seasons, backend services, and contract settings
         </p>
       </div>
-      
+
       <Tabs defaultValue="seasons" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="seasons">Seasons</TabsTrigger>
           <TabsTrigger value="markets">InfoFi Markets</TabsTrigger>
           <TabsTrigger value="backend">Backend Wallet</TabsTrigger>
           <TabsTrigger value="manual">Manual Markets</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="seasons" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             <Card>
@@ -169,19 +170,23 @@ function AdminPanel() {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="markets" className="space-y-4">
           <InfoFiMarketsPanel />
         </TabsContent>
-        
+
         <TabsContent value="backend" className="space-y-4">
           <BackendWalletManager />
         </TabsContent>
-        
+
         <TabsContent value="manual" className="space-y-4">
           <ManualMarketCreation />
         </TabsContent>
-        
+
+        <TabsContent value="notifications" className="space-y-4">
+          <NotificationPanel />
+        </TabsContent>
+
         <TabsContent value="debug" className="space-y-4">
           <Card>
             <CardHeader>
