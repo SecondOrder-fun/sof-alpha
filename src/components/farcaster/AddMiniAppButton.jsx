@@ -52,6 +52,21 @@ const AddMiniAppButton = ({
           }
           // Signal that the app is ready
           sdkInstance.actions.ready();
+
+          // Listen for miniapp_removed event to show Add button again
+          sdkInstance.on("miniAppRemoved", () => {
+            setIsAdded(false);
+            setHasNotifications(false);
+          });
+
+          // Listen for notifications enabled/disabled events
+          sdkInstance.on("notificationsEnabled", () => {
+            setHasNotifications(true);
+          });
+
+          sdkInstance.on("notificationsDisabled", () => {
+            setHasNotifications(false);
+          });
         }
 
         setIsSDKLoaded(true);
@@ -113,9 +128,7 @@ const AddMiniAppButton = ({
     setError(null);
 
     try {
-      console.log("[AddMiniApp] Calling sdk.actions.addMiniApp()...");
       const response = await sdk.actions.addMiniApp();
-      console.log("[AddMiniApp] Response:", JSON.stringify(response));
 
       // Base App format per docs: response has notificationDetails if notifications enabled
       // Success is indicated by not throwing an error
@@ -129,11 +142,8 @@ const AddMiniAppButton = ({
         onAdded?.(response);
       }
     } catch (err) {
-      console.error("[AddMiniApp] Error object:", err);
-      console.error("[AddMiniApp] Error message:", err?.message);
-      console.error("[AddMiniApp] Error type:", err?.type);
       const errorMessage =
-        err instanceof Error ? err.message : JSON.stringify(err);
+        err instanceof Error ? err.message : "Failed to add app";
       setError(errorMessage);
       onError?.(err);
     } finally {
