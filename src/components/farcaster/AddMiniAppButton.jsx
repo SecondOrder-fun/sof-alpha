@@ -53,18 +53,26 @@ const AddMiniAppButton = ({
           // Signal that the app is ready
           sdkInstance.actions.ready();
 
-          // Listen for miniapp_removed event to show Add button again
-          sdkInstance.on("miniAppRemoved", () => {
+          // Listen for miniapp removed event to show Add button again
+          // SDK uses camelCase: miniappRemoved (not miniAppRemoved)
+          sdkInstance.on("miniappRemoved", () => {
+            console.log("[AddMiniAppButton] miniappRemoved event received");
             setIsAdded(false);
             setHasNotifications(false);
           });
 
           // Listen for notifications enabled/disabled events
           sdkInstance.on("notificationsEnabled", () => {
+            console.log(
+              "[AddMiniAppButton] notificationsEnabled event received"
+            );
             setHasNotifications(true);
           });
 
           sdkInstance.on("notificationsDisabled", () => {
+            console.log(
+              "[AddMiniAppButton] notificationsDisabled event received"
+            );
             setHasNotifications(false);
           });
         }
