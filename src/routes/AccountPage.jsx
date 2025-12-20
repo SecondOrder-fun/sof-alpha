@@ -172,10 +172,11 @@ const AccountPage = () => {
     staleTime: 15_000,
   });
 
-  const sofBalance = useMemo(
-    () => fmt(sofBalanceQuery.data, 18),
-    [sofBalanceQuery.data]
-  );
+  const sofBalance = useMemo(() => {
+    const raw = fmt(sofBalanceQuery.data, 18);
+    const num = parseFloat(raw);
+    return isNaN(num) ? "0" : num.toFixed(4);
+  }, [sofBalanceQuery.data]);
 
   // Winning seasons for Completed Season Prizes carousel
   const winningSeasonsQuery = useQuery({
@@ -281,9 +282,9 @@ const AccountPage = () => {
         </Card>
       )}
 
-      {/* When connected, lay out Account Information and Raffle Ticket Balances side by side (30/70 split) */}
+      {/* When connected, lay out Account Information (30%) and Balances (70%) side by side */}
       {isConnected && (
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-[30%_70%] gap-4">
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-[3fr_7fr] gap-4">
           <Card>
             <CardHeader>
               <CardTitle>Account Information</CardTitle>

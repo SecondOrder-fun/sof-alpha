@@ -35,9 +35,11 @@ import { RaffleAdminControls } from "@/components/admin/RaffleAdminControls";
 import { TreasuryControls } from "@/components/admin/TreasuryControls";
 import SecondaryCard from "@/components/common/SecondaryCard";
 import ExplorerLink from "@/components/common/ExplorerLink";
+import CountdownTimer from "@/components/common/CountdownTimer";
+import { formatTimestamp } from "@/lib/utils";
 
 const RaffleDetails = () => {
-  const { t, i18n } = useTranslation("raffle");
+  const { t } = useTranslation("raffle");
   const { seasonId } = useParams();
   const [searchParams] = useSearchParams();
   const modeParam = searchParams.get("mode");
@@ -290,19 +292,23 @@ const RaffleDetails = () => {
                 }
               />
 
-              <div className="px-6 text-xs text-[#f9d6de]">
-                <span className="mr-4">
-                  {t("start")}:{" "}
-                  {new Date(Number(cfg.startTime) * 1000).toLocaleString(
-                    i18n.language
-                  )}
+              <div className="px-6 text-xs text-[#f9d6de] flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span>
+                  {t("start")}: {formatTimestamp(cfg.startTime)}
                 </span>
                 <span>
-                  {t("end")}:{" "}
-                  {new Date(Number(cfg.endTime) * 1000).toLocaleString(
-                    i18n.language
-                  )}
+                  {t("end")}: {formatTimestamp(cfg.endTime)}
                 </span>
+                {seasonDetailsQuery.data.status === 1 && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-[#c82a54]">{t("endsIn")}:</span>
+                    <CountdownTimer
+                      targetTimestamp={Number(cfg.endTime)}
+                      compact
+                      className="text-white"
+                    />
+                  </span>
+                )}
               </div>
 
               {(() => {

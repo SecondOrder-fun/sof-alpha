@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import CountdownTimer from "@/components/common/CountdownTimer";
 
 const ActiveSeasonCard = ({ season, renderBadge }) => {
   const navigate = useNavigate();
@@ -39,6 +40,8 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
     }
   })();
 
+  const endTime = season?.config?.endTime;
+
   return (
     <Card className="flex flex-col h-full border border-[#353e34] bg-[#130013]">
       <CardHeader className="py-1 pb-0">
@@ -51,6 +54,17 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
           </div>
           {renderBadge(season.status)}
         </div>
+        {/* Countdown timer for active seasons */}
+        {season.status === 1 && endTime && (
+          <div className="flex items-center gap-1 text-xs mt-1">
+            <span className="text-[#a89e99]">{t("endsIn")}:</span>
+            <CountdownTimer
+              targetTimestamp={Number(endTime)}
+              compact
+              className="text-[#f9d6de]"
+            />
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
         <div className="overflow-hidden rounded-md bg-black/40">
@@ -96,6 +110,8 @@ ActiveSeasonCard.propTypes = {
     config: PropTypes.shape({
       name: PropTypes.string,
       bondingCurve: PropTypes.string,
+      // endTime can be string, number, or BigInt from blockchain
+      endTime: PropTypes.any,
     }),
   }).isRequired,
   renderBadge: PropTypes.func.isRequired,

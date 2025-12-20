@@ -47,6 +47,7 @@
   "raffleNotFound": "Raffle Not Found",
   "raffleNotFoundDescription": "The raffle season #{{seasonId}} could not be found or has not been created yet.",
   "activeEndsIn": "Active - Ends in {{time}}",
+  "endsIn": "Ends in",
   "chanceToWin": "{{percent}}% chance to win",
   "totalTickets": "Total Tickets",
   "winnersTitle": "Winners",

@@ -172,12 +172,6 @@ const TokenInfoTab = ({
     }
   }, [curveReserves, totalParticipants]);
 
-  const netKey = getStoredNetworkKey();
-  const net = getNetworkByKey(netKey);
-  const explorerBase = net?.explorer
-    ? net.explorer.replace(/\/$/, "")
-    : undefined;
-
   const isSeasonActive = seasonStatus === 1; // SeasonStatus.Active (see `SeasonStatus` enum in `contracts/src/core/RaffleStorage.sol`)
   const displayedPrizePool = isSeasonActive
     ? curveReserves ?? 0n
@@ -204,7 +198,7 @@ const TokenInfoTab = ({
                       symbol={raffleTokenSymbol}
                       decimals={0}
                       label="Add to Wallet"
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       disabled={!(raffleTokenAddress || bondingCurveAddress)}
                       onResult={handleWalletResult}

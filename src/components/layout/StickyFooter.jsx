@@ -1,9 +1,12 @@
+/* global __APP_VERSION__, __GIT_HASH__ */
 /**
  * Sticky footer with social links and copyright
  * Always visible at bottom of viewport
  */
 
 const StickyFooter = () => {
+  const version = `v${__APP_VERSION__}-${__GIT_HASH__}`;
+
   return (
     <footer className="fixed z-10 bottom-0 left-0 right-0 py-4 text-center bg-background/80 backdrop-blur-sm border-t border-border/50">
       <div className="flex items-center justify-center gap-6 mb-2">
@@ -38,9 +41,13 @@ const StickyFooter = () => {
           </svg>
         </a>
       </div>
-      <p className="text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} SecondOrder.fun. All rights reserved.
-      </p>
+      <div className="flex items-center justify-center gap-2">
+        <p className="text-xs text-muted-foreground">
+          &copy; {new Date().getFullYear()} SecondOrder.fun. All rights
+          reserved.
+        </p>
+        <span className="text-[9px] text-muted-foreground/50">{version}</span>
+      </div>
     </footer>
   );
 };

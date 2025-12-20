@@ -3,13 +3,32 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { execSync } from "child_process";
+import { readFileSync } from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Get version from package.json
+const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
+
+// Get git commit hash for version display
+const getGitHash = () => {
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "unknown";
+  }
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(() => {
+  const gitHash = getGitHash();
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __GIT_HASH__: JSON.stringify(gitHash),
+    },
     plugins: [react()],
     resolve: {
       alias: {

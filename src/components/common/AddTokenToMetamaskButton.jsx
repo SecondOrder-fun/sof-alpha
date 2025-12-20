@@ -8,13 +8,13 @@ import { AlertCircle, CheckCircle2, Wallet } from "lucide-react";
 const AddTokenToMetamaskButton = ({
   address,
   symbol,
-  decimals,
+  decimals = 18,
   image,
   label,
-  fullWidth,
-  size,
-  variant,
-  disabled,
+  fullWidth = false,
+  size = "default",
+  variant = "outline",
+  disabled = false,
   onResult,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -134,17 +134,6 @@ AddTokenToMetamaskButton.propTypes = {
   variant: PropTypes.string,
   disabled: PropTypes.bool,
   onResult: PropTypes.func,
-};
-
-AddTokenToMetamaskButton.defaultProps = {
-  decimals: 18,
-  image: undefined,
-  label: undefined,
-  fullWidth: false,
-  size: "default",
-  variant: "outline",
-  disabled: false,
-  onResult: undefined,
 };
 
 export default AddTokenToMetamaskButton;

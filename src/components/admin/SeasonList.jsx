@@ -1,30 +1,31 @@
 // src/components/admin/SeasonList.jsx
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TransactionStatus from "./TransactionStatus";
+import { formatTimestamp } from "@/lib/utils";
 
-const SeasonList = ({ 
-  seasons, 
-  hasCreatorRole, 
-  hasEmergencyRole, 
-  chainId, 
-  networkConfig, 
-  startSeason, 
+const SeasonList = ({
+  seasons,
+  hasCreatorRole,
+  hasEmergencyRole,
+  chainId,
+  networkConfig,
+  startSeason,
   requestSeasonEnd,
   fundDistributor,
   verify,
   endingE2EId,
-  endStatus
+  endStatus,
 }) => {
-  const { t } = useTranslation('admin');
+  const { t } = useTranslation("admin");
   const [lastStartSeasonId, setLastStartSeasonId] = useState(null);
   const [lastEndSeasonId, setLastEndSeasonId] = useState(null);
-  
+
   if (!seasons || seasons.length === 0) {
-    return <p>{t('noSeasonsFound')}</p>;
+    return <p>{t("noSeasonsFound")}</p>;
   }
 
   return (
@@ -43,14 +44,9 @@ const SeasonList = ({
           const isEmergency = !!hasEmergencyRole;
           const chainMatch = chainId === networkConfig.id;
           const canStart = isNotStarted && isWindowOpen;
-          const canEnd =
-            (isActive && isPastEnd) || (isNotStarted && isPastEnd);
-          const startDate = new Date(
-            Number(season.config.startTime) * 1000
-          ).toLocaleString();
-          const endDate = new Date(
-            Number(season.config.endTime) * 1000
-          ).toLocaleString();
+          const canEnd = (isActive && isPastEnd) || (isNotStarted && isPastEnd);
+          const startDate = formatTimestamp(season.config.startTime);
+          const endDate = formatTimestamp(season.config.endTime);
           const showStartStatus = lastStartSeasonId === season.id;
 
           return (
@@ -67,49 +63,37 @@ const SeasonList = ({
                 </p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   <Badge
-                    variant={
-                      season.config.isActive ? "secondary" : "outline"
-                    }
+                    variant={season.config.isActive ? "secondary" : "outline"}
                   >
-                    {season.config.isActive ? t('ongoing') : t('inactive')}
+                    {season.config.isActive ? t("ongoing") : t("inactive")}
                   </Badge>
                   <Badge variant="outline">
                     {season.status === 0
-                      ? t('notStarted')
+                      ? t("notStarted")
                       : season.status === 1
-                      ? t('active')
-                      : t('completed')}
+                      ? t("active")
+                      : t("completed")}
                   </Badge>
-                  <Badge
-                    variant={isCreator ? "secondary" : "destructive"}
-                  >
-                    {isCreator ? t('roleOk') : t('missingRole')}
+                  <Badge variant={isCreator ? "secondary" : "destructive"}>
+                    {isCreator ? t("roleOk") : t("missingRole")}
                   </Badge>
-                  <Badge
-                    variant={isWindowOpen ? "secondary" : "destructive"}
-                  >
-                    {isWindowOpen ? t('chainTimeOk') : t('chainTimeClosed')}
+                  <Badge variant={isWindowOpen ? "secondary" : "destructive"}>
+                    {isWindowOpen ? t("chainTimeOk") : t("chainTimeClosed")}
                   </Badge>
-                  <Badge
-                    variant={isEmergency ? "secondary" : "destructive"}
-                  >
-                    {isEmergency ? t('emergencyOk') : t('noEmergencyRole')}
+                  <Badge variant={isEmergency ? "secondary" : "destructive"}>
+                    {isEmergency ? t("emergencyOk") : t("noEmergencyRole")}
                   </Badge>
-                  <Badge
-                    variant={isNotStarted ? "secondary" : "destructive"}
-                  >
+                  <Badge variant={isNotStarted ? "secondary" : "destructive"}>
                     {isNotStarted
-                      ? t('readyToStart')
+                      ? t("readyToStart")
                       : isActive
-                      ? t('alreadyActive')
-                      : t('completed')}
+                      ? t("alreadyActive")
+                      : t("completed")}
                   </Badge>
-                  <Badge
-                    variant={chainMatch ? "secondary" : "destructive"}
-                  >
+                  <Badge variant={chainMatch ? "secondary" : "destructive"}>
                     {chainMatch
-                      ? t('chainOk', { chainId })
-                      : t('wrongChain', { chainId })}
+                      ? t("chainOk", { chainId })
+                      : t("wrongChain", { chainId })}
                   </Badge>
                 </div>
               </div>
@@ -117,7 +101,7 @@ const SeasonList = ({
               <div className="flex flex-col gap-2">
                 {!hasCreatorRole && (
                   <p className="text-xs text-amber-600">
-                    {t('missingSeasonCreatorRole')}
+                    {t("missingSeasonCreatorRole")}
                   </p>
                 )}
 
@@ -133,7 +117,7 @@ const SeasonList = ({
                     !chainMatch
                   }
                 >
-                  {t('start')}
+                  {t("start")}
                 </Button>
 
                 {showStartStatus && startSeason?.error && (
@@ -158,15 +142,17 @@ const SeasonList = ({
                   >
                     {requestSeasonEnd?.isPending &&
                     lastEndSeasonId === season.id
-                      ? t('requestingEnd')
-                      : t('requestEnd')}
+                      ? t("requestingEnd")
+                      : t("requestEnd")}
                   </Button>
-                  
+
                   {lastEndSeasonId === season.id && requestSeasonEnd?.error && (
                     <div className="max-w-[260px] break-words text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                      <p className="font-semibold mb-1">{t('errorLabel')}</p>
+                      <p className="font-semibold mb-1">{t("errorLabel")}</p>
                       <p>{requestSeasonEnd.error.message}</p>
-                      <p className="text-xs text-red-500 mt-1">{t('checkConsoleForDetails')}</p>
+                      <p className="text-xs text-red-500 mt-1">
+                        {t("checkConsoleForDetails")}
+                      </p>
                     </div>
                   )}
 
@@ -179,12 +165,16 @@ const SeasonList = ({
                       !hasCreatorRole ||
                       !chainMatch
                     }
-                    title={`Status: ${season.status}, Creator Role: ${hasCreatorRole}, Chain Match: ${chainMatch}, EndingE2EId: ${endingE2EId === season.id ? 'Active' : 'Inactive'}`}
+                    title={`Status: ${
+                      season.status
+                    }, Creator Role: ${hasCreatorRole}, Chain Match: ${chainMatch}, EndingE2EId: ${
+                      endingE2EId === season.id ? "Active" : "Inactive"
+                    }`}
                     variant="outline"
                   >
                     {endingE2EId === season.id
-                      ? endStatus || t('working')
-                      : t('fundDistributor')}
+                      ? endStatus || t("working")
+                      : t("fundDistributor")}
                   </Button>
 
                   {endingE2EId === season.id && endStatus && (
@@ -201,9 +191,7 @@ const SeasonList = ({
                 {verify[season.id] && (
                   <div className="mt-2 rounded border p-2 text-xs">
                     {verify[season.id].error ? (
-                      <p className="text-red-600">
-                        {verify[season.id]?.error}
-                      </p>
+                      <p className="text-red-600">{verify[season.id]?.error}</p>
                     ) : (
                       <>
                         {(() => {
@@ -224,8 +212,7 @@ const SeasonList = ({
                             const amountBigInt = BigInt(amount);
                             const decimals = 18; // Assuming 18 decimals for SOF token
                             const divisor = 10n ** BigInt(decimals - 4);
-                            const formatted =
-                              amountBigInt / divisor / 10000n;
+                            const formatted = amountBigInt / divisor / 10000n;
                             return formatted.toString();
                           };
 
@@ -237,30 +224,35 @@ const SeasonList = ({
                             <>
                               {v.prizeDistributor && (
                                 <p>
-                                  {t('prizeDistributor')}: <span className="font-mono">{`${v.prizeDistributor.slice(0, 6)}...${v.prizeDistributor.slice(-4)}`}</span>
+                                  {t("prizeDistributor")}:{" "}
+                                  <span className="font-mono">{`${v.prizeDistributor.slice(
+                                    0,
+                                    6
+                                  )}...${v.prizeDistributor.slice(-4)}`}</span>
                                 </p>
                               )}
                               {v.raffleRoleStatus && (
                                 <p>
-                                  {t('raffleRoleStatus')}: {v.raffleRoleStatus}
+                                  {t("raffleRoleStatus")}: {v.raffleRoleStatus}
                                 </p>
                               )}
                               <p>
-                                {t('winner')}: {" "}
+                                {t("winner")}:{" "}
                                 <span className="font-mono">
                                   {winner ===
                                   "0x0000000000000000000000000000000000000000"
-                                    ? t('notSet')
-                                    : `${winner.slice(
-                                        0,
-                                        6
-                                      )}...${winner.slice(-4)}`}
+                                    ? t("notSet")
+                                    : `${winner.slice(0, 6)}...${winner.slice(
+                                        -4
+                                      )}`}
                                 </span>
                               </p>
-                              <p>{t('funded')}: {funded}</p>
                               <p>
-                                {t('grand')}: {formatToken(grandAmount)} SOF •
-                                {t('consolation')}:{" "}
+                                {t("funded")}: {funded}
+                              </p>
+                              <p>
+                                {t("grand")}: {formatToken(grandAmount)} SOF •
+                                {t("consolation")}:{" "}
                                 {formatToken(consolationAmount)} SOF
                               </p>
                             </>
@@ -268,16 +260,18 @@ const SeasonList = ({
                         })()}
                         {verify[season.id]?.requestId != null && (
                           <p>
-                            {t('vrfReqId')}: {" "}
+                            {t("vrfReqId")}:{" "}
                             {String(verify[season.id]?.requestId)}
                           </p>
                         )}
                         {verify[season.id]?.finalizeHash && (
                           <p>
-                            {t('finalizeTx')}: {" "}
+                            {t("finalizeTx")}:{" "}
                             <a
                               className="text-blue-600 underline"
-                              href={`${networkConfig.explorer}/tx/${verify[season.id].finalizeHash}`}
+                              href={`${networkConfig.explorer}/tx/${
+                                verify[season.id].finalizeHash
+                              }`}
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -308,7 +302,7 @@ SeasonList.propTypes = {
   fundDistributor: PropTypes.func.isRequired,
   verify: PropTypes.object.isRequired,
   endingE2EId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  endStatus: PropTypes.string
+  endStatus: PropTypes.string,
 };
 
 export default SeasonList;
