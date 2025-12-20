@@ -18,9 +18,8 @@ const RaffleHoldingRow = ({ row, address, showViewLink = true }) => {
     enabled: open && !!address && !!row?.seasonId,
     queryFn: async () => {
       const url = `${
-        import.meta.env.VITE_BACKEND_URL ||
-        "https://sof-alpha-production.up.railway.app"
-      }/api/raffle/transactions/${address}/${row.seasonId}`;
+        import.meta.env.VITE_API_BASE_URL
+      }/raffle/transactions/${address}/${row.seasonId}`;
 
       const response = await fetch(url);
       if (!response.ok) {

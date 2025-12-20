@@ -13,8 +13,7 @@ import { useRaffleRead } from "@/hooks/useRaffleRead";
 import { buildMarketTitleParts } from "@/lib/marketTitle";
 import { formatDistanceToNow } from "date-fns";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * InfoFiMarketDetail Page

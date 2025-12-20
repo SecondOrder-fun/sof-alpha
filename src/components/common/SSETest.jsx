@@ -6,8 +6,7 @@ import { safeStringify } from "@/lib/jsonUtils";
 import { useSSEContext } from "@/hooks/useSSEContext";
 import { useToast } from "@/hooks/useToast";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const SSETest = () => {
   const { createConnection, removeConnection } = useSSEContext();

@@ -1,8 +1,7 @@
 // src/hooks/useInfoFiMarketsAdmin.js
 import { useQuery } from "@tanstack/react-query";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * Fetch InfoFi markets admin summary from backend

@@ -29,6 +29,7 @@ import useFundDistributor from "@/hooks/useFundDistributor";
 import { BackendWalletManager } from "@/features/admin/components/BackendWalletManager";
 import { ManualMarketCreation } from "@/features/admin/components/ManualMarketCreation";
 import NotificationPanel from "@/components/admin/NotificationPanel";
+import AllowlistPanel from "@/components/admin/AllowlistPanel";
 
 function AdminPanel() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
@@ -111,12 +112,13 @@ function AdminPanel() {
       </div>
 
       <Tabs defaultValue="seasons" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="seasons">Seasons</TabsTrigger>
           <TabsTrigger value="markets">InfoFi Markets</TabsTrigger>
           <TabsTrigger value="backend">Backend Wallet</TabsTrigger>
           <TabsTrigger value="manual">Manual Markets</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="debug">Debug</TabsTrigger>
         </TabsList>
 
@@ -185,6 +187,10 @@ function AdminPanel() {
 
         <TabsContent value="notifications" className="space-y-4">
           <NotificationPanel />
+        </TabsContent>
+
+        <TabsContent value="allowlist" className="space-y-4">
+          <AllowlistPanel />
         </TabsContent>
 
         <TabsContent value="debug" className="space-y-4">

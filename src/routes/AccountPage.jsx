@@ -504,9 +504,8 @@ const InfoFiPositionsTab = ({ address }) => {
     enabled: !!address,
     queryFn: async () => {
       const url = `${
-        import.meta.env.VITE_BACKEND_URL ||
-        "https://sof-alpha-production.up.railway.app"
-      }/api/infofi/positions/${address}`;
+        import.meta.env.VITE_API_BASE_URL
+      }/infofi/positions/${address}`;
 
       console.log("[InfoFi] Fetching trades from:", url);
 
@@ -543,9 +542,8 @@ const InfoFiPositionsTab = ({ address }) => {
       // Fetch markets from Supabase (includes contract_address)
       const response = await fetch(
         `${
-          import.meta.env.VITE_BACKEND_URL ||
-          "https://sof-alpha-production.up.railway.app"
-        }/api/infofi/markets?seasonId=${seasonId}&isActive=true`
+          import.meta.env.VITE_API_BASE_URL
+        }/infofi/markets?seasonId=${seasonId}&isActive=true`
       );
 
       if (!response.ok) {

@@ -6,9 +6,7 @@ import { useAccount } from "wagmi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 
-const API_BASE =
-  import.meta.env.VITE_BACKEND_URL ||
-  "https://sof-alpha-production.up.railway.app";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const UsersIndex = () => {
   const { t } = useTranslation("common");

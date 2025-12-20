@@ -1,8 +1,8 @@
 // src/hooks/useBatchUsernames.js
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * Get usernames for multiple wallet addresses
@@ -11,15 +11,22 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api
  */
 export const useBatchUsernames = (addresses) => {
   return useQuery({
-    queryKey: ['usernames', 'batch', addresses?.map(a => a?.toLowerCase()).sort().join(',')],
+    queryKey: [
+      "usernames",
+      "batch",
+      addresses
+        ?.map((a) => a?.toLowerCase())
+        .sort()
+        .join(","),
+    ],
     queryFn: async () => {
       if (!addresses || addresses.length === 0) {
         return {};
       }
 
       // Filter out invalid addresses
-      const validAddresses = addresses.filter(addr => 
-        addr && /^0x[a-fA-F0-9]{40}$/.test(addr)
+      const validAddresses = addresses.filter(
+        (addr) => addr && /^0x[a-fA-F0-9]{40}$/.test(addr)
       );
 
       if (validAddresses.length === 0) {
@@ -28,7 +35,7 @@ export const useBatchUsernames = (addresses) => {
 
       const response = await axios.get(`${API_BASE}/usernames/batch`, {
         params: {
-          addresses: validAddresses.join(','),
+          addresses: validAddresses.join(","),
         },
       });
 
