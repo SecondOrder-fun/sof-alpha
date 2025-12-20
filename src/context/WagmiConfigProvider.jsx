@@ -1,33 +1,74 @@
 // src/context/WagmiConfigProvider.jsx
-import { useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { WagmiProvider, createConfig, http } from 'wagmi';
-import { injected } from 'wagmi/connectors';
-import { getChainConfig, getStoredNetworkKey } from '@/lib/wagmi';
+import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
+import { WagmiProvider, createConfig, http, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
+import { getChainConfig, getStoredNetworkKey } from "@/lib/wagmi";
 
 // Get initial network configuration
 const initialNetworkKey = (() => {
   try {
     return getStoredNetworkKey();
   } catch {
-    return 'TESTNET';
+    return "TESTNET";
   }
 })();
 
 // Build chain config for TESTNET only
-const testnetChainConfig = getChainConfig('TESTNET');
+const testnetChainConfig = getChainConfig("TESTNET");
 
 // Export initial chain for compatibility
 export const getInitialChain = () => testnetChainConfig.chain;
 
-// Create config with injected provider only (no WalletConnect)
+// Create config with both injected and Farcaster connectors
 const config = createConfig({
   chains: [testnetChainConfig.chain],
-  connectors: [injected()],
+  connectors: [farcasterFrame(), injected()],
   transports: {
-    [testnetChainConfig.chain.id]: http(testnetChainConfig.chain.rpcUrls.default.http[0]),
+    [testnetChainConfig.chain.id]: http(
+      testnetChainConfig.chain.rpcUrls.default.http[0]
+    ),
   },
 });
+
+/**
+ * Auto-connect component for Farcaster/Base App
+ * Automatically connects using the Farcaster connector when in a MiniApp context
+ */
+const FarcasterAutoConnect = () => {
+  const { connect, connectors } = useConnect();
+  const [hasAttempted, setHasAttempted] = useState(false);
+
+  useEffect(() => {
+    if (hasAttempted) return;
+
+    const autoConnect = async () => {
+      try {
+        // Dynamically import SDK to check if we're in Farcaster
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        const ctx = await sdk.context;
+
+        if (ctx) {
+          // We're in a Farcaster client - find and use the Farcaster connector
+          const farcasterConnector = connectors.find(
+            (c) => c.id === "farcaster-frame" || c.name === "Farcaster"
+          );
+          if (farcasterConnector) {
+            connect({ connector: farcasterConnector });
+          }
+        }
+      } catch {
+        // Not in Farcaster client - no auto-connect
+      }
+      setHasAttempted(true);
+    };
+
+    autoConnect();
+  }, [connect, connectors, hasAttempted]);
+
+  return null;
+};
 
 export const WagmiConfigProvider = ({ children }) => {
   useEffect(() => {
@@ -42,18 +83,19 @@ export const WagmiConfigProvider = ({ children }) => {
         }
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Error handling network change:', error);
+        console.error("Error handling network change:", error);
       }
     };
 
-    window.addEventListener('sof:network-changed', handleNetworkChange);
+    window.addEventListener("sof:network-changed", handleNetworkChange);
     return () => {
-      window.removeEventListener('sof:network-changed', handleNetworkChange);
+      window.removeEventListener("sof:network-changed", handleNetworkChange);
     };
   }, []);
 
   return (
     <WagmiProvider config={config}>
+      <FarcasterAutoConnect />
       {children}
     </WagmiProvider>
   );

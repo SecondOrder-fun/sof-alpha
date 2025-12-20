@@ -4,8 +4,30 @@
  * Always visible at bottom of viewport
  */
 
+import { useAccount } from "wagmi";
+import { useState, useEffect } from "react";
+
 const StickyFooter = () => {
   const version = `v${__APP_VERSION__}-${__GIT_HASH__}`;
+  const { isConnected } = useAccount();
+  const [isInFarcaster, setIsInFarcaster] = useState(false);
+
+  // Check if we're in a Farcaster client
+  useEffect(() => {
+    const checkFarcaster = async () => {
+      try {
+        const { sdk } = await import("@farcaster/miniapp-sdk");
+        const ctx = await sdk.context;
+        setIsInFarcaster(!!ctx);
+      } catch {
+        setIsInFarcaster(false);
+      }
+    };
+    checkFarcaster();
+  }, []);
+
+  // Show green lamp only in Farcaster/Base App when connected
+  const showConnectionLamp = isInFarcaster && isConnected;
 
   return (
     <footer className="fixed z-10 bottom-0 left-0 right-0 py-4 text-center bg-background/80 backdrop-blur-sm border-t border-border/50">
@@ -19,7 +41,7 @@ const StickyFooter = () => {
           </svg>
         </a>
         <a
-          href="https://twitter.com/SecondOrderfun"
+          href="https://x.com/SecondOrderfun"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-colors text-muted-foreground hover:text-[#c82a54]"
@@ -29,7 +51,7 @@ const StickyFooter = () => {
           </svg>
         </a>
         <a
-          href="https://warpcast.com/secondorderfun"
+          href="https://farcaster.xyz/secondorderfun"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-colors text-muted-foreground hover:text-[#c82a54]"
@@ -47,6 +69,12 @@ const StickyFooter = () => {
           reserved.
         </p>
         <span className="text-[9px] text-muted-foreground/50">{version}</span>
+        {showConnectionLamp && (
+          <span
+            className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(34,197,94,0.5)]"
+            title="Wallet connected"
+          />
+        )}
       </div>
     </footer>
   );
