@@ -37,10 +37,16 @@ export async function claimRaffleConsolationPrize({
 export async function claimInfoFiPayout({
   marketId,
   prediction,
+  contractAddress,
   networkKey = getStoredNetworkKey(),
 }) {
   try {
-    const hash = await claimPayoutTx({ marketId, prediction, networkKey });
+    const hash = await claimPayoutTx({
+      marketId,
+      prediction,
+      contractAddress,
+      networkKey,
+    });
     return { success: true, hash, error: null };
   } catch (error) {
     return { success: false, hash: null, error: error.message };
@@ -80,6 +86,7 @@ export async function executeClaim({
       return claimInfoFiPayout({
         marketId: params.marketId,
         prediction: params.prediction,
+        contractAddress: params.contractAddress,
         networkKey,
       });
 

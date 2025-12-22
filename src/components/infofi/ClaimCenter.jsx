@@ -147,18 +147,21 @@ const ClaimCenter = ({ address, title, description }) => {
     queryFn: async () => {
       const out = [];
       for (const m of discovery.data || []) {
+        if (!m.contractAddress) continue; // Skip markets without contract address
         const marketId = m.id;
         const yes = await readBetFull({
           marketId,
           account: address,
           prediction: true,
           networkKey: netKey,
+          contractAddress: m.contractAddress,
         });
         const no = await readBetFull({
           marketId,
           account: address,
           prediction: false,
           networkKey: netKey,
+          contractAddress: m.contractAddress,
         });
         if (yes.amount > 0n && yes.payout > 0n && !yes.claimed)
           out.push({
@@ -166,6 +169,7 @@ const ClaimCenter = ({ address, title, description }) => {
             marketId,
             prediction: true,
             payout: yes.payout,
+            contractAddress: m.contractAddress,
             type: "infofi",
           });
         if (no.amount > 0n && no.payout > 0n && !no.claimed)
@@ -174,6 +178,7 @@ const ClaimCenter = ({ address, title, description }) => {
             marketId,
             prediction: false,
             payout: no.payout,
+            contractAddress: m.contractAddress,
             type: "infofi",
           });
       }
@@ -432,13 +437,13 @@ const ClaimCenter = ({ address, title, description }) => {
 
   // Mutations for claiming
   const claimInfoFiOne = useMutation({
-    mutationFn: async ({ marketId, prediction }) => {
+    mutationFn: async ({ marketId, prediction, contractAddress }) => {
       const claimKey = getClaimKey("infofi", { marketId, prediction });
       setPendingClaims((prev) => new Set(prev).add(claimKey));
 
       const result = await executeClaim({
         type: "infofi-payout",
-        params: { marketId, prediction },
+        params: { marketId, prediction, contractAddress },
         networkKey: netKey,
       });
       if (!result.success) throw new Error(result.error);
@@ -825,6 +830,7 @@ const ClaimCenter = ({ address, title, description }) => {
                                           claimInfoFiOne.mutate({
                                             marketId: r.marketId,
                                             prediction: r.prediction,
+                                            contractAddress: r.contractAddress,
                                           })
                                         }
                                         disabled={isInfofiPending}

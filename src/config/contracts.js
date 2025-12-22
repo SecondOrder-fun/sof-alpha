@@ -10,7 +10,6 @@
  * @property {`0x${string}` | string} INFOFI_FACTORY
  * @property {`0x${string}` | string} INFOFI_ORACLE
  * @property {`0x${string}` | string} INFOFI_SETTLEMENT
- * @property {`0x${string}` | string} INFOFI_MARKET // legacy placeholder
  * @property {`0x${string}` | string} INFOFI_FPMM // FPMM manager contract
  * @property {`0x${string}` | string} CONDITIONAL_TOKENS // Gnosis Conditional Tokens
  * @property {`0x${string}` | string} VRF_COORDINATOR

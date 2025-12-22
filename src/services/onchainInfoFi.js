@@ -50,91 +50,85 @@ export async function readBetFull({
   account,
   prediction,
   networkKey = getDefaultNetworkKey(),
+  contractAddress, // Required parameter, no default
 }) {
+  if (!contractAddress) {
+    throw new Error("Contract address is required");
+  }
+
   const { publicClient } = buildClients(networkKey);
-  const { market } = getContracts(networkKey);
-  if (!market.address) throw new Error("INFOFI_MARKET address missing");
   const idU256 = toUint256Id(marketId);
 
   // Try explicit overload when prediction is provided
   if (typeof prediction === "boolean") {
     try {
       const bet = await publicClient.readContract({
-        address: market.address,
-        abi: market.abi,
+        address: contractAddress,
+        abi: InfoFiMarketAbi,
         functionName: "getBet",
         args: [idU256, getAddress(account), prediction],
       });
-      const arr = Array.isArray(bet)
-        ? bet
-        : [bet.prediction, bet.amount, bet.claimed, bet.payout];
       return {
-        prediction: Boolean(arr[0]),
-        amount: BigInt(arr[1] ?? 0),
-        claimed: Boolean(arr[2]),
-        payout: BigInt(arr[3] ?? 0),
+        prediction: bet.prediction ?? prediction,
+        amount: BigInt(bet.amount ?? 0),
+        claimed: Boolean(bet.claimed),
+        payout: BigInt(bet.payout ?? 0),
       };
-    } catch (_) {
-      /* fall through */
+    } catch (error) {
+      // Error in readBet with prediction, falling back to full scan
+      // Continue to full scan on error
     }
   }
-  // Fallback to two-arg overload
-  try {
-    const bet = await publicClient.readContract({
-      address: market.address,
-      abi: market.abi,
-      functionName: "getBet",
-      args: [idU256, getAddress(account)],
-    });
-    const arr = Array.isArray(bet)
-      ? bet
-      : [bet.prediction, bet.amount, bet.claimed, bet.payout];
-    return {
-      prediction: Boolean(arr[0]),
-      amount: BigInt(arr[1] ?? 0),
-      claimed: Boolean(arr[2]),
-      payout: BigInt(arr[3] ?? 0),
-    };
-  } catch (e) {
-    return { prediction: false, amount: 0n, claimed: false, payout: 0n };
-  }
+
+  // Fall back to checking both sides if prediction not provided or fails
+  const [yesBet, noBet] = await Promise.all([
+    publicClient
+      .readContract({
+        address: contractAddress,
+        abi: InfoFiMarketAbi,
+        functionName: "getBet",
+        args: [idU256, getAddress(account), true],
+      })
+      .then((bet) => ({
+        prediction: true,
+        amount: BigInt(bet.amount ?? 0),
+        claimed: Boolean(bet.claimed),
+        payout: BigInt(bet.payout ?? 0),
+      }))
+      .catch(() => ({
+        prediction: true,
+        amount: 0n,
+        claimed: false,
+        payout: 0n,
+      })),
+    publicClient
+      .readContract({
+        address: contractAddress,
+        abi: InfoFiMarketAbi,
+        functionName: "getBet",
+        args: [idU256, getAddress(account), false],
+      })
+      .then((bet) => ({
+        prediction: false,
+        amount: BigInt(bet.amount ?? 0),
+        claimed: Boolean(bet.claimed),
+        payout: BigInt(bet.payout ?? 0),
+      }))
+      .catch(() => ({
+        prediction: false,
+        amount: 0n,
+        claimed: false,
+        payout: 0n,
+      })),
+  ]);
+
+  // Return the non-zero position if any
+  if (yesBet.amount > 0n) return yesBet;
+  if (noBet.amount > 0n) return noBet;
+  return { prediction: null, amount: 0n, claimed: false, payout: 0n };
 }
 
-// Enumerate all markets directly from the InfoFiMarket contract as a fallback when
-// factory events or season player lists are unavailable.
-export async function enumerateAllMarkets({ networkKey = "TESTNET" }) {
-  const { publicClient } = buildClients(networkKey);
-  const { market } = getContracts(networkKey);
-  if (!market.address) throw new Error("INFOFI_MARKET address missing");
-
-  const nextId = await publicClient.readContract({
-    address: market.address,
-    abi: market.abi,
-    functionName: "nextMarketId",
-    args: [],
-  });
-  const count =
-    typeof nextId === "bigint" ? Number(nextId) : Number(nextId || 0);
-  const out = [];
-  for (let i = 0; i < count; i += 1) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const info = await publicClient.readContract({
-        address: market.address,
-        abi: market.abi,
-        functionName: "getMarket",
-        args: [BigInt(i)],
-      });
-      const raffleId = Number(
-        info?.raffleId ?? (Array.isArray(info) ? info[1] : 0)
-      );
-      out.push({ id: String(i), seasonId: raffleId, raffle_id: raffleId });
-    } catch (_) {
-      /* skip */
-    }
-  }
-  return out;
-}
+// Removed enumerateAllMarkets - now using backend API for market data
 
 // Helpers to normalize marketId into both candidate shapes
 function toUint256Id(marketId) {
@@ -613,7 +607,6 @@ export async function listSeasonWinnerMarketsByEvents({
 
 // Read a user's bet position for a given marketId and side
 export async function readBet({
-  marketId,
   account,
   prediction,
   networkKey = getDefaultNetworkKey(),
@@ -659,8 +652,7 @@ export async function readBet({
     if (error.message?.includes("reverted")) {
       return { amount: 0n };
     }
-    // Log unexpected errors
-    console.error("Error reading FPMM position:", error);
+    // Return empty position
     return { amount: 0n };
   }
 }
@@ -692,7 +684,7 @@ export async function readFpmmPosition({
   const addrs = getContractAddresses(networkKey);
 
   if (!addrs.CONDITIONAL_TOKENS) {
-    console.warn("CONDITIONAL_TOKENS address not configured");
+    // CONDITIONAL_TOKENS address not configured
     return { amount: 0n };
   }
 
@@ -773,19 +765,16 @@ export async function readFpmmPosition({
 
     return { amount: balance };
   } catch (error) {
-    console.error("Error reading FPMM position:", error);
+    // Error reading FPMM position - return empty position
     return { amount: 0n };
   }
 }
 
 // Place a bet (buy position) using FPMM system. Amount is SOF (18 decimals) as human string/number.
 export async function placeBetTx({
-  marketId,
   prediction,
   amount,
   networkKey = getDefaultNetworkKey(),
-  seasonId,
-  player,
   fpmmAddress: providedFpmmAddress,
 }) {
   if (typeof window === "undefined" || !window.ethereum)
@@ -903,68 +892,29 @@ export async function claimPayoutTx({
   marketId,
   prediction,
   networkKey = getDefaultNetworkKey(),
+  contractAddress, // Required parameter
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
-  const chain = getNetworkByKey(networkKey);
-  const walletClient = createWalletClient({
-    chain: { id: chain.id },
-    transport: custom(window.ethereum),
-  });
-  const publicClient = createPublicClient({
-    chain: { id: chain.id },
-    transport: http(chain.rpcUrl),
-  });
+  if (!contractAddress) {
+    throw new Error("Contract address is required");
+  }
+
+  const { walletClient, publicClient } = buildClients(networkKey);
   const [from] = await walletClient.getAddresses();
   if (!from) throw new Error("Connect wallet first");
-  const { market } = getContracts(networkKey);
-  if (!market.address) throw new Error("INFOFI_MARKET address missing");
-  const idU256 = toUint256Id(marketId);
+
   const idB32 = toBytes32Id(marketId);
-  if (typeof prediction === "boolean") {
-    try {
-      const h = await walletClient.writeContract({
-        address: market.address,
-        abi: market.abi,
-        functionName: "claimPayout",
-        args: [idU256, prediction],
-        account: from,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: h });
-      return h;
-    } catch (_) {
-      const h2 = await walletClient.writeContract({
-        address: market.address,
-        abi: market.abi,
-        functionName: "claimPayout",
-        args: [idB32, prediction],
-        account: from,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: h2 });
-      return h2;
-    }
-  }
-  try {
-    const h = await walletClient.writeContract({
-      address: market.address,
-      abi: market.abi,
-      functionName: "claimPayout",
-      args: [idU256],
-      account: from,
-    });
-    await publicClient.waitForTransactionReceipt({ hash: h });
-    return h;
-  } catch (_) {
-    const h2 = await walletClient.writeContract({
-      address: market.address,
-      abi: market.abi,
-      functionName: "claimPayout",
-      args: [idB32],
-      account: from,
-    });
-    await publicClient.waitForTransactionReceipt({ hash: h2 });
-    return h2;
-  }
+
+  const { request } = await publicClient.simulateContract({
+    address: contractAddress,
+    abi: InfoFiMarketAbi,
+    functionName: "claimPayout",
+    args: prediction !== undefined ? [idB32, from, prediction] : [idB32],
+    account: from,
+  });
+
+  const hash = await walletClient.writeContract(request);
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
 }
 
 /**
