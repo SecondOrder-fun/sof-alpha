@@ -506,7 +506,27 @@ export default function AllowlistPanel() {
                   {entries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-mono">{entry.fid}</TableCell>
-                      <TableCell>{entry.username || "—"}</TableCell>
+                      <TableCell>
+                        {entry.username ? (
+                          <a
+                            href={`https://warpcast.com/${entry.username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 hover:underline text-muted-foreground hover:text-foreground"
+                          >
+                            {entry.pfpUrl && (
+                              <img
+                                src={entry.pfpUrl}
+                                alt={entry.username}
+                                className="w-6 h-6 rounded-full"
+                              />
+                            )}
+                            <span>@{entry.username}</span>
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono">
                         {entry.wallet_address ? (
                           <span title={entry.wallet_address}>

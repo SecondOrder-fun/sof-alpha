@@ -306,26 +306,31 @@ function NotificationPanel() {
                 </thead>
                 <tbody>
                   {tokensQuery.data?.tokens?.map((token) => {
-                    const getClientName = (appKey) => {
-                      if (!appKey) return "Unknown";
-                      if (
-                        appKey.includes("base") ||
-                        appKey.startsWith("0x73de7de2")
-                      )
-                        return "Base";
-                      if (
-                        appKey.includes("warpcast") ||
-                        appKey.startsWith("0xbe5ab039")
-                      )
-                        return "Warpcast";
-                      return appKey.substring(0, 10) + "...";
+                    const getClientName = (appKey, notificationUrl) => {
+                      // Primary detection: use notification URL (most reliable)
+                      if (notificationUrl) {
+                        if (notificationUrl.includes("neynar.com"))
+                          return "Warpcast";
+                        if (notificationUrl.includes("farcaster.xyz"))
+                          return "Coinbase Wallet";
+                      }
+                      // Fallback: use known app_key prefixes
+                      if (appKey) {
+                        if (appKey.startsWith("0xbe5ab039")) return "Warpcast";
+                        if (appKey.startsWith("0x73de7de2"))
+                          return "Coinbase Wallet";
+                      }
+                      return "Unknown Client";
                     };
                     return (
                       <tr key={token.id} className="border-b border-border/50">
                         <td className="py-2 px-2 font-mono">{token.fid}</td>
                         <td className="py-2 px-2">
                           <Badge variant="outline">
-                            {getClientName(token.app_key)}
+                            {getClientName(
+                              token.app_key,
+                              token.notification_url
+                            )}
                           </Badge>
                         </td>
                         <td className="py-2 px-2">

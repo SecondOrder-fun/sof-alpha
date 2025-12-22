@@ -17,8 +17,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { keccak256, stringToHex } from "viem";
 
-// Import debug component
-import { DebugSeasonStatus } from "@/components/DebugSeasonStatus";
+// Import NFT drops panel
+import NftDropsPanel from "@/components/admin/NftDropsPanel";
 
 // Import refactored components
 import TransactionStatus from "@/components/admin/TransactionStatus";
@@ -119,7 +119,7 @@ function AdminPanel() {
           <TabsTrigger value="manual">Manual Markets</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
-          <TabsTrigger value="debug">Debug</TabsTrigger>
+          <TabsTrigger value="nft">NFT</TabsTrigger>
         </TabsList>
 
         <TabsContent value="seasons" className="space-y-4">
@@ -193,16 +193,8 @@ function AdminPanel() {
           <AllowlistPanel />
         </TabsContent>
 
-        <TabsContent value="debug" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Season 1 Debug</CardTitle>
-              <CardDescription>Current status of Season 1</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DebugSeasonStatus seasonId={1} />
-            </CardContent>
-          </Card>
+        <TabsContent value="nft" className="space-y-4">
+          <NftDropsPanel />
         </TabsContent>
       </Tabs>
     </div>
