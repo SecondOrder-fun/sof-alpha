@@ -20,7 +20,7 @@ import {
 } from "@/components/common/Tabs";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
-import { readBetFull, readFpmmPosition } from "@/services/onchainInfoFi";
+import { readFpmmPosition } from "@/services/onchainInfoFi";
 import {
   getPrizeDistributor,
   getSeasonPayouts,
@@ -132,8 +132,8 @@ const ClaimCenter = ({ address, title, description }) => {
       }
       return allMarkets;
     },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const claimsQuery = useQuery({
@@ -145,47 +145,39 @@ const ClaimCenter = ({ address, title, description }) => {
     ],
     enabled: !!address && Array.isArray(discovery.data),
     queryFn: async () => {
+      // Fetch user positions from backend API instead of making RPC calls
+      const response = await fetch(`${API_BASE}/infofi/positions/${address}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch positions: ${response.status}`);
+      }
+      const data = await response.json();
+      const positions = data.positions || [];
+
+      // Filter for claimable positions (has payout and not claimed)
       const out = [];
-      for (const m of discovery.data || []) {
-        if (!m.contractAddress) continue; // Skip markets without contract address
-        const marketId = m.id;
-        const yes = await readBetFull({
-          marketId,
-          account: address,
-          prediction: true,
-          networkKey: netKey,
-          contractAddress: m.contractAddress,
-        });
-        const no = await readBetFull({
-          marketId,
-          account: address,
-          prediction: false,
-          networkKey: netKey,
-          contractAddress: m.contractAddress,
-        });
-        if (yes.amount > 0n && yes.payout > 0n && !yes.claimed)
+      for (const pos of positions) {
+        // Find the corresponding market from discovery to get contract address
+        const market = discovery.data?.find(
+          (m) => String(m.id) === String(pos.market_id)
+        );
+        if (!market || !market.contractAddress) continue;
+
+        // Only include positions with payouts that haven't been claimed
+        if (pos.payout && parseFloat(pos.payout) > 0 && !pos.is_claimed) {
           out.push({
-            seasonId: Number(m.seasonId),
-            marketId,
-            prediction: true,
-            payout: yes.payout,
-            contractAddress: m.contractAddress,
+            seasonId: Number(pos.season_id || market.seasonId),
+            marketId: String(pos.market_id),
+            prediction: pos.prediction === true || pos.prediction === "true",
+            payout: BigInt(Math.floor(parseFloat(pos.payout) * 1e18)), // Convert to wei
+            contractAddress: market.contractAddress,
             type: "infofi",
           });
-        if (no.amount > 0n && no.payout > 0n && !no.claimed)
-          out.push({
-            seasonId: Number(m.seasonId),
-            marketId,
-            prediction: false,
-            payout: no.payout,
-            contractAddress: m.contractAddress,
-            type: "infofi",
-          });
+        }
       }
       return out;
     },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   // FPMM Claims (FPMM-based prediction markets with CTF redemption)
