@@ -682,6 +682,7 @@ export async function readFpmmPosition({
   account,
   prediction,
   networkKey = getDefaultNetworkKey(),
+  fpmmAddress: providedFpmmAddress,
 }) {
   const chain = getNetworkByKey(networkKey);
   const publicClient = createPublicClient({
@@ -690,37 +691,37 @@ export async function readFpmmPosition({
   });
   const addrs = getContractAddresses(networkKey);
 
-  if (!addrs.INFOFI_FPMM) {
-    console.warn("INFOFI_FPMM address not configured");
-    return { amount: 0n };
-  }
-
   if (!addrs.CONDITIONAL_TOKENS) {
     console.warn("CONDITIONAL_TOKENS address not configured");
     return { amount: 0n };
   }
 
   try {
-    // Get FPMM address for this player/season
-    const fpmmManagerAbi = [
-      {
-        type: "function",
-        name: "getMarket",
-        inputs: [
-          { name: "seasonId", type: "uint256" },
-          { name: "player", type: "address" },
-        ],
-        outputs: [{ name: "", type: "address" }],
-        stateMutability: "view",
-      },
-    ];
+    // Use provided FPMM address from database, or look it up from manager
+    let fpmmAddress = providedFpmmAddress;
 
-    const fpmmAddress = await publicClient.readContract({
-      address: addrs.INFOFI_FPMM,
-      abi: fpmmManagerAbi,
-      functionName: "getMarket",
-      args: [BigInt(seasonId), getAddress(player)],
-    });
+    if (!fpmmAddress && addrs.INFOFI_FPMM) {
+      // Fallback: Get FPMM address for this player/season from manager
+      const fpmmManagerAbi = [
+        {
+          type: "function",
+          name: "getMarket",
+          inputs: [
+            { name: "seasonId", type: "uint256" },
+            { name: "player", type: "address" },
+          ],
+          outputs: [{ name: "", type: "address" }],
+          stateMutability: "view",
+        },
+      ];
+
+      fpmmAddress = await publicClient.readContract({
+        address: addrs.INFOFI_FPMM,
+        abi: fpmmManagerAbi,
+        functionName: "getMarket",
+        args: [BigInt(seasonId), getAddress(player)],
+      });
+    }
 
     if (
       !fpmmAddress ||

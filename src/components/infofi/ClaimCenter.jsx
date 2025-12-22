@@ -20,11 +20,7 @@ import {
 } from "@/components/common/Tabs";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
-import {
-  enumerateAllMarkets,
-  readBetFull,
-  readFpmmPosition,
-} from "@/services/onchainInfoFi";
+import { readBetFull, readFpmmPosition } from "@/services/onchainInfoFi";
 import {
   getPrizeDistributor,
   getSeasonPayouts,
@@ -108,10 +104,34 @@ const ClaimCenter = ({ address, title, description }) => {
     }
   };
 
-  // InfoFi Market Claims
+  // InfoFi Market Claims - fetch from backend API which has correct data
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const discovery = useQuery({
     queryKey: ["claimcenter_discovery", netKey],
-    queryFn: async () => enumerateAllMarkets({ networkKey: netKey }),
+    queryFn: async () => {
+      // Fetch settled markets from backend API
+      const response = await fetch(`${API_BASE}/infofi/markets?isActive=false`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch markets: ${response.status}`);
+      }
+      const data = await response.json();
+      // Flatten markets from all seasons into a single array with player info
+      const allMarkets = [];
+      for (const [seasonId, markets] of Object.entries(data.markets || {})) {
+        for (const m of markets) {
+          allMarkets.push({
+            id: String(m.id),
+            seasonId: Number(seasonId),
+            raffle_id: Number(seasonId),
+            player: m.player_address,
+            contractAddress: m.contract_address,
+            isSettled: m.is_settled,
+            winningOutcome: m.winning_outcome,
+          });
+        }
+      }
+      return allMarkets;
+    },
     staleTime: 5_000,
     refetchInterval: 5_000,
   });
@@ -174,54 +194,54 @@ const ClaimCenter = ({ address, title, description }) => {
     enabled: !!address && Array.isArray(discovery.data),
     queryFn: async () => {
       const out = [];
-      // Get unique seasons from discovered markets
-      const seasons = new Set(
-        (discovery.data || []).map((m) => Number(m.seasonId))
+      // Only check settled markets from discovery data
+      const settledMarkets = (discovery.data || []).filter(
+        (m) => m.isSettled && m.player
       );
 
-      for (const seasonId of seasons) {
-        // Get all players in this season (from discovery data)
-        const playersInSeason = new Set(
-          (discovery.data || [])
-            .filter((m) => Number(m.seasonId) === seasonId)
-            .map((m) => m.player)
-            .filter(Boolean)
-        );
+      for (const market of settledMarkets) {
+        const { seasonId, player, winningOutcome, contractAddress } = market;
+        try {
+          // Check if user has YES or NO positions
+          // Pass contract address from database to avoid ENV lookup
+          const yesPosition = await readFpmmPosition({
+            seasonId,
+            player,
+            account: address,
+            prediction: true,
+            networkKey: netKey,
+            fpmmAddress: contractAddress,
+          });
 
-        // Check each player's market for user's positions
-        for (const player of playersInSeason) {
-          try {
-            // Check if user has YES or NO positions
-            const yesPosition = await readFpmmPosition({
+          const noPosition = await readFpmmPosition({
+            seasonId,
+            player,
+            account: address,
+            prediction: false,
+            networkKey: netKey,
+            fpmmAddress: contractAddress,
+          });
+
+          // Only add claimable positions (winning side has value)
+          // winningOutcome=true means YES wins, winningOutcome=false means NO wins
+          const hasClaimableYes =
+            winningOutcome === true && yesPosition.amount > 0n;
+          const hasClaimableNo =
+            winningOutcome === false && noPosition.amount > 0n;
+
+          if (hasClaimableYes || hasClaimableNo) {
+            out.push({
               seasonId,
               player,
-              account: address,
-              prediction: true,
-              networkKey: netKey,
+              yesAmount: hasClaimableYes ? yesPosition.amount : 0n,
+              noAmount: hasClaimableNo ? noPosition.amount : 0n,
+              winningOutcome,
+              type: "fpmm",
             });
-
-            const noPosition = await readFpmmPosition({
-              seasonId,
-              player,
-              account: address,
-              prediction: false,
-              networkKey: netKey,
-            });
-
-            // If user has positions and market is resolved, add to claimables
-            if (yesPosition.amount > 0n || noPosition.amount > 0n) {
-              out.push({
-                seasonId,
-                player,
-                yesAmount: yesPosition.amount,
-                noAmount: noPosition.amount,
-                type: "fpmm",
-              });
-            }
-          } catch (err) {
-            // Skip markets that error (not created yet, etc)
-            // Reason: individual season issues should not prevent other claims from showing
           }
+        } catch (err) {
+          // Skip markets that error (not created yet, etc)
+          // Reason: individual season issues should not prevent other claims from showing
         }
       }
       return out;
