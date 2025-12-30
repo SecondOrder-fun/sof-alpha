@@ -8,10 +8,14 @@ import AddMiniAppButton from "@/components/farcaster/AddMiniAppButton";
 import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
 import StickyFooter from "@/components/layout/StickyFooter";
 import useFarcasterSDK from "@/hooks/useFarcasterSDK";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User } from "lucide-react";
 
 const Landing = () => {
   // Initialize Farcaster SDK and call ready() to hide splash screen
   useFarcasterSDK();
+  const profile = useUserProfile();
 
   return (
     <div className="relative min-h-screen bg-[#0d0d0d]">
@@ -33,6 +37,23 @@ const Landing = () => {
             <span className="text-[#a89e99]">.fun</span>
           </h1>
         </div>
+
+        {/* User Avatar */}
+        <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
+          {profile.pfpUrl ? (
+            <AvatarImage
+              src={profile.pfpUrl}
+              alt={profile.displayName || "User"}
+            />
+          ) : null}
+          <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
+            {profile.displayName ? (
+              profile.displayName[0].toUpperCase()
+            ) : (
+              <User className="w-5 h-5" />
+            )}
+          </AvatarFallback>
+        </Avatar>
       </header>
 
       {/* Main Content */}
