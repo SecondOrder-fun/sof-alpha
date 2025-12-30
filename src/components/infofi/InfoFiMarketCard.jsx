@@ -604,17 +604,23 @@ const InfoFiMarketCard = ({ market }) => {
         </div>
 
         {/* Trade input - Polymarket style */}
-        <div className="space-y-2">
+        <div className="relative space-y-2">
           <div className="flex gap-2">
             <Input
               placeholder={t("amountSof")}
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               className="flex-1"
+              disabled={market.is_settled}
             />
             <Button
               onClick={() => betMutation.mutate()}
-              disabled={!isConnected || !form.amount || betMutation.isPending}
+              disabled={
+                !isConnected ||
+                !form.amount ||
+                betMutation.isPending ||
+                market.is_settled
+              }
               className={`min-w-[100px] ${
                 form.side === "YES"
                   ? "bg-emerald-600 hover:bg-emerald-700"
@@ -624,6 +630,20 @@ const InfoFiMarketCard = ({ market }) => {
               {betMutation.isPending ? t("submitting") : t("trade")}
             </Button>
           </div>
+
+          {/* Trading Locked Overlay */}
+          {market.is_settled && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="text-center px-4 py-3 bg-card border-2 border-muted rounded-lg shadow-lg">
+                <div className="text-lg font-semibold text-muted-foreground mb-1">
+                  Trading is Locked
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Season has ended
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -645,6 +665,8 @@ InfoFiMarketCard.propTypes = {
     current_probability_bps: PropTypes.number,
     yes_price: PropTypes.number,
     no_price: PropTypes.number,
+    is_settled: PropTypes.bool,
+    is_active: PropTypes.bool,
   }).isRequired,
 };
 

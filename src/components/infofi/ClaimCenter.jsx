@@ -137,42 +137,34 @@ const ClaimCenter = ({ address, title, description }) => {
   });
 
   const claimsQuery = useQuery({
-    queryKey: [
-      "claimcenter_claimables",
-      address,
-      netKey,
-      (discovery.data || []).length,
-    ],
-    enabled: !!address && Array.isArray(discovery.data),
+    queryKey: ["claimcenter_claimables", address, netKey],
+    enabled: !!address,
     queryFn: async () => {
-      // Fetch user positions from backend API instead of making RPC calls
-      const response = await fetch(`${API_BASE}/infofi/positions/${address}`);
+      // Fetch claimable winnings from backend API (infofi_winnings table)
+      const response = await fetch(`${API_BASE}/infofi/winnings/${address}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch positions: ${response.status}`);
+        throw new Error(`Failed to fetch winnings: ${response.status}`);
       }
       const data = await response.json();
-      const positions = data.positions || [];
+      const winnings = data.winnings || [];
 
-      // Filter for claimable positions (has payout and not claimed)
+      // Transform winnings to claim format
       const out = [];
-      for (const pos of positions) {
-        // Find the corresponding market from discovery to get contract address
-        const market = discovery.data?.find(
-          (m) => String(m.id) === String(pos.market_id)
-        );
-        if (!market || !market.contractAddress) continue;
+      for (const winning of winnings) {
+        if (!winning.market || !winning.market.contract_address) continue;
 
-        // Only include positions with payouts that haven't been claimed
-        if (pos.payout && parseFloat(pos.payout) > 0 && !pos.is_claimed) {
-          out.push({
-            seasonId: Number(pos.season_id || market.seasonId),
-            marketId: String(pos.market_id),
-            prediction: pos.prediction === true || pos.prediction === "true",
-            payout: BigInt(Math.floor(parseFloat(pos.payout) * 1e18)), // Convert to wei
-            contractAddress: market.contractAddress,
-            type: "infofi",
-          });
-        }
+        // Parse amount (stored as string in database)
+        const amount = parseFloat(winning.amount);
+        if (amount <= 0) continue;
+
+        out.push({
+          seasonId: Number(winning.market.season_id),
+          marketId: String(winning.market_id),
+          prediction: winning.market.winning_outcome, // The outcome that won
+          payout: BigInt(Math.floor(amount * 1e18)), // Convert to wei
+          contractAddress: winning.market.contract_address,
+          type: "infofi",
+        });
       }
       return out;
     },
