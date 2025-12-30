@@ -58,6 +58,9 @@ import LocalizationAdmin from "./routes/LocalizationAdmin";
 import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 import Landing from "./routes/Landing";
 
+// Import access control components
+import { ProtectedRoute } from "./components/access";
+
 // Create router
 // TEMPORARY: Root redirects to /landing, but app routes work directly
 
@@ -88,11 +91,19 @@ const router = createBrowserRouter([
           },
           {
             path: "markets",
-            element: <MarketsIndex />,
+            element: (
+              <ProtectedRoute route="/markets">
+                <MarketsIndex />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "markets/:marketId",
-            element: <InfoFiMarketDetail />,
+            element: (
+              <ProtectedRoute route="/markets/:id" resourceType="market">
+                <InfoFiMarketDetail />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "raffles/:seasonId",
@@ -108,11 +119,19 @@ const router = createBrowserRouter([
           },
           {
             path: "admin",
-            element: <AdminPanel />,
+            element: (
+              <ProtectedRoute route="/admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "admin/localization",
-            element: <LocalizationAdmin />,
+            element: (
+              <ProtectedRoute route="/admin">
+                <LocalizationAdmin />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "portfolio",
