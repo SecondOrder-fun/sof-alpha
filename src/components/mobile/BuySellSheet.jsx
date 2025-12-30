@@ -7,11 +7,17 @@ import PropTypes from "prop-types";
 import { useState, useEffect } from "react";
 import { formatUnits } from "viem";
 import { X } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
-import { Button } from "../ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import QuantityStepper from "./QuantityStepper";
-import { useCurveCalculations } from "../../hooks/useCurveCalculations";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import QuantityStepper from "@/components/mobile/QuantityStepper";
+import { useReadContract } from "wagmi";
+import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
 
 export const BuySellSheet = ({
   open,
@@ -25,33 +31,43 @@ export const BuySellSheet = ({
   const [activeTab, setActiveTab] = useState(mode);
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-
-  const { calculateBuyPrice, calculateSellPrice } =
-    useCurveCalculations(bondingCurveAddress);
-
   const [estimatedCost, setEstimatedCost] = useState(0n);
   const [estimatedProceeds, setEstimatedProceeds] = useState(0n);
+
+  // Calculate buy price
+  const { data: buyPrice } = useReadContract({
+    address: bondingCurveAddress,
+    abi: SOFBondingCurveAbi,
+    functionName: "calculateBuyPrice",
+    args: [BigInt(quantity)],
+    query: {
+      enabled: activeTab === "buy" && !!bondingCurveAddress && quantity > 0,
+    },
+  });
+
+  // Calculate sell price
+  const { data: sellPrice } = useReadContract({
+    address: bondingCurveAddress,
+    abi: SOFBondingCurveAbi,
+    functionName: "calculateSellPrice",
+    args: [BigInt(quantity)],
+    query: {
+      enabled: activeTab === "sell" && !!bondingCurveAddress && quantity > 0,
+    },
+  });
 
   const formatSOF = (weiAmount) => {
     return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(4);
   };
 
-  // Update estimates when quantity changes
+  // Update estimates when prices change
   useEffect(() => {
-    const updateEstimates = async () => {
-      if (activeTab === "buy") {
-        const cost = await calculateBuyPrice(quantity);
-        setEstimatedCost(cost ?? 0n);
-      } else {
-        const proceeds = await calculateSellPrice(quantity);
-        setEstimatedProceeds(proceeds ?? 0n);
-      }
-    };
-
-    if (quantity > 0) {
-      updateEstimates();
+    if (activeTab === "buy" && buyPrice) {
+      setEstimatedCost(buyPrice);
+    } else if (activeTab === "sell" && sellPrice) {
+      setEstimatedProceeds(sellPrice);
     }
-  }, [quantity, activeTab, calculateBuyPrice, calculateSellPrice]);
+  }, [buyPrice, sellPrice, activeTab]);
 
   const handleTransaction = async () => {
     setIsLoading(true);

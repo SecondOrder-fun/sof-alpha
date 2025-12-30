@@ -7,8 +7,8 @@ import PropTypes from "prop-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import SeasonCard from "./SeasonCard";
-import { Button } from "../ui/button";
+import SeasonCardWrapper from "@/components/mobile/SeasonCardWrapper";
+import { Button } from "@/components/ui/button";
 
 export const MobileRafflesList = ({
   activeSeasons = [],
@@ -79,12 +79,10 @@ export const MobileRafflesList = ({
                           key={season.seasonId}
                           className="flex-shrink-0 w-full flex justify-center"
                         >
-                          <SeasonCard
+                          <SeasonCardWrapper
                             seasonId={season.seasonId}
                             seasonConfig={season.config}
-                            curveStep={season.curveStep}
-                            allBondSteps={season.allBondSteps}
-                            curveSupply={season.curveSupply}
+                            status={season.status}
                             onBuy={() => onBuy?.(season.seasonId)}
                             onSell={() => onSell?.(season.seasonId)}
                             onClick={() => handleSeasonClick(season.seasonId)}

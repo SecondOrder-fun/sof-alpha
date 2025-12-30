@@ -15,6 +15,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import CountdownTimer from "@/components/common/CountdownTimer";
+import { usePlatform } from "@/hooks/usePlatform";
+import MobileRafflesList from "@/components/mobile/MobileRafflesList";
+import { useState } from "react";
+import BuySellSheet from "@/components/mobile/BuySellSheet";
 
 const ActiveSeasonCard = ({ season, renderBadge }) => {
   const navigate = useNavigate();
@@ -119,7 +123,12 @@ ActiveSeasonCard.propTypes = {
 
 const RaffleList = () => {
   const { t } = useTranslation("raffle");
+  const { isMobile } = usePlatform();
+  const navigate = useNavigate();
   const allSeasonsQuery = useAllSeasons();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMode, setSheetMode] = useState("buy");
+  const [selectedSeason, setSelectedSeason] = useState(null);
 
   const renderBadge = (st) => {
     const label = st === 1 ? "Active" : st === 0 ? "NotStarted" : "Completed";
@@ -132,6 +141,59 @@ const RaffleList = () => {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const handleBuy = (seasonId) => {
+    const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
+    setSelectedSeason(season);
+    setSheetMode("buy");
+    setSheetOpen(true);
+  };
+
+  const handleSell = (seasonId) => {
+    const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
+    setSelectedSeason(season);
+    setSheetMode("sell");
+    setSheetOpen(true);
+  };
+
+  // Mobile view for Farcaster Mini App and Base App
+  if (isMobile) {
+    // Note: We pass raw season data and let MobileRafflesList handle curve state
+    // This avoids calling hooks inside map/filter which violates Rules of Hooks
+    const activeSeasons = (allSeasonsQuery.data || [])
+      .filter((s) => s.status === 1)
+      .map((season) => ({
+        seasonId: season.id,
+        config: season.config,
+        status: season.status,
+      }));
+
+    return (
+      <>
+        <MobileRafflesList
+          activeSeasons={activeSeasons}
+          allSeasons={allSeasonsQuery.data || []}
+          onBuy={handleBuy}
+          onSell={handleSell}
+        />
+        {selectedSeason && (
+          <BuySellSheet
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
+            mode={sheetMode}
+            seasonId={selectedSeason.id}
+            bondingCurveAddress={selectedSeason.config?.bondingCurve}
+            maxSellable={0n}
+            onSuccess={async () => {
+              setSheetOpen(false);
+              navigate(`/raffles/${selectedSeason.id}`);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Desktop view
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">{t("title")}</h1>

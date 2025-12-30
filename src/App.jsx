@@ -8,10 +8,41 @@ import { Toaster } from "@/components/ui/toaster";
 import UsernameDialog from "@/components/user/UsernameDialog";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { ContractAddressValidator } from "@/components/dev/ContractAddressValidator";
+import { usePlatform } from "@/hooks/usePlatform";
+import MobileHeader from "@/components/mobile/MobileHeader";
+import BottomNav from "@/components/mobile/BottomNav";
+import { useSafeArea } from "@/hooks/useSafeArea";
 
 const App = () => {
   const { showDialog, setShowDialog } = useUsernameContext();
+  const { isMobile, platform } = usePlatform();
+  const safeArea = useSafeArea();
 
+  // Debug: Log platform detection
+  console.log("🔍 Platform detected:", platform, "isMobile:", isMobile);
+
+  // Mobile layout for Farcaster Mini App and Base App
+  if (isMobile) {
+    return (
+      <div
+        className="min-h-screen bg-[#130013] flex flex-col"
+        style={{
+          paddingTop: `${safeArea.top}px`,
+          paddingBottom: `${safeArea.bottom}px`,
+        }}
+      >
+        <MobileHeader />
+        <main className="flex-1 overflow-y-auto pb-16">
+          <Outlet />
+        </main>
+        <BottomNav />
+        <Toaster />
+        <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Header />

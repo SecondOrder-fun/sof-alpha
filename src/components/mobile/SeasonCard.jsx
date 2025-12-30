@@ -5,9 +5,9 @@
 
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
-import { Button } from "../ui/button";
-import CurveGraph from "../curve/CurveGraph";
-import CountdownTimer from "../CountdownTimer";
+import { Button } from "@/components/ui/button";
+import CurveGraph from "@/components/curve/CurveGraph";
+import CountdownTimer from "@/components/common/CountdownTimer";
 
 export const SeasonCard = ({
   seasonId,

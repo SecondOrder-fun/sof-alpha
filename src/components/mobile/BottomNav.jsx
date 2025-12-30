@@ -6,7 +6,7 @@
 import PropTypes from "prop-types";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Ticket, TrendingUp, Wallet, Trophy } from "lucide-react";
-import { useSafeArea } from "../../hooks/useSafeArea";
+import { useSafeArea } from "@/hooks/useSafeArea";
 
 const tabs = [
   { id: "raffles", label: "Raffles", icon: Ticket, path: "/raffles" },

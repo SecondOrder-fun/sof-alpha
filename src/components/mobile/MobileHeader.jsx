@@ -6,8 +6,8 @@
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { User } from "lucide-react";
-import { useUserProfile } from "../../hooks/useUserProfile";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const MobileHeader = ({ className = "" }) => {
   const profile = useUserProfile();

@@ -6,9 +6,9 @@
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "../ui/button";
-import ProgressBar from "./ProgressBar";
-import CountdownTimer from "../CountdownTimer";
+import { Button } from "@/components/ui/button";
+import ProgressBar from "@/components/mobile/ProgressBar";
+import CountdownTimer from "@/components/common/CountdownTimer";
 
 export const MobileRaffleDetail = ({
   seasonId,
