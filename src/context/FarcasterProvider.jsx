@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useProfile } from '@farcaster/auth-kit';
-import PropTypes from 'prop-types';
-import FarcasterContext from './farcasterContext';
+import { useEffect, useState, useContext } from "react";
+import { useProfile } from "@farcaster/auth-kit";
+import PropTypes from "prop-types";
+import FarcasterContext from "./farcasterContext";
 
 const FarcasterProvider = ({ children }) => {
   const { isAuthenticated, profile } = useProfile();
@@ -9,7 +9,7 @@ const FarcasterProvider = ({ children }) => {
     isAuthenticated: false,
     profile: null,
     isLoading: false,
-    error: null
+    error: null,
   });
 
   useEffect(() => {
@@ -17,12 +17,12 @@ const FarcasterProvider = ({ children }) => {
       isAuthenticated,
       profile: profile || null,
       isLoading: false,
-      error: null
+      error: null,
     });
   }, [isAuthenticated, profile]);
 
   const value = {
-    ...farcasterState
+    ...farcasterState,
   };
 
   return (
@@ -33,7 +33,16 @@ const FarcasterProvider = ({ children }) => {
 };
 
 FarcasterProvider.propTypes = {
-  children: PropTypes.node.isRequired
+  children: PropTypes.node.isRequired,
+};
+
+// Hook to use Farcaster context
+export const useFarcasterSDK = () => {
+  const context = useContext(FarcasterContext);
+  if (!context) {
+    return { context: null };
+  }
+  return { context };
 };
 
 export { FarcasterProvider };
