@@ -34,6 +34,13 @@ export const BuySellSheet = ({
   const [estimatedCost, setEstimatedCost] = useState(0n);
   const [estimatedProceeds, setEstimatedProceeds] = useState(0n);
 
+  // Sync activeTab with mode prop when modal opens or mode changes
+  useEffect(() => {
+    if (open) {
+      setActiveTab(mode);
+    }
+  }, [open, mode]);
+
   // Calculate buy price
   const { data: buyPrice } = useReadContract({
     address: bondingCurveAddress,
