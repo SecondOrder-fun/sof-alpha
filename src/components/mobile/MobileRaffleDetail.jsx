@@ -30,7 +30,7 @@ export const MobileRaffleDetail = ({
   };
 
   return (
-    <div className="px-3 pt-2 pb-4 space-y-4 max-w-screen-sm mx-auto">
+    <div className="px-3 pt-1 pb-20 space-y-3 max-w-screen-sm mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
         <button
