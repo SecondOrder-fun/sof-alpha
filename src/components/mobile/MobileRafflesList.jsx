@@ -1,14 +1,16 @@
 /**
  * Mobile Raffles List
- * Carousel-based active seasons display with collapsible sections
+ * Carousel-based active seasons display with collapsible sections - uses existing Card components
  */
 
 import PropTypes from "prop-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import SeasonCardWrapper from "@/components/mobile/SeasonCardWrapper";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import SeasonCardWrapper from "@/components/mobile/SeasonCardWrapper";
 
 export const MobileRafflesList = ({
   activeSeasons = [],
@@ -39,7 +41,7 @@ export const MobileRafflesList = ({
   };
 
   const handleSeasonClick = (seasonId) => {
-    navigate(`/raffle/${seasonId}`);
+    navigate(`/raffles/${seasonId}`);
   };
 
   return (
@@ -161,32 +163,45 @@ export const MobileRafflesList = ({
           <div className="space-y-3">
             {allSeasons.length > 0 ? (
               allSeasons.map((season) => (
-                <div
-                  key={season.seasonId}
-                  onClick={() => handleSeasonClick(season.seasonId)}
-                  className="bg-[#6b6b6b] rounded-lg p-4 cursor-pointer hover:bg-[#6b6b6b]/90 transition-colors"
+                <Card
+                  key={season.id}
+                  onClick={() => handleSeasonClick(season.id)}
+                  className="cursor-pointer hover:border-[#c82a54]/50 transition-colors border-[#353e34] bg-[#130013]"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-semibold text-sm">
-                        Season #{season.seasonId}: {season.config?.name}
-                      </h3>
-                      <p className="text-[#a89e99] text-xs mt-1">
-                        {season.status === 2
-                          ? "Ended"
-                          : season.status === 1
-                          ? "Active"
-                          : "Pending"}
-                      </p>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="font-mono text-sm text-[#f9d6de]">
+                          #{season.id}
+                        </span>
+                        <span className="font-medium truncate">
+                          {season.config?.name}
+                        </span>
+                        <Badge
+                          variant={
+                            season.status === 2
+                              ? "statusCompleted"
+                              : season.status === 1
+                              ? "statusActive"
+                              : "statusUpcoming"
+                          }
+                        >
+                          {season.status === 2
+                            ? "Ended"
+                            : season.status === 1
+                            ? "Active"
+                            : "Pending"}
+                        </Badge>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-[#a89e99]" />
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))
             ) : (
-              <div className="text-center py-8 text-[#a89e99]">
-                No seasons found
-              </div>
+              <p className="text-muted-foreground text-sm">
+                No seasons available
+              </p>
             )}
           </div>
         )}

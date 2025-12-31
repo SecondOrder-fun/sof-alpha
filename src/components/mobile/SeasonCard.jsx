@@ -1,10 +1,11 @@
 /**
  * Season Card
- * Carousel card for season display in list view
+ * Carousel card for season display in list view - uses existing Card component
  */
 
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CurveGraph from "@/components/curve/CurveGraph";
 import CountdownTimer from "@/components/common/CountdownTimer";
@@ -19,75 +20,81 @@ export const SeasonCard = ({
   onSell,
   onClick,
 }) => {
-  const formatSOF = (weiAmount) => {
-    return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(4);
+  const formatSOF = (value) => {
+    if (!value) return "0";
+    return formatUnits(BigInt(value), 18);
   };
 
   return (
-    <div
+    <Card
       onClick={onClick}
-      className="bg-[#6b6b6b] rounded-lg p-4 min-w-[280px] max-w-[320px] cursor-pointer hover:bg-[#6b6b6b]/90 transition-colors"
+      className="cursor-pointer hover:border-[#c82a54]/50 transition-colors max-w-sm mx-auto border-[#353e34] bg-[#130013]"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="text-white font-semibold text-sm mb-1">
-            Season #{seasonId}: {seasonConfig?.name || "Loading..."}
-          </h3>
+      <CardHeader className="py-3 pb-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-mono text-sm text-[#f9d6de]">
+              Season #{seasonId}
+            </div>
+            <div className="font-medium text-white">{seasonConfig?.name}</div>
+          </div>
           {seasonConfig?.endTime && (
             <CountdownTimer
-              endTime={seasonConfig.endTime}
+              targetTimestamp={Number(seasonConfig.endTime)}
               compact
-              className="text-xs"
+              className="text-white text-xs"
             />
           )}
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Mini Graph */}
-      <div className="mb-3 h-24 bg-[#130013]/30 rounded">
-        {allBondSteps && curveSupply !== undefined && (
+      <CardContent className="flex flex-col gap-3 pt-0">
+        {/* Mini Curve Graph */}
+        <div className="bg-black/40 rounded-md overflow-hidden h-32">
           <CurveGraph
-            bondSteps={allBondSteps}
-            currentSupply={curveSupply}
-            mini={true}
+            curveSupply={curveSupply}
+            allBondSteps={allBondSteps}
+            currentStep={curveStep}
+            mini
           />
-        )}
-      </div>
-
-      {/* Current Price */}
-      <div className="mb-3">
-        <div className="text-[#a89e99] text-xs mb-1">Current Price</div>
-        <div className="text-white font-bold text-lg">
-          {formatSOF(curveStep?.price)} $SOF
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onBuy?.();
-          }}
-          className="flex-1 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white"
-          size="sm"
-        >
-          BUY
-        </Button>
-        <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSell?.();
-          }}
-          variant="outline"
-          className="flex-1 border-[#c82a54] text-[#c82a54] hover:bg-[#c82a54]/10"
-          size="sm"
-        >
-          SELL
-        </Button>
-      </div>
-    </div>
+        {/* Current Price */}
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">
+            Current Price
+          </div>
+          <div className="font-mono text-base">
+            {formatSOF(curveStep?.price)} SOF
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onBuy?.();
+            }}
+            size="sm"
+            className="flex-1"
+          >
+            BUY
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSell?.();
+            }}
+            variant="outline"
+            size="sm"
+            className="flex-1"
+          >
+            SELL
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

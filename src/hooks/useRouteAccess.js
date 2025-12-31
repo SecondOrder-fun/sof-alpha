@@ -28,11 +28,31 @@ async function checkRouteAccess({
   if (resourceType) params.append("resourceType", resourceType);
   if (resourceId) params.append("resourceId", resourceId);
 
-  const res = await fetch(`${API_BASE}/check-access?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error("Failed to check route access");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+  try {
+    const res = await fetch(`${API_BASE}/check-access?${params.toString()}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error("Failed to check route access");
+    }
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      // Timeout - allow access by default for better UX
+      return {
+        hasAccess: true,
+        reason: "Backend timeout - allowing access",
+        isPublicOverride: true,
+      };
+    }
+    throw error;
   }
-  return res.json();
 }
 
 /**

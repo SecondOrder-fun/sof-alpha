@@ -37,6 +37,9 @@ import SecondaryCard from "@/components/common/SecondaryCard";
 import ExplorerLink from "@/components/common/ExplorerLink";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import { formatTimestamp } from "@/lib/utils";
+import { usePlatform } from "@/hooks/usePlatform";
+import MobileRaffleDetail from "@/components/mobile/MobileRaffleDetail";
+import BuySellSheet from "@/components/mobile/BuySellSheet";
 
 const RaffleDetails = () => {
   const { t } = useTranslation("raffle");
@@ -49,6 +52,9 @@ const RaffleDetails = () => {
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
   const [activeTab, setActiveTab] = useState("token-info");
+  const { isMobile } = usePlatform();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMode, setSheetMode] = useState("buy");
   const {
     curveSupply,
     curveReserves,
@@ -248,6 +254,58 @@ const RaffleDetails = () => {
 
   // simulators now unused
 
+  // Mobile view handlers
+  const handleBuy = () => {
+    setSheetMode("buy");
+    setSheetOpen(true);
+  };
+
+  const handleSell = () => {
+    setSheetMode("sell");
+    setSheetOpen(true);
+  };
+
+  // Mobile view for Farcaster Mini App and Base App
+  if (isMobile && seasonDetailsQuery.data?.config) {
+    const cfg = seasonDetailsQuery.data.config;
+    const totalPrizePool = curveReserves || 0n;
+    const maxSupply = BigInt(
+      cfg?.maxSupply ||
+        allBondSteps?.[allBondSteps.length - 1]?.cumulativeSupply ||
+        0
+    );
+
+    return (
+      <>
+        <MobileRaffleDetail
+          seasonId={seasonId}
+          seasonConfig={cfg}
+          curveSupply={curveSupply}
+          maxSupply={maxSupply}
+          curveStep={curveStep}
+          localPosition={localPosition}
+          totalPrizePool={totalPrizePool}
+          onBuy={handleBuy}
+          onSell={handleSell}
+        />
+        <BuySellSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          mode={sheetMode}
+          seasonId={seasonId}
+          bondingCurveAddress={bondingCurveAddress}
+          maxSellable={localPosition?.tickets || 0n}
+          onSuccess={async () => {
+            setSheetOpen(false);
+            await refreshPositionNow();
+            debouncedRefresh(0);
+          }}
+        />
+      </>
+    );
+  }
+
+  // Desktop view
   return (
     <div>
       {seasonDetailsQuery.isLoading && <p>Loading season details...</p>}

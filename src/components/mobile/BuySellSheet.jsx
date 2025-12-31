@@ -90,18 +90,18 @@ export const BuySellSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="bg-[#6b6b6b] border-t-2 border-[#c82a54] rounded-t-2xl"
+        className="bg-[#130013] border-t-2 border-[#c82a54] rounded-t-2xl"
       >
         <SheetHeader className="mb-6">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-white text-xl font-bold">
+            <SheetTitle className="text-xl font-bold">
               {activeTab === "buy" ? "Buy Tickets" : "Sell Tickets"}
             </SheetTitle>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="text-white hover:bg-[#130013]/20"
+              className="hover:bg-white/10"
             >
               <X className="w-5 h-5" />
             </Button>
@@ -109,16 +109,16 @@ export const BuySellSheet = ({
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-[#130013]/30">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-[#c82a54] p-1 rounded-lg h-14">
             <TabsTrigger
               value="buy"
-              className="data-[state=active]:bg-[#c82a54] data-[state=active]:text-white"
+              className="rounded-md data-[state=active]:bg-[#c82a54] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-white/60 text-base font-semibold"
             >
               BUY
             </TabsTrigger>
             <TabsTrigger
               value="sell"
-              className="data-[state=active]:bg-[#c82a54] data-[state=active]:text-white"
+              className="rounded-md data-[state=active]:bg-[#c82a54] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-white/60 text-base font-semibold"
             >
               SELL
             </TabsTrigger>
@@ -126,7 +126,7 @@ export const BuySellSheet = ({
 
           <TabsContent value="buy" className="space-y-6">
             <div>
-              <label className="text-white text-sm font-medium mb-3 block">
+              <label className="text-sm font-medium mb-3 block text-muted-foreground">
                 Tickets to Buy
               </label>
               <QuantityStepper
@@ -138,9 +138,9 @@ export const BuySellSheet = ({
               />
             </div>
 
-            <div className="bg-[#130013]/30 rounded-lg p-4">
-              <div className="text-[#a89e99] text-sm mb-1">Cost</div>
-              <div className="text-white text-2xl font-bold">
+            <div className="bg-black/40 border border-[#353e34] rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-1">Cost</div>
+              <div className="text-2xl font-bold">
                 {formatSOF(estimatedCost)} $SOF
               </div>
             </div>
@@ -148,7 +148,8 @@ export const BuySellSheet = ({
             <Button
               onClick={handleTransaction}
               disabled={isLoading || quantity < 1}
-              className="w-full h-14 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white text-lg font-semibold"
+              size="lg"
+              className="w-full"
             >
               {isLoading ? "Processing..." : "BUY NOW"}
             </Button>
@@ -156,7 +157,7 @@ export const BuySellSheet = ({
 
           <TabsContent value="sell" className="space-y-6">
             <div>
-              <label className="text-white text-sm font-medium mb-3 block">
+              <label className="text-sm font-medium mb-3 block text-muted-foreground">
                 Tickets to Sell
               </label>
               <QuantityStepper
@@ -168,9 +169,9 @@ export const BuySellSheet = ({
               />
             </div>
 
-            <div className="bg-[#130013]/30 rounded-lg p-4">
-              <div className="text-[#a89e99] text-sm mb-1">Proceeds</div>
-              <div className="text-white text-2xl font-bold">
+            <div className="bg-black/40 border border-[#353e34] rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-1">Proceeds</div>
+              <div className="text-2xl font-bold">
                 {formatSOF(estimatedProceeds)} $SOF
               </div>
             </div>
@@ -178,7 +179,8 @@ export const BuySellSheet = ({
             <Button
               onClick={handleTransaction}
               disabled={isLoading || quantity < 1 || maxSellable === 0n}
-              className="w-full h-14 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white text-lg font-semibold"
+              size="lg"
+              className="w-full"
             >
               {isLoading ? "Processing..." : "SELL NOW"}
             </Button>

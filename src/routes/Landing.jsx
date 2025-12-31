@@ -3,19 +3,35 @@
  * Matches the design of the existing secondorder.fun landing page
  */
 
+import { useState, useEffect } from "react";
 import MeltyLines from "@/components/backgrounds/MeltyLines";
 import AddMiniAppButton from "@/components/farcaster/AddMiniAppButton";
 import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
+import OpenAppButton from "@/components/landing/OpenAppButton";
+import AccessLevelSelector from "@/components/admin/AccessLevelSelector";
 import StickyFooter from "@/components/layout/StickyFooter";
 import useFarcasterSDK from "@/hooks/useFarcasterSDK";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import { User, Settings } from "lucide-react";
+import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 const Landing = () => {
   // Initialize Farcaster SDK and call ready() to hide splash screen
   useFarcasterSDK();
   const profile = useUserProfile();
+
+  // Access level configuration (stored in localStorage)
+  const [accessLevel, setAccessLevel] = useState(() => {
+    const stored = localStorage.getItem("openAppAccessLevel");
+    return stored ? parseInt(stored) : ACCESS_LEVELS.ADMIN;
+  });
+
+  const [showAccessConfig, setShowAccessConfig] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("openAppAccessLevel", accessLevel.toString());
+  }, [accessLevel]);
 
   return (
     <div className="relative min-h-screen bg-[#0d0d0d]">
@@ -38,23 +54,43 @@ const Landing = () => {
           </h1>
         </div>
 
-        {/* User Avatar */}
-        <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
-          {profile.pfpUrl ? (
-            <AvatarImage
-              src={profile.pfpUrl}
-              alt={profile.displayName || "User"}
-            />
-          ) : null}
-          <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
-            {profile.displayName ? (
-              profile.displayName[0].toUpperCase()
-            ) : (
-              <User className="w-5 h-5" />
-            )}
-          </AvatarFallback>
-        </Avatar>
+        {/* User Avatar & Settings */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAccessConfig(!showAccessConfig)}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            title="Configure Access Level"
+          >
+            <Settings className="w-5 h-5 text-[#a89e99] hover:text-white" />
+          </button>
+
+          <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
+            {profile.pfpUrl ? (
+              <AvatarImage
+                src={profile.pfpUrl}
+                alt={profile.displayName || "User"}
+              />
+            ) : null}
+            <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
+              {profile.displayName ? (
+                profile.displayName[0].toUpperCase()
+              ) : (
+                <User className="w-5 h-5" />
+              )}
+            </AvatarFallback>
+          </Avatar>
+        </div>
       </header>
+
+      {/* Access Level Configuration Panel */}
+      {showAccessConfig && (
+        <div className="relative z-10 px-8 mb-6">
+          <AccessLevelSelector
+            currentLevel={accessLevel}
+            onLevelChange={setAccessLevel}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="relative z-10 flex items-center justify-center px-4 py-12">
@@ -88,6 +124,11 @@ const Landing = () => {
           >
             Memecoins without the hangover
           </h3>
+
+          {/* Open App Button - Access Controlled */}
+          <div className="mb-6">
+            <OpenAppButton requiredLevel={accessLevel} className="w-full" />
+          </div>
 
           {/* Add to Farcaster Button - only shows in Farcaster client */}
           <div className="mb-6">

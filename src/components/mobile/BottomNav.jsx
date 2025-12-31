@@ -40,7 +40,7 @@ export const BottomNav = ({ className = "" }) => {
         paddingBottom: `max(${safeArea.bottom}px, 8px)`,
       }}
     >
-      <div className="flex items-center justify-around px-2 pt-2">
+      <div className="grid grid-cols-4 gap-2 px-2 pt-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -49,11 +49,13 @@ export const BottomNav = ({ className = "" }) => {
             <button
               key={tab.id}
               onClick={() => navigate(tab.path)}
-              className={`flex flex-col items-center gap-1 px-3 py-2 min-w-[60px] transition-colors ${
-                isActive ? "text-[#c82a54]" : "text-[#a89e99]"
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-lg transition-all ${
+                isActive
+                  ? "bg-[#c82a54] text-white shadow-lg shadow-[#c82a54]/30 border border-white"
+                  : "text-white hover:bg-white/10"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : ""}`} />
+              <Icon className="w-6 h-6" />
               <span className="text-xs font-medium">{tab.label}</span>
             </button>
           );
