@@ -74,7 +74,7 @@ export const BottomNav = ({ className = "" }) => {
         </div>
 
         {/* Copyright and Version */}
-        <div className="flex items-center justify-center gap-2 pt-2 pb-1">
+        <div className="flex items-center justify-center gap-2 pt-1 pb-1">
           <p className="text-[9px] text-muted-foreground/70">
             &copy; {new Date().getFullYear()} SecondOrder.fun
           </p>
