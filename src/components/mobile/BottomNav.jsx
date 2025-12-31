@@ -40,7 +40,7 @@ export const BottomNav = ({ className = "" }) => {
         paddingBottom: `max(${safeArea.bottom}px, 8px)`,
       }}
     >
-      <div className="grid grid-cols-4 gap-2 px-2 pt-2">
+      <div className="grid grid-cols-4 gap-1.5 px-1.5 pt-2 max-w-screen-sm mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -49,14 +49,16 @@ export const BottomNav = ({ className = "" }) => {
             <button
               key={tab.id}
               onClick={() => navigate(tab.path)}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-lg transition-all ${
+              className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all ${
                 isActive
                   ? "bg-[#c82a54] text-white shadow-lg shadow-[#c82a54]/30 border border-white"
                   : "text-white hover:bg-white/10"
               }`}
             >
-              <Icon className="w-6 h-6" />
-              <span className="text-xs font-medium">{tab.label}</span>
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium leading-tight">
+                {tab.label}
+              </span>
             </button>
           );
         })}

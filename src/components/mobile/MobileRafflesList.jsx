@@ -45,7 +45,7 @@ export const MobileRafflesList = ({
   };
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-3 py-4 max-w-screen-sm mx-auto">
       {/* Page Title */}
       <h1 className="text-white text-2xl font-bold mb-6">Raffles</h1>
 

@@ -1,8 +1,8 @@
 // src/components/user/UsernameDialog.jsx
-import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { useTranslation } from 'react-i18next';
-import { useAccount } from 'wagmi';
+import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
+import { useAccount } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -10,23 +10,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useSetUsername, useCheckUsername } from '@/hooks/useUsername';
-import { useToast } from '@/hooks/useToast';
-import { Loader2 } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useSetUsername, useCheckUsername } from "@/hooks/useUsername";
+import { useToast } from "@/hooks/useToast";
+import { Loader2 } from "lucide-react";
 
 const UsernameDialog = ({ open, onOpenChange }) => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation("common");
   const { address } = useAccount();
   const { toast } = useToast();
-  const [username, setUsername] = useState('');
-  const [debouncedUsername, setDebouncedUsername] = useState('');
-  
+  const [username, setUsername] = useState("");
+  const [debouncedUsername, setDebouncedUsername] = useState("");
+
   const setUsernameMutation = useSetUsername();
-  const { data: availabilityData, isLoading: isCheckingAvailability } = useCheckUsername(debouncedUsername);
+  const { data: availabilityData, isLoading: isCheckingAvailability } =
+    useCheckUsername(debouncedUsername);
 
   // Debounce username input for availability checking
   useEffect(() => {
@@ -42,18 +43,18 @@ const UsernameDialog = ({ open, onOpenChange }) => {
 
     if (!username || username.length < 3) {
       toast({
-        title: t('error'),
-        description: t('usernameTooShort'),
-        variant: 'destructive',
+        title: t("error"),
+        description: t("usernameTooShort"),
+        variant: "destructive",
       });
       return;
     }
 
     if (!availabilityData?.available) {
       toast({
-        title: t('error'),
-        description: t('usernameNotAvailable'),
-        variant: 'destructive',
+        title: t("error"),
+        description: t("usernameNotAvailable"),
+        variant: "destructive",
       });
       return;
     }
@@ -65,54 +66,58 @@ const UsernameDialog = ({ open, onOpenChange }) => {
       });
 
       toast({
-        title: t('success'),
-        description: t('usernameSet', { username: username.trim() }),
+        title: t("success"),
+        description: t("usernameSet", { username: username.trim() }),
       });
 
       onOpenChange(false);
-      setUsername('');
+      setUsername("");
     } catch (error) {
-      const errorCode = error.response?.data?.error || 'UNKNOWN_ERROR';
+      const errorCode = error.response?.data?.error || "UNKNOWN_ERROR";
       toast({
-        title: t('error'),
-        description: t(`usernameError.${errorCode}`, { defaultValue: t('usernameError.UNKNOWN_ERROR') }),
-        variant: 'destructive',
+        title: t("error"),
+        description: t(`usernameError.${errorCode}`, {
+          defaultValue: t("usernameError.UNKNOWN_ERROR"),
+        }),
+        variant: "destructive",
       });
     }
   };
 
   const handleSkip = () => {
     onOpenChange(false);
-    setUsername('');
+    setUsername("");
   };
 
   const getValidationMessage = () => {
     if (!username) return null;
-    
+
     if (username.length < 3) {
-      return { type: 'error', message: t('usernameTooShort') };
+      return { type: "error", message: t("usernameTooShort") };
     }
-    
+
     if (username.length > 20) {
-      return { type: 'error', message: t('usernameTooLong') };
+      return { type: "error", message: t("usernameTooLong") };
     }
-    
+
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return { type: 'error', message: t('usernameInvalidChars') };
+      return { type: "error", message: t("usernameInvalidChars") };
     }
 
     if (isCheckingAvailability) {
-      return { type: 'info', message: t('checkingAvailability') };
+      return { type: "info", message: t("checkingAvailability") };
     }
 
     if (availabilityData) {
       if (availabilityData.available) {
-        return { type: 'success', message: t('usernameAvailable') };
+        return { type: "success", message: t("usernameAvailable") };
       } else {
-        const errorCode = availabilityData.error || 'USERNAME_TAKEN';
-        return { 
-          type: 'error', 
-          message: t(`usernameError.${errorCode}`, { defaultValue: t('usernameError.USERNAME_TAKEN') })
+        const errorCode = availabilityData.error || "USERNAME_TAKEN";
+        return {
+          type: "error",
+          message: t(`usernameError.${errorCode}`, {
+            defaultValue: t("usernameError.USERNAME_TAKEN"),
+          }),
         };
       }
     }
@@ -121,37 +126,42 @@ const UsernameDialog = ({ open, onOpenChange }) => {
   };
 
   const validationMessage = getValidationMessage();
-  const isValid = validationMessage?.type === 'success';
+  const isValid = validationMessage?.type === "success";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-w-[65vw] mx-auto">
         <DialogHeader>
-          <DialogTitle>{t('setUsername')}</DialogTitle>
+          <DialogTitle>{t("setUsername")}</DialogTitle>
           <DialogDescription>
-            {t('usernameDialogDescription')}
+            {t("usernameDialogDescription")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="username">{t('username')}</Label>
+              <Label htmlFor="username">{t("username")}</Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={t('usernamePlaceholder')}
+                placeholder="Enter username"
                 maxLength={20}
                 autoComplete="off"
+                className="text-sm"
               />
               <div className="flex justify-between items-center text-xs">
                 <div>
                   {validationMessage && (
-                    <span className={
-                      validationMessage.type === 'success' ? 'text-green-600' :
-                      validationMessage.type === 'error' ? 'text-red-600' :
-                      'text-muted-foreground'
-                    }>
+                    <span
+                      className={
+                        validationMessage.type === "success"
+                          ? "text-green-600"
+                          : validationMessage.type === "error"
+                          ? "text-red-600"
+                          : "text-muted-foreground"
+                      }
+                    >
                       {validationMessage.message}
                     </span>
                   )}
@@ -169,7 +179,7 @@ const UsernameDialog = ({ open, onOpenChange }) => {
               onClick={handleSkip}
               disabled={setUsernameMutation.isPending}
             >
-              {t('skipForNow')}
+              {t("skipForNow")}
             </Button>
             <Button
               type="submit"
@@ -178,7 +188,7 @@ const UsernameDialog = ({ open, onOpenChange }) => {
               {setUsernameMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {t('setUsername')}
+              {t("setUsername")}
             </Button>
           </DialogFooter>
         </form>

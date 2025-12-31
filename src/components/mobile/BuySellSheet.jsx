@@ -90,7 +90,7 @@ export const BuySellSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="bg-[#130013] border-t-2 border-[#c82a54] rounded-t-2xl"
+        className="bg-[#130013] border-t-2 border-[#c82a54] rounded-t-2xl px-3 max-w-screen-sm mx-auto"
       >
         <SheetHeader className="mb-6">
           <div className="flex items-center justify-between">
