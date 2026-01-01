@@ -120,5 +120,9 @@
   "previous": "Previous",
   "next": "Next",
   "reset": "Reset",
-  "updating": "Updating..."
+  "updating": "Updating...",
+  "raffles": "Raffles",
+  "ticketsSold": "Tickets Sold",
+  "yourTickets": "Your Tickets",
+  "raffleEnded": "This raffle has ended."
 }

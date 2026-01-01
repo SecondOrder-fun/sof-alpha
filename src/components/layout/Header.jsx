@@ -1,43 +1,20 @@
 // React import not needed with Vite JSX transform
 import { Link, NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "@/components/common/LanguageToggle";
-import { useAccessControl } from "@/hooks/useAccessControl";
 import { Globe } from "lucide-react";
 import { useUsername } from "@/hooks/useUsername";
+import { useAllowlist } from "@/hooks/useAllowlist";
+import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 const Header = () => {
   const { t } = useTranslation("navigation");
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const { data: username } = useUsername(address);
-  const { hasRole } = useAccessControl();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      // DEFAULT_ADMIN_ROLE in OZ is 0x00...00
-      const DEFAULT_ADMIN_ROLE =
-        "0x0000000000000000000000000000000000000000000000000000000000000000";
-      if (!isConnected || !address) {
-        setIsAdmin(false);
-        return;
-      }
-      try {
-        const ok = await hasRole(DEFAULT_ADMIN_ROLE, address);
-        if (!cancelled) setIsAdmin(Boolean(ok));
-      } catch {
-        if (!cancelled) setIsAdmin(false);
-      }
-    }
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [address, isConnected, hasRole]);
+  const { accessLevel } = useAllowlist();
+  const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
 
   return (
     <header className="border-b bg-background text-foreground">

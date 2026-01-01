@@ -12,7 +12,7 @@ import { useSafeArea } from "@/hooks/useSafeArea";
 const tabs = [
   { id: "raffles", label: "Raffles", icon: Ticket, path: "/raffles" },
   { id: "infofi", label: "InfoFi", icon: TrendingUp, path: "/markets" },
-  { id: "portfolio", label: "Portfolio", icon: Wallet, path: "/account" },
+  { id: "portfolio", label: "Portfolio", icon: Wallet, path: "/portfolio" },
   { id: "ranking", label: "Ranking", icon: Trophy, path: "/users" },
 ];
 
@@ -27,7 +27,7 @@ export const BottomNav = ({ className = "" }) => {
       return "raffles";
     if (path.startsWith("/markets") || path.startsWith("/market/"))
       return "infofi";
-    if (path.startsWith("/account")) return "portfolio";
+    if (path.startsWith("/portfolio")) return "portfolio";
     if (path.startsWith("/users")) return "ranking";
     return "raffles";
   };

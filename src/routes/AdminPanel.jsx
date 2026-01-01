@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { keccak256, stringToHex } from "viem";
+import { useAllowlist } from "@/hooks/useAllowlist";
+import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 // Import NFT drops panel
 import NftDropsPanel from "@/components/admin/NftDropsPanel";
@@ -43,8 +45,6 @@ function AdminPanel() {
   const netKey = getStoredNetworkKey();
   const netCfg = getNetworkByKey(netKey);
 
-  const DEFAULT_ADMIN_ROLE =
-    "0x0000000000000000000000000000000000000000000000000000000000000000";
   const SEASON_CREATOR_ROLE = keccak256(stringToHex("SEASON_CREATOR_ROLE"));
   const EMERGENCY_ROLE = keccak256(stringToHex("EMERGENCY_ROLE"));
 
@@ -53,12 +53,9 @@ function AdminPanel() {
   const [endStatus, setEndStatus] = useState("");
   const [verify, setVerify] = useState({});
 
-  // Check if user has admin role
-  const { data: isAdmin, isLoading: isAdminLoading } = useQuery({
-    queryKey: ["isAdmin", address],
-    queryFn: () => hasRole(DEFAULT_ADMIN_ROLE, address),
-    enabled: !!address,
-  });
+  // Check if user has admin access from database
+  const { accessLevel, isLoading: isAdminLoading } = useAllowlist();
+  const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
 
   // Check if user has creator role
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({

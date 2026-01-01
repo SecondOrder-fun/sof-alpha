@@ -6,6 +6,7 @@
 import PropTypes from "prop-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ export const MobileRafflesList = ({
   onSell,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation(["raffle"]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState({
     active: true,
@@ -47,7 +49,7 @@ export const MobileRafflesList = ({
   return (
     <div className="px-3 pt-2 pb-4 max-w-screen-sm mx-auto">
       {/* Page Title */}
-      <h1 className="text-white text-2xl font-bold mb-4">Raffles</h1>
+      <h1 className="text-white text-2xl font-bold mb-4">{t("raffles")}</h1>
 
       {/* Active Seasons Section */}
       <div className="mb-6">
@@ -55,7 +57,9 @@ export const MobileRafflesList = ({
           onClick={() => toggleSection("active")}
           className="flex items-center justify-between w-full mb-4"
         >
-          <h2 className="text-white text-lg font-semibold">Active Seasons</h2>
+          <h2 className="text-white text-lg font-semibold">
+            {t("activeSeasons")}
+          </h2>
           <ChevronDown
             className={`w-5 h-5 text-[#a89e99] transition-transform ${
               expandedSections.active ? "rotate-180" : ""
@@ -138,7 +142,7 @@ export const MobileRafflesList = ({
               </>
             ) : (
               <div className="text-center py-8 text-[#a89e99]">
-                No active seasons
+                {t("noActiveSeasons")}
               </div>
             )}
           </div>
@@ -151,7 +155,9 @@ export const MobileRafflesList = ({
           onClick={() => toggleSection("all")}
           className="flex items-center justify-between w-full mb-4"
         >
-          <h2 className="text-white text-lg font-semibold">All Seasons</h2>
+          <h2 className="text-white text-lg font-semibold">
+            {t("allSeasons")}
+          </h2>
           <ChevronDown
             className={`w-5 h-5 text-[#a89e99] transition-transform ${
               expandedSections.all ? "rotate-180" : ""
