@@ -1,0 +1,309 @@
+// src/components/account/InfoFiPositionsTab.jsx
+import { useMemo } from "react";
+import PropTypes from "prop-types";
+import { useQuery } from "@tanstack/react-query";
+import { formatUnits } from "viem";
+import { useAllSeasons } from "@/hooks/useAllSeasons";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { readBet } from "@/services/onchainInfoFi";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+
+const InfoFiPositionsTab = ({ address }) => {
+  const netKey = getStoredNetworkKey();
+  const seasonsQry = useAllSeasons();
+  const seasons = seasonsQry.data || [];
+
+  // Get current active season (highest season ID)
+  const currentSeason = useMemo(() => {
+    if (!seasons || seasons.length === 0) return null;
+    return seasons.reduce((max, s) => (s.id > max.id ? s : max), seasons[0]);
+  }, [seasons]);
+
+  // Fetch trade history from database
+  const tradesQuery = useQuery({
+    queryKey: ["infofiTrades", address],
+    enabled: !!address,
+    queryFn: async () => {
+      const url = `${
+        import.meta.env.VITE_API_BASE_URL
+      }/infofi/positions/${address}`;
+
+      console.log("[InfoFi] Fetching trades from:", url);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.error(
+          "[InfoFi] Failed to fetch trades:",
+          response.status,
+          response.statusText
+        );
+        throw new Error("Failed to fetch trade history");
+      }
+
+      const data = await response.json();
+      console.log("[InfoFi] Trades response:", data);
+      return data.positions || [];
+    },
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+  });
+
+  const positionsQuery = useQuery({
+    queryKey: [
+      "infofiPositionsOnchainActive",
+      address,
+      currentSeason?.id,
+      netKey,
+    ],
+    enabled: !!address && !!currentSeason,
+    queryFn: async () => {
+      const seasonId = currentSeason.id;
+
+      // Fetch markets from Supabase (includes contract_address)
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/infofi/markets?seasonId=${seasonId}&isActive=true`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch markets");
+      }
+
+      const data = await response.json();
+      const markets = data.markets?.[seasonId] || [];
+
+      if (!markets || markets.length === 0) {
+        return [];
+      }
+
+      const positions = [];
+
+      for (const m of markets) {
+        try {
+          const fpmmAddress = m.contract_address;
+
+          if (
+            !fpmmAddress ||
+            fpmmAddress === "0x0000000000000000000000000000000000000000"
+          ) {
+            continue; // Skip if no FPMM exists
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          const yes = await readBet({
+            marketId: m.id,
+            account: address,
+            prediction: true,
+            networkKey: netKey,
+            fpmmAddress,
+          });
+          // eslint-disable-next-line no-await-in-loop
+          const no = await readBet({
+            marketId: m.id,
+            account: address,
+            prediction: false,
+            networkKey: netKey,
+            fpmmAddress,
+          });
+
+          const yesAmt = yes?.amount ?? 0n;
+          const noAmt = no?.amount ?? 0n;
+
+          if (yesAmt > 0n || noAmt > 0n) {
+            positions.push({
+              marketId: m.id,
+              marketType: m.market_type || "Winner Prediction",
+              player: m.player_address,
+              yesAmount: yesAmt,
+              noAmount: noAmt,
+            });
+          }
+        } catch (error) {
+          console.error(`Error reading position for market ${m.id}:`, error);
+        }
+      }
+
+      console.log("[InfoFi] Positions found:", positions.length);
+      return positions;
+    },
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+  });
+
+  // Group trades by market
+  const tradesByMarket = useMemo(() => {
+    const trades = tradesQuery.data || [];
+    const grouped = {};
+
+    console.log("[InfoFi] Grouping trades:", trades.length, "trades");
+
+    for (const trade of trades) {
+      const marketId = trade.market_id;
+      if (!grouped[marketId]) {
+        grouped[marketId] = [];
+      }
+      grouped[marketId].push(trade);
+    }
+
+    console.log(
+      "[InfoFi] Grouped by market:",
+      Object.keys(grouped).length,
+      "markets"
+    );
+
+    return grouped;
+  }, [tradesQuery.data]);
+
+  return (
+    <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
+      {!currentSeason && (
+        <p className="text-muted-foreground">No active season found.</p>
+      )}
+      {currentSeason && (
+        <>
+          <div className="mb-3 text-sm text-muted-foreground">
+            Season #{currentSeason.id}{" "}
+            {currentSeason.name ? `— ${currentSeason.name}` : ""}
+          </div>
+          {(positionsQuery.isLoading || tradesQuery.isLoading) && (
+            <p className="text-muted-foreground">Loading positions...</p>
+          )}
+          {(positionsQuery.error || tradesQuery.error) && (
+            <p className="text-red-500">
+              {positionsQuery.error?.message?.includes("does not exist") ||
+              positionsQuery.error?.message?.includes("No prediction markets")
+                ? "No prediction markets available yet."
+                : `Error: ${String(
+                    positionsQuery.error?.message ||
+                      tradesQuery.error?.message ||
+                      positionsQuery.error ||
+                      tradesQuery.error
+                  )}`}
+            </p>
+          )}
+          {!positionsQuery.isLoading &&
+            !tradesQuery.isLoading &&
+            !positionsQuery.error &&
+            !tradesQuery.error && (
+              <>
+                {(positionsQuery.data || []).length === 0 &&
+                  Object.keys(tradesByMarket).length === 0 && (
+                    <p className="text-muted-foreground">
+                      No positions or trades found.
+                    </p>
+                  )}
+                {Object.keys(tradesByMarket).length > 0 && (
+                  <Accordion type="multiple" className="space-y-2">
+                    {Object.entries(tradesByMarket).map(
+                      ([marketId, marketTrades]) => {
+                        const pos = (positionsQuery.data || []).find(
+                          (p) => p.marketId === parseInt(marketId)
+                        );
+
+                        return (
+                          <AccordionItem
+                            key={`market-${marketId}`}
+                            value={`market-${marketId}`}
+                          >
+                            <AccordionTrigger className="px-3 py-2 text-left">
+                              <div className="flex flex-col w-full">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {pos?.marketType || "Winner Prediction"}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Market #{marketId}
+                                  </span>
+                                </div>
+                                {pos?.player && (
+                                  <p className="text-xs text-[#f9d6de]">
+                                    Player: {pos.player.slice(0, 6)}...
+                                    {pos.player.slice(-4)}
+                                  </p>
+                                )}
+                                <div className="flex gap-4 mt-1">
+                                  {pos?.yesAmount > 0n && (
+                                    <span className="text-xs text-green-600">
+                                      YES: {formatUnits(pos.yesAmount, 18)} SOF
+                                    </span>
+                                  )}
+                                  {pos?.noAmount > 0n && (
+                                    <span className="text-xs text-red-600">
+                                      NO: {formatUnits(pos.noAmount, 18)} SOF
+                                    </span>
+                                  )}
+                                  {!pos && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {marketTrades.length} trade
+                                      {marketTrades.length !== 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
+                                <p className="font-semibold mb-2">
+                                  Trade History
+                                </p>
+                                <div className="space-y-1">
+                                  {marketTrades
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.created_at) -
+                                        new Date(a.created_at)
+                                    )
+                                    .map((trade, idx) => (
+                                      <div
+                                        key={`${trade.id}-${idx}`}
+                                        className="text-sm flex justify-between items-center gap-2 py-1"
+                                      >
+                                        <span
+                                          className={
+                                            trade.outcome === "YES"
+                                              ? "text-green-600"
+                                              : "text-red-600"
+                                          }
+                                        >
+                                          {trade.outcome === "YES" ? "+" : "-"}
+                                          {parseFloat(trade.amount).toFixed(
+                                            4
+                                          )}{" "}
+                                          SOF ({trade.outcome})
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(
+                                            trade.created_at
+                                          ).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      }
+                    )}
+                  </Accordion>
+                )}
+              </>
+            )}
+        </>
+      )}
+    </div>
+  );
+};
+
+InfoFiPositionsTab.propTypes = {
+  address: PropTypes.string,
+};
+
+export default InfoFiPositionsTab;
