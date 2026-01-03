@@ -12,6 +12,7 @@ import AccessLevelSelector from "@/components/admin/AccessLevelSelector";
 import StickyFooter from "@/components/layout/StickyFooter";
 import useFarcasterSDK from "@/hooks/useFarcasterSDK";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useAllowlist } from "@/hooks/useAllowlist";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings } from "lucide-react";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
@@ -21,17 +22,26 @@ const Landing = () => {
   useFarcasterSDK();
   const profile = useUserProfile();
 
-  // Access level configuration (stored in localStorage)
-  const [accessLevel, setAccessLevel] = useState(() => {
-    const stored = localStorage.getItem("openAppAccessLevel");
-    return stored ? parseInt(stored) : ACCESS_LEVELS.ADMIN;
-  });
+  // Get user's actual access level from the allowlist system
+  const { isAdmin } = useAllowlist();
 
   const [showAccessConfig, setShowAccessConfig] = useState(false);
 
+  // Admin-only: Configure what access level is required to enter the app
+  // This is stored in localStorage for admin testing purposes only
+  const [requiredAccessLevel, setRequiredAccessLevel] = useState(() => {
+    const stored = localStorage.getItem("openAppAccessLevel");
+    return stored ? parseInt(stored) : ACCESS_LEVELS.CONNECTED;
+  });
+
   useEffect(() => {
-    localStorage.setItem("openAppAccessLevel", accessLevel.toString());
-  }, [accessLevel]);
+    if (isAdmin()) {
+      localStorage.setItem(
+        "openAppAccessLevel",
+        requiredAccessLevel.toString()
+      );
+    }
+  }, [requiredAccessLevel, isAdmin]);
 
   return (
     <div className="relative min-h-screen bg-[#0d0d0d]">
@@ -54,15 +64,17 @@ const Landing = () => {
           </h1>
         </div>
 
-        {/* User Avatar & Settings */}
+        {/* User Avatar & Settings (Admin Only) */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowAccessConfig(!showAccessConfig)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-            title="Configure Access Level"
-          >
-            <Settings className="w-5 h-5 text-[#a89e99] hover:text-white" />
-          </button>
+          {isAdmin() && (
+            <button
+              onClick={() => setShowAccessConfig(!showAccessConfig)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              title="Configure Access Level"
+            >
+              <Settings className="w-5 h-5 text-[#a89e99] hover:text-white" />
+            </button>
+          )}
 
           <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
             {profile.pfpUrl ? (
@@ -82,13 +94,21 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Access Level Configuration Panel */}
-      {showAccessConfig && (
+      {/* Access Level Configuration Panel (Admin Only) */}
+      {showAccessConfig && isAdmin() && (
         <div className="relative z-10 px-8 mb-6">
-          <AccessLevelSelector
-            currentLevel={accessLevel}
-            onLevelChange={setAccessLevel}
-          />
+          <div className="bg-[#1a1a1a] border border-[#c82a54] rounded-lg p-4">
+            <h3 className="text-white font-semibold mb-2">
+              Admin: Configure Required Access Level
+            </h3>
+            <p className="text-[#a89e99] text-sm mb-3">
+              Set the minimum access level required to enter the app
+            </p>
+            <AccessLevelSelector
+              currentLevel={requiredAccessLevel}
+              onLevelChange={setRequiredAccessLevel}
+            />
+          </div>
         </div>
       )}
 
@@ -127,7 +147,10 @@ const Landing = () => {
 
           {/* Open App Button - Access Controlled */}
           <div className="mb-6">
-            <OpenAppButton requiredLevel={accessLevel} className="w-full" />
+            <OpenAppButton
+              requiredLevel={requiredAccessLevel}
+              className="w-full"
+            />
           </div>
 
           {/* Add to Farcaster Button - only shows in Farcaster client */}
