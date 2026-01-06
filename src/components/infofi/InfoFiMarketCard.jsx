@@ -10,18 +10,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/useToast";
 import { useAccount } from "wagmi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { placeBetTx, readBet } from "@/services/onchainInfoFi";
+import { placeBetTx, computeWinnerMarketId } from "@/services/onchainInfoFi";
 import { buildMarketTitleParts } from "@/lib/marketTitle";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
-import { InfoFiMarketAbi } from "@/utils/abis";
 import ERC20Abi from "@/contracts/abis/ERC20.json";
 import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
 import { createPublicClient, http, getAddress, formatUnits } from "viem";
-import { computeWinnerMarketId } from "@/services/onchainInfoFi";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useRaffleRead, useSeasonDetailsQuery } from "@/hooks/useRaffleRead";
 import ExplorerLink from "@/components/common/ExplorerLink";
+import { useUserMarketPosition } from "@/hooks/useUserMarketPosition";
 
 /**
  * InfoFiMarketCard
@@ -174,74 +173,28 @@ const InfoFiMarketCard = ({ market }) => {
     ? playerTicketBalance.data > 0n
     : null;
 
-  // Read my current YES/NO positions
-  const yesPos = useQuery({
-    queryKey: [
-      "infofiBet",
-      effectiveMarketId,
-      address,
-      true,
-      market.contract_address,
-    ],
-    enabled: !!address && !!effectiveMarketId,
-    queryFn: () =>
-      readBet({
-        marketId: effectiveMarketId,
-        account: address,
-        prediction: true,
-        fpmmAddress: market.contract_address,
-      }),
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
+  // Fetch user positions from backend API instead of direct RPC calls
+  const userPosition = useUserMarketPosition(effectiveMarketId);
 
-  // Read market info to compute total volume from the FPMM contract
-  const marketInfo = useQuery({
-    queryKey: ["infofiMarketInfo", market?.contract_address],
-    enabled: !!market?.contract_address,
-    queryFn: async () => {
-      const info = await publicClient.readContract({
-        address: market.contract_address,
-        abi: InfoFiMarketAbi,
-        functionName: "getMarketInfo",
-        args: [],
-      });
-      // getMarketInfo returns [totalYesPool, totalNoPool, lpTokenSupply]
-      const yes = info?.[0] ?? 0n;
-      const no = info?.[1] ?? 0n;
-      return { totalYesPool: yes, totalNoPool: no };
-    },
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
+  // Extract YES and NO positions from backend response
+  const yesPos = {
+    data: userPosition.data ? { amount: userPosition.data.yesAmount } : null,
+    isLoading: userPosition.isLoading,
+    error: userPosition.error,
+  };
 
-  // Force an immediate refetch on mount and whenever the effective id or wallet changes
-  React.useEffect(() => {
-    if (!address || !effectiveMarketId) return;
-    yesPos.refetch?.();
-    noPos.refetch?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, effectiveMarketId]);
+  const noPos = {
+    data: userPosition.data ? { amount: userPosition.data.noAmount } : null,
+    isLoading: userPosition.isLoading,
+    error: userPosition.error,
+  };
 
-  const noPos = useQuery({
-    queryKey: [
-      "infofiBet",
-      effectiveMarketId,
-      address,
-      false,
-      market.contract_address,
-    ],
-    enabled: !!address && !!effectiveMarketId,
-    queryFn: () =>
-      readBet({
-        marketId: effectiveMarketId,
-        account: address,
-        prediction: false,
-        fpmmAddress: market.contract_address,
-      }),
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-  });
+  // Market info would come from backend API when endpoint is available
+  // For now, use placeholder values
+  const marketInfo = {
+    data: { totalYesPool: 0n, totalNoPool: 0n },
+    isLoading: false,
+  };
 
   const [form, setForm] = React.useState({ side: "YES", amount: "" });
   const betMutation = useMutation({

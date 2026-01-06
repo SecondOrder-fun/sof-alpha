@@ -10,8 +10,22 @@ import InfoFiMarketCard from "@/components/infofi/InfoFiMarketCard";
 // import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
+import useIsMobile from "@/hooks/useIsMobile";
+import MobileMarkets from "@/components/mobile/MobileMarkets";
 
 const MarketsIndex = () => {
+  const isMobile = useIsMobile();
+
+  // Mobile view - render mobile component
+  if (isMobile) {
+    return <MobileMarkets />;
+  }
+
+  // Desktop view continues below
+  return <DesktopMarketsIndex />;
+};
+
+const DesktopMarketsIndex = () => {
   const { t } = useTranslation("market");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'active', 'settled'
@@ -197,11 +211,6 @@ const MarketsIndex = () => {
         </div>
       )}
 
-      {!seasonsLoading && activeSeasonId === "0" && (
-        <Card className="text-center py-12">
-          <CardContent></CardContent>
-        </Card>
-      )}
       {isLoading && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
