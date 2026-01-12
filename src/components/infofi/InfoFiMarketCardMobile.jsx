@@ -1,5 +1,6 @@
 // src/components/infofi/InfoFiMarketCardMobile.jsx
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import BettingInterface from "./BettingInterface";
@@ -17,13 +18,14 @@ import { useToast } from "@/hooks/useToast";
 const InfoFiMarketCardMobile = ({ market }) => {
   const { isConnected } = useAccount();
   const { toast } = useToast();
+  const { t } = useTranslation(["market", "common"]);
   const queryClient = useQueryClient();
 
   // Place bet mutation
   const placeBetMutation = useMutation({
     mutationFn: async ({ marketId, side, amount }) => {
       if (!market.contract_address) {
-        throw new Error("Market contract address not found");
+        throw new Error(t("market:marketContractAddressNotFound"));
       }
 
       return placeBetTx({
@@ -35,8 +37,8 @@ const InfoFiMarketCardMobile = ({ market }) => {
     },
     onSuccess: () => {
       toast({
-        title: "Bet Placed",
-        description: "Your bet has been successfully placed!",
+        title: t("market:betPlaced"),
+        description: t("market:betConfirmed"),
       });
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["infofi"] });
@@ -44,8 +46,8 @@ const InfoFiMarketCardMobile = ({ market }) => {
     },
     onError: (error) => {
       toast({
-        title: "Bet Failed",
-        description: error.message || "Failed to place bet. Please try again.",
+        title: t("market:betFailed"),
+        description: error.message || t("market:transactionError"),
         variant: "destructive",
       });
     },
@@ -74,7 +76,9 @@ const InfoFiMarketCardMobile = ({ market }) => {
         {/* Player Info */}
         {market.player && (
           <div className="mb-4 text-center">
-            <div className="text-sm text-muted-foreground mb-1">Player</div>
+            <div className="text-sm text-muted-foreground mb-1">
+              {t("market:player")}
+            </div>
             <UsernameDisplay address={market.player} />
           </div>
         )}
@@ -91,20 +95,30 @@ const InfoFiMarketCardMobile = ({ market }) => {
         <div className="mt-4 pt-4 border-t border-border">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <div className="text-muted-foreground">Market Type</div>
+              <div className="text-muted-foreground">
+                {t("market:marketType")}
+              </div>
               <div className="font-medium">
                 {market.market_type === "WINNER_PREDICTION"
-                  ? "Winner Prediction"
+                  ? t("market:winnerPrediction")
+                  : market.market_type === "POSITION_SIZE"
+                  ? t("market:positionSize")
+                  : market.market_type === "BEHAVIORAL"
+                  ? t("market:behavioral")
                   : market.market_type}
               </div>
             </div>
             <div>
-              <div className="text-muted-foreground">Status</div>
+              <div className="text-muted-foreground">
+                {t("market:settlementStatus")}
+              </div>
               <div className="font-medium">
                 {market.is_active ? (
-                  <span className="text-green-500">Active</span>
+                  <span className="text-green-500">{t("market:pending")}</span>
                 ) : (
-                  <span className="text-muted-foreground">Settled</span>
+                  <span className="text-muted-foreground">
+                    {t("market:resolved")}
+                  </span>
                 )}
               </div>
             </div>

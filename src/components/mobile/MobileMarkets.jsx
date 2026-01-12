@@ -1,5 +1,6 @@
 // src/components/mobile/MobileMarkets.jsx
 import { useMemo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import SeasonCarousel from "@/components/infofi/SeasonCarousel";
 import MarketTypeCarousel from "@/components/infofi/MarketTypeCarousel";
@@ -14,6 +15,7 @@ import { useAllSeasons } from "@/hooks/useAllSeasons";
  */
 const MobileMarkets = () => {
   const [currentMarketIndex, setCurrentMarketIndex] = useState(0);
+  const { t } = useTranslation(["market", "common"]);
 
   // Get all seasons
   const { data: seasons, isLoading: seasonsLoading } = useAllSeasons?.() || {
@@ -90,21 +92,21 @@ const MobileMarkets = () => {
     return [
       {
         type: "WINNER_PREDICTION",
-        name: "Winner Prediction",
+        name: t("market:winnerPrediction"),
         count: marketsByType.WINNER_PREDICTION.length,
       },
       {
         type: "POSITION_SIZE",
-        name: "Position Size",
+        name: t("market:positionSize"),
         count: marketsByType.POSITION_SIZE.length,
       },
       {
         type: "BEHAVIORAL",
-        name: "Behavioral",
+        name: t("market:behavioral"),
         count: marketsByType.BEHAVIORAL.length,
       },
     ].filter((mt) => mt.count > 0); // Only show types with markets
-  }, [marketsByType]);
+  }, [marketsByType, t]);
 
   // Reset market index when season or type changes
   useEffect(() => {
@@ -117,13 +119,15 @@ const MobileMarkets = () => {
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Page Title */}
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-foreground">InfoFi Markets</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("market:infoFiMarkets")}
+        </h1>
       </div>
 
       {/* Loading State */}
       {isLoading && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading markets...</p>
+          <p className="text-muted-foreground">{t("common:loading")}</p>
         </div>
       )}
 
@@ -131,7 +135,9 @@ const MobileMarkets = () => {
       {error && (
         <Card className="border-destructive/50 bg-destructive/10">
           <CardContent className="py-6 text-center">
-            <p className="text-destructive">Failed to load markets</p>
+            <p className="text-destructive">
+              {t("market:failedToLoadMarkets")}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -155,15 +161,17 @@ const MobileMarkets = () => {
             />
           )}
 
-          {/* Market Cards Carousel */}
-          <MarketCarousel
-            markets={filteredMarkets}
-            currentIndex={currentMarketIndex}
-            onIndexChange={setCurrentMarketIndex}
-            renderMarket={(market) => (
-              <InfoFiMarketCardMobile key={market.id} market={market} />
-            )}
-          />
+          {/* Market Cards Carousel - Only render when there are markets */}
+          {filteredMarkets.length > 0 && (
+            <MarketCarousel
+              markets={filteredMarkets}
+              currentIndex={currentMarketIndex}
+              onIndexChange={setCurrentMarketIndex}
+              renderMarket={(market) => (
+                <InfoFiMarketCardMobile key={market.id} market={market} />
+              )}
+            />
+          )}
         </div>
       )}
 
@@ -175,11 +183,15 @@ const MobileMarkets = () => {
           <Card className="text-center py-12">
             <CardContent className="space-y-4">
               <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-lg font-semibold">No Markets Available</h3>
+              <h3 className="text-lg font-semibold">
+                {t("market:noMarketsAvailable")}
+              </h3>
               <p className="text-muted-foreground max-w-md mx-auto">
-                No {selectedMarketType.toLowerCase().replace("_", " ")} markets
-                for this season yet. Markets are created automatically when
-                players cross the 1% threshold.
+                {t("market:noMarketsDescription", {
+                  marketType: selectedMarketType
+                    .toLowerCase()
+                    .replace("_", " "),
+                })}
               </p>
             </CardContent>
           </Card>
@@ -190,9 +202,11 @@ const MobileMarkets = () => {
         <Card className="text-center py-12">
           <CardContent className="space-y-4">
             <div className="text-6xl mb-4">🎲</div>
-            <h3 className="text-lg font-semibold">No Seasons Available</h3>
+            <h3 className="text-lg font-semibold">
+              {t("market:noSeasonsAvailable")}
+            </h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              No raffle seasons have been created yet.
+              {t("market:noSeasonsDescription")}
             </p>
           </CardContent>
         </Card>

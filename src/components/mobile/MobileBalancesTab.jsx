@@ -1,6 +1,7 @@
 // src/components/mobile/MobileBalancesTab.jsx
 import { useState } from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RaffleBalanceItem from "./RaffleBalanceItem";
@@ -11,13 +12,16 @@ import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
  */
 const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
   const [activeView, setActiveView] = useState("raffles");
+  const { t } = useTranslation(["account", "market"]);
 
   return (
     <div className="space-y-3 mt-3">
       {/* SOF Balance Display */}
       <Card className="border-[#353e34] bg-[#130013]">
         <CardContent className="p-4">
-          <div className="text-xs text-muted-foreground mb-1">$SOF Balance</div>
+          <div className="text-xs text-muted-foreground mb-1">
+            {t("account:sofBalance")}
+          </div>
           <div className="text-2xl font-bold text-white">{sofBalance}</div>
         </CardContent>
       </Card>
@@ -30,7 +34,7 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
           className="flex-1"
           size="sm"
         >
-          Raffles
+          {t("account:raffleHoldings")}
         </Button>
         <Button
           variant={activeView === "infofi" ? "default" : "ghost"}
@@ -38,7 +42,7 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
           className="flex-1"
           size="sm"
         >
-          InfoFi
+          {t("market:yourPositions")}
         </Button>
       </div>
 
@@ -48,7 +52,7 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
           <>
             {rafflePositions.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
-                No raffle positions found.
+                {t("account:noTicketBalances")}
               </p>
             ) : (
               rafflePositions.map((position) => (

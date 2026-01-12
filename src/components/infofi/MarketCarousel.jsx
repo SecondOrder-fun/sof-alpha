@@ -16,17 +16,8 @@ const MarketCarousel = ({
   onIndexChange,
   renderMarket,
 }) => {
-  if (markets.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p className="text-lg">No markets available</p>
-        <p className="text-sm mt-2">
-          Markets are created automatically when players cross the 1% threshold
-        </p>
-      </div>
-    );
-  }
-
+  // Don't show "no markets" message here - let parent component handle it
+  // to avoid duplicate messages
   return (
     <div className="relative">
       {/* Market Counter */}

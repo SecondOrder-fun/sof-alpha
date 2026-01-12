@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useAccount } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatUnits } from "viem";
+import { useTranslation } from "react-i18next";
 import { TabsContent, TabsList } from "@/components/ui/tabs";
 import { SmartTabs, SmartTabsTrigger } from "./SmartTabs";
 import BottomNav from "./BottomNav";
@@ -23,6 +24,7 @@ import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
 const MobilePortfolio = () => {
   const { address, isConnected } = useAccount();
   const { data: username } = useUsername(address);
+  const { t } = useTranslation(["account", "common"]);
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
@@ -137,7 +139,7 @@ const MobilePortfolio = () => {
       <div className="flex flex-col h-full">
         <div className="flex-1 flex items-center justify-center p-4">
           <p className="text-muted-foreground text-center">
-            Please connect your wallet to view your portfolio
+            {t("account:connectWalletToViewAccount")}
           </p>
         </div>
         <BottomNav activeTab="portfolio" />
@@ -148,7 +150,9 @@ const MobilePortfolio = () => {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden flex flex-col px-3 pt-1 pb-20">
-        <h1 className="text-lg font-semibold text-white mb-3">Portfolio</h1>
+        <h1 className="text-lg font-semibold text-white mb-3">
+          {t("account:myAccount")}
+        </h1>
 
         <SmartTabs
           defaultValue="account"
@@ -162,21 +166,21 @@ const MobilePortfolio = () => {
                   activeTab={activeTab}
                   position={0}
                 >
-                  Account
+                  {t("account:profile")}
                 </SmartTabsTrigger>
                 <SmartTabsTrigger
                   value="balances"
                   activeTab={activeTab}
                   position={1}
                 >
-                  Balances
+                  {t("account:balance")}
                 </SmartTabsTrigger>
                 <SmartTabsTrigger
                   value="claims"
                   activeTab={activeTab}
                   position={2}
                 >
-                  Claims
+                  {t("account:claims")}
                 </SmartTabsTrigger>
               </TabsList>
 

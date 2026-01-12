@@ -103,7 +103,7 @@
   "loadingPositions": "Loading positions...",
   "errorLoadingPositions": "Error loading positions",
   "noOpenPositions": "No open positions found.",
-  "noMarketsAvailable": "No prediction markets available yet. Markets will be created automatically when players reach certain position thresholds.",
+  "noMarketsAvailablePlaceholder": "No prediction markets available yet. Markets will be created automatically when players reach certain position thresholds.",
   "subtotal": "Subtotal",
   "marketType": "Market Type",
   "debugDiscovery": "Debug: Discovery",
@@ -164,5 +164,11 @@
   "byTradingYouAgree": "By trading, you agree to the",
   "termsOfUse": "Terms of Use",
   "connectWallet": "Connect Wallet",
-  "cannotRetrieveChartData": "Cannot retrieve chart data"
+  "cannotRetrieveChartData": "Cannot retrieve chart data",
+  "marketContractAddressNotFound": "Market contract address not found",
+  "failedToLoadMarkets": "Failed to load markets",
+  "noMarketsAvailable": "No Markets Available",
+  "noMarketsDescription": "No {{marketType}} markets for this season yet. Markets are created automatically when players cross the 1% threshold.",
+  "noSeasonsAvailable": "No Seasons Available",
+  "noSeasonsDescription": "No raffle seasons have been created yet."
 }

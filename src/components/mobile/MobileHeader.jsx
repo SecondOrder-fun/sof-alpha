@@ -5,12 +5,14 @@
 
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { User } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const MobileHeader = ({ className = "" }) => {
   const profile = useUserProfile();
+  const { t } = useTranslation(["common", "account"]);
 
   return (
     <header
@@ -21,7 +23,7 @@ export const MobileHeader = ({ className = "" }) => {
         <Link to="/" className="flex items-center gap-3">
           <img
             src="/images/logo.png"
-            alt="SecondOrder.fun Logo"
+            alt={t("navigation:brandName")}
             className="w-10 h-10"
           />
           <h1 className="text-lg font-bold">
@@ -37,7 +39,7 @@ export const MobileHeader = ({ className = "" }) => {
             {profile.pfpUrl ? (
               <AvatarImage
                 src={profile.pfpUrl}
-                alt={profile.displayName || "User"}
+                alt={profile.displayName || t("account:username")}
               />
             ) : null}
             <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">

@@ -91,8 +91,8 @@ const Carousel = ({
         <>
           <Button
             variant="ghost"
-            size="icon"
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background/80 hover:bg-background"
+            size="sm"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background/80 hover:bg-background p-0"
             onClick={handlePrevious}
             disabled={!canGoPrevious}
             aria-label="Previous item"
@@ -102,8 +102,8 @@ const Carousel = ({
 
           <Button
             variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background/80 hover:bg-background"
+            size="sm"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-background/80 hover:bg-background p-0"
             onClick={handleNext}
             disabled={!canGoNext}
             aria-label="Next item"

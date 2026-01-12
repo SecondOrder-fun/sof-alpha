@@ -6,20 +6,42 @@
 
 import PropTypes from "prop-types";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Ticket, TrendingUp, Wallet, Trophy } from "lucide-react";
 import { useSafeArea } from "@/hooks/useSafeArea";
-
-const tabs = [
-  { id: "raffles", label: "Raffles", icon: Ticket, path: "/raffles" },
-  { id: "infofi", label: "InfoFi", icon: TrendingUp, path: "/markets" },
-  { id: "portfolio", label: "Portfolio", icon: Wallet, path: "/portfolio" },
-  { id: "ranking", label: "Ranking", icon: Trophy, path: "/users" },
-];
 
 export const BottomNav = ({ className = "" }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const safeArea = useSafeArea();
+  const { t } = useTranslation(["navigation"]);
+
+  const tabs = [
+    {
+      id: "raffles",
+      label: t("navigation:raffles"),
+      icon: Ticket,
+      path: "/raffles",
+    },
+    {
+      id: "infofi",
+      label: t("navigation:markets"),
+      icon: TrendingUp,
+      path: "/markets",
+    },
+    {
+      id: "portfolio",
+      label: t("navigation:portfolio"),
+      icon: Wallet,
+      path: "/portfolio",
+    },
+    {
+      id: "ranking",
+      label: t("navigation:leaderboard"),
+      icon: Trophy,
+      path: "/users",
+    },
+  ];
 
   const getActiveTab = () => {
     const path = location.pathname;
