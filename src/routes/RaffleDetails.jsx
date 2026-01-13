@@ -270,7 +270,9 @@ const RaffleDetails = () => {
     setSheetOpen(true);
   };
 
-  const handleSell = () => {
+  const handleSell = async () => {
+    // Refresh position before opening sell sheet to get latest ticket count
+    await refreshPositionNow();
     setSheetMode("sell");
     setSheetOpen(true);
   };
@@ -299,6 +301,7 @@ const RaffleDetails = () => {
           onSell={handleSell}
         />
         <BuySellSheet
+          key={`position-${localPosition?.tickets?.toString() || "0"}`}
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           mode={sheetMode}
@@ -324,6 +327,14 @@ const RaffleDetails = () => {
             console.log("✅ onSuccess callback completed");
           }}
           onNotify={(evt) => {
+            // Handle position updates from sheet (don't close sheet)
+            if (evt.type === "position_update" && evt.positionData) {
+              console.log("🔄 Position update:", evt.positionData);
+              setLocalPosition(evt.positionData);
+              return;
+            }
+
+            // Handle other notifications
             addToast(evt);
             setIsRefreshing(true);
             debouncedRefresh(0);
