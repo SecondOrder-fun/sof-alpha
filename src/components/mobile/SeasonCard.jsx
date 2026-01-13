@@ -5,10 +5,12 @@
 
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CurveGraph from "@/components/curve/CurveGraph";
 import CountdownTimer from "@/components/common/CountdownTimer";
+import { useAccount } from "wagmi";
 
 export const SeasonCard = ({
   seasonId,
@@ -16,13 +18,17 @@ export const SeasonCard = ({
   curveStep,
   allBondSteps,
   curveSupply,
+  bondingCurveAddress,
   onBuy,
   onSell,
   onClick,
 }) => {
+  const { t } = useTranslation(["raffle", "common"]);
+  const { address, isConnected } = useAccount();
+
   const formatSOF = (value) => {
     if (!value) return "0";
-    return formatUnits(BigInt(value), 18);
+    return formatUnits(BigInt(value || 0), 18);
   };
 
   return (
@@ -38,13 +44,6 @@ export const SeasonCard = ({
             </div>
             <div className="font-medium text-white">{seasonConfig?.name}</div>
           </div>
-          {seasonConfig?.endTime && (
-            <CountdownTimer
-              targetTimestamp={Number(seasonConfig.endTime)}
-              compact
-              className="text-white text-xs"
-            />
-          )}
         </div>
       </CardHeader>
 
@@ -68,6 +67,20 @@ export const SeasonCard = ({
             {formatSOF(curveStep?.price)} SOF
           </div>
         </div>
+
+        {/* Countdown Timer */}
+        {seasonConfig?.endTime && (
+          <div className="bg-[#c82a54] rounded-lg p-4">
+            <div className="text-xs text-white/80 mb-1">
+              {t("raffle:endsIn")}
+            </div>
+            <CountdownTimer
+              targetTimestamp={Number(seasonConfig.endTime)}
+              compact
+              className="text-white font-bold text-lg"
+            />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-2">
@@ -104,6 +117,7 @@ SeasonCard.propTypes = {
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
   curveSupply: PropTypes.bigint,
+  bondingCurveAddress: PropTypes.string.isRequired,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,

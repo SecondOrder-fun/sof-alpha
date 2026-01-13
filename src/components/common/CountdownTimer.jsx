@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import NumberFlow from "@number-flow/react";
 import { getCountdownParts } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 /**
  * Animated countdown timer using number-flow
@@ -21,6 +22,7 @@ const CountdownTimer = ({
   endedText = "Ended",
   onEnd,
 }) => {
+  const { t } = useTranslation(["raffle"]);
   const [countdown, setCountdown] = useState(() =>
     getCountdownParts(targetTimestamp)
   );
@@ -49,32 +51,38 @@ const CountdownTimer = ({
 
   const { days, hours, minutes, seconds } = countdown;
 
-  // Compact format: 2d 5h or 5h 30m or 30m 15s
+  // Compact format: 2d, 5h, 30m or 5h, 30m, 15s or 30m, 15s
   if (compact) {
     if (days > 0) {
       return (
         <span className={`font-mono ${className}`}>
-          <NumberFlow value={days} />d{" "}
-          <NumberFlow value={hours} format={{ minimumIntegerDigits: 1 }} />h
+          <NumberFlow value={days} />
+          {t("raffle:days")},{" "}
+          <NumberFlow value={hours} format={{ minimumIntegerDigits: 1 }} />
+          {t("raffle:hours")},{" "}
+          <NumberFlow value={minutes} format={{ minimumIntegerDigits: 2 }} />
+          {t("raffle:minutes")}
         </span>
       );
     }
     if (hours > 0) {
       return (
         <span className={`font-mono ${className}`}>
-          <NumberFlow value={hours} />h{" "}
-          <NumberFlow value={minutes} format={{ minimumIntegerDigits: 2 }} />m
+          <NumberFlow value={hours} />
+          {t("raffle:hours")},{" "}
+          <NumberFlow value={minutes} format={{ minimumIntegerDigits: 2 }} />
+          {t("raffle:minutes")},{" "}
+          <NumberFlow value={seconds} format={{ minimumIntegerDigits: 2 }} />
+          {t("raffle:seconds")}
         </span>
       );
     }
     return (
       <span className={`font-mono ${className}`}>
-        <NumberFlow value={minutes} />m{" "}
-        {showSeconds && (
-          <>
-            <NumberFlow value={seconds} format={{ minimumIntegerDigits: 2 }} />s
-          </>
-        )}
+        <NumberFlow value={minutes} />
+        {t("raffle:minutes")},{" "}
+        <NumberFlow value={seconds} format={{ minimumIntegerDigits: 2 }} />
+        {t("raffle:seconds")}
       </span>
     );
   }

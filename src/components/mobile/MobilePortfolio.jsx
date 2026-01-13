@@ -165,6 +165,7 @@ const MobilePortfolio = () => {
                   value="account"
                   activeTab={activeTab}
                   position={0}
+                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
                 >
                   {t("account:profile")}
                 </SmartTabsTrigger>
@@ -172,6 +173,7 @@ const MobilePortfolio = () => {
                   value="balances"
                   activeTab={activeTab}
                   position={1}
+                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
                 >
                   {t("account:balance")}
                 </SmartTabsTrigger>
@@ -179,6 +181,7 @@ const MobilePortfolio = () => {
                   value="claims"
                   activeTab={activeTab}
                   position={2}
+                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
                 >
                   {t("account:claims")}
                 </SmartTabsTrigger>

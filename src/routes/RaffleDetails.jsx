@@ -44,11 +44,12 @@ import BuySellSheet from "@/components/mobile/BuySellSheet";
 const RaffleDetails = () => {
   const { t } = useTranslation("raffle");
   const { seasonId } = useParams();
+  const seasonIdNumber = Number(seasonId);
   const [searchParams] = useSearchParams();
   const modeParam = searchParams.get("mode");
   const initialTradeTab =
     modeParam === "sell" || modeParam === "buy" ? modeParam : undefined;
-  const { seasonDetailsQuery } = useRaffleState(seasonId);
+  const { seasonDetailsQuery } = useRaffleState(seasonIdNumber);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
   const [activeTab, setActiveTab] = useState("token-info");
@@ -93,9 +94,10 @@ const RaffleDetails = () => {
           id: net.id,
           name: net.name,
           nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-          rpcUrls: { default: { http: [net.rpcUrl] } },
+          rpcUrls: { default: net.rpcUrl },
         },
         transport: http(net.rpcUrl),
+        blockTag: "latest", // Force latest block
       });
       // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
       try {
@@ -116,9 +118,11 @@ const RaffleDetails = () => {
         const tickets = BigInt(pt ?? 0n);
         const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
         const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+        console.log("🎯 Primary method result:", { tickets, total, probBps });
         setLocalPosition({ tickets, probBps, total });
         return;
-      } catch (_) {
+      } catch (error) {
+        console.log("⚠️ Primary method failed, trying fallback:", error);
         // fallback to ERC20 path below
       }
 
@@ -174,8 +178,14 @@ const RaffleDetails = () => {
       const tickets = BigInt(bal ?? 0n);
       const total = BigInt(supply ?? 0n);
       const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+      console.log("🔄 Fallback ERC20 method result:", {
+        tickets,
+        total,
+        probBps,
+      });
       setLocalPosition({ tickets, probBps, total });
-    } catch (_err) {
+    } catch (err) {
+      console.log("❌ Fallback method also failed:", err);
       // ignore
     }
   };
@@ -278,7 +288,7 @@ const RaffleDetails = () => {
     return (
       <>
         <MobileRaffleDetail
-          seasonId={seasonId}
+          seasonId={seasonIdNumber}
           seasonConfig={cfg}
           curveSupply={curveSupply}
           maxSupply={maxSupply}
@@ -292,13 +302,21 @@ const RaffleDetails = () => {
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           mode={sheetMode}
-          seasonId={seasonId}
+          seasonId={seasonIdNumber}
           bondingCurveAddress={bondingCurveAddress}
           maxSellable={localPosition?.tickets || 0n}
-          onSuccess={async () => {
+          onSuccess={async ({ mode, quantity, seasonId }) => {
+            console.log("🔄 onSuccess callback:", { mode, quantity, seasonId });
             setSheetOpen(false);
             await refreshPositionNow();
             debouncedRefresh(0);
+            console.log("✅ onSuccess callback completed");
+          }}
+          onNotify={(evt) => {
+            addToast(evt);
+            setIsRefreshing(true);
+            debouncedRefresh(0);
+            refreshPositionNow();
           }}
         />
       </>
@@ -542,7 +560,7 @@ const RaffleDetails = () => {
                     <TabsContent value="token-info">
                       <TokenInfoTab
                         bondingCurveAddress={bc}
-                        seasonId={seasonId}
+                        seasonId={seasonIdNumber}
                         curveSupply={curveSupply}
                         allBondSteps={allBondSteps}
                         curveReserves={curveReserves}
@@ -553,20 +571,23 @@ const RaffleDetails = () => {
                     <TabsContent value="transactions">
                       <TransactionsTab
                         bondingCurveAddress={bc}
-                        seasonId={seasonId}
+                        seasonId={seasonIdNumber}
                       />
                     </TabsContent>
                     <TabsContent value="holders">
                       <HoldersTab
                         bondingCurveAddress={bc}
-                        seasonId={seasonId}
+                        seasonId={seasonIdNumber}
                       />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
-              <RaffleAdminControls seasonId={seasonId} />
-              <TreasuryControls seasonId={seasonId} bondingCurveAddress={bc} />
+              <RaffleAdminControls seasonId={seasonIdNumber} />
+              <TreasuryControls
+                seasonId={seasonIdNumber}
+                bondingCurveAddress={bc}
+              />
             </>
           );
         })()}

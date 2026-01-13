@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProgressBar from "@/components/mobile/ProgressBar";
 import CountdownTimer from "@/components/common/CountdownTimer";
+import { useMemo } from "react";
 
 export const MobileRaffleDetail = ({
   seasonId,
@@ -28,8 +29,19 @@ export const MobileRaffleDetail = ({
   const { t } = useTranslation(["common", "raffle"]);
 
   const formatSOF = (weiAmount) => {
-    return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(4);
+    return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(2);
   };
+
+  // Calculate Grand Prize (65% of total prize pool by default)
+  const grandPrize = useMemo(() => {
+    try {
+      const reserves = totalPrizePool ?? 0n;
+      const grandPrizeBps = 6500n; // 65% in basis points
+      return (reserves * grandPrizeBps) / 10000n;
+    } catch {
+      return 0n;
+    }
+  }, [totalPrizePool]);
 
   // Check if season is active (not ended)
   const now = Math.floor(Date.now() / 1000);
@@ -59,11 +71,16 @@ export const MobileRaffleDetail = ({
               {seasonConfig?.name || "Loading..."}
             </h2>
             {seasonConfig?.endTime && (
-              <CountdownTimer
-                targetTimestamp={Number(seasonConfig.endTime)}
-                compact
-                className="text-sm"
-              />
+              <div className="bg-[#c82a54] px-4 py-2 rounded-lg">
+                <span className="text-white font-bold">
+                  {t("raffle:endsIn")}{" "}
+                </span>
+                <CountdownTimer
+                  targetTimestamp={Number(seasonConfig.endTime)}
+                  compact
+                  className="text-white font-bold"
+                />
+              </div>
             )}
           </div>
 
@@ -89,8 +106,13 @@ export const MobileRaffleDetail = ({
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:yourTickets")}
               </div>
-              <div className="font-bold text-lg">
-                {localPosition?.tickets?.toString() ?? "0"}
+              <div
+                className="font-bold text-lg text-center"
+                key={`tickets-${localPosition?.tickets?.toString() || "0"}`}
+              >
+                {localPosition?.tickets
+                  ? localPosition.tickets.toString()
+                  : "0"}
               </div>
             </div>
           </div>
@@ -101,7 +123,7 @@ export const MobileRaffleDetail = ({
               {t("raffle:grandPrize").toUpperCase()}
             </div>
             <div className="text-2xl font-bold">
-              {formatSOF(totalPrizePool)} $SOF
+              {formatSOF(grandPrize)} $SOF
             </div>
           </div>
 

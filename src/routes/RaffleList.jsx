@@ -64,7 +64,6 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
             <span className="text-[#a89e99]">{t("endsIn")}:</span>
             <CountdownTimer
               targetTimestamp={Number(endTime)}
-              compact
               className="text-[#f9d6de]"
             />
           </div>
@@ -159,13 +158,9 @@ const RaffleList = () => {
   if (isMobile) {
     // Note: We pass raw season data and let MobileRafflesList handle curve state
     // This avoids calling hooks inside map/filter which violates Rules of Hooks
-    const activeSeasons = (allSeasonsQuery.data || [])
-      .filter((s) => s.status === 1)
-      .map((season) => ({
-        seasonId: season.id,
-        config: season.config,
-        status: season.status,
-      }));
+    const activeSeasons = (allSeasonsQuery.data || []).filter(
+      (s) => s.status === 1
+    );
 
     return (
       <>
