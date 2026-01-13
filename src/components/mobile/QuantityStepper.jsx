@@ -16,12 +16,16 @@ export const QuantityStepper = ({
   step = 1,
   className = "",
 }) => {
-  const handleIncrement = () => {
+  const handleIncrement = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     const newValue = Math.min(value + step, max);
     onChange(newValue);
   };
 
-  const handleDecrement = () => {
+  const handleDecrement = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     const newValue = Math.max(value - step, min);
     onChange(newValue);
   };
@@ -39,6 +43,7 @@ export const QuantityStepper = ({
         onClick={handleDecrement}
         disabled={value <= min}
         className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
+        type="button"
       >
         <Minus className="w-5 h-5" />
       </Button>
@@ -57,6 +62,7 @@ export const QuantityStepper = ({
         onClick={handleIncrement}
         disabled={value >= max}
         className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
+        type="button"
       >
         <Plus className="w-5 h-5" />
       </Button>
