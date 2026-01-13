@@ -707,16 +707,16 @@ export const BuySellSheet = ({
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-[#c82a54] p-1 rounded-lg h-14">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/40 p-1.5">
             <TabsTrigger
               value="buy"
-              className="rounded-md data-[state=active]:bg-[#c82a54] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-white/60 text-base font-semibold"
+              className="data-[state=active]:text-[#c82a54] data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
             >
               BUY
             </TabsTrigger>
             <TabsTrigger
               value="sell"
-              className="rounded-md data-[state=active]:bg-[#c82a54] data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-white/60 text-base font-semibold"
+              className="data-[state=active]:text-[#c82a54] data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
             >
               SELL
             </TabsTrigger>
