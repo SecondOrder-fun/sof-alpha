@@ -176,7 +176,7 @@ contract DeployScript is Script {
 
         // Deploy SOF Faucet
         console2.log("Deploying SOF Faucet...");
-        uint256 amountPerRequest = 10_000 * 10 ** 18; // 10,000 SOF tokens
+        uint256 amountPerRequest = 50_000 * 10 ** 18; // 50,000 SOF tokens
         uint256 cooldownPeriod = 6 * 60 * 60; // 6 hours
 
         // Allowed chain IDs: Anvil (31337) and Sepolia (11155111)
