@@ -28,6 +28,7 @@ export default defineConfig(() => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
       __GIT_HASH__: JSON.stringify(gitHash),
+      global: "globalThis",
     },
     plugins: [react()],
     resolve: {
@@ -45,6 +46,13 @@ export default defineConfig(() => {
         "@contracts": path.resolve(__dirname, "./src/contracts"),
       },
     },
+    optimizeDeps: {
+      include: ["bn.js"],
+    },
+    build: {
+      outDir: "dist",
+      sourcemap: true,
+    },
     server: {
       port: 5173,
       strictPort: true, // Fail if port is already in use instead of trying next available
@@ -59,10 +67,6 @@ export default defineConfig(() => {
         },
       },
       allowedHosts: ["127.0.0.1", "localhost", "4256d87ae5d6.ngrok-free.app"],
-    },
-    build: {
-      outDir: "dist",
-      sourcemap: true,
     },
   };
 });

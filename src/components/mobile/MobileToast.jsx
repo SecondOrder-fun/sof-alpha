@@ -31,14 +31,16 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
 
   if (!shouldRender) return null;
 
-  const [title, subtitle] = toast.message.split('\n');
+  const [title, subtitle] = toast.message.split("\n");
 
   return (
     <div
       className={`
         fixed bottom-4 left-4 right-4 z-50
         transform transition-all duration-300 ease-out
-        ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
+        ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+        }
       `}
     >
       <div className="bg-[#130013] border-2 border-[#c82a54] rounded-lg p-4 shadow-lg max-w-sm mx-auto">
@@ -60,10 +62,12 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
                     <path d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>
-                <div className="text-white font-bold">Transaction Completed</div>
+                <div className="text-white font-bold">
+                  Transaction Completed
+                </div>
               </div>
             )}
-            
+
             {/* Error Icon */}
             {toast.type === "error" && (
               <div className="flex items-center mb-2">
@@ -112,9 +116,9 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
           {/* Close Button */}
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={onClose}
-            className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10 -mr-1"
+            className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10 -mr-1 p-1"
           >
             <X className="w-4 h-4" />
           </Button>

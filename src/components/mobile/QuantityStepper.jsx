@@ -35,10 +35,10 @@ export const QuantityStepper = ({
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <Button
-        size="icon"
+        size="sm"
         onClick={handleDecrement}
         disabled={value <= min}
-        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50"
+        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
       >
         <Minus className="w-5 h-5" />
       </Button>
@@ -53,10 +53,10 @@ export const QuantityStepper = ({
       />
 
       <Button
-        size="icon"
+        size="sm"
         onClick={handleIncrement}
         disabled={value >= max}
-        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50"
+        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
       >
         <Plus className="w-5 h-5" />
       </Button>

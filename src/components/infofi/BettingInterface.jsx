@@ -146,17 +146,17 @@ const BettingInterface = ({
           />
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={handleIncrement}
-            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white"
+            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
           >
             <Plus className="h-5 w-5" />
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={handleDecrement}
-            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white"
+            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
           >
             <Minus className="h-5 w-5" />
           </Button>

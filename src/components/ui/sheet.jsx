@@ -25,6 +25,10 @@ const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ));
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+SheetOverlay.propTypes = {
+  className: PropTypes.string,
+};
+
 const SheetContent = React.forwardRef(
   ({ side = "bottom", className, children, ...props }, ref) => (
     <SheetPortal>
@@ -46,6 +50,12 @@ const SheetContent = React.forwardRef(
 );
 SheetContent.displayName = DialogPrimitive.Content.displayName;
 
+SheetContent.propTypes = {
+  side: PropTypes.oneOf(["top", "right", "bottom", "left"]),
+  className: PropTypes.string,
+  children: PropTypes.node,
+};
+
 const SheetHeader = ({ className, ...props }) => (
   <div
     className={cn(
@@ -57,6 +67,10 @@ const SheetHeader = ({ className, ...props }) => (
 );
 SheetHeader.displayName = "SheetHeader";
 
+SheetHeader.propTypes = {
+  className: PropTypes.string,
+};
+
 const SheetTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
@@ -65,6 +79,23 @@ const SheetTitle = React.forwardRef(({ className, ...props }, ref) => (
   />
 ));
 SheetTitle.displayName = DialogPrimitive.Title.displayName;
+
+SheetTitle.propTypes = {
+  className: PropTypes.string,
+};
+
+const SheetDescription = React.forwardRef(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn("text-sm text-gray-400", className)}
+    {...props}
+  />
+));
+SheetDescription.displayName = DialogPrimitive.Description.displayName;
+
+SheetDescription.propTypes = {
+  className: PropTypes.string,
+};
 
 export {
   Sheet,
@@ -75,4 +106,5 @@ export {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 };

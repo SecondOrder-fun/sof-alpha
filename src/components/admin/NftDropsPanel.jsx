@@ -334,9 +334,10 @@ function DropListItem({ drop, onSelect }) {
         >
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={() => toggleFeatured.mutate(drop.id)}
             disabled={toggleFeatured.isPending}
+            className="h-8 w-8 p-2"
             title={
               drop.is_featured ? "Remove from featured" : "Add to featured"
             }
@@ -350,9 +351,10 @@ function DropListItem({ drop, onSelect }) {
 
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={() => toggleActive.mutate(drop.id)}
             disabled={toggleActive.isPending}
+            className="h-8 w-8 p-2"
             title={drop.is_active ? "Deactivate" : "Activate"}
           >
             {drop.is_active ? (
@@ -364,13 +366,14 @@ function DropListItem({ drop, onSelect }) {
 
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={() => {
               if (confirm("Are you sure you want to delete this drop?")) {
                 deleteDrop.mutate({ id: drop.id });
               }
             }}
             disabled={deleteDrop.isPending}
+            className="h-8 w-8 p-2"
             title="Delete"
           >
             <Trash2 className="h-4 w-4 text-destructive" />

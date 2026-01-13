@@ -13,6 +13,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -589,30 +590,37 @@ export const BuySellSheet = ({
         className="bg-[#130013] border-t-2 border-[#c82a54] rounded-t-2xl px-3 max-w-screen-sm mx-auto"
       >
         <SheetHeader className="mb-6">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl font-bold">
-              {activeTab === "buy" ? "Buy Tickets" : "Sell Tickets"}
-            </SheetTitle>
-            <div className="flex items-center gap-2">
-              {/* Settings Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(!showSettings)}
-                className="hover:bg-white/10"
-                title="Slippage settings"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onOpenChange(false)}
-                className="hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-xl font-bold">
+                {activeTab === "buy" ? "Buy Tickets" : "Sell Tickets"}
+              </SheetTitle>
+              <div className="flex items-center gap-2">
+                {/* Settings Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="hover:bg-white/10 p-2 h-8 w-8"
+                  title="Slippage settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  className="hover:bg-white/10 p-2 h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
+            <SheetDescription className="text-xs text-gray-400">
+              {activeTab === "buy"
+                ? "Purchase raffle tickets using SOF tokens"
+                : "Sell your raffle tickets for SOF tokens"}
+            </SheetDescription>
           </div>
         </SheetHeader>
 
