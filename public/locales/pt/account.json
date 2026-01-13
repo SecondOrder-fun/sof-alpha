@@ -1,5 +1,6 @@
 {
   "title": "My Account",
+  "myAccount": "Portfólio",
   "profile": "Profile",
   "wallet": "Wallet",
   "walletAddress": "Wallet Address",
@@ -26,7 +27,6 @@
   "privacy": "Privacy",
   "security": "Security",
   "logout": "Logout",
-  "myAccount": "My Account",
   "userProfile": "User Profile",
   "address": "Address",
   "connectWalletToViewAccount": "Please connect your wallet to view your account.",

@@ -139,14 +139,9 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                     }) => {
                       const ready =
                         mounted &&
-                        authenticationStatus &&
-                        !authenticationStatus.loading;
-                      const connected =
-                        ready &&
-                        account &&
-                        chain &&
-                        (!authenticationStatus.needsReconnect ||
-                          authenticationStatus.needsReconnect);
+                        (!authenticationStatus ||
+                          !authenticationStatus.loading);
+                      const connected = ready && account && chain;
 
                       return (
                         <div

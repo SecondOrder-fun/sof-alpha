@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useWatchContractEvent } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatUnits } from "viem";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
@@ -47,6 +48,7 @@ const DesktopAccountPage = () => {
   const { address, isConnected } = useAccount();
   const { data: username } = useUsername(address);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const { t } = useTranslation(["account", "common"]);
 
   // Build viem public client for current network
   const [client, setClient] = useState(null);
@@ -255,7 +257,7 @@ const DesktopAccountPage = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Portfolio</h1>
+      <h1 className="text-2xl font-bold mb-4">{t("account:myAccount")}</h1>
 
       {/* Completed Season Prizes – carousel of winning seasons only */}
       {Array.isArray(allSeasonsQuery.data) && winningSeasons.length > 0 && (
@@ -276,10 +278,10 @@ const DesktopAccountPage = () => {
       {!isConnected && (
         <Card className="mb-4">
           <CardHeader>
-            <CardTitle>Account Information</CardTitle>
+            <CardTitle>{t("account:profile")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Please connect your wallet to view your account details.</p>
+            <p>{t("account:connectWalletToViewAccount")}</p>
           </CardContent>
         </Card>
       )}
@@ -289,14 +291,14 @@ const DesktopAccountPage = () => {
         <div className="mb-4 grid grid-cols-1 md:grid-cols-[3fr_7fr] gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Account Information</CardTitle>
+              <CardTitle>{t("account:profile")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <SecondaryCard title="Username">
+                <SecondaryCard title={t("account:username")}>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-[#a89e99]">
-                      {username || "Not set"}
+                      {username || t("account:notSet")}
                     </span>
                     <button
                       type="button"
@@ -304,13 +306,13 @@ const DesktopAccountPage = () => {
                       className="p-0 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
                       aria-label={
                         isEditingUsername
-                          ? "Cancel username edit"
-                          : "Edit username"
+                          ? t("account:cancelUsernameEdit")
+                          : t("account:editUsername")
                       }
                       title={
                         isEditingUsername
-                          ? "Cancel username edit"
-                          : "Edit username"
+                          ? t("account:cancelUsernameEdit")
+                          : t("account:editUsername")
                       }
                     >
                       <FiEdit2 />
@@ -327,19 +329,21 @@ const DesktopAccountPage = () => {
                   )}
                 </SecondaryCard>
 
-                <SecondaryCard title="$SOF Balance">
+                <SecondaryCard title={t("account:sofBalanceTitle")}>
                   {sofBalanceQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("common:loading")}
+                    </p>
                   ) : sofBalanceQuery.error ? (
                     <p className="text-sm text-red-500">
-                      Error loading SOF balance
+                      {t("account:errorLoadingSofBalance")}
                     </p>
                   ) : (
                     <p className="font-mono text-sm">{sofBalance} SOF</p>
                   )}
                 </SecondaryCard>
 
-                <SecondaryCard title="Address">
+                <SecondaryCard title={t("account:address")}>
                   <p className="font-mono text-xs break-all">{address}</p>
                 </SecondaryCard>
               </div>
@@ -348,22 +352,26 @@ const DesktopAccountPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>Balances</CardTitle>
+              <CardTitle>{t("account:balance")}</CardTitle>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="raffle" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="raffle">Raffle Tickets</TabsTrigger>
+                  <TabsTrigger value="raffle">
+                    {t("account:raffleHoldings")}
+                  </TabsTrigger>
                   <TabsTrigger value="infofi">InfoFi Positions</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="raffle" className="mt-4">
                   {seasonBalancesQuery.isLoading && (
-                    <p className="text-muted-foreground">Loading...</p>
+                    <p className="text-muted-foreground">
+                      {t("common:loading")}
+                    </p>
                   )}
                   {seasonBalancesQuery.error && (
                     <p className="text-red-500">
-                      Error loading ticket balances
+                      {t("account:errorLoadingTicketBalances")}
                     </p>
                   )}
                   {!seasonBalancesQuery.isLoading &&
@@ -371,7 +379,7 @@ const DesktopAccountPage = () => {
                       <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
                         {(seasonBalancesQuery.data || []).length === 0 && (
                           <p className="text-muted-foreground">
-                            No ticket balances found.
+                            {t("account:noTicketBalances")}
                           </p>
                         )}
                         {(seasonBalancesQuery.data || []).length > 0 && (

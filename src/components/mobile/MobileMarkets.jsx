@@ -118,8 +118,8 @@ const MobileMarkets = () => {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Page Title */}
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-foreground">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white text-left">
           {t("market:infoFiMarkets")}
         </h1>
       </div>

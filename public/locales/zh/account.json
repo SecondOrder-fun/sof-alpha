@@ -1,6 +1,7 @@
 {
-  "title": "My Account",
-  "profile": "Profile",
+  "title": "我的账户",
+  "myAccount": "投资组合",
+  "profile": "个人资料",
   "wallet": "Wallet",
   "walletAddress": "Wallet Address",
   "balance": "Balance",
@@ -26,7 +27,6 @@
   "privacy": "Privacy",
   "security": "Security",
   "logout": "Logout",
-  "myAccount": "My Account",
   "userProfile": "User Profile",
   "address": "Address",
   "connectWalletToViewAccount": "Please connect your wallet to view your account.",

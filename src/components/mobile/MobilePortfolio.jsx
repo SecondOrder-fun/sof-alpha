@@ -150,7 +150,7 @@ const MobilePortfolio = () => {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden flex flex-col px-3 pt-1 pb-20">
-        <h1 className="text-lg font-semibold text-white mb-3">
+        <h1 className="text-2xl font-bold text-white text-left mb-3">
           {t("account:myAccount")}
         </h1>
 

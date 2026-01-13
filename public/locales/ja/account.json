@@ -1,5 +1,6 @@
 {
   "title": "マイアカウント",
+  "myAccount": "ポートフォリオ",
   "profile": "プロフィール",
   "wallet": "ウォレット",
   "walletAddress": "ウォレットアドレス",
@@ -26,7 +27,6 @@
   "privacy": "プライバシー",
   "security": "セキュリティ",
   "logout": "Logout",
-  "myAccount": "My Account",
   "userProfile": "User Profile",
   "address": "Address",
   "connectWalletToViewAccount": "Please connect your wallet to view your account.",
