@@ -118,11 +118,9 @@ const RaffleDetails = () => {
         const tickets = BigInt(pt ?? 0n);
         const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
         const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
-        console.log("🎯 Primary method result:", { tickets, total, probBps });
         setLocalPosition({ tickets, probBps, total });
         return;
       } catch (error) {
-        console.log("⚠️ Primary method failed, trying fallback:", error);
         // fallback to ERC20 path below
       }
 
@@ -266,22 +264,31 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
+    console.log(
+      "handleBuy called, setting sheetMode to buy and sheetOpen to true"
+    );
     setSheetMode("buy");
     setSheetOpen(true);
   };
 
   const handleSell = async () => {
     // Refresh position before opening sell sheet to get latest ticket count
-    console.log("🔄 handleSell: Refreshing position before opening sheet");
     await refreshPositionNow();
 
-    // Force a re-render by updating sheet mode first
-    setSheetMode("sell");
+    // Force a delay and check if position was actually updated
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Small delay to ensure state update completes
+    // Additional delay to ensure React processes all state updates
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    console.log("🔄 handleSell: Position refreshed, opening sell sheet");
+    console.log(
+      "handleSell called, setting sheetMode to sell and sheetOpen to true"
+    );
+    setSheetMode("sell");
+
+    // Additional delay to ensure React processes all state updates
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     setSheetOpen(true);
   };
 
@@ -317,7 +324,6 @@ const RaffleDetails = () => {
           bondingCurveAddress={bondingCurveAddress}
           maxSellable={localPosition?.tickets || 0n}
           onSuccess={async ({ mode, quantity, seasonId }) => {
-            console.log("🔄 onSuccess callback:", { mode, quantity, seasonId });
             setSheetOpen(false);
             // Immediate refresh
             await refreshPositionNow();
@@ -332,12 +338,10 @@ const RaffleDetails = () => {
               await refreshPositionNow();
               debouncedRefresh(0);
             }, 3000);
-            console.log("✅ onSuccess callback completed");
           }}
           onNotify={(evt) => {
             // Handle position updates from sheet (don't close sheet)
             if (evt.type === "position_update" && evt.positionData) {
-              console.log("🔄 Position update:", evt.positionData);
               setLocalPosition(evt.positionData);
               return;
             }

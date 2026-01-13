@@ -1,10 +1,12 @@
 import PropTypes from "prop-types";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { formatUnits } from "viem";
+import { formatUnits, createPublicClient, http } from "viem";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useCurveState } from "@/hooks/useCurveState";
+import { useAccount, useChains } from "wagmi";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
+import SOFBondingCurveJson from "@/contracts/abis/SOFBondingCurve.json";
 import {
   Card,
   CardContent,
@@ -124,10 +126,18 @@ const RaffleList = () => {
   const { t } = useTranslation("raffle");
   const { isMobile } = usePlatform();
   const navigate = useNavigate();
+  const { address } = useAccount();
+  const { chainId } = useAccount();
+  const chains = useChains();
   const allSeasonsQuery = useAllSeasons();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState("buy");
   const [selectedSeason, setSelectedSeason] = useState(null);
+  const [localPosition, setLocalPosition] = useState({
+    tickets: 0n,
+    probBps: 0,
+    total: 0n,
+  });
 
   const renderBadge = (st) => {
     const label = st === 1 ? "Active" : st === 0 ? "NotStarted" : "Completed";
@@ -147,9 +157,56 @@ const RaffleList = () => {
     setSheetOpen(true);
   };
 
-  const handleSell = (seasonId) => {
+  const handleSell = async (seasonId) => {
     const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
     setSelectedSeason(season);
+
+    // Get the bonding curve address for position refresh
+    const bondingCurveAddress =
+      season?.config?.bondingCurve || season?.bondingCurveAddress;
+
+    if (bondingCurveAddress && chainId) {
+      // Find the current chain configuration
+      const currentChain = chains.find((chain) => chain.id === chainId);
+
+      if (currentChain?.rpcUrls?.default) {
+        const positionClient = createPublicClient({
+          chain: currentChain,
+          transport: http(),
+          blockTag: "latest",
+        });
+
+        try {
+          const [pt, cfg] = await Promise.all([
+            positionClient.readContract({
+              address: bondingCurveAddress,
+              abi: SOFBondingCurveJson,
+              functionName: "playerTickets",
+              args: [address],
+            }),
+            positionClient.readContract({
+              address: bondingCurveAddress,
+              abi: SOFBondingCurveJson,
+              functionName: "curveConfig",
+              args: [],
+            }),
+          ]);
+
+          const tickets = BigInt(pt ?? 0n);
+          const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
+          const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+
+          // Update local position state
+          setLocalPosition({ tickets, probBps, total });
+        } catch (error) {
+          console.log("RaffleList position fetch failed:", error);
+        }
+      }
+    }
+
+    // Small delay to ensure state update completes
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     setSheetMode("sell");
     setSheetOpen(true);
   };
@@ -177,7 +234,7 @@ const RaffleList = () => {
             mode={sheetMode}
             seasonId={selectedSeason.id}
             bondingCurveAddress={selectedSeason.config?.bondingCurve}
-            maxSellable={0n}
+            maxSellable={localPosition?.tickets || 0n}
             onSuccess={async () => {
               setSheetOpen(false);
               navigate(`/raffles/${selectedSeason.id}`);
