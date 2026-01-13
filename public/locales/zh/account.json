@@ -66,5 +66,14 @@
   "buySellHistory": "Buy/Sell History",
   "loadingTransfers": "Loading...",
   "errorLoadingTransfers": "Error loading transfers",
-  "noTransfersFound": "No transfers found."
+  "noTransfersFound": "No transfers found.",
+  "systemMenu": "系统菜单",
+  "linkedAccount": "关联账户",
+  "noAccountLinked": "未关联账户",
+  "languageSettings": "语言设置",
+  "disconnectWallet": "断开钱包连接",
+  "connectWallet": "连接钱包",
+  "wrongNetwork": "网络错误",
+  "username": "用户名",
+  "notSet": "未设置"
 }

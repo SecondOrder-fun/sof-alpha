@@ -66,5 +66,14 @@
   "buySellHistory": "Buy/Sell History",
   "loadingTransfers": "Loading...",
   "errorLoadingTransfers": "Error loading transfers",
-  "noTransfersFound": "No transfers found."
+  "noTransfersFound": "No transfers found.",
+  "systemMenu": "Menu système",
+  "linkedAccount": "Compte lié",
+  "noAccountLinked": "Aucun compte lié",
+  "languageSettings": "Paramètres de langue",
+  "disconnectWallet": "Déconnecter le portefeuille",
+  "connectWallet": "Connecter le portefeuille",
+  "wrongNetwork": "Mauvais réseau",
+  "username": "Nom d'utilisateur",
+  "notSet": "Non défini"
 }

@@ -14,6 +14,7 @@ const Avatar = React.forwardRef(({ className, ...props }, ref) => (
       "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
       className
     )}
+    style={{ borderRadius: "9999px" }}
     {...props}
   />
 ));
@@ -23,6 +24,7 @@ const AvatarImage = React.forwardRef(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
     className={cn("aspect-square h-full w-full", className)}
+    style={{ borderRadius: "9999px" }}
     {...props}
   />
 ));
@@ -35,6 +37,7 @@ const AvatarFallback = React.forwardRef(({ className, ...props }, ref) => (
       "flex h-full w-full items-center justify-center rounded-full bg-muted",
       className
     )}
+    style={{ borderRadius: "9999px" }}
     {...props}
   />
 ));
