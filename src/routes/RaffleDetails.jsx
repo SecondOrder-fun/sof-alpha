@@ -308,8 +308,19 @@ const RaffleDetails = () => {
           onSuccess={async ({ mode, quantity, seasonId }) => {
             console.log("🔄 onSuccess callback:", { mode, quantity, seasonId });
             setSheetOpen(false);
+            // Immediate refresh
             await refreshPositionNow();
+            // Debounced refresh for curve data
             debouncedRefresh(0);
+            // Additional refreshes to catch up with blockchain indexing
+            setTimeout(async () => {
+              await refreshPositionNow();
+              debouncedRefresh(0);
+            }, 1000);
+            setTimeout(async () => {
+              await refreshPositionNow();
+              debouncedRefresh(0);
+            }, 3000);
             console.log("✅ onSuccess callback completed");
           }}
           onNotify={(evt) => {

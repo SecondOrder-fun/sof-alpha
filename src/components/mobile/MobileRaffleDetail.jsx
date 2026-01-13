@@ -106,14 +106,16 @@ export const MobileRaffleDetail = ({
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:yourTickets")}
               </div>
-              <div
-                className="font-bold text-lg text-center"
-                key={`tickets-${localPosition?.tickets?.toString() || "0"}`}
-              >
+              <div className="font-bold text-lg text-center">
                 {localPosition?.tickets
                   ? localPosition.tickets.toString()
                   : "0"}
               </div>
+              {localPosition && (
+                <div className="text-xs text-[#a89e99] text-center mt-1">
+                  {((localPosition.probBps || 0) / 100).toFixed(2)}% chance
+                </div>
+              )}
             </div>
           </div>
 

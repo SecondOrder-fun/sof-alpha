@@ -838,7 +838,6 @@ export const BuySellSheet = ({
 
               <Button
                 type="submit"
-                variant="secondary"
                 disabled={
                   rpcMissing ||
                   quantity < 1 ||
