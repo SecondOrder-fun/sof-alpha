@@ -272,8 +272,16 @@ const RaffleDetails = () => {
 
   const handleSell = async () => {
     // Refresh position before opening sell sheet to get latest ticket count
+    console.log("🔄 handleSell: Refreshing position before opening sheet");
     await refreshPositionNow();
+
+    // Force a re-render by updating sheet mode first
     setSheetMode("sell");
+
+    // Small delay to ensure state update completes
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    console.log("🔄 handleSell: Position refreshed, opening sell sheet");
     setSheetOpen(true);
   };
 
