@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import ProgressBar from "@/components/mobile/ProgressBar";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import { useMemo } from "react";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 
 export const MobileRaffleDetail = ({
   seasonId,
   seasonConfig,
+  status,
   curveSupply,
   maxSupply,
   curveStep,
@@ -28,24 +31,29 @@ export const MobileRaffleDetail = ({
   const navigate = useNavigate();
   const { t } = useTranslation(["common", "raffle"]);
 
+  const isCompleted = status === 5;
+  const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
+
   const formatSOF = (weiAmount) => {
     return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(2);
   };
 
-  // Calculate Grand Prize (65% of total prize pool by default)
   const grandPrize = useMemo(() => {
+    if (winnerSummaryQuery.data?.grandPrizeWei != null) {
+      return winnerSummaryQuery.data.grandPrizeWei;
+    }
     try {
       const reserves = totalPrizePool ?? 0n;
-      const grandPrizeBps = 6500n; // 65% in basis points
+      const grandPrizeBps = 6500n; // Fallback for pre-distributor seasons
       return (reserves * grandPrizeBps) / 10000n;
     } catch {
       return 0n;
     }
-  }, [totalPrizePool]);
+  }, [totalPrizePool, winnerSummaryQuery.data]);
 
-  // Check if season is active (not ended)
   const now = Math.floor(Date.now() / 1000);
-  const isActive = seasonConfig?.endTime && Number(seasonConfig.endTime) > now;
+  const isActive =
+    !isCompleted && seasonConfig?.endTime && Number(seasonConfig.endTime) > now;
 
   return (
     <div className="px-3 pt-1 pb-20 space-y-3 max-w-screen-sm mx-auto">
@@ -129,6 +137,19 @@ export const MobileRaffleDetail = ({
             </div>
           </div>
 
+          {isCompleted && winnerSummaryQuery.data && (
+            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+              <div className="text-xs text-muted-foreground mb-1">
+                {t("raffle:winner")}
+              </div>
+              <div className="text-sm">
+                <UsernameDisplay
+                  address={winnerSummaryQuery.data.winnerAddress}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           {isActive ? (
             <div className="flex gap-3">
@@ -183,6 +204,7 @@ export const MobileRaffleDetail = ({
 MobileRaffleDetail.propTypes = {
   seasonId: PropTypes.number.isRequired,
   seasonConfig: PropTypes.object,
+  status: PropTypes.number,
   curveSupply: PropTypes.bigint,
   maxSupply: PropTypes.bigint,
   curveStep: PropTypes.object,

@@ -24,7 +24,7 @@ const MobileActiveSeasonCard = ({ season, onBuy, onSell }) => {
     {
       isActive: season?.status === 1,
       pollMs: 15000,
-    }
+    },
   );
 
   return (
@@ -35,7 +35,6 @@ const MobileActiveSeasonCard = ({ season, onBuy, onSell }) => {
       curveStep={curveStep}
       allBondSteps={allBondSteps}
       curveSupply={curveSupply}
-      bondingCurveAddress={bondingCurveAddress}
       onBuy={() => onBuy(season.id)}
       onSell={() => onSell(season.id)}
       onClick={() => navigate(`/raffles/${season.id}`)}

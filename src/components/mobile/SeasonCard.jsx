@@ -10,21 +10,23 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CurveGraph from "@/components/curve/CurveGraph";
 import CountdownTimer from "@/components/common/CountdownTimer";
-import { useAccount } from "wagmi";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 
 export const SeasonCard = ({
   seasonId,
   seasonConfig,
+  status,
   curveStep,
   allBondSteps,
   curveSupply,
-  bondingCurveAddress,
   onBuy,
   onSell,
   onClick,
 }) => {
   const { t } = useTranslation(["raffle", "common"]);
-  const { address, isConnected } = useAccount();
+  const isCompleted = status === 5;
+  const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
 
   const formatSOF = (value) => {
     if (!value) return "0";
@@ -69,7 +71,7 @@ export const SeasonCard = ({
         </div>
 
         {/* Countdown Timer */}
-        {seasonConfig?.endTime && (
+        {!isCompleted && seasonConfig?.endTime && (
           <div className="bg-[#c82a54] rounded-lg p-4">
             <div className="text-xs text-white/80 mb-1">
               {t("raffle:endsIn")}
@@ -82,26 +84,51 @@ export const SeasonCard = ({
           </div>
         )}
 
+        {isCompleted && winnerSummaryQuery.data && (
+          <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+            <div className="text-xs text-muted-foreground mb-1">
+              {t("raffle:winner")}
+            </div>
+            <div className="text-sm">
+              <UsernameDisplay
+                address={winnerSummaryQuery.data.winnerAddress}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {t("raffle:grandPrize")}:{" "}
+              {(() => {
+                try {
+                  return `${Number(formatUnits(winnerSummaryQuery.data.grandPrizeWei, 18)).toFixed(2)} SOF`;
+                } catch {
+                  return "0.00 SOF";
+                }
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${isCompleted ? "opacity-30" : ""}`}>
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              onBuy?.();
+              if (!isCompleted) onBuy?.();
             }}
             size="sm"
             className="flex-1"
+            disabled={isCompleted}
           >
             BUY
           </Button>
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              onSell?.();
+              if (!isCompleted) onSell?.();
             }}
             variant="outline"
             size="sm"
             className="flex-1"
+            disabled={isCompleted}
           >
             SELL
           </Button>
@@ -114,10 +141,10 @@ export const SeasonCard = ({
 SeasonCard.propTypes = {
   seasonId: PropTypes.number.isRequired,
   seasonConfig: PropTypes.object,
+  status: PropTypes.number,
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
   curveSupply: PropTypes.bigint,
-  bondingCurveAddress: PropTypes.string.isRequired,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,

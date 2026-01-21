@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits, createPublicClient, http } from "viem";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
+import { useSeasonWinnerSummaries } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
 import { useAccount, useChains } from "wagmi";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
@@ -21,6 +22,7 @@ import { usePlatform } from "@/hooks/usePlatform";
 import MobileRafflesList from "@/components/mobile/MobileRafflesList";
 import { useState } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
 
 const ActiveSeasonCard = ({ season, renderBadge }) => {
   const navigate = useNavigate();
@@ -31,7 +33,7 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
     {
       isActive: season?.status === 1,
       pollMs: 15000,
-    }
+    },
   );
 
   const currentPriceLabel = (() => {
@@ -130,6 +132,7 @@ const RaffleList = () => {
   const { chainId } = useAccount();
   const chains = useChains();
   const allSeasonsQuery = useAllSeasons();
+  const winnerSummariesQuery = useSeasonWinnerSummaries(allSeasonsQuery.data);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState("buy");
   const [selectedSeason, setSelectedSeason] = useState(null);
@@ -145,8 +148,8 @@ const RaffleList = () => {
       st === 1
         ? "statusActive"
         : st === 0
-        ? "statusUpcoming"
-        : "statusCompleted";
+          ? "statusUpcoming"
+          : "statusCompleted";
     return <Badge variant={variant}>{label}</Badge>;
   };
 
@@ -199,7 +202,7 @@ const RaffleList = () => {
           // Update local position state
           setLocalPosition({ tickets, probBps, total });
         } catch (error) {
-          console.log("RaffleList position fetch failed:", error);
+          // ignore
         }
       }
     }
@@ -216,7 +219,7 @@ const RaffleList = () => {
     // Note: We pass raw season data and let MobileRafflesList handle curve state
     // This avoids calling hooks inside map/filter which violates Rules of Hooks
     const activeSeasons = (allSeasonsQuery.data || []).filter(
-      (s) => s.status === 1
+      (s) => s.status === 1,
     );
 
     return (
@@ -298,10 +301,39 @@ const RaffleList = () => {
                   to={`/raffles/${s.id}`}
                   className="flex items-center justify-between border rounded p-3 hover:bg-accent/40 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono">#{s.id}</span>
-                    <span className="font-medium">{s.config?.name}</span>
-                    {renderBadge(s.status)}
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-mono">#{s.id}</span>
+                      <span className="font-medium truncate">
+                        {s.config?.name}
+                      </span>
+                      {renderBadge(s.status)}
+                    </div>
+                    {s.status === 5 && winnerSummariesQuery.data?.[s.id] && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="mr-2">
+                          {t("winner")}:{" "}
+                          <UsernameDisplay
+                            address={
+                              winnerSummariesQuery.data[s.id].winnerAddress
+                            }
+                            className="text-xs"
+                          />
+                        </span>
+                        <span>
+                          {t("grandPrize")}:{" "}
+                          {(() => {
+                            try {
+                              const raw =
+                                winnerSummariesQuery.data[s.id].grandPrizeWei;
+                              return `${Number(formatUnits(raw, 18)).toFixed(2)} SOF`;
+                            } catch {
+                              return "0.00 SOF";
+                            }
+                          })()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </Link>
               ))}

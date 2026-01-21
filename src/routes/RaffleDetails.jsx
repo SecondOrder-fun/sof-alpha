@@ -15,7 +15,7 @@ import PageTitle from "@/components/layout/PageTitle";
 // removed inline buy/sell form controls
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, formatUnits, http } from "viem";
 import { SOFBondingCurveAbi, ERC20Abi } from "@/utils/abis";
 import { useCurveState } from "@/hooks/useCurveState";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
@@ -40,6 +40,8 @@ import { formatTimestamp } from "@/lib/utils";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileRaffleDetail from "@/components/mobile/MobileRaffleDetail";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 
 const RaffleDetails = () => {
   const { t } = useTranslation("raffle");
@@ -50,6 +52,10 @@ const RaffleDetails = () => {
   const initialTradeTab =
     modeParam === "sell" || modeParam === "buy" ? modeParam : undefined;
   const { seasonDetailsQuery } = useRaffleState(seasonIdNumber);
+  const winnerSummaryQuery = useSeasonWinnerSummary(
+    seasonIdNumber,
+    seasonDetailsQuery?.data?.status,
+  );
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
   const [activeTab, setActiveTab] = useState("token-info");
@@ -176,14 +182,8 @@ const RaffleDetails = () => {
       const tickets = BigInt(bal ?? 0n);
       const total = BigInt(supply ?? 0n);
       const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
-      console.log("🔄 Fallback ERC20 method result:", {
-        tickets,
-        total,
-        probBps,
-      });
       setLocalPosition({ tickets, probBps, total });
     } catch (err) {
-      console.log("❌ Fallback method also failed:", err);
       // ignore
     }
   };
@@ -264,9 +264,6 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
-    console.log(
-      "handleBuy called, setting sheetMode to buy and sheetOpen to true"
-    );
     setSheetMode("buy");
     setSheetOpen(true);
   };
@@ -281,9 +278,6 @@ const RaffleDetails = () => {
     // Additional delay to ensure React processes all state updates
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    console.log(
-      "handleSell called, setting sheetMode to sell and sheetOpen to true"
-    );
     setSheetMode("sell");
 
     // Additional delay to ensure React processes all state updates
@@ -299,7 +293,7 @@ const RaffleDetails = () => {
     const maxSupply = BigInt(
       cfg?.maxSupply ||
         allBondSteps?.[allBondSteps.length - 1]?.cumulativeSupply ||
-        0
+        0,
     );
 
     return (
@@ -307,6 +301,7 @@ const RaffleDetails = () => {
         <MobileRaffleDetail
           seasonId={seasonIdNumber}
           seasonConfig={cfg}
+          status={seasonDetailsQuery.data.status}
           curveSupply={curveSupply}
           maxSupply={maxSupply}
           curveStep={curveStep}
@@ -323,7 +318,7 @@ const RaffleDetails = () => {
           seasonId={seasonIdNumber}
           bondingCurveAddress={bondingCurveAddress}
           maxSellable={localPosition?.tickets || 0n}
-          onSuccess={async ({ mode, quantity, seasonId }) => {
+          onSuccess={async () => {
             setSheetOpen(false);
             // Immediate refresh
             await refreshPositionNow();
@@ -420,6 +415,39 @@ const RaffleDetails = () => {
                   </span>
                 )}
               </div>
+
+              {seasonDetailsQuery.data.status === 5 &&
+                winnerSummaryQuery.data && (
+                  <div className="px-6 mt-3">
+                    <Card className="border border-[#353e34] bg-[#130013]">
+                      <CardHeader className="py-3">
+                        <CardTitle>{t("winnerAnnouncement")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="text-sm">
+                          <span className="text-[#c82a54]">{t("winner")}:</span>{" "}
+                          <UsernameDisplay
+                            address={winnerSummaryQuery.data.winnerAddress}
+                          />
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-[#c82a54]">
+                            {t("grandPrize")}:
+                          </span>{" "}
+                          <span className="font-mono">
+                            {(() => {
+                              try {
+                                return `${Number(formatUnits(winnerSummaryQuery.data.grandPrizeWei, 18)).toFixed(2)} SOF`;
+                              } catch {
+                                return "0.00 SOF";
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
               {(() => {
                 const st = seasonDetailsQuery.data.status;
