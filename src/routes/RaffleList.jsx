@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits, createPublicClient, http } from "viem";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
@@ -24,7 +24,7 @@ import { useState } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 
-const ActiveSeasonCard = ({ season, renderBadge }) => {
+const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const navigate = useNavigate();
   const { t } = useTranslation(["raffle", "common"]);
   const bondingCurveAddress = season?.config?.bondingCurve;
@@ -49,6 +49,7 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
   })();
 
   const endTime = season?.config?.endTime;
+  const isCompleted = season?.status === 5;
 
   return (
     <Card className="flex flex-col h-full border border-[#353e34] bg-[#130013]">
@@ -84,6 +85,29 @@ const ActiveSeasonCard = ({ season, renderBadge }) => {
             />
           </div>
         </div>
+        {isCompleted && winnerSummary && (
+          <div className="rounded-md border border-[#353e34] bg-black/40 p-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>
+                {t("winner")}:{" "}
+                <UsernameDisplay
+                  address={winnerSummary.winnerAddress}
+                  className="text-xs"
+                />
+              </span>
+              <span>
+                {t("grandPrize")}:{" "}
+                {(() => {
+                  try {
+                    return `${Number(formatUnits(winnerSummary.grandPrizeWei, 18)).toFixed(2)} SOF`;
+                  } catch {
+                    return "0.00 SOF";
+                  }
+                })()}
+              </span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between text-sm">
           <div>
             <div className="text-xs text-[#c82a54]">{t("currentPrice")}</div>
@@ -122,6 +146,10 @@ ActiveSeasonCard.propTypes = {
     }),
   }).isRequired,
   renderBadge: PropTypes.func.isRequired,
+  winnerSummary: PropTypes.shape({
+    winnerAddress: PropTypes.string,
+    grandPrizeWei: PropTypes.any,
+  }),
 };
 
 const RaffleList = () => {
@@ -215,18 +243,17 @@ const RaffleList = () => {
   };
 
   // Mobile view for Farcaster Mini App and Base App
+  const seasonsSorted = [...(allSeasonsQuery.data || [])].sort(
+    (a, b) => Number(b.id) - Number(a.id),
+  );
+
   if (isMobile) {
     // Note: We pass raw season data and let MobileRafflesList handle curve state
     // This avoids calling hooks inside map/filter which violates Rules of Hooks
-    const activeSeasons = (allSeasonsQuery.data || []).filter(
-      (s) => s.status === 1,
-    );
-
     return (
       <>
         <MobileRafflesList
-          activeSeasons={activeSeasons}
-          allSeasons={allSeasonsQuery.data || []}
+          seasons={seasonsSorted}
           onBuy={handleBuy}
           onSell={handleSell}
         />
@@ -252,36 +279,6 @@ const RaffleList = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">{t("title")}</h1>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{t("activeSeasons")}</CardTitle>
-          <CardDescription>{t("activeSeasonsDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
-          {allSeasonsQuery.error && <p>Error loading seasons.</p>}
-          {allSeasonsQuery.data &&
-            (() => {
-              const active = allSeasonsQuery.data.filter((s) => s.status === 1);
-              if (active.length === 0) {
-                return <p>No active seasons right now.</p>;
-              }
-              return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {active.map((s) => (
-                    <ActiveSeasonCard
-                      key={s.id}
-                      season={s}
-                      renderBadge={renderBadge}
-                    />
-                  ))}
-                </div>
-              );
-            })()}
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>{t("allSeasons")}</CardTitle>
@@ -290,53 +287,18 @@ const RaffleList = () => {
         <CardContent>
           {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
           {allSeasonsQuery.error && <p>Error loading seasons.</p>}
-          {allSeasonsQuery.data &&
-            allSeasonsQuery.data.length === 0 &&
-            !allSeasonsQuery.isLoading && <p>No seasons found.</p>}
-          <div className="space-y-3">
-            {allSeasonsQuery.data &&
-              allSeasonsQuery.data.map((s) => (
-                <Link
-                  key={s.id}
-                  to={`/raffles/${s.id}`}
-                  className="flex items-center justify-between border rounded p-3 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="font-mono">#{s.id}</span>
-                      <span className="font-medium truncate">
-                        {s.config?.name}
-                      </span>
-                      {renderBadge(s.status)}
-                    </div>
-                    {s.status === 5 && winnerSummariesQuery.data?.[s.id] && (
-                      <div className="text-xs text-muted-foreground">
-                        <span className="mr-2">
-                          {t("winner")}:{" "}
-                          <UsernameDisplay
-                            address={
-                              winnerSummariesQuery.data[s.id].winnerAddress
-                            }
-                            className="text-xs"
-                          />
-                        </span>
-                        <span>
-                          {t("grandPrize")}:{" "}
-                          {(() => {
-                            try {
-                              const raw =
-                                winnerSummariesQuery.data[s.id].grandPrizeWei;
-                              return `${Number(formatUnits(raw, 18)).toFixed(2)} SOF`;
-                            } catch {
-                              return "0.00 SOF";
-                            }
-                          })()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
+          {seasonsSorted.length === 0 && !allSeasonsQuery.isLoading && (
+            <p>{t("noActiveSeasons")}</p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {seasonsSorted.map((season) => (
+              <ActiveSeasonCard
+                key={season.id}
+                season={season}
+                renderBadge={renderBadge}
+                winnerSummary={winnerSummariesQuery.data?.[season.id]}
+              />
+            ))}
           </div>
         </CardContent>
       </Card>

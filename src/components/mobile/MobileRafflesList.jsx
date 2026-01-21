@@ -1,9 +1,10 @@
 /**
  * Mobile Raffles List
- * Grid-based seasons display matching desktop version
+ * Carousel-based seasons display for Farcaster and mobile
  */
 
 import PropTypes from "prop-types";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,6 +14,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
 
@@ -48,32 +50,45 @@ MobileActiveSeasonCard.propTypes = {
   onSell: PropTypes.func,
 };
 
-export const MobileRafflesList = ({ activeSeasons = [], onBuy, onSell }) => {
+export const MobileRafflesList = ({ seasons = [], onBuy, onSell }) => {
   const { t } = useTranslation(["raffle"]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (currentIndex >= seasons.length) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, seasons.length]);
 
   return (
     <div className="px-3 pt-2 pb-4 max-w-screen-sm mx-auto">
       {/* Page Title */}
       <h1 className="text-white text-2xl font-bold mb-4">{t("raffles")}</h1>
 
-      {/* Active Seasons */}
+      {/* All Seasons */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>{t("activeSeasons")}</CardTitle>
-          <CardDescription>{t("activeSeasonsDescription")}</CardDescription>
+          <CardTitle>{t("allSeasons")}</CardTitle>
+          <CardDescription>{t("allSeasonsDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
-          {activeSeasons.length === 0 && <p>No active seasons right now.</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {activeSeasons.map((season) => (
-              <MobileActiveSeasonCard
-                key={season.id}
-                season={season}
-                onBuy={onBuy}
-                onSell={onSell}
-              />
-            ))}
-          </div>
+          {seasons.length === 0 && <p>{t("noActiveSeasons")}</p>}
+          {seasons.length > 0 && (
+            <Carousel
+              items={seasons}
+              currentIndex={currentIndex}
+              onIndexChange={setCurrentIndex}
+              className="pb-2"
+              renderItem={(season) => (
+                <MobileActiveSeasonCard
+                  key={season.id}
+                  season={season}
+                  onBuy={onBuy}
+                  onSell={onSell}
+                />
+              )}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
@@ -81,7 +96,7 @@ export const MobileRafflesList = ({ activeSeasons = [], onBuy, onSell }) => {
 };
 
 MobileRafflesList.propTypes = {
-  activeSeasons: PropTypes.array,
+  seasons: PropTypes.array,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
 };

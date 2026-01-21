@@ -54,6 +54,14 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+### Raffle List Display Update (All Cards + Farcaster Carousel) (2026-01-21) ✅ COMPLETED
+
+- [x] **Update raffle list UI to show all raffle cards on desktop and Farcaster**
+  - [x] Replace split Active/All sections with a unified all-seasons card grid on desktop
+  - [x] Mobile/Farcaster: render all season cards in a carousel layout
+  - [x] Preserve buy/sell behavior and completed-season winner display
+  - [x] Update or add Vitest coverage for list rendering and carousel behavior
+
 ### Display Grand Prize Winner in Raffle UI ✅ COMPLETED
 
 - [x] **Show winner on completed seasons**
