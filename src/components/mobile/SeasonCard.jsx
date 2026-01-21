@@ -20,6 +20,8 @@ export const SeasonCard = ({
   curveStep,
   allBondSteps,
   curveSupply,
+  cardIndex,
+  totalCards,
   onBuy,
   onSell,
   onClick,
@@ -46,6 +48,11 @@ export const SeasonCard = ({
             </div>
             <div className="font-medium text-white">{seasonConfig?.name}</div>
           </div>
+          {typeof cardIndex === "number" && totalCards ? (
+            <span className="text-xs text-muted-foreground">
+              {cardIndex + 1} of {totalCards}
+            </span>
+          ) : null}
         </div>
       </CardHeader>
 
@@ -150,6 +157,8 @@ SeasonCard.propTypes = {
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
   curveSupply: PropTypes.bigint,
+  cardIndex: PropTypes.number,
+  totalCards: PropTypes.number,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,
