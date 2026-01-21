@@ -7,13 +7,7 @@ import PropTypes from "prop-types";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
@@ -50,7 +44,12 @@ MobileActiveSeasonCard.propTypes = {
   onSell: PropTypes.func,
 };
 
-export const MobileRafflesList = ({ seasons = [], onBuy, onSell }) => {
+export const MobileRafflesList = ({
+  seasons = [],
+  isLoading,
+  onBuy,
+  onSell,
+}) => {
   const { t } = useTranslation(["raffle"]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -67,13 +66,10 @@ export const MobileRafflesList = ({ seasons = [], onBuy, onSell }) => {
 
       {/* All Seasons */}
       <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{t("allSeasons")}</CardTitle>
-          <CardDescription>{t("allSeasonsDescription")}</CardDescription>
-        </CardHeader>
         <CardContent>
-          {seasons.length === 0 && <p>{t("noActiveSeasons")}</p>}
-          {seasons.length > 0 && (
+          {isLoading && <p>{t("loadingSeasons")}</p>}
+          {!isLoading && seasons.length === 0 && <p>{t("noActiveSeasons")}</p>}
+          {!isLoading && seasons.length > 0 && (
             <Carousel
               items={seasons}
               currentIndex={currentIndex}
@@ -97,6 +93,7 @@ export const MobileRafflesList = ({ seasons = [], onBuy, onSell }) => {
 
 MobileRafflesList.propTypes = {
   seasons: PropTypes.array,
+  isLoading: PropTypes.bool,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
 };

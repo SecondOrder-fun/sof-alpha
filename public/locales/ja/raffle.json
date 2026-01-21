@@ -36,6 +36,7 @@
   "getStarted": "チケットを購入して始めましょう",
   "viewDetails": "詳細を見る",
   "seasonDetails": "シーズン詳細",
+  "loadingSeasons": "シーズンを読み込み中...",
   "noActiveSeasons": "開催中のシーズンはありません",
   "checkBackLater": "新しいラッフルをお待ちください",
   "winner": "当選者",

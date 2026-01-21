@@ -74,18 +74,14 @@ export function ContractAddressValidator() {
   useEffect(() => {
     // Validate on mount
     validateAddresses();
-
-    // Also validate every 5 seconds to catch env changes
-    const interval = setInterval(validateAddresses, 5000);
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hasIssues = Object.values(validationResults).some(
-    (r) => r.status !== "valid"
+    (r) => r.status !== "valid",
   );
   const issueCount = Object.values(validationResults).filter(
-    (r) => r.status !== "valid"
+    (r) => r.status !== "valid",
   ).length;
 
   // Only show in development

@@ -3,7 +3,7 @@
 // We intentionally keep this minimal and env-driven. The app can re-create
 // the config when the network toggle changes.
 
-import { http } from "viem";
+import { fallback, http } from "viem";
 import { getDefaultNetworkKey, getNetworkByKey } from "@/config/networks";
 
 // Note: We avoid importing wagmi until provider wiring to prevent version
@@ -29,7 +29,15 @@ export function getChainConfig(networkKey) {
     },
   };
 
-  const transport = http(cfg.rpcUrl);
+  const fallbackUrls = cfg.rpcFallbackUrls || [];
+  const httpTransports = [cfg.rpcUrl, ...fallbackUrls]
+    .filter(Boolean)
+    .map((url) => http(url));
+
+  const transport =
+    httpTransports.length > 1
+      ? fallback(httpTransports, { rank: true })
+      : httpTransports[0];
 
   return { key, chain, transport };
 }
@@ -57,7 +65,7 @@ export function setStoredNetworkKey(key) {
     localStorage.setItem(STORAGE_KEY, (key || defaultNet).toUpperCase());
     // Notify app to re-initialize providers if needed
     window.dispatchEvent(
-      new CustomEvent("sof:network-changed", { detail: { key } })
+      new CustomEvent("sof:network-changed", { detail: { key } }),
     );
   } catch (e) {
     // Reason: some environments (SSR/tests) may not have localStorage; safely ignore.

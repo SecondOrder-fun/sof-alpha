@@ -75,60 +75,66 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
-        <div className="overflow-hidden rounded-md bg-black/40">
-          <div className="h-44">
-            <BondingCurvePanel
-              curveSupply={curveSupply}
-              curveStep={curveStep}
-              allBondSteps={allBondSteps}
-              mini
-            />
-          </div>
-        </div>
-        {isCompleted && winnerSummary && (
-          <div className="rounded-md border border-[#353e34] bg-black/40 p-3 text-xs text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>
-                {t("winner")}:{" "}
-                <UsernameDisplay
-                  address={winnerSummary.winnerAddress}
-                  className="text-xs"
-                />
-              </span>
-              <span>
-                {t("grandPrize")}:{" "}
-                {(() => {
-                  try {
-                    return `${Number(formatUnits(winnerSummary.grandPrizeWei, 18)).toFixed(2)} SOF`;
-                  } catch {
-                    return "0.00 SOF";
-                  }
-                })()}
-              </span>
+        {!isCompleted && (
+          <div className="overflow-hidden rounded-md bg-black/40">
+            <div className="h-44">
+              <BondingCurvePanel
+                curveSupply={curveSupply}
+                curveStep={curveStep}
+                allBondSteps={allBondSteps}
+                mini
+              />
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between text-sm">
-          <div>
-            <div className="text-xs text-[#c82a54]">{t("currentPrice")}</div>
-            <div className="font-mono text-base">{currentPriceLabel} SOF</div>
+        {isCompleted && winnerSummary && (
+          <div className="rounded-md border border-[#353e34] bg-black/40 p-4 text-base text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm uppercase tracking-wide text-[#c82a54]">
+                {t("winner")}
+              </span>
+              <span className="text-lg font-semibold text-white">
+                <UsernameDisplay
+                  address={winnerSummary.winnerAddress}
+                  className="text-lg"
+                />
+              </span>
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              {t("grandPrize")}:{" "}
+              {(() => {
+                try {
+                  return `${Number(formatUnits(winnerSummary.grandPrizeWei, 18)).toFixed(2)} SOF`;
+                } catch {
+                  return "0.00 SOF";
+                }
+              })()}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => navigate(`/raffles/${season.id}?mode=buy`)}
-            >
-              {t("common:buy")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/raffles/${season.id}?mode=sell`)}
-            >
-              {t("common:sell")}
-            </Button>
+        )}
+        {!isCompleted && (
+          <div className="flex items-center justify-between text-sm">
+            <div>
+              <div className="text-xs text-[#c82a54]">{t("currentPrice")}</div>
+              <div className="font-mono text-base">{currentPriceLabel} SOF</div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => navigate(`/raffles/${season.id}?mode=buy`)}
+              >
+                {t("common:buy")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/raffles/${season.id}?mode=sell`)}
+              >
+                {t("common:sell")}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -254,6 +260,7 @@ const RaffleList = () => {
       <>
         <MobileRafflesList
           seasons={seasonsSorted}
+          isLoading={allSeasonsQuery.isLoading}
           onBuy={handleBuy}
           onSell={handleSell}
         />

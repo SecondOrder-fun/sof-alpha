@@ -1,7 +1,7 @@
 // src/context/WagmiConfigProvider.jsx
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { WagmiProvider, createConfig, http, useConnect } from "wagmi";
+import { WagmiProvider, createConfig, useConnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
 import { getChainConfig, getStoredNetworkKey } from "@/lib/wagmi";
@@ -18,17 +18,12 @@ const initialNetworkKey = (() => {
 // Build chain config for TESTNET only
 const testnetChainConfig = getChainConfig("TESTNET");
 
-// Export initial chain for compatibility
-export const getInitialChain = () => testnetChainConfig.chain;
-
 // Create config with both injected and Farcaster connectors
 const config = createConfig({
   chains: [testnetChainConfig.chain],
   connectors: [farcasterFrame(), injected()],
   transports: {
-    [testnetChainConfig.chain.id]: http(
-      testnetChainConfig.chain.rpcUrls.default.http[0]
-    ),
+    [testnetChainConfig.chain.id]: testnetChainConfig.transport,
   },
 });
 
@@ -52,7 +47,7 @@ const FarcasterAutoConnect = () => {
         if (ctx) {
           // We're in a Farcaster client - find and use the Farcaster connector
           const farcasterConnector = connectors.find(
-            (c) => c.id === "farcaster-frame" || c.name === "Farcaster"
+            (c) => c.id === "farcaster-frame" || c.name === "Farcaster",
           );
           if (farcasterConnector) {
             connect({ connector: farcasterConnector });

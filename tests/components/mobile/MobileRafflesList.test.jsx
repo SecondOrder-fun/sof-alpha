@@ -84,8 +84,25 @@ describe("MobileRafflesList", () => {
     expect(screen.getByTestId("season-card-3")).toBeInTheDocument();
   });
 
+  it("shows loading state while fetching", () => {
+    renderList({
+      seasons: [],
+      isLoading: true,
+      onBuy: vi.fn(),
+      onSell: vi.fn(),
+    });
+
+    expect(screen.getByText("loadingSeasons")).toBeInTheDocument();
+    expect(screen.queryByText("noActiveSeasons")).not.toBeInTheDocument();
+  });
+
   it("shows empty state when no seasons exist", () => {
-    renderList({ seasons: [], onBuy: vi.fn(), onSell: vi.fn() });
+    renderList({
+      seasons: [],
+      isLoading: false,
+      onBuy: vi.fn(),
+      onSell: vi.fn(),
+    });
 
     expect(screen.getByText("noActiveSeasons")).toBeInTheDocument();
   });

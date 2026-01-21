@@ -50,25 +50,29 @@ export const SeasonCard = ({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 pt-0">
-        {/* Mini Curve Graph */}
-        <div className="bg-black/40 rounded-md overflow-hidden h-32">
-          <CurveGraph
-            curveSupply={curveSupply}
-            allBondSteps={allBondSteps}
-            currentStep={curveStep}
-            mini
-          />
-        </div>
+        {!isCompleted && (
+          <>
+            {/* Mini Curve Graph */}
+            <div className="bg-black/40 rounded-md overflow-hidden h-32">
+              <CurveGraph
+                curveSupply={curveSupply}
+                allBondSteps={allBondSteps}
+                currentStep={curveStep}
+                mini
+              />
+            </div>
 
-        {/* Current Price */}
-        <div>
-          <div className="text-xs text-muted-foreground mb-1">
-            Current Price
-          </div>
-          <div className="font-mono text-base">
-            {formatSOF(curveStep?.price)} SOF
-          </div>
-        </div>
+            {/* Current Price */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                Current Price
+              </div>
+              <div className="font-mono text-base">
+                {formatSOF(curveStep?.price)} SOF
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Countdown Timer */}
         {!isCompleted && seasonConfig?.endTime && (
@@ -86,15 +90,16 @@ export const SeasonCard = ({
 
         {isCompleted && winnerSummaryQuery.data && (
           <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-            <div className="text-xs text-muted-foreground mb-1">
+            <div className="text-sm uppercase tracking-wide text-[#c82a54]">
               {t("raffle:winner")}
             </div>
-            <div className="text-sm">
+            <div className="text-lg font-semibold text-white mt-1">
               <UsernameDisplay
                 address={winnerSummaryQuery.data.winnerAddress}
+                className="text-lg"
               />
             </div>
-            <div className="text-xs text-muted-foreground mt-2">
+            <div className="text-sm text-muted-foreground mt-2">
               {t("raffle:grandPrize")}:{" "}
               {(() => {
                 try {
@@ -108,31 +113,31 @@ export const SeasonCard = ({
         )}
 
         {/* Action Buttons */}
-        <div className={`flex gap-2 ${isCompleted ? "opacity-30" : ""}`}>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isCompleted) onBuy?.();
-            }}
-            size="sm"
-            className="flex-1"
-            disabled={isCompleted}
-          >
-            BUY
-          </Button>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isCompleted) onSell?.();
-            }}
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            disabled={isCompleted}
-          >
-            SELL
-          </Button>
-        </div>
+        {!isCompleted && (
+          <div className="flex gap-2">
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onBuy?.();
+              }}
+              size="sm"
+              className="flex-1"
+            >
+              BUY
+            </Button>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSell?.();
+              }}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              SELL
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

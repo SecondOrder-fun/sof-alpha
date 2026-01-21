@@ -32,6 +32,7 @@
   "getStarted": "Get started by buying tickets",
   "viewDetails": "View Details",
   "seasonDetails": "Season Details",
+  "loadingSeasons": "Loading seasons...",
   "noActiveSeasons": "No active seasons",
   "checkBackLater": "Check back later for new raffles",
   "winner": "Winner",

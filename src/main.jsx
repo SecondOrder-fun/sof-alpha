@@ -6,10 +6,8 @@ import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import {
-  WagmiConfigProvider,
-  getInitialChain,
-} from "./context/WagmiConfigProvider";
+import { WagmiConfigProvider } from "./context/WagmiConfigProvider";
+import { getInitialChain } from "./context/initialChain";
 import { AuthKitProvider } from "@farcaster/auth-kit";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/tailwind.css";
@@ -29,6 +27,26 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Filter noisy external dependency warnings in dev only.
+// Reason: Third-party libraries can emit deprecation notices that we cannot
+// control directly; we keep other warnings intact.
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  const originalWarn = console.warn.bind(console);
+  // eslint-disable-next-line no-console
+  console.warn = (...args) => {
+    const message = typeof args[0] === "string" ? args[0] : "";
+    if (
+      message.includes("[DEPRECATED]") &&
+      message.includes("zustand") &&
+      message.includes("Default export is deprecated")
+    ) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
 
 // Initialize Farcaster AuthKit
 const farcasterConfig =
@@ -239,6 +257,6 @@ import("./i18n").then(() => {
           </WagmiConfigProvider>
         </QueryClientProvider>
       </ProviderErrorBoundary>
-    </React.StrictMode>
+    </React.StrictMode>,
   );
 });

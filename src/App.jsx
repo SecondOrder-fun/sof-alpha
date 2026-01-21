@@ -15,11 +15,8 @@ import { useSafeArea } from "@/hooks/useSafeArea";
 
 const App = () => {
   const { showDialog, setShowDialog } = useUsernameContext();
-  const { isMobile, platform } = usePlatform();
+  const { isMobile } = usePlatform();
   const safeArea = useSafeArea();
-
-  // Debug: Log platform detection
-  console.log("🔍 Platform detected:", platform, "isMobile:", isMobile);
 
   // Mobile layout for Farcaster Mini App and Base App
   if (isMobile) {

@@ -1,9 +1,9 @@
 // src/hooks/useAllSeasons.js
-import { useQuery } from '@tanstack/react-query';
-import { useRaffleRead } from './useRaffleRead';
-import { usePublicClient } from 'wagmi';
-import { getContractAddresses, RAFFLE_ABI } from '@/config/contracts';
-import { getStoredNetworkKey } from '@/lib/wagmi';
+import { useQuery } from "@tanstack/react-query";
+import { useRaffleRead } from "./useRaffleRead";
+import { usePublicClient } from "wagmi";
+import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
+import { getStoredNetworkKey } from "@/lib/wagmi";
 
 export function useAllSeasons() {
   const { currentSeasonQuery } = useRaffleRead();
@@ -20,19 +20,21 @@ export function useAllSeasons() {
       const seasonPromises = [];
       for (let i = 1; i <= Number(currentSeasonId); i++) {
         seasonPromises.push(
-          client.readContract({
-            address: addr.RAFFLE,
-            abi: RAFFLE_ABI,
-            functionName: 'getSeasonDetails',
-            args: [BigInt(i)],
-          }).then(details => ({ id: i, details })) // Wrap promise to preserve ID
+          client
+            .readContract({
+              address: addr.RAFFLE,
+              abi: RAFFLE_ABI,
+              functionName: "getSeasonDetails",
+              args: [BigInt(i)],
+            })
+            .then((details) => ({ id: i, details })), // Wrap promise to preserve ID
         );
       }
 
       const seasonsData = await Promise.all(seasonPromises);
 
       // Normalize and filter out zero/default structs that render as 1970 dates
-      const normalized = seasonsData.map(s => ({
+      const normalized = seasonsData.map((s) => ({
         id: s.id, // Use the preserved ID
         config: s.details?.[0],
         status: s.details?.[1],
@@ -45,7 +47,7 @@ export function useAllSeasons() {
         const start = Number(s?.config?.startTime || 0);
         const end = Number(s?.config?.endTime || 0);
         const bc = s?.config?.bondingCurve;
-        const isZeroAddr = typeof bc === 'string' && /^0x0{40}$/i.test(bc);
+        const isZeroAddr = typeof bc === "string" && /^0x0{40}$/i.test(bc);
         return start > 0 && end > 0 && bc && !isZeroAddr;
       });
     } catch (e) {
@@ -54,10 +56,11 @@ export function useAllSeasons() {
     }
   };
 
-  const enabled = currentSeasonQuery.isSuccess && currentSeasonQuery.data != null;
+  const enabled =
+    currentSeasonQuery.isSuccess && currentSeasonQuery.data != null;
 
   return useQuery({
-    queryKey: ['allSeasons', currentSeasonQuery.data, addr.RAFFLE],
+    queryKey: ["allSeasons", currentSeasonQuery.data, addr.RAFFLE],
     queryFn: fetchAllSeasons,
     enabled,
     // Coalesce undefined to [] for consumers while avoiding initial success state
@@ -65,6 +68,7 @@ export function useAllSeasons() {
     initialData: undefined,
     retry: false,
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : 10_000,
   });
 }
