@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import PropTypes from "prop-types";
@@ -14,6 +14,7 @@ vi.mock("react-i18next", () => ({
       if (key === "raffle:seasonNumber") return `Season ${params?.number}`;
       if (key === "raffle:grandPrize") return "Grand Prize";
       if (key === "raffle:consolationPrize") return "Consolation Prize";
+      if (key === "raffle:noActiveSeasons") return "No active seasons";
       if (key === "raffle:nothingToClaim") return "Nothing to claim";
       if (key === "transactions:claiming") return "Claiming...";
       if (key === "raffle:claimPrize") return "Claim Prize";
@@ -26,13 +27,24 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("wagmi", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useAccount: () => ({
+      address: "0x1111111111111111111111111111111111111111",
+    }),
+    useWatchContractEvent: () => {},
+  };
+});
+
 // Mock network key helper
-vi.mock("../../src/lib/wagmi", () => ({
+vi.mock("@/lib/wagmi", () => ({
   getStoredNetworkKey: () => "LOCAL",
 }));
 
 // Mock onchain InfoFi helpers used only for discovery in this test
-vi.mock("../../src/services/onchainInfoFi", () => ({
+vi.mock("@/services/onchainInfoFi", () => ({
   enumerateAllMarkets: vi.fn(async () => [
     // Single season for testing
     { seasonId: 1 },
@@ -45,19 +57,29 @@ vi.mock("../../src/services/onchainInfoFi", () => ({
 
 // Mock raffle distributor helpers
 const mockGetPrizeDistributor = vi.fn(
-  async () => "0x000000000000000000000000000000000000dEaD"
+  async () => "0x000000000000000000000000000000000000dEaD",
 );
 const mockGetSeasonPayouts = vi.fn();
 const mockClaimGrand = vi.fn();
 const mockClaimConsolation = vi.fn();
 const mockIsConsolationClaimed = vi.fn();
+const mockIsSeasonParticipant = vi.fn();
 
-vi.mock("../../src/services/onchainRaffleDistributor", () => ({
+vi.mock("@/services/onchainRaffleDistributor", () => ({
   getPrizeDistributor: (...args) => mockGetPrizeDistributor(...args),
   getSeasonPayouts: (...args) => mockGetSeasonPayouts(...args),
   claimGrand: (...args) => mockClaimGrand(...args),
   claimConsolation: (...args) => mockClaimConsolation(...args),
   isConsolationClaimed: (...args) => mockIsConsolationClaimed(...args),
+  isSeasonParticipant: (...args) => mockIsSeasonParticipant(...args),
+}));
+
+vi.mock("@/hooks/useAllSeasons", () => ({
+  useAllSeasons: () => ({
+    data: [{ id: 1 }],
+    isLoading: false,
+    error: null,
+  }),
 }));
 
 const createWrapper = () => {
@@ -86,6 +108,15 @@ describe("ClaimCenter - raffle consolation prizes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ markets: {}, winnings: [] }),
+      })),
+    );
+
     // Default season payouts: funded season with consolation pool
     mockGetSeasonPayouts.mockResolvedValue({
       distributor: "0x000000000000000000000000000000000000dEaD",
@@ -102,7 +133,12 @@ describe("ClaimCenter - raffle consolation prizes", () => {
 
     // By default the user has not yet claimed consolation
     mockIsConsolationClaimed.mockResolvedValue(false);
+    mockIsSeasonParticipant.mockResolvedValue(true);
     mockClaimConsolation.mockResolvedValue("0xclaim");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("shows a consolation prize row for an eligible non-winning participant", async () => {
@@ -116,12 +152,12 @@ describe("ClaimCenter - raffle consolation prizes", () => {
 
     // Expect a consolation prize row to appear with correct label
     await waitFor(() => {
-      expect(screen.getByText("Consolation Prize")).toBeInTheDocument();
+      expect(screen.getByText(/Consolation Prize/i)).toBeInTheDocument();
     });
 
-    // Amount should be consolationAmount / (totalParticipants - 1) = 3000 / 3 = 1000
+    // Amount should be consolationAmount / (totalParticipants - 1) = 3000 / 3 = 1000 (formatted to 18 decimals)
     await waitFor(() => {
-      expect(screen.getByText(/1000/)).toBeInTheDocument();
+      expect(screen.getByText("0.000000000000001")).toBeInTheDocument();
     });
   });
 
@@ -156,7 +192,7 @@ describe("ClaimCenter - raffle consolation prizes", () => {
 
     // When already claimed, there should be no claim rows
     await waitFor(() => {
-      expect(screen.getByText("Nothing to claim")).toBeInTheDocument();
+      expect(screen.getByText("No active seasons")).toBeInTheDocument();
     });
   });
 });

@@ -1,16 +1,16 @@
 // tests/hooks/useRaffleHolders.probability.test.jsx
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useRaffleHolders } from '@/hooks/useRaffleHolders';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useRaffleHolders } from "@/hooks/useRaffleHolders";
 
 // Create mock client that we can control
 const mockGetLogs = vi.fn(() => Promise.resolve([]));
 const mockGetBlockNumber = vi.fn(() => Promise.resolve(1000n));
 const mockGetBlock = vi.fn(() => Promise.resolve({ timestamp: 1234567890n }));
 
-// Mock viem
-vi.mock('viem', () => ({
+// Mock viem (used by parseAbiItem)
+vi.mock("viem", () => ({
   createPublicClient: vi.fn(() => ({
     getBlockNumber: mockGetBlockNumber,
     getLogs: mockGetLogs,
@@ -20,8 +20,17 @@ vi.mock('viem', () => ({
   parseAbiItem: vi.fn(() => ({})),
 }));
 
+// Mock viem client builder used by hook
+vi.mock("@/lib/viemClient", () => ({
+  buildPublicClient: () => ({
+    getBlockNumber: mockGetBlockNumber,
+    getLogs: mockGetLogs,
+    getBlock: mockGetBlock,
+  }),
+}));
+
 // Mock blockRangeQuery to just pass through to getLogs (since we're mocking viem anyway)
-vi.mock('@/utils/blockRangeQuery', async () => {
+vi.mock("@/utils/blockRangeQuery", async () => {
   return {
     queryLogsInChunks: async (client, params) => {
       // Just call getLogs directly - the client is already mocked
@@ -31,19 +40,19 @@ vi.mock('@/utils/blockRangeQuery', async () => {
 });
 
 // Mock network config
-vi.mock('@/lib/wagmi', () => ({
-  getStoredNetworkKey: vi.fn(() => 'local'),
+vi.mock("@/lib/wagmi", () => ({
+  getStoredNetworkKey: vi.fn(() => "local"),
 }));
 
-vi.mock('@/config/networks', () => ({
+vi.mock("@/config/networks", () => ({
   getNetworkByKey: vi.fn(() => ({
     id: 31337,
-    name: 'Local',
-    rpcUrl: 'http://localhost:8545',
+    name: "Local",
+    rpcUrl: "http://localhost:8545",
   })),
 }));
 
-describe('useRaffleHolders - Probability Recalculation', () => {
+describe("useRaffleHolders - Probability Recalculation", () => {
   let queryClient;
 
   beforeEach(() => {
@@ -63,13 +72,13 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 
-  it('should recalculate all probabilities when total tickets change', async () => {
+  it("should recalculate all probabilities when total tickets change", async () => {
     // Mock events: 3 users with different ticket counts
     mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
-          player: '0x1111111111111111111111111111111111111111',
+          player: "0x1111111111111111111111111111111111111111",
           oldTickets: 0n,
           newTickets: 100n,
           totalTickets: 100n,
@@ -81,7 +90,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       {
         args: {
           seasonId: 1n,
-          player: '0x2222222222222222222222222222222222222222',
+          player: "0x2222222222222222222222222222222222222222",
           oldTickets: 0n,
           newTickets: 100n,
           totalTickets: 200n,
@@ -93,7 +102,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       {
         args: {
           seasonId: 1n,
-          player: '0x3333333333333333333333333333333333333333',
+          player: "0x3333333333333333333333333333333333333333",
           oldTickets: 0n,
           newTickets: 100n,
           totalTickets: 300n,
@@ -104,10 +113,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     ]);
 
-    const { result } = renderHook(
-      () => useRaffleHolders('0xCurveAddress', 1),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useRaffleHolders("0xCurveAddress", 1), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.holders).toHaveLength(3);
@@ -117,9 +125,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
 
     // All holders should have recalculated probabilities based on CURRENT total (300)
     expect(holders).toHaveLength(3);
-    
+
     // Each holder has 100 tickets out of 300 total = 3333 bps (33.33%)
-    holders.forEach(holder => {
+    holders.forEach((holder) => {
       expect(holder.winProbabilityBps).toBe(3333);
     });
 
@@ -132,12 +140,12 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     expect(totalProb).toBeLessThanOrEqual(10000);
   });
 
-  it('should handle single holder correctly', async () => {
+  it("should handle single holder correctly", async () => {
     mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
-          player: '0x1111111111111111111111111111111111111111',
+          player: "0x1111111111111111111111111111111111111111",
           oldTickets: 0n,
           newTickets: 500n,
           totalTickets: 500n,
@@ -148,10 +156,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     ]);
 
-    const { result } = renderHook(
-      () => useRaffleHolders('0xCurveAddress', 1),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useRaffleHolders("0xCurveAddress", 1), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.holders).toHaveLength(1);
@@ -161,12 +168,12 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     expect(result.current.holders[0].winProbabilityBps).toBe(10000);
   });
 
-  it('should handle zero tickets correctly', async () => {
+  it("should handle zero tickets correctly", async () => {
     mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
-          player: '0x1111111111111111111111111111111111111111',
+          player: "0x1111111111111111111111111111111111111111",
           oldTickets: 100n,
           newTickets: 0n, // Sold all tickets
           totalTickets: 0n,
@@ -177,10 +184,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     ]);
 
-    const { result } = renderHook(
-      () => useRaffleHolders('0xCurveAddress', 1),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useRaffleHolders("0xCurveAddress", 1), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -191,13 +197,13 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     expect(result.current.totalTickets).toBe(0n);
   });
 
-  it('should use latest event for each player', async () => {
+  it("should use latest event for each player", async () => {
     // Player 1 has multiple events - should use latest
     mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
-          player: '0x1111111111111111111111111111111111111111',
+          player: "0x1111111111111111111111111111111111111111",
           oldTickets: 0n,
           newTickets: 100n,
           totalTickets: 100n,
@@ -209,7 +215,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       {
         args: {
           seasonId: 1n,
-          player: '0x1111111111111111111111111111111111111111',
+          player: "0x1111111111111111111111111111111111111111",
           oldTickets: 100n,
           newTickets: 200n, // Bought more
           totalTickets: 200n,
@@ -220,10 +226,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     ]);
 
-    const { result } = renderHook(
-      () => useRaffleHolders('0xCurveAddress', 1),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useRaffleHolders("0xCurveAddress", 1), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.holders).toHaveLength(1);
@@ -234,14 +239,14 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     expect(result.current.holders[0].winProbabilityBps).toBe(10000);
   });
 
-  it('should maintain correct probabilities after user sells', async () => {
+  it("should maintain correct probabilities after user sells", async () => {
     // Simulate: User A has 150, User B has 100, User C has 50 (total 300)
     // Then User A sells 50 (total becomes 250)
     mockGetLogs.mockResolvedValue([
       {
         args: {
           seasonId: 1n,
-          player: '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          player: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
           oldTickets: 150n,
           newTickets: 100n, // Sold 50
           totalTickets: 250n,
@@ -253,7 +258,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       {
         args: {
           seasonId: 1n,
-          player: '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+          player: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
           oldTickets: 0n,
           newTickets: 100n,
           totalTickets: 250n,
@@ -265,7 +270,7 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       {
         args: {
           seasonId: 1n,
-          player: '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+          player: "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
           oldTickets: 0n,
           newTickets: 50n,
           totalTickets: 250n,
@@ -276,10 +281,9 @@ describe('useRaffleHolders - Probability Recalculation', () => {
       },
     ]);
 
-    const { result } = renderHook(
-      () => useRaffleHolders('0xCurveAddress', 1),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useRaffleHolders("0xCurveAddress", 1), {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.holders).toHaveLength(3);
@@ -288,15 +292,21 @@ describe('useRaffleHolders - Probability Recalculation', () => {
     const holders = result.current.holders;
 
     // User A: 100/250 = 4000 bps (40%)
-    const userA = holders.find(h => h.player === '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+    const userA = holders.find(
+      (h) => h.player === "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    );
     expect(userA.winProbabilityBps).toBe(4000);
 
     // User B: 100/250 = 4000 bps (40%)
-    const userB = holders.find(h => h.player === '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');
+    const userB = holders.find(
+      (h) => h.player === "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    );
     expect(userB.winProbabilityBps).toBe(4000);
 
     // User C: 50/250 = 2000 bps (20%)
-    const userC = holders.find(h => h.player === '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC');
+    const userC = holders.find(
+      (h) => h.player === "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    );
     expect(userC.winProbabilityBps).toBe(2000);
 
     // Total should be 10000 (100%)

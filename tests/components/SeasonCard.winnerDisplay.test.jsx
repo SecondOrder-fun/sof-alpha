@@ -2,7 +2,7 @@
   @vitest-environment jsdom
 */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -66,14 +66,8 @@ describe("SeasonCard completed winner display", () => {
       screen.getByText("0x1111111111111111111111111111111111111111"),
     ).toBeInTheDocument();
 
-    const buyBtn = screen.getByText("BUY");
-    const sellBtn = screen.getByText("SELL");
-
-    expect(buyBtn).toBeDisabled();
-    expect(sellBtn).toBeDisabled();
-
-    fireEvent.click(buyBtn);
-    fireEvent.click(sellBtn);
+    expect(screen.queryByText("BUY")).not.toBeInTheDocument();
+    expect(screen.queryByText("SELL")).not.toBeInTheDocument();
 
     expect(onBuy).not.toHaveBeenCalled();
     expect(onSell).not.toHaveBeenCalled();

@@ -1,110 +1,138 @@
 // tests/hooks/useHybridPriceLive.test.jsx
-import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import PropTypes from "prop-types";
 
-vi.mock('@/hooks/useInfoFiSocket', () => ({
-  useInfoFiSocket: vi.fn(),
-}))
+vi.mock("@/lib/wagmi", () => ({
+  getStoredNetworkKey: vi.fn(() => "TESTNET"),
+}));
 
-vi.mock('@/hooks/usePricingStream', () => ({
-  usePricingStream: vi.fn().mockReturnValue({
-    data: {
-      marketId: 1,
-      hybridPriceBps: 1200,
-      raffleProbabilityBps: 3000,
-      marketSentimentBps: 4000,
-      lastUpdated: 'sse',
+const readOraclePriceMock = vi.fn();
+vi.mock("@/services/onchainInfoFi", () => ({
+  readOraclePrice: (...args) => readOraclePriceMock(...args),
+}));
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
     },
-    isConnected: true,
-  }),
-  normalizePricingMessage: (msg) => {
-    // minimal passthrough used by the hook
-    const p = msg?.pricing || msg || {}
-    return {
-      hybridPriceBps: p.hybrid_price_bps ?? p.hybridPriceBps ?? p.hybridPrice,
-      raffleProbabilityBps: p.raffle_probability_bps ?? p.raffleProbabilityBps ?? p.raffleProbability,
-      marketSentimentBps: p.market_sentiment_bps ?? p.marketSentimentBps ?? p.marketSentiment,
-      lastUpdated: p.last_updated ?? msg?.timestamp,
-    }
-  },
-}))
+  });
 
-const { useInfoFiSocket } = await import('@/hooks/useInfoFiSocket')
-const { usePricingStream } = await import('@/hooks/usePricingStream')
+  const Wrapper = ({ children }) => {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
 
-// Component to surface hook return for assertions
+  Wrapper.displayName = "UseHybridPriceLiveTestWrapper";
+  Wrapper.propTypes = {
+    children: PropTypes.node.isRequired,
+  };
+
+  return Wrapper;
+}
+
 function HookProbe({ marketId, useHook }) {
-  const { data, isLive, source } = useHook(marketId)
+  const { data, isLive, source } = useHook(marketId);
   return (
     <div>
       <div data-testid="source">{source}</div>
       <div data-testid="isLive">{String(isLive)}</div>
-      <div data-testid="hybrid">{String(data.hybridPriceBps)}</div>
-      <div data-testid="raffle">{String(data.raffleProbabilityBps)}</div>
-      <div data-testid="sentiment">{String(data.marketSentimentBps)}</div>
-      <div data-testid="updated">{String(data.lastUpdated)}</div>
+      <div data-testid="hybrid">{String(data?.hybridPriceBps ?? "")}</div>
+      <div data-testid="raffle">{String(data?.raffleProbabilityBps ?? "")}</div>
+      <div data-testid="sentiment">
+        {String(data?.marketSentimentBps ?? "")}
+      </div>
+      <div data-testid="updated">{String(data?.lastUpdated ?? "")}</div>
     </div>
-  )
+  );
 }
 
-describe('useHybridPriceLive', () => {
+HookProbe.displayName = "UseHybridPriceLiveHookProbe";
+HookProbe.propTypes = {
+  marketId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    .isRequired,
+  useHook: PropTypes.func.isRequired,
+};
+
+describe("useHybridPriceLive", () => {
   beforeEach(() => {
-    vi.resetModules()
-  })
+    readOraclePriceMock.mockReset();
+  });
 
-  it('prefers WS payload when WS is open', async () => {
-    const wsPayload = {
-      market_id: 1,
-      hybrid_price_bps: 5555,
-      raffle_probability_bps: 2222,
-      market_sentiment_bps: 3333,
-      last_updated: 'ws',
-    }
+  it("returns blockchain pricing data when oracle entry is active", async () => {
+    readOraclePriceMock.mockResolvedValue({
+      active: true,
+      raffleProbabilityBps: 2222,
+      marketSentimentBps: 3333,
+      hybridPriceBps: 5555,
+      lastUpdate: "oracle",
+    });
 
-    useInfoFiSocket.mockReturnValue({
-      status: 'open',
-      getMarketUpdate: () => wsPayload,
-      getRaffleUpdate: () => null,
-    })
+    const { useHybridPriceLive } = await import("@/hooks/useHybridPriceLive");
 
-    const { useHybridPriceLive } = await import('@/hooks/useHybridPriceLive')
+    render(<HookProbe marketId={1} useHook={useHybridPriceLive} />, {
+      wrapper: createWrapper(),
+    });
 
-    render(<HookProbe marketId={1} useHook={useHybridPriceLive} />)
+    await waitFor(() => {
+      expect(readOraclePriceMock).toHaveBeenCalledWith({
+        marketId: 1,
+        networkKey: "TESTNET",
+      });
+    });
 
-    expect(screen.getByTestId('source').textContent).toBe('ws')
-    expect(screen.getByTestId('hybrid').textContent).toBe('5555')
-    expect(screen.getByTestId('raffle').textContent).toBe('2222')
-    expect(screen.getByTestId('sentiment').textContent).toBe('3333')
-    expect(screen.getByTestId('updated').textContent).toBe('ws')
-  })
+    await waitFor(() => {
+      expect(screen.getByTestId("hybrid").textContent).toBe("5555");
+    });
 
-  it('falls back to SSE when WS is not open', async () => {
-    useInfoFiSocket.mockReturnValue({
-      status: 'closed',
-      getMarketUpdate: () => null,
-      getRaffleUpdate: () => null,
-    })
+    await waitFor(() => {
+      expect(screen.getByTestId("source").textContent).toBe("blockchain");
+    });
 
-    usePricingStream.mockReturnValue({
-      data: {
+    await waitFor(() => {
+      expect(screen.getByTestId("raffle").textContent).toBe("2222");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sentiment").textContent).toBe("3333");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("updated").textContent).toBe("oracle");
+    });
+  });
+
+  it("returns null data when oracle entry is inactive and never updated", async () => {
+    readOraclePriceMock.mockResolvedValue({
+      active: false,
+      raffleProbabilityBps: 0,
+      marketSentimentBps: 0,
+      hybridPriceBps: 0,
+      lastUpdate: 0,
+    });
+
+    const { useHybridPriceLive } = await import("@/hooks/useHybridPriceLive");
+
+    render(<HookProbe marketId={2} useHook={useHybridPriceLive} />, {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(readOraclePriceMock).toHaveBeenCalledWith({
         marketId: 2,
-        hybridPriceBps: 1200,
-        raffleProbabilityBps: 3000,
-        marketSentimentBps: 4000,
-        lastUpdated: 'sse',
-      },
-      isConnected: true,
-    })
+        networkKey: "TESTNET",
+      });
+    });
 
-    const { useHybridPriceLive } = await import('@/hooks/useHybridPriceLive')
-
-    render(<HookProbe marketId={2} useHook={useHybridPriceLive} />)
-
-    expect(screen.getByTestId('source').textContent).toBe('sse')
-    expect(screen.getByTestId('hybrid').textContent).toBe('1200')
-    expect(screen.getByTestId('raffle').textContent).toBe('3000')
-    expect(screen.getByTestId('sentiment').textContent).toBe('4000')
-    expect(screen.getByTestId('updated').textContent).toBe('sse')
-  })
-})
+    expect(screen.getByTestId("source").textContent).toBe("blockchain");
+    expect(screen.getByTestId("hybrid").textContent).toBe("");
+    expect(screen.getByTestId("raffle").textContent).toBe("");
+    expect(screen.getByTestId("sentiment").textContent).toBe("");
+    expect(screen.getByTestId("updated").textContent).toBe("");
+  });
+});

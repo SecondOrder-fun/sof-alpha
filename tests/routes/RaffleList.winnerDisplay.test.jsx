@@ -116,13 +116,13 @@ describe("RaffleList winner display", () => {
     expect(screen.getByText("Completed Season")).toBeInTheDocument();
 
     // Winner row
-    expect(screen.getByText(/winner\s*:/)).toBeInTheDocument();
+    expect(screen.getByText("winner")).toBeInTheDocument();
     expect(
       screen.getByText("0x1111111111111111111111111111111111111111"),
     ).toBeInTheDocument();
 
     // Prize row
-    expect(screen.getByText(/grandPrize\s*:/)).toBeInTheDocument();
+    expect(screen.getByText(/grandPrize/)).toBeInTheDocument();
     expect(screen.getAllByText(/SOF$/)[0]).toBeInTheDocument();
   });
 

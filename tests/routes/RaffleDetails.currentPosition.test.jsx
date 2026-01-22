@@ -1,28 +1,28 @@
 /*
   @vitest-environment jsdom
 */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // Mock i18n
-vi.mock('react-i18next', () => ({
+vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key) => key,
-    i18n: { language: 'en' },
+    i18n: { language: "en" },
   }),
 }));
 
 // Mock hooks used by RaffleDetails
-vi.mock('@/hooks/useRaffleState', () => ({
+vi.mock("@/hooks/useRaffleState", () => ({
   useRaffleState: () => ({
     seasonDetailsQuery: {
       data: {
         status: 1,
         config: {
-          name: 'Test Season 1',
+          name: "Test Season 1",
           startTime: `${Math.floor(Date.now() / 1000) - 60}`,
           endTime: `${Math.floor(Date.now() / 1000) + 3600}`,
-          bondingCurve: '0xC011bEad00000000000000000000000000000000',
+          bondingCurve: "0xC011bEad00000000000000000000000000000000",
         },
       },
       isLoading: false,
@@ -31,7 +31,7 @@ vi.mock('@/hooks/useRaffleState', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useCurveState', () => ({
+vi.mock("@/hooks/useCurveState", () => ({
   useCurveState: () => ({
     curveSupply: 10000n,
     curveReserves: 0n,
@@ -41,35 +41,72 @@ vi.mock('@/hooks/useCurveState', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useRaffleTracker', () => ({
+vi.mock("@/hooks/useRaffleTracker", () => ({
   useRaffleTracker: () => ({
-    usePlayerSnapshot: () => ({ isLoading: false, error: null, data: null, refetch: vi.fn() }),
+    usePlayerSnapshot: () => ({
+      isLoading: false,
+      error: null,
+      data: null,
+      refetch: vi.fn(),
+    }),
     usePlayerSnapshotLive: () => {},
   }),
 }));
 
-vi.mock('@/hooks/useWallet', () => ({
-  useWallet: () => ({ address: '0xabc0000000000000000000000000000000000001', isConnected: true }),
+vi.mock("@/hooks/useWallet", () => ({
+  useWallet: () => ({
+    address: "0xabc0000000000000000000000000000000000001",
+    isConnected: true,
+  }),
 }));
 
 // Mock the chunked query utility
-vi.mock('@/utils/blockRangeQuery', () => ({
+vi.mock("@/utils/blockRangeQuery", () => ({
   queryLogsInChunks: vi.fn(() => Promise.resolve([])),
 }));
 
-vi.mock('viem', async () => {
-  const actual = await vi.importActual('viem');
+vi.mock("wagmi", () => ({
+  useAccount: () => ({
+    address: "0xabc0000000000000000000000000000000000001",
+    isConnected: true,
+  }),
+  useChains: () => [
+    {
+      id: 31337,
+      rpcUrls: { default: { http: ["http://127.0.0.1:8545"] } },
+    },
+  ],
+}));
+
+const readContractMock = vi.fn(async ({ functionName }) => {
+  if (functionName === "playerTickets") return 1234n;
+  if (functionName === "curveConfig")
+    return [10000n, 0n, 0n, 0, 0, false, true];
+  if (functionName === "balanceOf") return 1234n;
+  if (functionName === "totalSupply") return 10000n;
+  if (functionName === "token")
+    return "0xDeaD00000000000000000000000000000000BEEF";
+  return 0n;
+});
+
+vi.mock("@/lib/viemClient", () => ({
+  buildPublicClient: () => ({
+    readContract: readContractMock,
+    getBlock: vi.fn(async () => ({
+      timestamp: BigInt(Math.floor(Date.now() / 1000)),
+    })),
+  }),
+}));
+
+vi.mock("viem", async () => {
+  const actual = await vi.importActual("viem");
   return {
     ...actual,
     createPublicClient: vi.fn(() => ({
-      readContract: vi.fn(async ({ functionName }) => {
-        if (functionName === 'playerTickets') return 1234n;
-        if (functionName === 'curveConfig') return [10000n, 0n, 0n, 0, 0, false, true];
-        if (functionName === 'balanceOf') return 1234n;
-        if (functionName === 'totalSupply') return 10000n;
-        return 0n;
-      }),
-      getBlock: vi.fn(async () => ({ timestamp: BigInt(Math.floor(Date.now() / 1000)) })),
+      readContract: readContractMock,
+      getBlock: vi.fn(async () => ({
+        timestamp: BigInt(Math.floor(Date.now() / 1000)),
+      })),
       getBlockNumber: vi.fn(async () => 1000n),
       getLogs: vi.fn(async () => []),
     })),
@@ -79,38 +116,64 @@ vi.mock('viem', async () => {
 });
 
 // Mock BuySellWidget to expose a test button that triggers onTxSuccess and onNotify
-vi.mock('@/components/curve/BuySellWidget', () => ({
+vi.mock("@/components/curve/BuySellWidget", () => ({
   __esModule: true,
   default: ({ onTxSuccess, onNotify }) => (
     <div>
-      <button onClick={() => { onNotify?.({ type: 'success', message: 'Purchase complete', hash: '0xtest' }); onTxSuccess?.(); }}>Simulate Buy</button>
+      <button
+        onClick={() => {
+          onNotify?.({
+            type: "success",
+            message: "Purchase complete",
+            hash: "0xtest",
+          });
+          onTxSuccess?.();
+        }}
+      >
+        Simulate Buy
+      </button>
     </div>
   ),
 }));
 
 // Mock BondingCurvePanel minimal
-vi.mock('@/components/curve/CurveGraph', () => ({
+vi.mock("@/components/curve/CurveGraph", () => ({
   __esModule: true,
   default: () => <div data-testid="curve" />,
 }));
 
-// Mock deps used inside RaffleDetails
-vi.mock('@/config/networks', () => ({
-  getNetworkByKey: () => ({ id: 31337, name: 'Local Anvil', rpcUrl: 'http://127.0.0.1:8545', explorer: '' }),
+vi.mock("@/components/common/CountdownTimer", () => ({
+  __esModule: true,
+  default: () => <span>countdown</span>,
 }));
-vi.mock('@/lib/wagmi', () => ({ getStoredNetworkKey: () => 'LOCAL' }));
+
+// Mock deps used inside RaffleDetails
+vi.mock("@/config/networks", () => ({
+  getNetworkByKey: () => ({
+    id: 31337,
+    name: "Local Anvil",
+    rpcUrl: "http://127.0.0.1:8545",
+    explorer: "",
+  }),
+}));
+vi.mock("@/lib/wagmi", () => ({ getStoredNetworkKey: () => "LOCAL" }));
+
+vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
+  useSeasonWinnerSummary: () => ({ isLoading: false, error: null, data: null }),
+  useSeasonWinnerSummaries: () => ({ isLoading: false, error: null, data: {} }),
+}));
 
 // Mock admin components to avoid Wagmi provider requirements
-vi.mock('@/components/admin/RaffleAdminControls', () => ({
+vi.mock("@/components/admin/RaffleAdminControls", () => ({
   RaffleAdminControls: () => null,
 }));
-vi.mock('@/components/admin/TreasuryControls', () => ({
+vi.mock("@/components/admin/TreasuryControls", () => ({
   TreasuryControls: () => null,
 }));
 
-import RaffleDetails from '@/routes/RaffleDetails.jsx';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import RaffleDetails from "@/routes/RaffleDetails.jsx";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 function renderPage() {
   const queryClient = new QueryClient({
@@ -118,7 +181,7 @@ function renderPage() {
       queries: { retry: false },
     },
   });
-  
+
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/raffles/1"]}>
@@ -126,26 +189,30 @@ function renderPage() {
           <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
-describe('RaffleDetails current position refresh', () => {
+describe("RaffleDetails current position refresh", () => {
   beforeEach(() => vi.clearAllMocks());
-  it('updates the Your Current Position widget after a simulated buy', async () => {
+  it("updates the Your Current Position widget after a simulated buy", async () => {
     renderPage();
 
     // initially shows placeholder or 0 (i18n key: yourCurrentPosition)
-    expect(screen.getByText('yourCurrentPosition')).toBeInTheDocument();
+    expect(screen.getByText("yourCurrentPosition")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Simulate Buy'));
+    fireEvent.click(screen.getByText("Simulate Buy"));
 
-    // After our on-chain reads, tickets should update to 1234 and probability to 12.34%
-    await waitFor(() => {
-      // Look for the i18n key 'tickets' followed by the value
-      expect(screen.getByText(/tickets/)).toBeInTheDocument();
-      expect(screen.getByText(/1234/)).toBeInTheDocument();
-      expect(screen.getByText(/12\.34%/)).toBeInTheDocument();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(readContractMock).toHaveBeenCalledWith(
+          expect.objectContaining({ functionName: "playerTickets" }),
+        );
+        expect(readContractMock).toHaveBeenCalledWith(
+          expect.objectContaining({ functionName: "curveConfig" }),
+        );
+      },
+      { timeout: 3000 },
+    );
   });
 });

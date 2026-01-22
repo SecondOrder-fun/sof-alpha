@@ -1,33 +1,47 @@
 // tests/components/HoldersTab.test.jsx
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Mock hooks - use vi.hoisted() to ensure proper hoisting
 const mockUseRaffleHolders = vi.hoisted(() => vi.fn());
 const mockUseWallet = vi.hoisted(() => vi.fn());
 
-vi.mock('@/hooks/useRaffleHolders', () => ({
+vi.mock("@/hooks/useRaffleHolders", () => ({
   useRaffleHolders: mockUseRaffleHolders,
 }));
 
-vi.mock('@/hooks/useWallet', () => ({
+vi.mock("@/hooks/useWallet", () => ({
   useWallet: mockUseWallet,
 }));
 
-vi.mock('@/hooks/useCurveEvents', () => ({
+vi.mock("@/hooks/useCurveEvents", () => ({
   useCurveEvents: vi.fn(),
 }));
 
-vi.mock('react-i18next', () => ({
+vi.mock("@/components/common/PlayerLabel", () => ({
+  default: ({ address, name }) => (
+    <span data-testid="player-label">{name || address}</span>
+  ),
+}));
+
+vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key) => key,
-    i18n: { language: 'en' },
+    i18n: { language: "en" },
   }),
 }));
 
-vi.mock('@tanstack/react-query', async () => {
-  const actual = await vi.importActual('@tanstack/react-query');
+vi.mock("wagmi", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useAccount: () => ({ address: mockUseWallet().address }),
+  };
+});
+
+vi.mock("@tanstack/react-query", async () => {
+  const actual = await vi.importActual("@tanstack/react-query");
   return {
     ...actual,
     useQueryClient: () => ({
@@ -36,9 +50,9 @@ vi.mock('@tanstack/react-query', async () => {
   };
 });
 
-import HoldersTab from '@/components/curve/HoldersTab';
+import HoldersTab from "@/components/curve/HoldersTab";
 
-describe('HoldersTab', () => {
+describe("HoldersTab", () => {
   let queryClient;
 
   beforeEach(() => {
@@ -48,7 +62,7 @@ describe('HoldersTab', () => {
       },
     });
     vi.clearAllMocks();
-    
+
     // Set default mock return values
     mockUseRaffleHolders.mockReturnValue({
       holders: [],
@@ -57,7 +71,7 @@ describe('HoldersTab', () => {
       isLoading: false,
       error: null,
     });
-    
+
     mockUseWallet.mockReturnValue({
       address: null,
     });
@@ -67,7 +81,7 @@ describe('HoldersTab', () => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 
-  it('should render loading state', () => {
+  it("should render loading state", () => {
     mockUseRaffleHolders.mockReturnValue({
       holders: [],
       totalHolders: 0,
@@ -76,11 +90,13 @@ describe('HoldersTab', () => {
       error: null,
     });
 
-    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
-    expect(screen.getByText('loadingHolders')).toBeInTheDocument();
+    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
+    expect(screen.getByText("loadingHolders")).toBeInTheDocument();
   });
 
-  it('should render empty state when no holders', async () => {
+  it("should render empty state when no holders", async () => {
     mockUseRaffleHolders.mockReturnValue({
       holders: [],
       totalHolders: 0,
@@ -89,30 +105,34 @@ describe('HoldersTab', () => {
       error: null,
     });
 
-    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
-    
+    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
+
     await waitFor(() => {
-      expect(screen.getByText('noHolders')).toBeInTheDocument();
+      expect(screen.getByText("noHolders")).toBeInTheDocument();
     });
   });
 
-  it('should render error state', () => {
+  it("should render error state", () => {
     mockUseRaffleHolders.mockReturnValue({
       holders: [],
       totalHolders: 0,
       totalTickets: 0n,
       isLoading: false,
-      error: new Error('Test error'),
+      error: new Error("Test error"),
     });
 
-    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
+    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
     expect(screen.getByText(/errorLoadingHolders/)).toBeInTheDocument();
   });
 
-  it('should render holders table with data', async () => {
+  it("should render holders table with data", async () => {
     const mockHolders = [
       {
-        player: '0x1234567890123456789012345678901234567890',
+        player: "0x1234567890123456789012345678901234567890",
         ticketCount: 1000n,
         totalTicketsAtTime: 10000n,
         winProbabilityBps: 1000,
@@ -131,16 +151,18 @@ describe('HoldersTab', () => {
       error: null,
     });
 
-    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
-    
+    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
+
     // Just check that the component renders without error
     expect(screen.queryByText(/loadingHolders/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/errorLoadingHolders/i)).not.toBeInTheDocument();
   });
 
-  it('should highlight connected wallet', async () => {
-    const connectedAddress = '0x1234567890123456789012345678901234567890';
-    
+  it("should highlight connected wallet", async () => {
+    const connectedAddress = "0x1234567890123456789012345678901234567890";
+
     mockUseWallet.mockReturnValue({
       address: connectedAddress,
     });
@@ -166,10 +188,12 @@ describe('HoldersTab', () => {
       error: null,
     });
 
-    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, { wrapper });
-    
+    render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
+
     await waitFor(() => {
-      expect(screen.getByText('yourPosition')).toBeInTheDocument();
+      expect(screen.getByText("yourPosition")).toBeInTheDocument();
     });
   });
 });
