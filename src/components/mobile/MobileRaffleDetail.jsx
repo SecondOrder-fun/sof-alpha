@@ -31,7 +31,8 @@ export const MobileRaffleDetail = ({
   const navigate = useNavigate();
   const { t } = useTranslation(["common", "raffle"]);
 
-  const isCompleted = status === 5;
+  const statusNum = Number(status);
+  const isCompleted = statusNum === 4 || statusNum === 5;
   const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
 
   const formatSOF = (weiAmount) => {

@@ -14,14 +14,11 @@ vi.mock("@/config/contracts", () => ({
   RAFFLE_ABI: [],
 }));
 
-// Mock wagmi usePublicClient
-vi.mock("wagmi", () => ({ usePublicClient: () => ({}) }));
-
 const readContractMock = vi.fn();
-vi.mock("@/lib/viemClient", () => ({
-  buildPublicClient: () => ({
-    readContract: readContractMock,
-  }),
+
+// Mock wagmi usePublicClient
+vi.mock("wagmi", () => ({
+  usePublicClient: () => ({ readContract: readContractMock }),
 }));
 
 // Mock useRaffleRead to provide currentSeasonId

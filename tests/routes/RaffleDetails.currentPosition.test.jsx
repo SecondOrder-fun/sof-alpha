@@ -76,6 +76,9 @@ vi.mock("wagmi", () => ({
       rpcUrls: { default: { http: ["http://127.0.0.1:8545"] } },
     },
   ],
+  usePublicClient: () => ({
+    watchContractEvent: () => () => {},
+  }),
 }));
 
 const readContractMock = vi.fn(async ({ functionName }) => {

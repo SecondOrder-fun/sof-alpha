@@ -5,7 +5,7 @@
 
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { useTranslation } from "react-i18next";
 import { X, Settings } from "lucide-react";
 import {
@@ -22,9 +22,10 @@ import QuantityStepper from "@/components/mobile/QuantityStepper";
 import { useCurve } from "@/hooks/useCurve";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { useAccount } from "wagmi";
+import { buildPublicClient } from "@/lib/viemClient";
 import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { useSOFToken } from "@/hooks/useSOFToken";
+import { useAccount } from "wagmi";
 import { buildFriendlyContractError } from "@/lib/contractErrors";
 import SOFBondingCurveJson from "@/contracts/abis/SOFBondingCurve.json";
 
@@ -37,7 +38,7 @@ function useFormatSOF(decimals) {
         return "0.0000";
       }
     },
-    [decimals]
+    [decimals],
   );
 }
 
@@ -94,21 +95,13 @@ export const BuySellSheet = ({
   const net = getNetworkByKey(netKey);
   const curveAbi = useMemo(
     () => SOFBondingCurveJson?.abi ?? SOFBondingCurveJson,
-    []
+    [],
   );
 
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
-    return createPublicClient({
-      chain: {
-        id: net.id,
-        name: net.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-        rpcUrls: { default: { http: [net.rpcUrl] } },
-      },
-      transport: http(net.rpcUrl),
-    });
-  }, [net.id, net.name, net.rpcUrl]);
+    return buildPublicClient(netKey);
+  }, [net?.rpcUrl, netKey]);
 
   // Check if trading is locked
   useEffect(() => {
@@ -152,7 +145,7 @@ export const BuySellSheet = ({
         return 0n;
       }
     },
-    [client, bondingCurveAddress, curveAbi]
+    [client, bondingCurveAddress, curveAbi],
   );
 
   // Update estimates when quantity changes
@@ -292,7 +285,7 @@ export const BuySellSheet = ({
     return buildFriendlyContractError(
       curveAbi,
       err,
-      t("transactions:genericFailure", { defaultValue: "Transaction failed" })
+      t("transactions:genericFailure", { defaultValue: "Transaction failed" }),
     );
   };
 
@@ -778,16 +771,16 @@ export const BuySellSheet = ({
                   tradingLocked
                     ? "Trading is locked"
                     : walletNotConnected
-                    ? "Connect wallet first"
-                    : hasZeroBalance
-                    ? t("transactions:insufficientSOFShort", {
-                        defaultValue: "Insufficient $SOF balance",
-                      })
-                    : hasInsufficientBalance
-                    ? t("transactions:insufficientSOFShort", {
-                        defaultValue: "Insufficient $SOF balance",
-                      })
-                    : disabledTip
+                      ? "Connect wallet first"
+                      : hasZeroBalance
+                        ? t("transactions:insufficientSOFShort", {
+                            defaultValue: "Insufficient $SOF balance",
+                          })
+                        : hasInsufficientBalance
+                          ? t("transactions:insufficientSOFShort", {
+                              defaultValue: "Insufficient $SOF balance",
+                            })
+                          : disabledTip
                 }
               >
                 {isLoading ? t("transactions:buying") : "BUY NOW"}
@@ -860,10 +853,10 @@ export const BuySellSheet = ({
                   tradingLocked
                     ? "Trading is locked"
                     : walletNotConnected
-                    ? "Connect wallet first"
-                    : maxSellable === 0n
-                    ? "No tickets to sell"
-                    : disabledTip
+                      ? "Connect wallet first"
+                      : maxSellable === 0n
+                        ? "No tickets to sell"
+                        : disabledTip
                 }
               >
                 {isLoading ? t("transactions:selling") : "SELL NOW"}

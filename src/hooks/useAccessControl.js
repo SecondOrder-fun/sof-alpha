@@ -2,10 +2,11 @@
 // Access control helpers for role-gated UI. Uses viem read client (no wallet).
 
 import { useMemo } from "react";
-import { createPublicClient, http, getAddress } from "viem";
+import { getAddress } from "viem";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
+import { buildPublicClient } from "@/lib/viemClient";
 
 /**
  * Roles can be provided as hex or computed in app. Placeholder until ABI wired.
@@ -16,18 +17,8 @@ export function useAccessControl() {
   const addr = getContractAddresses(netKey);
 
   const client = useMemo(() => {
-    // Guard: when TESTNET RPC is not configured, avoid constructing a viem client
-    if (!net?.rpcUrl) return null;
-    return createPublicClient({
-      chain: {
-        id: net.id,
-        name: net.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-        rpcUrls: { default: { http: [net.rpcUrl] } },
-      },
-      transport: http(net.rpcUrl),
-    });
-  }, [net.id, net.name, net.rpcUrl]);
+    return buildPublicClient(netKey);
+  }, [netKey]);
 
   /**
    * Check if `account` has `role` on the raffle contract.
@@ -50,10 +41,17 @@ export function useAccessControl() {
       // Fallback: on LOCAL network, treat default Anvil deployer as admin
       try {
         const anvilDeployer = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-        if (String(net.name || "").toLowerCase().includes("anvil") || net.id === 31337) {
+        if (
+          String(net.name || "")
+            .toLowerCase()
+            .includes("anvil") ||
+          net.id === 31337
+        ) {
           return getAddress(account) === getAddress(anvilDeployer);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return false;
     }
   }

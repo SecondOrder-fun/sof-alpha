@@ -57,7 +57,10 @@ export function useSeasonWinnerSummaries(seasons) {
   const addr = getContractAddresses(netKey);
 
   const completedSeasonIds = (seasons || [])
-    .filter((s) => s?.status === 5)
+    .filter((s) => {
+      const statusNum = Number(s?.status);
+      return statusNum === 4 || statusNum === 5;
+    })
     .map((s) => s.id)
     .filter((id) => typeof id === "number" && !Number.isNaN(id));
 
@@ -96,6 +99,7 @@ export function useSeasonWinnerSummaries(seasons) {
       for (const seasonId of completedSeasonIds) {
         try {
           // Winner address
+          // eslint-disable-next-line no-await-in-loop
           const winners = await client.readContract({
             address: addr.RAFFLE,
             abi: RaffleAbi,
@@ -104,10 +108,10 @@ export function useSeasonWinnerSummaries(seasons) {
           });
 
           const winnerAddress = Array.isArray(winners) ? winners[0] : undefined;
-
           if (!winnerAddress) continue;
 
           // Prize amount
+          // eslint-disable-next-line no-await-in-loop
           const payouts = await client.readContract({
             address: distributor,
             abi: RafflePrizeDistributorAbi,
@@ -115,7 +119,6 @@ export function useSeasonWinnerSummaries(seasons) {
             args: [BigInt(seasonId)],
           });
 
-          // `getSeason` returns a struct; viem may provide named fields, but we guard for tuple access.
           const grandPrizeWei =
             payouts?.grandAmount ??
             payouts?.[2] ??

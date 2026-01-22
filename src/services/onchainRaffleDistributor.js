@@ -1,15 +1,10 @@
 // src/services/onchainRaffleDistributor.js
-import {
-  createPublicClient,
-  createWalletClient,
-  custom,
-  http,
-  getAddress,
-} from "viem";
+import { createWalletClient, custom, getAddress } from "viem";
 import { RaffleAbi, RafflePrizeDistributorAbi } from "@/utils/abis";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
+import { buildPublicClient } from "@/lib/viemClient";
 
 /**
  * Build a proper chain config object for viem
@@ -29,11 +24,11 @@ function buildChainConfig(net) {
 }
 
 function buildClient(networkKey) {
-  const net = getNetworkByKey(networkKey);
-  return createPublicClient({
-    chain: buildChainConfig(net),
-    transport: http(net.rpcUrl),
-  });
+  const client = buildPublicClient(networkKey);
+  if (!client) {
+    throw new Error("RPC URL missing for network");
+  }
+  return client;
 }
 
 export async function getPrizeDistributor({

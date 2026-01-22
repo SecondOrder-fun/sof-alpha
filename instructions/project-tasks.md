@@ -54,6 +54,17 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+### Agentation Dev Tool Install (2026-01-22)
+
+- [x] Install Agentation package and wire dev-only component in the app root.
+
+### RPC Read Throttling & Batching ✅ COMPLETED
+
+- [x] Batch raffle season reads and winner/prize summaries via multicall
+- [x] Slow season polling intervals and cache currentSeasonId longer
+- [x] Skip curve polling for completed seasons
+- [x] Update Vitest coverage for polling behavior
+
 ### Raffle List Display Update (All Cards + Farcaster Carousel) (2026-01-21) ✅ COMPLETED
 
 - [x] **Update raffle list UI to show all raffle cards on desktop and Farcaster**
@@ -251,6 +262,30 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - No code changes required
 
 ## Latest Progress (2025-10-21)
+
+## Discovered During Work (2026-01-21)
+
+- [x] Historical odds backend implementation (service + API endpoint + tests) completed in sof-backend.
+- [x] Re-run full Vitest suite to capture failing tests after stop request and log fixes per failure.
+- [x] Fix CurveGraph y-domain test hang by mocking viem RPC calls and SOF decimals lookup.
+- [x] Fix failing tests: TreasuryControls (Rendering: accumulated fees, SOF reserves, treasury address) and Fee Extraction.
+- [ ] Fix failing tests: ClaimCenter consolation prize behaviors (3 failures).
+- [ ] Fix failing tests: FaucetPage tab rendering and cooldown/claiming flows (5 failures).
+- [x] Fix failing tests: RaffleDetails toasts + ERC20 fallback (2 failures).
+- [x] Fix failing tests: RaffleDetails current position refresh (1 failure).
+- [ ] Fix failing tests: HoldersTab rendering states (5 failures).
+- [ ] Fix failing tests: RaffleList winner display (1 failure).
+- [x] Fix failing tests: useAllSeasons normalization (1 failure).
+- [ ] Fix failing tests: SeasonCard winner display (1 failure).
+- [x] Move API tests (userRoutes, usernameRoutes, healthRoutes, pricingRoutes) to sof-backend.
+- [x] Remove analytics API test (analytics endpoints removed).
+- [x] Investigate remaining full suite hang after `tests/lib/contracts-config.test.js` (was `analyticsRoutes.test.js`).
+- [x] Fix failing tests: useRaffleHolders probability recalculation (5 failures).
+- [x] Fix failing tests: UsernameDialog placeholder/button queries (8 tests).
+- [x] Fix failing tests: useFundDistributor verification state assertions (3 tests).
+- [x] Fix failing tests: useHybridPriceLive to match on-chain oracle polling (2 tests).
+- [x] Update sof-alpha Vitest config to exclude backend-only test suites under `tests/api/**` and `tests/backend/**`.
+- [x] Exclude removed/renamed `useRaffleTracker` hook test from sof-alpha Vitest run.
 
 - [x] **CSMM Cleanup - Final Phase COMPLETED**
   - **Removed all deprecated files** (9 files total):

@@ -59,6 +59,9 @@ vi.mock("wagmi", () => ({
   useChains: () => [
     { id: 31337, rpcUrls: { default: { http: ["http://127.0.0.1:8545"] } } },
   ],
+  usePublicClient: () => ({
+    watchContractEvent: () => () => {},
+  }),
 }));
 
 vi.mock("@/lib/viemClient", () => ({

@@ -23,9 +23,14 @@ vi.mock("@/config/contracts", () => ({
 // Mock viem client factory used by hook
 const readContract = vi.fn();
 const mockClient = { readContract };
-vi.mock("@/lib/viemClient", () => ({
-  buildPublicClient: vi.fn(() => mockClient),
-}));
+vi.mock("viem", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    createPublicClient: vi.fn(() => mockClient),
+    http: vi.fn(() => ({})),
+  };
+});
 
 import { useRaffleRead, useSeasonDetailsQuery } from "@/hooks/useRaffleRead";
 import { getContractAddresses } from "@/config/contracts";
@@ -65,8 +70,8 @@ describe("useRaffleRead", () => {
         "0x0000000000000000000000000000000000000001",
       ],
     });
-    expect(query?.options.staleTime).toBe(60_000);
-    expect(query?.options.refetchInterval).toBe(60_000);
+    expect(query?.options.staleTime).toBe(15_000);
+    expect(query?.options.refetchInterval).toBeUndefined();
   });
 
   it("returns NaN when RAFFLE address missing (edge)", async () => {
@@ -102,15 +107,15 @@ describe("useSeasonDetailsQuery", () => {
         "0x0000000000000000000000000000000000000001",
       ],
     });
-    expect(query?.options.staleTime).toBe(15_000);
+    expect(query?.options.staleTime).toBe(5_000);
     const interval = query?.options.refetchInterval;
     expect(typeof interval).toBe("function");
     expect(
       interval?.({ state: { status: "success", data: ["cfg", 1, 2, 3, 4] } }),
-    ).toBe(15_000);
+    ).toBe(10_000);
     expect(
       interval?.({ state: { status: "success", data: ["cfg", 5, 2, 3, 4] } }),
-    ).toBe(false);
+    ).toBe(10_000);
   });
 
   it("disabled when seasonId null (edge)", async () => {

@@ -12,11 +12,11 @@ import { useAccount } from "wagmi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { placeBetTx, computeWinnerMarketId } from "@/services/onchainInfoFi";
 import { buildMarketTitleParts } from "@/lib/marketTitle";
-import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
 import ERC20Abi from "@/contracts/abis/ERC20.json";
 import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
-import { createPublicClient, http, getAddress, formatUnits } from "viem";
+import { buildPublicClient } from "@/lib/viemClient";
+import { getAddress, formatUnits } from "viem";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useRaffleRead, useSeasonDetailsQuery } from "@/hooks/useRaffleRead";
 import ExplorerLink from "@/components/common/ExplorerLink";
@@ -63,7 +63,7 @@ const InfoFiMarketCard = ({ market }) => {
   // Use database as source of truth - backend listener keeps it in sync
   // No need for oracle queries since backend syncs ProbabilityUpdated events
   const probabilityBps = normalizeBps(
-    market?.current_probability_bps ?? market?.current_probability
+    market?.current_probability_bps ?? market?.current_probability,
   );
 
   // Check if market data is loaded
@@ -73,16 +73,9 @@ const InfoFiMarketCard = ({ market }) => {
   const netKey = (
     import.meta.env.VITE_DEFAULT_NETWORK || "LOCAL"
   ).toUpperCase();
-  const net = getNetworkByKey(netKey);
-  const addrs = getContractAddresses(netKey);
-  const publicClient = React.useMemo(
-    () =>
-      createPublicClient({
-        chain: { id: net.id },
-        transport: http(net.rpcUrl),
-      }),
-    [net.id, net.rpcUrl]
-  );
+  const publicClient = React.useMemo(() => {
+    return buildPublicClient(netKey);
+  }, [netKey]);
   const [derivedMid, setDerivedMid] = React.useState(null);
 
   // Use centralized ABI for market info
@@ -114,19 +107,6 @@ const InfoFiMarketCard = ({ market }) => {
     const zero = "0x0000000000000000000000000000000000000000";
     return addr?.toLowerCase() === zero ? null : addr;
   }, [bondingCurveAddressRaw]);
-
-  const totalTicketSupply = React.useMemo(() => {
-    if (!seasonDetailsQuery?.data) return null;
-    const raw = Array.isArray(seasonDetailsQuery.data)
-      ? seasonDetailsQuery.data[3] ?? seasonDetailsQuery.data.totalTickets
-      : seasonDetailsQuery.data?.totalTickets;
-    if (raw == null) return null;
-    try {
-      return typeof raw === "bigint" ? raw : BigInt(raw);
-    } catch {
-      return null;
-    }
-  }, [seasonDetailsQuery?.data]);
 
   // Check if player has any raffle tickets (for winner prediction markets)
   const playerTicketBalance = useQuery({
@@ -267,7 +247,7 @@ const InfoFiMarketCard = ({ market }) => {
         return noPercent > 0 ? amount / (noPercent / 100) : 0;
       }
     },
-    [payoutPercent]
+    [payoutPercent],
   );
 
   // Calculate profit (payout minus stake)
@@ -276,7 +256,7 @@ const InfoFiMarketCard = ({ market }) => {
       const payout = calculatePayout(betAmount, isYes);
       return Math.max(0, payout - Number(betAmount || 0));
     },
-    [calculatePayout]
+    [calculatePayout],
   );
 
   // Format payout display
@@ -475,7 +455,7 @@ const InfoFiMarketCard = ({ market }) => {
                 type="address"
                 text={`${market.contract_address.slice(
                   0,
-                  6
+                  6,
                 )}...${market.contract_address.slice(-4)}`}
                 className="font-mono text-xs"
               />
@@ -507,7 +487,7 @@ const InfoFiMarketCard = ({ market }) => {
               const yesAmt = (() => {
                 try {
                   const v = yesPos.data;
-                  return typeof v === "bigint" ? v : v?.amount ?? 0n;
+                  return typeof v === "bigint" ? v : (v?.amount ?? 0n);
                 } catch {
                   return 0n;
                 }
@@ -515,7 +495,7 @@ const InfoFiMarketCard = ({ market }) => {
               const noAmt = (() => {
                 try {
                   const v = noPos.data;
-                  return typeof v === "bigint" ? v : v?.amount ?? 0n;
+                  return typeof v === "bigint" ? v : (v?.amount ?? 0n);
                 } catch {
                   return 0n;
                 }
@@ -650,12 +630,9 @@ const DebugInfoFiPanel = ({
         const netKey = (
           import.meta.env.VITE_DEFAULT_NETWORK || "LOCAL"
         ).toUpperCase();
-        const net = getNetworkByKey(netKey);
         const addrs = getContractAddresses(netKey);
-        const client = createPublicClient({
-          chain: { id: net.id },
-          transport: http(net.rpcUrl),
-        });
+        const client = buildPublicClient(netKey);
+        if (!client) return;
         const sof = addrs.SOF;
         const marketAddr = addrs.INFOFI_MARKET;
         const walletAddr = wallet ? getAddress(wallet) : null;
@@ -772,7 +749,7 @@ const DebugInfoFiPanel = ({
         <span className="font-mono">
           {(() => {
             const v = yesPos?.data;
-            const amt = typeof v === "bigint" ? v : v?.amount ?? 0n;
+            const amt = typeof v === "bigint" ? v : (v?.amount ?? 0n);
             return amt.toString();
           })()}
         </span>
@@ -782,7 +759,7 @@ const DebugInfoFiPanel = ({
         <span className="font-mono">
           {(() => {
             const v = noPos?.data;
-            const amt = typeof v === "bigint" ? v : v?.amount ?? 0n;
+            const amt = typeof v === "bigint" ? v : (v?.amount ?? 0n);
             return amt.toString();
           })()}
         </span>

@@ -1,7 +1,7 @@
 // src/components/curve/BuySellWidget.jsx
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 import { useCurve } from "@/hooks/useCurve";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
+import { buildPublicClient } from "@/lib/viemClient";
 import { useAccount } from "wagmi";
 import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { useSOFToken } from "@/hooks/useSOFToken";
@@ -29,7 +30,7 @@ function useFormatSOF(decimals) {
         return "0.0000";
       }
     },
-    [decimals]
+    [decimals],
   );
 }
 
@@ -80,20 +81,12 @@ const BuySellWidget = ({
   const net = getNetworkByKey(netKey);
   const curveAbi = useMemo(
     () => SOFBondingCurveJson?.abi ?? SOFBondingCurveJson,
-    []
+    [],
   );
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
-    return createPublicClient({
-      chain: {
-        id: net.id,
-        name: net.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-        rpcUrls: { default: { http: [net.rpcUrl] } },
-      },
-      transport: http(net.rpcUrl),
-    });
-  }, [net.id, net.name, net.rpcUrl]);
+    return buildPublicClient(netKey);
+  }, [net?.rpcUrl, netKey]);
 
   // Check if trading is locked
   useEffect(() => {
@@ -137,7 +130,7 @@ const BuySellWidget = ({
         return 0n;
       }
     },
-    [client, bondingCurveAddress, curveAbi]
+    [client, bondingCurveAddress, curveAbi],
   );
 
   // Persist active tab in localStorage. If an explicit initialTab was passed,
@@ -295,7 +288,7 @@ const BuySellWidget = ({
     return buildFriendlyContractError(
       curveAbi,
       err,
-      t("transactions:genericFailure", { defaultValue: "Transaction failed" })
+      t("transactions:genericFailure", { defaultValue: "Transaction failed" }),
     );
   };
 
@@ -701,16 +694,16 @@ const BuySellWidget = ({
                 tradingLocked
                   ? "Trading is locked"
                   : walletNotConnected
-                  ? "Connect wallet first"
-                  : hasZeroBalance
-                  ? t("transactions:insufficientSOFShort", {
-                      defaultValue: "Insufficient $SOF balance",
-                    })
-                  : hasInsufficientBalance
-                  ? t("transactions:insufficientSOFShort", {
-                      defaultValue: "Insufficient $SOF balance",
-                    })
-                  : disabledTip
+                    ? "Connect wallet first"
+                    : hasZeroBalance
+                      ? t("transactions:insufficientSOFShort", {
+                          defaultValue: "Insufficient $SOF balance",
+                        })
+                      : hasInsufficientBalance
+                        ? t("transactions:insufficientSOFShort", {
+                            defaultValue: "Insufficient $SOF balance",
+                          })
+                        : disabledTip
               }
             >
               {buyTokens.isPending ? t("transactions:buying") : t("common:buy")}
@@ -766,8 +759,8 @@ const BuySellWidget = ({
                 tradingLocked
                   ? "Trading is locked"
                   : walletNotConnected
-                  ? "Connect wallet first"
-                  : disabledTip
+                    ? "Connect wallet first"
+                    : disabledTip
               }
             >
               {sellTokens.isPending

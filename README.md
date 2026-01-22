@@ -169,6 +169,11 @@ See [Database Reset Guide](./docs/DATABASE_RESET.md) for details.
 npm run dev
 ```
 
+Optional dev-only tooling:
+
+- Agentation is wired at the app root and only renders in development (`import.meta.env.DEV`).
+- Install dependency: `npm install agentation` (already in package.json).
+
 This will start the Vite development server on `http://localhost:5173`.
 
 #### Backend Server
@@ -261,6 +266,7 @@ The prediction market factory contract that handles:
 Market types are identified using `keccak256` hashes instead of strings for gas efficiency (~200-400 gas savings per event). The contract emits hashes like `0x9af7ac...` which the backend decodes to human-readable strings like `"WINNER_PREDICTION"`.
 
 To add new market types:
+
 1. Add constant to contract: `bytes32 public constant NEW_TYPE = keccak256("NEW_TYPE");`
 2. Calculate hash: `cast keccak "NEW_TYPE"`
 3. Update backend mapping in `backend/src/listeners/marketCreatedListener.js`

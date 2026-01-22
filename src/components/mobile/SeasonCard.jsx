@@ -12,6 +12,7 @@ import CurveGraph from "@/components/curve/CurveGraph";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
+import { useCurveState } from "@/hooks/useCurveState";
 
 export const SeasonCard = ({
   seasonId,
@@ -27,8 +28,22 @@ export const SeasonCard = ({
   onClick,
 }) => {
   const { t } = useTranslation(["raffle", "common"]);
-  const isCompleted = status === 5;
+  const statusNum = Number(status);
+  const isCompleted = statusNum === 4 || statusNum === 5;
+  const isActiveSeason = statusNum === 1;
   const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
+  const curveState = useCurveState(seasonConfig?.bondingCurve, {
+    isActive: isActiveSeason,
+    enabled: isActiveSeason,
+    pollMs: 15000,
+    includeFees: false,
+  });
+  const displayCurveSupply = curveState.curveSupply ?? curveSupply;
+  const displayCurveStep = curveState.curveStep ?? curveStep;
+  const displayBondSteps =
+    (curveState.allBondSteps && curveState.allBondSteps.length > 0
+      ? curveState.allBondSteps
+      : allBondSteps) || [];
 
   const formatSOF = (value) => {
     if (!value) return "0";
@@ -62,9 +77,9 @@ export const SeasonCard = ({
             {/* Mini Curve Graph */}
             <div className="bg-black/40 rounded-md overflow-hidden h-32">
               <CurveGraph
-                curveSupply={curveSupply}
-                allBondSteps={allBondSteps}
-                currentStep={curveStep}
+                curveSupply={displayCurveSupply}
+                allBondSteps={displayBondSteps}
+                currentStep={displayCurveStep}
                 mini
               />
             </div>
@@ -75,7 +90,7 @@ export const SeasonCard = ({
                 Current Price
               </div>
               <div className="font-mono text-base">
-                {formatSOF(curveStep?.price)} SOF
+                {formatSOF(displayCurveStep?.price)} SOF
               </div>
             </div>
           </>

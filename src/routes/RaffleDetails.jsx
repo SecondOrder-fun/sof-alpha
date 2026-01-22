@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import PageTitle from "@/components/layout/PageTitle";
+import { formatUnits } from "viem";
 // removed inline buy/sell form controls
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { createPublicClient, formatUnits, http } from "viem";
+import { buildPublicClient } from "@/lib/viemClient";
 import { SOFBondingCurveAbi, ERC20Abi } from "@/utils/abis";
 import { useCurveState } from "@/hooks/useCurveState";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
@@ -52,16 +53,19 @@ const RaffleDetails = () => {
   const initialTradeTab =
     modeParam === "sell" || modeParam === "buy" ? modeParam : undefined;
   const { seasonDetailsQuery } = useRaffleState(seasonIdNumber);
-  const winnerSummaryQuery = useSeasonWinnerSummary(
-    seasonIdNumber,
-    seasonDetailsQuery?.data?.status,
-  );
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
   const [chainNow, setChainNow] = useState(null);
   const [activeTab, setActiveTab] = useState("token-info");
   const { isMobile } = usePlatform();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState("buy");
+  const statusNum = Number(seasonDetailsQuery?.data?.status);
+  const isActiveSeason = statusNum === 1;
+  const isCompletedSeason = statusNum === 4 || statusNum === 5;
+  const winnerSummaryQuery = useSeasonWinnerSummary(
+    seasonIdNumber,
+    seasonDetailsQuery?.data?.status,
+  );
   const {
     curveSupply,
     curveReserves,
@@ -69,8 +73,11 @@ const RaffleDetails = () => {
     /* bondStepsPreview, */ allBondSteps,
     debouncedRefresh,
   } = useCurveState(bondingCurveAddress, {
-    isActive: seasonDetailsQuery?.data?.status === 1,
+    isActive: isActiveSeason,
     pollMs: 12000,
+    enabled: isActiveSeason,
+    includeSteps: !isCompletedSeason,
+    includeFees: !isCompletedSeason,
   });
   // removed inline estimator state used by old form
   // helpers now imported from lib/curveMath
@@ -78,6 +85,7 @@ const RaffleDetails = () => {
   // Subscribe to on-chain PositionUpdate events to refresh immediately
   useCurveEvents(bondingCurveAddress, {
     onPositionUpdate: () => {
+      if (!isActiveSeason) return;
       // Reason: server-side state has changed; refresh chart/supply/reserves quickly
       debouncedRefresh(0);
     },
@@ -93,18 +101,8 @@ const RaffleDetails = () => {
     try {
       if (!isConnected || !address || !bondingCurveAddress) return;
       const netKey = getStoredNetworkKey();
-      const net = getNetworkByKey(netKey);
-      if (!net?.rpcUrl) return;
-      const client = createPublicClient({
-        chain: {
-          id: net.id,
-          name: net.name,
-          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-          rpcUrls: { default: net.rpcUrl },
-        },
-        transport: http(net.rpcUrl),
-        blockTag: "latest", // Force latest block
-      });
+      const client = buildPublicClient(netKey);
+      if (!client) return;
       // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
       try {
         const [pt, cfg] = await Promise.all([
@@ -219,16 +217,8 @@ const RaffleDetails = () => {
   // Fetch on-chain time for accurate window checks
   useEffect(() => {
     const netKey = getStoredNetworkKey();
-    const net = getNetworkByKey(netKey);
-    const client = createPublicClient({
-      chain: {
-        id: net.id,
-        name: net.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-        rpcUrls: { default: { http: [net.rpcUrl] } },
-      },
-      transport: http(net.rpcUrl),
-    });
+    const client = buildPublicClient(netKey);
+    if (!client) return;
     let mounted = true;
     (async () => {
       try {
@@ -404,7 +394,7 @@ const RaffleDetails = () => {
                 <span>
                   {t("end")}: {formatTimestamp(cfg.endTime)}
                 </span>
-                {seasonDetailsQuery.data.status === 1 && (
+                {statusNum === 1 && (
                   <span className="flex items-center gap-1">
                     <span className="text-[#c82a54]">{t("endsIn")}:</span>
                     <CountdownTimer
@@ -416,61 +406,65 @@ const RaffleDetails = () => {
                 )}
               </div>
 
-              {seasonDetailsQuery.data.status === 5 &&
-                winnerSummaryQuery.data && (
-                  <div className="px-6 mt-3">
-                    <Card className="border border-[#353e34] bg-[#130013]">
-                      <CardHeader className="py-3">
-                        <CardTitle>{t("winnerAnnouncement")}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        <div className="text-sm">
-                          <span className="text-[#c82a54]">{t("winner")}:</span>{" "}
-                          <UsernameDisplay
-                            address={winnerSummaryQuery.data.winnerAddress}
-                          />
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-[#c82a54]">
-                            {t("grandPrize")}:
-                          </span>{" "}
-                          <span className="font-mono">
-                            {(() => {
-                              try {
-                                return `${Number(formatUnits(winnerSummaryQuery.data.grandPrizeWei, 18)).toFixed(2)} SOF`;
-                              } catch {
-                                return "0.00 SOF";
-                              }
-                            })()}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-
               {(() => {
-                const st = seasonDetailsQuery.data.status;
                 const startTs = Number(cfg.startTime);
                 const endTs = Number(cfg.endTime);
-                if (chainNow && st === 0) {
-                  if (chainNow >= startTs && chainNow < endTs) {
-                    return (
-                      <p className="px-6 text-sm text-muted-foreground">
-                        Window open on-chain, awaiting admin Start.
-                      </p>
-                    );
-                  }
-                  if (chainNow >= endTs) {
-                    return (
-                      <p className="px-6 text-sm text-muted-foreground">
-                        Window ended on-chain, awaiting admin End.
-                      </p>
-                    );
-                  }
+                if (!chainNow) return null;
+
+                // Reason: these hints are only intended for admin-controlled transitions.
+                if (
+                  statusNum === 0 &&
+                  chainNow >= startTs &&
+                  chainNow < endTs
+                ) {
+                  return (
+                    <p className="px-6 text-sm text-muted-foreground">
+                      Window open on-chain, awaiting admin Start.
+                    </p>
+                  );
                 }
+
+                if (chainNow >= endTs && statusNum === 1) {
+                  return (
+                    <p className="px-6 text-sm text-muted-foreground">
+                      Window ended on-chain, awaiting admin End.
+                    </p>
+                  );
+                }
+
                 return null;
               })()}
+
+              {isCompletedSeason && winnerSummaryQuery.data && (
+                <div className="px-6 mt-3">
+                  <Card className="border border-[#353e34] bg-[#130013]">
+                    <CardContent className="p-4">
+                      <div className="text-sm font-semibold text-white">
+                        {t("winnerAnnouncement")}
+                      </div>
+                      <div className="mt-2 text-sm uppercase tracking-wide text-[#c82a54]">
+                        {t("winner")}:
+                      </div>
+                      <div className="text-lg font-semibold text-white mt-1">
+                        <UsernameDisplay
+                          address={winnerSummaryQuery.data.winnerAddress}
+                          className="text-lg"
+                        />
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">
+                        {t("grandPrize")}:{" "}
+                        {(() => {
+                          try {
+                            return `${Number(formatUnits(winnerSummaryQuery.data.grandPrizeWei, 18)).toFixed(2)} SOF`;
+                          } catch {
+                            return "0.00 SOF";
+                          }
+                        })()}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {/* Bonding Curve UI */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">

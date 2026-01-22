@@ -28,11 +28,14 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const navigate = useNavigate();
   const { t } = useTranslation(["raffle", "common"]);
   const bondingCurveAddress = season?.config?.bondingCurve;
+  const statusNum = Number(season?.status);
+  const isActiveSeason = statusNum === 1;
   const { curveSupply, curveStep, allBondSteps } = useCurveState(
     bondingCurveAddress,
     {
-      isActive: season?.status === 1,
+      isActive: isActiveSeason,
       pollMs: 15000,
+      enabled: isActiveSeason,
     },
   );
 
@@ -49,7 +52,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   })();
 
   const endTime = season?.config?.endTime;
-  const isCompleted = season?.status === 5;
+  const isCompleted = statusNum === 4 || statusNum === 5;
 
   return (
     <Card className="flex flex-col h-full border border-[#353e34] bg-[#130013]">
@@ -64,7 +67,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
           {renderBadge(season.status)}
         </div>
         {/* Countdown timer for active seasons */}
-        {season.status === 1 && endTime && (
+        {statusNum === 1 && endTime && (
           <div className="flex items-center gap-1 text-xs mt-1">
             <span className="text-[#a89e99]">{t("endsIn")}:</span>
             <CountdownTimer
@@ -177,11 +180,13 @@ const RaffleList = () => {
   });
 
   const renderBadge = (st) => {
-    const label = st === 1 ? "Active" : st === 0 ? "NotStarted" : "Completed";
+    const statusNum = Number(st);
+    const label =
+      statusNum === 1 ? "Active" : statusNum === 0 ? "NotStarted" : "Completed";
     const variant =
-      st === 1
+      statusNum === 1
         ? "statusActive"
-        : st === 0
+        : statusNum === 0
           ? "statusUpcoming"
           : "statusCompleted";
     return <Badge variant={variant}>{label}</Badge>;
@@ -207,9 +212,15 @@ const RaffleList = () => {
       const currentChain = chains.find((chain) => chain.id === chainId);
 
       if (currentChain?.rpcUrls?.default) {
+        const rpcUrl = currentChain.rpcUrls.default.http?.[0];
+        if (!rpcUrl) {
+          setSheetMode("sell");
+          setSheetOpen(true);
+          return;
+        }
         const positionClient = createPublicClient({
           chain: currentChain,
-          transport: http(),
+          transport: http(rpcUrl),
           blockTag: "latest",
         });
 

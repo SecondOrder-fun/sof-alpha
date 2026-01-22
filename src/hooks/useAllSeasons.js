@@ -27,7 +27,7 @@ export function useAllSeasons() {
               functionName: "getSeasonDetails",
               args: [BigInt(i)],
             })
-            .then((details) => ({ id: i, details })), // Wrap promise to preserve ID
+            .then((details) => ({ id: i, details })),
         );
       }
 
@@ -37,7 +37,10 @@ export function useAllSeasons() {
       const normalized = seasonsData.map((s) => ({
         id: s.id, // Use the preserved ID
         config: s.details?.[0],
-        status: s.details?.[1],
+        status:
+          typeof s.details?.[1] === "bigint"
+            ? Number(s.details?.[1])
+            : s.details?.[1],
         totalParticipants: s.details?.[2],
         totalTickets: s.details?.[3],
         totalPrizePool: s.details?.[4],
