@@ -44,9 +44,19 @@ vi.mock("@/hooks/useAllSeasons", () => ({
       {
         id: 2,
         status: 5,
+        totalTickets: 1n,
         config: {
           name: "Completed Season",
           bondingCurve: "0x0000000000000000000000000000000000000002",
+        },
+      },
+      {
+        id: 3,
+        status: 5,
+        totalTickets: 0n,
+        config: {
+          name: "Empty Season",
+          bondingCurve: "0x0000000000000000000000000000000000000003",
         },
       },
     ],
@@ -131,5 +141,14 @@ describe("RaffleList winner display", () => {
 
     expect(screen.getAllByText("#1")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Active Season")[0]).toBeInTheDocument();
+  });
+
+  it("renders a no-winner fallback for completed seasons with no participants", async () => {
+    renderPage();
+
+    expect(screen.getAllByText("#3")[0]).toBeInTheDocument();
+    expect(screen.getByText("Empty Season")).toBeInTheDocument();
+    expect(screen.getByText("noWinner")).toBeInTheDocument();
+    expect(screen.getByText("noParticipants")).toBeInTheDocument();
   });
 });

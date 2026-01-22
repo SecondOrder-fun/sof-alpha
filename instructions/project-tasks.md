@@ -76,15 +76,18 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 ### Display Grand Prize Winner in Raffle UI ✅ COMPLETED
 
 - [x] **Show winner on completed seasons**
-  - [x] Desktop `/raffles` list: for status `Completed` (on-chain `SeasonStatus.Completed === 5`), show winner username/address and grand prize amount.
-  - [x] Mobile/Farcaster list cards: show winner + grand prize when completed; disable buy/sell.
-  - [x] Desktop + Mobile raffle detail: show winner section when completed.
+  - [x] Desktop `/raffles` list: for terminal statuses (on-chain `SeasonStatus.Distributing === 4` or `SeasonStatus.Completed === 5`), show winner username/address and grand prize amount.
+  - [x] Mobile/Farcaster list cards: show winner + grand prize when terminal; disable buy/sell.
+  - [x] Desktop + Mobile raffle detail: show winner section when terminal.
+  - [x] Fallback for empty seasons: if terminal but `totalTickets === 0` (no participants), show a "No Winner" / "No participants" message instead of a winner card.
 - [x] **Data sources**
   - [x] Winner address from `Raffle.getWinners(seasonId)`
   - [x] Grand prize amount from `RafflePrizeDistributor.getSeason(seasonId).grandAmount`
   - [x] Username from `GET /api/usernames/batch`
+  - [x] Robustness: reverted winner/prize fetching to per-season `readContract` calls (instead of `multicall`) to avoid silent failures when multicall metadata is missing.
 - [x] **Testing**
   - [x] Add Vitest coverage for completed vs non-completed rendering
+  - [x] Add Vitest coverage for the empty-season "No Winner" fallback
 
 ### 1. Raffle Name Validation (HIGHEST PRIORITY) ✅ COMPLETED
 

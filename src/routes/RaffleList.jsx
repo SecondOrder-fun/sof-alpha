@@ -30,6 +30,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const bondingCurveAddress = season?.config?.bondingCurve;
   const statusNum = Number(season?.status);
   const isActiveSeason = statusNum === 1;
+  const totalTickets = BigInt(season?.totalTickets ?? 0n);
   const { curveSupply, curveStep, allBondSteps } = useCurveState(
     bondingCurveAddress,
     {
@@ -115,6 +116,16 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
             </div>
           </div>
         )}
+        {isCompleted && !winnerSummary && totalTickets === 0n && (
+          <div className="rounded-md border border-[#353e34] bg-black/40 p-4 text-base text-muted-foreground">
+            <div className="text-sm font-semibold text-white">
+              {t("noWinner")}
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              {t("noParticipants")}
+            </div>
+          </div>
+        )}
         {!isCompleted && (
           <div className="flex items-center justify-between text-sm">
             <div>
@@ -147,6 +158,7 @@ ActiveSeasonCard.propTypes = {
   season: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     status: PropTypes.number,
+    totalTickets: PropTypes.any,
     config: PropTypes.shape({
       name: PropTypes.string,
       bondingCurve: PropTypes.string,

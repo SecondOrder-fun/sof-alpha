@@ -134,6 +134,19 @@ export const SeasonCard = ({
           </div>
         )}
 
+        {isCompleted &&
+          !winnerSummaryQuery.data &&
+          BigInt(displayCurveSupply ?? 0n) === 0n && (
+            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+              <div className="text-sm font-semibold text-white">
+                {t("raffle:noWinner")}
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                {t("raffle:noParticipants")}
+              </div>
+            </div>
+          )}
+
         {/* Action Buttons */}
         {!isCompleted && (
           <div className="flex gap-2">
