@@ -72,10 +72,37 @@ export function useCurveState(
         });
       }
 
-      const results = await client.multicall({
-        contracts,
-        allowFailure: true,
-      });
+      let results;
+      try {
+        if (typeof client.multicall !== "function") {
+          throw new Error("multicall unavailable");
+        }
+        results = await client.multicall({
+          contracts,
+          allowFailure: true,
+        });
+      } catch (_e) {
+        // eslint-disable-next-line no-console
+        console.debug(
+          "useCurveState: multicall failed, falling back to readContract",
+          _e,
+        );
+        const settled = await Promise.allSettled(
+          contracts.map((c) =>
+            client.readContract({
+              address: c.address,
+              abi: c.abi,
+              functionName: c.functionName,
+              args: c.args,
+            }),
+          ),
+        );
+        results = settled.map((r) =>
+          r.status === "fulfilled"
+            ? { status: "success", result: r.value }
+            : { status: "failure", error: r.reason },
+        );
+      }
 
       const cfgResult =
         results[0]?.status === "success" ? results[0].result : null;

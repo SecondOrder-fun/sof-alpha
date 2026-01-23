@@ -54,6 +54,13 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+### Raffle Bonding Curve Display Fix (Sepolia) (2026-01-23) ✅ COMPLETED
+
+- [x] **Fix bonding curve / steps / current price not loading on Sepolia**
+  - [x] `useCurveState` now falls back to per-call `readContract` when `multicall` is unavailable or throws (common on custom chain configs without `multicall3` metadata).
+  - [x] Updated Wagmi transport fallback to prefer primary RPC and only fail over to fallback URLs (`rank: false`), preventing the app from selecting unstable fallback RPCs (e.g. `base-sepolia.drpc.org`) when `sepolia.base.org` is healthy.
+  - [x] Added Vitest regression coverage for `useCurveState` multicall fallback behavior.
+
 ### Agentation Dev Tool Install (2026-01-22)
 
 - [x] Install Agentation package and wire dev-only component in the app root.

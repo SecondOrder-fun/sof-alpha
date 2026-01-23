@@ -36,7 +36,7 @@ export function getChainConfig(networkKey) {
 
   const transport =
     httpTransports.length > 1
-      ? fallback(httpTransports, { rank: true })
+      ? fallback(httpTransports, { rank: false })
       : httpTransports[0];
 
   return { key, chain, transport };
