@@ -15,7 +15,7 @@ vi.mock("react-i18next", () => ({
       if (key === "raffle:grandPrize") return "Grand Prize";
       if (key === "raffle:consolationPrize") return "Consolation Prize";
       if (key === "raffle:noActiveSeasons") return "No active seasons";
-      if (key === "raffle:nothingToClaim") return "Nothing to claim";
+      if (key === "errors:nothingToClaim") return "Nothing to claim";
       if (key === "transactions:claiming") return "Claiming...";
       if (key === "raffle:claimPrize") return "Claim Prize";
       if (key === "common:loading") return "Loading...";

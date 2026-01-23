@@ -12,12 +12,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/common/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { readFpmmPosition } from "@/services/onchainInfoFi";
@@ -185,7 +180,7 @@ const ClaimCenter = ({ address, title, description }) => {
       const out = [];
       // Only check settled markets from discovery data
       const settledMarkets = (discovery.data || []).filter(
-        (m) => m.isSettled && m.player
+        (m) => m.isSettled && m.player,
       );
 
       for (const market of settledMarkets) {
@@ -275,7 +270,7 @@ const ClaimCenter = ({ address, title, description }) => {
               typeof amount === "bigint"
                 ? `${t("raffle:consolationPrize")}: ${formatUnits(
                     amount,
-                    18
+                    18,
                   )} SOF`
                 : t("transactions:confirmed"),
             variant: "success",
@@ -343,8 +338,8 @@ const ClaimCenter = ({ address, title, description }) => {
         const grandWinner = payout.data.grandWinner;
         const isGrandWinner = Boolean(
           grandWinner &&
-            address &&
-            grandWinner.toLowerCase() === address.toLowerCase()
+          address &&
+          grandWinner.toLowerCase() === address.toLowerCase(),
         );
 
         // Grand prize claim for the single winner
@@ -409,7 +404,7 @@ const ClaimCenter = ({ address, title, description }) => {
           console.warn(
             "Failed to evaluate consolation eligibility for season",
             seasonId,
-            err
+            err,
           );
         }
       }
@@ -626,9 +621,19 @@ const ClaimCenter = ({ address, title, description }) => {
         )}
         {address && (
           <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="raffles">Raffle Prizes</TabsTrigger>
-              <TabsTrigger value="markets">Prediction Markets</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 p-1.5">
+              <TabsTrigger
+                value="raffles"
+                className="data-[state=active]:underline data-[state=active]:underline-offset-8 data-[state=active]:text-[#c82a54]"
+              >
+                Raffle Prizes
+              </TabsTrigger>
+              <TabsTrigger
+                value="markets"
+                className="data-[state=active]:underline data-[state=active]:underline-offset-8 data-[state=active]:text-[#c82a54]"
+              >
+                Prediction Markets
+              </TabsTrigger>
             </TabsList>
 
             {/* InfoFi Market Claims Tab */}
@@ -644,7 +649,7 @@ const ClaimCenter = ({ address, title, description }) => {
                   {String(
                     claimsQuery.error?.message ||
                       fpmmClaimsQuery.error?.message ||
-                      "Unknown error"
+                      "Unknown error",
                   )}
                 </p>
               )}
@@ -654,7 +659,7 @@ const ClaimCenter = ({ address, title, description }) => {
                 !fpmmClaimsQuery.error &&
                 allInfoFiClaims.length === 0 && (
                   <p className="text-muted-foreground">
-                    {t("raffle:nothingToClaim")}
+                    {t("errors:nothingToClaim")}
                   </p>
                 )}
               {!claimsQuery.isLoading &&
@@ -682,11 +687,11 @@ const ClaimCenter = ({ address, title, description }) => {
                                       rows.reduce((acc, r) => {
                                         const amount =
                                           r.type === "fpmm"
-                                            ? r.netPayout ?? 0n
-                                            : r.payout ?? 0n;
+                                            ? (r.netPayout ?? 0n)
+                                            : (r.payout ?? 0n);
                                         return acc + amount;
                                       }, 0n),
-                                      18
+                                      18,
                                     );
                                   } catch {
                                     return "0";
@@ -780,7 +785,7 @@ const ClaimCenter = ({ address, title, description }) => {
                                 return (
                                   <div
                                     key={`${r.marketId}-${String(
-                                      r.prediction
+                                      r.prediction,
                                     )}`}
                                     className="flex items-center justify-between border rounded p-2 text-sm"
                                   >
@@ -832,7 +837,7 @@ const ClaimCenter = ({ address, title, description }) => {
                             })}
                           </div>
                         </div>
-                      )
+                      ),
                     )}
                   </div>
                 )}
@@ -847,7 +852,7 @@ const ClaimCenter = ({ address, title, description }) => {
                 <p className="text-red-500">
                   {t("common:error")}:{" "}
                   {String(
-                    raffleClaimsQuery.error?.message || raffleClaimsQuery.error
+                    raffleClaimsQuery.error?.message || raffleClaimsQuery.error,
                   )}
                 </p>
               )}
@@ -869,7 +874,7 @@ const ClaimCenter = ({ address, title, description }) => {
                         : "raffle:consolationPrize";
                       const claimKey = getClaimKey(
                         isGrand ? "raffle-grand" : "raffle-consolation",
-                        { seasonId: row.seasonId }
+                        { seasonId: row.seasonId },
                       );
                       const isThisPending = pendingClaims.has(claimKey);
                       const isThisSuccessful = successfulClaims.has(claimKey);
