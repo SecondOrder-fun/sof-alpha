@@ -61,6 +61,13 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [x] Add Vitest coverage for `MobileClaimsTab` wiring
   - [x] Fix unrelated unit test failure by wrapping `Header` in `MemoryRouter` in `Header.predictionMarketsToggle.test.jsx`
 
+### Landing Page Avatar Desktop Login Toggle (2026-01-23) ✅ COMPLETED
+
+- [x] **Make Landing page user profile icon open wallet connect/account modal on desktop**
+  - [x] Wrap the Landing avatar in `ConnectButton.Custom` and call `openConnectModal` when disconnected
+  - [x] Call `openAccountModal` when connected
+  - [x] Add Vitest coverage for avatar click -> connect modal when logged out
+
 ### Raffle Bonding Curve Display Fix (Sepolia) (2026-01-23) ✅ COMPLETED
 
 - [x] **Fix bonding curve / steps / current price not loading on Sepolia**

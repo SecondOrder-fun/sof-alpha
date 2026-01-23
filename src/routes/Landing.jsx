@@ -16,6 +16,7 @@ import { useAllowlist } from "@/hooks/useAllowlist";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings } from "lucide-react";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const Landing = () => {
   // Initialize Farcaster SDK and call ready() to hide splash screen
@@ -38,7 +39,7 @@ const Landing = () => {
     if (isAdmin()) {
       localStorage.setItem(
         "openAppAccessLevel",
-        requiredAccessLevel.toString()
+        requiredAccessLevel.toString(),
       );
     }
   }, [requiredAccessLevel, isAdmin]);
@@ -76,21 +77,56 @@ const Landing = () => {
             </button>
           )}
 
-          <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
-            {profile.pfpUrl ? (
-              <AvatarImage
-                src={profile.pfpUrl}
-                alt={profile.displayName || "User"}
-              />
-            ) : null}
-            <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
-              {profile.displayName ? (
-                profile.displayName[0].toUpperCase()
-              ) : (
-                <User className="w-5 h-5" />
-              )}
-            </AvatarFallback>
-          </Avatar>
+          <ConnectButton.Custom>
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openConnectModal,
+              mounted,
+            }) => {
+              const ready = mounted;
+              const connected = ready && account && chain;
+
+              const handleAvatarClick = () => {
+                try {
+                  if (!connected) {
+                    openConnectModal?.();
+                    return;
+                  }
+                  openAccountModal?.();
+                } catch (e) {
+                  // eslint-disable-next-line no-console
+                  console.error("Failed to open wallet modal", e);
+                }
+              };
+
+              return (
+                <button
+                  type="button"
+                  onClick={handleAvatarClick}
+                  className="rounded-full"
+                  aria-label={connected ? "Open account" : "Connect wallet"}
+                >
+                  <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
+                    {profile.pfpUrl ? (
+                      <AvatarImage
+                        src={profile.pfpUrl}
+                        alt={profile.displayName || "User"}
+                      />
+                    ) : null}
+                    <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
+                      {profile.displayName ? (
+                        profile.displayName[0].toUpperCase()
+                      ) : (
+                        <User className="w-5 h-5" />
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              );
+            }}
+          </ConnectButton.Custom>
         </div>
       </header>
 
