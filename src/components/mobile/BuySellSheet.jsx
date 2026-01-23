@@ -47,6 +47,8 @@ export const BuySellSheet = ({
   onOpenChange,
   mode = "buy",
   seasonId,
+  seasonStatus,
+  seasonEndTime,
   bondingCurveAddress,
   maxSellable = 0n,
   onSuccess,
@@ -81,7 +83,7 @@ export const BuySellSheet = ({
     }
   }, [open, mode]);
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantityInput, setQuantityInput] = useState("1");
   const [isLoading, setIsLoading] = useState(false);
   const [buyEstBase, setBuyEstBase] = useState(0n);
   const [sellEstBase, setSellEstBase] = useState(0n);
@@ -90,6 +92,52 @@ export const BuySellSheet = ({
   const [slippagePct, setSlippagePct] = useState("1"); // 1%
   const [showSettings, setShowSettings] = useState(false);
   const [tradingLocked, setTradingLocked] = useState(false);
+
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+
+  const seasonEndTimeSec = useMemo(() => {
+    if (seasonEndTime == null) return null;
+    const asNumber = Number(seasonEndTime);
+    if (!Number.isFinite(asNumber)) return null;
+    return asNumber;
+  }, [seasonEndTime]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (seasonEndTimeSec == null) return;
+
+    setNowSec(Math.floor(Date.now() / 1000));
+    const id = setInterval(() => {
+      setNowSec(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [open, seasonEndTimeSec]);
+
+  const parsedQuantity = useMemo(() => {
+    const n = Number(quantityInput);
+    if (!Number.isFinite(n)) return null;
+    return Math.floor(n);
+  }, [quantityInput]);
+
+  const isQuantityValid = parsedQuantity !== null && parsedQuantity >= 1;
+
+  const seasonStatusNumber = useMemo(() => {
+    if (typeof seasonStatus === "number") return seasonStatus;
+    const asNumber = Number(seasonStatus);
+    if (!Number.isFinite(asNumber)) return null;
+    return asNumber;
+  }, [seasonStatus]);
+
+  const seasonNotActive =
+    seasonStatusNumber !== null && Number(seasonStatusNumber) !== 1;
+
+  const seasonEndedByTime =
+    seasonEndTimeSec !== null && Number.isFinite(nowSec)
+      ? nowSec >= seasonEndTimeSec
+      : false;
+
+  const seasonTimeNotActive = seasonNotActive || seasonEndedByTime;
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
@@ -153,25 +201,33 @@ export const BuySellSheet = ({
     let stop = false;
     (async () => {
       if (!bondingCurveAddress) return;
-      const est = await loadEstimate("calculateBuyPrice", quantity);
+      if (!isQuantityValid) {
+        if (!stop) setBuyEstBase(0n);
+        return;
+      }
+      const est = await loadEstimate("calculateBuyPrice", parsedQuantity);
       if (!stop) setBuyEstBase(est);
     })();
     return () => {
       stop = true;
     };
-  }, [bondingCurveAddress, quantity, loadEstimate]);
+  }, [bondingCurveAddress, parsedQuantity, isQuantityValid, loadEstimate]);
 
   useEffect(() => {
     let stop = false;
     (async () => {
       if (!bondingCurveAddress) return;
-      const est = await loadEstimate("calculateSellPrice", quantity);
+      if (!isQuantityValid) {
+        if (!stop) setSellEstBase(0n);
+        return;
+      }
+      const est = await loadEstimate("calculateSellPrice", parsedQuantity);
       if (!stop) setSellEstBase(est);
     })();
     return () => {
       stop = true;
     };
-  }, [bondingCurveAddress, quantity, loadEstimate]);
+  }, [bondingCurveAddress, parsedQuantity, isQuantityValid, loadEstimate]);
 
   const estBuyWithFees = useMemo(() => {
     if (!buyEstBase) return 0n;
@@ -291,7 +347,17 @@ export const BuySellSheet = ({
 
   const onBuy = async (e) => {
     e.preventDefault();
-    if (!quantity || !bondingCurveAddress) return;
+    if (!isQuantityValid || !bondingCurveAddress) return;
+
+    if (seasonTimeNotActive) {
+      onNotify &&
+        onNotify({
+          type: "error",
+          message: "Season is not active",
+          hash: "",
+        });
+      return;
+    }
     if (tradingLocked) {
       onNotify &&
         onNotify({
@@ -343,7 +409,7 @@ export const BuySellSheet = ({
 
       const cap = applyMaxSlippage(estBuyWithFees);
       const tx = await buyTokens.mutateAsync({
-        tokenAmount: BigInt(quantity),
+        tokenAmount: BigInt(parsedQuantity),
         maxSofAmount: cap,
       });
       const hash = tx?.hash ?? tx ?? "";
@@ -371,7 +437,8 @@ export const BuySellSheet = ({
                 message: t("transactions:bought"),
                 hash,
               });
-            onSuccess && onSuccess({ mode: "buy", quantity, seasonId });
+            onSuccess &&
+              onSuccess({ mode: "buy", quantity: parsedQuantity, seasonId });
             onOpenChange(false);
           }
         } catch (waitErr) {
@@ -382,7 +449,8 @@ export const BuySellSheet = ({
           onNotify && onNotify({ type: "error", message: waitMsg, hash });
           // If waiting fails, still trigger refresh after delay
           setTimeout(() => {
-            onSuccess && onSuccess({ mode: "buy", quantity, seasonId });
+            onSuccess &&
+              onSuccess({ mode: "buy", quantity: parsedQuantity, seasonId });
             onOpenChange(false);
           }, 2000);
         }
@@ -399,21 +467,20 @@ export const BuySellSheet = ({
           /* no-op */
         }
         setTimeout(() => {
-          onSuccess && onSuccess({ mode: "buy", quantity, seasonId });
+          onSuccess &&
+            onSuccess({ mode: "buy", quantity: parsedQuantity, seasonId });
           onOpenChange(false);
         }, 2000);
       }
 
-      setQuantity(1);
+      setQuantityInput("1");
       void refetchBalance?.();
     } catch (err) {
       try {
         // Log full error for debugging
-        console.error("Buy transaction error:", err);
         const message = getReadableError(err);
         onNotify && onNotify({ type: "error", message, hash: "" });
       } catch (fallbackErr) {
-        console.error("Error in error handler:", fallbackErr);
         onNotify &&
           onNotify({
             type: "error",
@@ -430,7 +497,17 @@ export const BuySellSheet = ({
 
   const onSell = async (e) => {
     e.preventDefault();
-    if (!quantity || !bondingCurveAddress) return;
+    if (!isQuantityValid || !bondingCurveAddress) return;
+
+    if (seasonTimeNotActive) {
+      onNotify &&
+        onNotify({
+          type: "error",
+          message: "Season is not active",
+          hash: "",
+        });
+      return;
+    }
     if (tradingLocked) {
       onNotify &&
         onNotify({
@@ -443,7 +520,7 @@ export const BuySellSheet = ({
 
     setIsLoading(true);
     try {
-      const tokenAmount = BigInt(quantity);
+      const tokenAmount = BigInt(parsedQuantity);
       const floor = applyMinSlippage(estSellAfterFees);
 
       // Check curve reserves before selling
@@ -506,7 +583,8 @@ export const BuySellSheet = ({
                 hash,
               });
           } else {
-            onSuccess && onSuccess({ mode: "sell", quantity, seasonId });
+            onSuccess &&
+              onSuccess({ mode: "sell", quantity: parsedQuantity, seasonId });
             onOpenChange(false);
           }
         } catch (waitErr) {
@@ -517,19 +595,21 @@ export const BuySellSheet = ({
           onNotify && onNotify({ type: "error", message: waitMsg, hash });
           // If waiting fails, still trigger refresh after delay
           setTimeout(() => {
-            onSuccess && onSuccess({ mode: "sell", quantity, seasonId });
+            onSuccess &&
+              onSuccess({ mode: "sell", quantity: parsedQuantity, seasonId });
             onOpenChange(false);
           }, 2000);
         }
       } else {
         // Fallback: trigger refresh after delay if no client
         setTimeout(() => {
-          onSuccess && onSuccess({ mode: "sell", quantity, seasonId });
+          onSuccess &&
+            onSuccess({ mode: "sell", quantity: parsedQuantity, seasonId });
           onOpenChange(false);
         }, 2000);
       }
 
-      setQuantity(1);
+      setQuantityInput("1");
       void refetchBalance?.();
     } catch (err) {
       try {
@@ -561,7 +641,7 @@ export const BuySellSheet = ({
         args: [connectedAddress],
       });
 
-      setQuantity(Number(bal ?? 0n));
+      setQuantityInput(`${Number(bal ?? 0n)}`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unable to fetch ticket balance";
@@ -730,8 +810,8 @@ export const BuySellSheet = ({
                   {t("common:amount", { defaultValue: "Tickets to Buy" })}
                 </label>
                 <QuantityStepper
-                  value={quantity}
-                  onChange={setQuantity}
+                  value={quantityInput}
+                  onChange={setQuantityInput}
                   min={1}
                   max={maxBuyable}
                   step={1}
@@ -758,9 +838,10 @@ export const BuySellSheet = ({
                 type="submit"
                 disabled={
                   rpcMissing ||
-                  quantity < 1 ||
+                  !isQuantityValid ||
                   isLoading ||
                   tradingLocked ||
+                  seasonTimeNotActive ||
                   walletNotConnected ||
                   hasZeroBalance ||
                   hasInsufficientBalance
@@ -768,19 +849,21 @@ export const BuySellSheet = ({
                 size="lg"
                 className="w-full"
                 title={
-                  tradingLocked
-                    ? "Trading is locked"
-                    : walletNotConnected
-                      ? "Connect wallet first"
-                      : hasZeroBalance
-                        ? t("transactions:insufficientSOFShort", {
-                            defaultValue: "Insufficient $SOF balance",
-                          })
-                        : hasInsufficientBalance
+                  seasonTimeNotActive
+                    ? "Season is not active"
+                    : tradingLocked
+                      ? "Trading is locked"
+                      : walletNotConnected
+                        ? "Connect wallet first"
+                        : hasZeroBalance
                           ? t("transactions:insufficientSOFShort", {
                               defaultValue: "Insufficient $SOF balance",
                             })
-                          : disabledTip
+                          : hasInsufficientBalance
+                            ? t("transactions:insufficientSOFShort", {
+                                defaultValue: "Insufficient $SOF balance",
+                              })
+                            : disabledTip
                 }
               >
                 {isLoading ? t("transactions:buying") : "BUY NOW"}
@@ -797,8 +880,8 @@ export const BuySellSheet = ({
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <QuantityStepper
-                      value={quantity}
-                      onChange={setQuantity}
+                      value={quantityInput}
+                      onChange={setQuantityInput}
                       min={1}
                       max={Number(maxSellable)}
                       step={1}
@@ -841,22 +924,25 @@ export const BuySellSheet = ({
                 type="submit"
                 disabled={
                   rpcMissing ||
-                  quantity < 1 ||
+                  !isQuantityValid ||
                   isLoading ||
                   tradingLocked ||
+                  seasonTimeNotActive ||
                   walletNotConnected ||
                   maxSellable === 0n
                 }
                 size="lg"
                 className="w-full"
                 title={
-                  tradingLocked
-                    ? "Trading is locked"
-                    : walletNotConnected
-                      ? "Connect wallet first"
-                      : maxSellable === 0n
-                        ? "No tickets to sell"
-                        : disabledTip
+                  seasonTimeNotActive
+                    ? "Season is not active"
+                    : tradingLocked
+                      ? "Trading is locked"
+                      : walletNotConnected
+                        ? "Connect wallet first"
+                        : maxSellable === 0n
+                          ? "No tickets to sell"
+                          : disabledTip
                 }
               >
                 {isLoading ? t("transactions:selling") : "SELL NOW"}
@@ -874,6 +960,8 @@ BuySellSheet.propTypes = {
   onOpenChange: PropTypes.func.isRequired,
   mode: PropTypes.oneOf(["buy", "sell"]),
   seasonId: PropTypes.number,
+  seasonStatus: PropTypes.any,
+  seasonEndTime: PropTypes.any,
   bondingCurveAddress: PropTypes.string,
   maxSellable: PropTypes.bigint,
   onSuccess: PropTypes.func,

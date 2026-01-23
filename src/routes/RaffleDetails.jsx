@@ -306,6 +306,8 @@ const RaffleDetails = () => {
           onOpenChange={setSheetOpen}
           mode={sheetMode}
           seasonId={seasonIdNumber}
+          seasonStatus={seasonDetailsQuery.data.status}
+          seasonEndTime={cfg?.endTime}
           bondingCurveAddress={bondingCurveAddress}
           maxSellable={localPosition?.tickets || 0n}
           onSuccess={async () => {

@@ -5,6 +5,7 @@
 
 import PropTypes from "prop-types";
 import { Minus, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -16,24 +17,51 @@ export const QuantityStepper = ({
   step = 1,
   className = "",
 }) => {
+  const [inputValue, setInputValue] = useState(() => `${value}`);
+
+  useEffect(() => {
+    setInputValue(`${value}`);
+  }, [value]);
+
+  const parsedCurrent = useMemo(() => {
+    const asNumber = Number(inputValue);
+    if (!Number.isFinite(asNumber)) return min;
+    return Math.floor(asNumber);
+  }, [inputValue, min]);
+
   const handleIncrement = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const newValue = Math.min(value + step, max);
-    onChange(newValue);
+    const base = Math.max(min, Math.min(max, parsedCurrent));
+    const newValue = Math.min(base + step, max);
+    onChange(`${newValue}`);
   };
 
   const handleDecrement = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const newValue = Math.max(value - step, min);
-    onChange(newValue);
+    const base = Math.max(min, Math.min(max, parsedCurrent));
+    const newValue = Math.max(base - step, min);
+    onChange(`${newValue}`);
   };
 
   const handleInputChange = (e) => {
-    const newValue = parseInt(e.target.value) || min;
-    const clampedValue = Math.max(min, Math.min(max, newValue));
-    onChange(clampedValue);
+    const next = e.target.value;
+
+    // Allow clearing the input; parent will disable submit when invalid.
+    if (next === "") {
+      setInputValue("");
+      onChange("");
+      return;
+    }
+
+    // Allow only digits (type=number still allows e/E/- in some browsers)
+    if (!/^\d+$/.test(next)) {
+      return;
+    }
+
+    setInputValue(next);
+    onChange(next);
   };
 
   return (
@@ -41,7 +69,7 @@ export const QuantityStepper = ({
       <Button
         size="sm"
         onClick={handleDecrement}
-        disabled={value <= min}
+        disabled={parsedCurrent <= min}
         className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
         type="button"
       >
@@ -50,7 +78,7 @@ export const QuantityStepper = ({
 
       <Input
         type="number"
-        value={value}
+        value={inputValue}
         onChange={handleInputChange}
         min={min}
         max={max}
@@ -60,7 +88,7 @@ export const QuantityStepper = ({
       <Button
         size="sm"
         onClick={handleIncrement}
-        disabled={value >= max}
+        disabled={parsedCurrent >= max}
         className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
         type="button"
       >
@@ -71,7 +99,7 @@ export const QuantityStepper = ({
 };
 
 QuantityStepper.propTypes = {
-  value: PropTypes.number.isRequired,
+  value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
   min: PropTypes.number,
   max: PropTypes.number,

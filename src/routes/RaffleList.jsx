@@ -293,6 +293,8 @@ const RaffleList = () => {
             onOpenChange={setSheetOpen}
             mode={sheetMode}
             seasonId={selectedSeason.id}
+            seasonStatus={selectedSeason.status}
+            seasonEndTime={selectedSeason.config?.endTime}
             bondingCurveAddress={selectedSeason.config?.bondingCurve}
             maxSellable={localPosition?.tickets || 0n}
             onSuccess={async () => {

@@ -37,13 +37,29 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL + "/allowlist";
+function getApiBase() {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("Missing VITE_API_BASE_URL");
+  }
+  return `${baseUrl}/allowlist`;
+}
+
+function getAdminAuthHeaders() {
+  const token = import.meta.env.VITE_ADMIN_BEARER_TOKEN;
+  if (!token) {
+    throw new Error("Missing VITE_ADMIN_BEARER_TOKEN");
+  }
+  return { Authorization: `Bearer ${token}` };
+}
 
 /**
  * Fetch allowlist statistics
  */
 async function fetchStats() {
-  const res = await fetch(`${API_BASE}/stats`);
+  const res = await fetch(`${getApiBase()}/stats`, {
+    headers: getAdminAuthHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to fetch stats");
   return res.json();
 }
@@ -53,7 +69,10 @@ async function fetchStats() {
  */
 async function fetchEntries(activeOnly = true) {
   const res = await fetch(
-    `${API_BASE}/entries?activeOnly=${activeOnly}&limit=200`
+    `${getApiBase()}/entries?activeOnly=${activeOnly}&limit=200`,
+    {
+      headers: getAdminAuthHeaders(),
+    },
   );
   if (!res.ok) throw new Error("Failed to fetch entries");
   return res.json();
@@ -63,9 +82,12 @@ async function fetchEntries(activeOnly = true) {
  * Add to allowlist
  */
 async function addToAllowlist({ fid, wallet }) {
-  const res = await fetch(`${API_BASE}/add`, {
+  const res = await fetch(`${getApiBase()}/add`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAdminAuthHeaders(),
+    },
     body: JSON.stringify(fid ? { fid } : { wallet }),
   });
   if (!res.ok) {
@@ -79,9 +101,12 @@ async function addToAllowlist({ fid, wallet }) {
  * Remove from allowlist
  */
 async function removeFromAllowlist(fid) {
-  const res = await fetch(`${API_BASE}/remove`, {
+  const res = await fetch(`${getApiBase()}/remove`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAdminAuthHeaders(),
+    },
     body: JSON.stringify({ fid }),
   });
   if (!res.ok) {
@@ -95,9 +120,12 @@ async function removeFromAllowlist(fid) {
  * Update allowlist config
  */
 async function updateConfig({ windowStart, windowEnd, maxEntries }) {
-  const res = await fetch(`${API_BASE}/config`, {
+  const res = await fetch(`${getApiBase()}/config`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAdminAuthHeaders(),
+    },
     body: JSON.stringify({ windowStart, windowEnd, maxEntries }),
   });
   if (!res.ok) {
@@ -111,7 +139,10 @@ async function updateConfig({ windowStart, windowEnd, maxEntries }) {
  * Retry pending wallet resolutions
  */
 async function retryResolutions() {
-  const res = await fetch(`${API_BASE}/retry-resolutions`, { method: "POST" });
+  const res = await fetch(`${getApiBase()}/retry-resolutions`, {
+    method: "POST",
+    headers: getAdminAuthHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to retry resolutions");
   return res.json();
 }
@@ -120,8 +151,9 @@ async function retryResolutions() {
  * Import from notification tokens
  */
 async function importFromNotifications() {
-  const res = await fetch(`${API_BASE}/import-from-notifications`, {
+  const res = await fetch(`${getApiBase()}/import-from-notifications`, {
     method: "POST",
+    headers: getAdminAuthHeaders(),
   });
   if (!res.ok) throw new Error("Failed to import");
   return res.json();
@@ -221,7 +253,7 @@ export default function AllowlistPanel() {
   const handleCloseWindow = () => {
     if (
       !confirm(
-        "Close the allowlist window? New users won't be added automatically."
+        "Close the allowlist window? New users won't be added automatically.",
       )
     ) {
       return;
@@ -443,7 +475,7 @@ export default function AllowlistPanel() {
             onClick={() => {
               if (
                 confirm(
-                  "Import all users from notification tokens to allowlist?"
+                  "Import all users from notification tokens to allowlist?",
                 )
               ) {
                 importMutation.mutate();
@@ -561,7 +593,7 @@ export default function AllowlistPanel() {
                             onClick={() => {
                               if (
                                 confirm(
-                                  `Remove FID ${entry.fid} from allowlist?`
+                                  `Remove FID ${entry.fid} from allowlist?`,
                                 )
                               ) {
                                 removeMutation.mutate(entry.fid);

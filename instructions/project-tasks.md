@@ -75,6 +75,15 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [x] Updated Wagmi transport fallback to prefer primary RPC and only fail over to fallback URLs (`rank: false`), preventing the app from selecting unstable fallback RPCs (e.g. `base-sepolia.drpc.org`) when `sepolia.base.org` is healthy.
   - [x] Added Vitest regression coverage for `useCurveState` multicall fallback behavior.
 
+### Farcaster Buy/Sell UI Guards + Editable Amount Input (2026-01-23) ✅ COMPLETED
+
+- [x] **Fix Farcaster/mobile BuySell amount input + trading guards**
+  - [x] Make amount input editable/clearable (no snapping back to `1`)
+  - [x] Disable Buy/Sell when amount is empty or < 1
+  - [x] Disable Buy/Sell when season is not active (`seasonStatus !== 1`)
+  - [x] Auto-disable Buy/Sell when `seasonEndTime` countdown reaches 0 (no reload)
+  - [x] Add Vitest coverage for input clearing, season status guard, and time-based auto-disable
+
 ### Agentation Dev Tool Install (2026-01-22)
 
 - [x] Install Agentation package and wire dev-only component in the app root.
@@ -330,6 +339,11 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 - [x] Fix failing tests: useHybridPriceLive to match on-chain oracle polling (2 tests).
 - [x] Update sof-alpha Vitest config to exclude backend-only test suites under `tests/api/**` and `tests/backend/**`.
 - [x] Exclude removed/renamed `useRaffleTracker` hook test from sof-alpha Vitest run.
+
+- [x] Fix Admin Allowlist 401 (frontend): attach Bearer auth header on allowlist admin API calls.
+  - [x] Added `VITE_ADMIN_BEARER_TOKEN` requirement and wired `Authorization: Bearer <token>` into `AllowlistPanel.jsx` fetch calls.
+  - [x] Added Vitest coverage: `tests/components/admin/AllowlistPanel.authHeader.test.jsx`.
+  - [ ] Discovered During Work: Other admin tools still call protected endpoints without Authorization headers (e.g. RouteAccessPanel, NotificationPanel, NFT drops, backend wallet manager, manual market creation). Consolidate into a shared `fetchWithAdminAuth` helper and migrate remaining panels.
 
 - [x] **CSMM Cleanup - Final Phase COMPLETED**
   - **Removed all deprecated files** (9 files total):
