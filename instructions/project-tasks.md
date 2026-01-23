@@ -54,6 +54,13 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+### Farcaster Portfolio Claims Tab (2026-01-23) ✅ COMPLETED
+
+- [x] **Implement Claims tab in Farcaster/mobile Portfolio UI**
+  - [x] Replace `MobileClaimsTab` placeholder with existing `ClaimCenter` claims UI
+  - [x] Add Vitest coverage for `MobileClaimsTab` wiring
+  - [x] Fix unrelated unit test failure by wrapping `Header` in `MemoryRouter` in `Header.predictionMarketsToggle.test.jsx`
+
 ### Raffle Bonding Curve Display Fix (Sepolia) (2026-01-23) ✅ COMPLETED
 
 - [x] **Fix bonding curve / steps / current price not loading on Sepolia**

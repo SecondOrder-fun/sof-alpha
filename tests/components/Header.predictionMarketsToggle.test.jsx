@@ -3,6 +3,7 @@
 */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -59,7 +60,11 @@ import Header from "@/components/layout/Header.jsx";
 
 describe("Header prediction markets toggle", () => {
   it("does not render Prediction Markets nav when feature is disabled", () => {
-    render(<Header />);
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
     expect(screen.queryByText("navigation.predictionMarkets")).toBeNull();
   });
 });

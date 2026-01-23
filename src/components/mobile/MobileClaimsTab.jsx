@@ -1,19 +1,25 @@
 // src/components/mobile/MobileClaimsTab.jsx
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
+import ClaimCenter from "@/components/infofi/ClaimCenter";
 
 /**
- * MobileClaimsTab - Placeholder for future claims functionality
+ * MobileClaimsTab - Claims interface adapted for the Farcaster/mobile Portfolio UI
+ * @param {Object} props
+ * @param {string} [props.address] - Connected wallet address
  */
-const MobileClaimsTab = () => {
-  const { t } = useTranslation(["account", "common"]);
+const MobileClaimsTab = ({ address }) => {
+  const { t } = useTranslation(["account", "common", "market"]);
 
   return (
-    <div className="p-4 text-center">
-      <div className="text-muted-foreground py-12">
-        <p className="mb-2 text-lg">{t("common:comingSoon")}</p>
-        <p className="text-sm">{t("account:claimsComingSoon")}</p>
-      </div>
+    <div className="mt-3">
+      <ClaimCenter
+        address={address}
+        title={t("account:claims")}
+        description={t("market:claimDescription", {
+          defaultValue: "Claimable raffle prizes and market winnings.",
+        })}
+      />
     </div>
   );
 };
