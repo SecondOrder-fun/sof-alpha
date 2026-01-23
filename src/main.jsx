@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiConfigProvider } from "./context/WagmiConfigProvider";
-import { getInitialChain } from "./context/initialChain";
+import { getInitialChain, getRainbowKitChains } from "./context/initialChain";
 import { AuthKitProvider } from "@farcaster/auth-kit";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/tailwind.css";
@@ -110,16 +110,26 @@ const router = createBrowserRouter([
           {
             path: "markets",
             element: (
-              <ProtectedRoute route="/markets">
-                <MarketsIndex />
+              <ProtectedRoute
+                route="__feature__/prediction_markets"
+                redirectTo="/raffles"
+              >
+                <ProtectedRoute route="/markets">
+                  <MarketsIndex />
+                </ProtectedRoute>
               </ProtectedRoute>
             ),
           },
           {
             path: "markets/:marketId",
             element: (
-              <ProtectedRoute route="/markets/:id" resourceType="market">
-                <InfoFiMarketDetail />
+              <ProtectedRoute
+                route="__feature__/prediction_markets"
+                redirectTo="/raffles"
+              >
+                <ProtectedRoute route="/markets/:id" resourceType="market">
+                  <InfoFiMarketDetail />
+                </ProtectedRoute>
               </ProtectedRoute>
             ),
           },
@@ -237,6 +247,7 @@ import("./i18n").then(() => {
                   <RainbowKitProvider
                     locale="en"
                     initialChain={getInitialChain()}
+                    chains={getRainbowKitChains()}
                   >
                     <ProviderErrorBoundary>
                       <FarcasterProvider>

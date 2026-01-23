@@ -58,20 +58,26 @@ export function buildPublicClient(networkKey) {
   const now = Date.now();
   maybeResetDemotions(now);
   const net = getNetworkByKey(networkKey);
-  if (!net?.rpcUrl) return null;
+  const fallbackUrls = net?.rpcFallbackUrls || [];
+  const primaryRpcUrl = net?.rpcUrl || "";
+  const primaryUrl = [primaryRpcUrl, ...fallbackUrls]
+    .filter((url) => typeof url === "string")
+    .map((url) => url.trim())
+    .find((url) => url.startsWith("http"));
+
+  if (!primaryUrl) return null;
 
   const chain = {
     id: net.id,
     name: net.name,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: {
-      default: { http: [net.rpcUrl] },
-      public: { http: [net.rpcUrl] },
+      default: { http: [primaryUrl] },
+      public: { http: [primaryUrl] },
     },
   };
 
-  const fallbackUrls = net.rpcFallbackUrls || [];
-  const allUrls = [net.rpcUrl, ...fallbackUrls]
+  const allUrls = [primaryRpcUrl, ...fallbackUrls]
     .filter((url) => typeof url === "string")
     .map((url) => url.trim())
     .filter((url) => url.startsWith("http"))

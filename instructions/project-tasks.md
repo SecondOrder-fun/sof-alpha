@@ -272,6 +272,26 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 - [x] Re-run full Vitest suite to capture failing tests after stop request and log fixes per failure.
 - [x] Fix CurveGraph y-domain test hang by mocking viem RPC calls and SOF decimals lookup.
 - [x] Fix failing tests: TreasuryControls (Rendering: accumulated fees, SOF reserves, treasury address) and Fee Extraction.
+- [x] Allowlist granular access hardening (backend):
+  - [x] Require `JWT_SECRET` and `JWT_EXPIRES_IN` env vars (no fallbacks).
+  - [x] Register Fastify auth hook so `request.user` is populated from Bearer JWT.
+  - [x] Add `createRequireAdmin` guard and protect admin endpoints (allowlist/access/groups/route-config).
+  - [x] Remove wallet-only manual allowlist add (remove `fid: 0` path).
+  - [x] Verify Farcaster webhook events using `@farcaster/miniapp-node` + `NEYNAR_API_KEY`.
+  - [x] Revoke allowlist access on `miniapp_removed` / `frame_removed`.
+  - [x] Add migration `007_allowlist_wallet_only.sql` (nullable `fid`, partial unique indexes, wallet normalization).
+  - [x] Add backend Vitest coverage for admin guards + webhook verification flows.
+- [x] Feature toggle + admin lockdown (granular access system):
+  - [x] Seed `route_access_config` for `__feature__/prediction_markets`.
+  - [x] Add migrations to restrict ADMIN access to FIDs `13837`, `1047382` and wallet `0x1ed4ac856d7a072c3a336c0971a47db86a808ff4`.
+  - [x] Gate `/markets` and `/markets/:marketId` routes behind `__feature__/prediction_markets`.
+  - [x] Hide Prediction Markets nav link when feature is disabled/denied.
+  - [x] Fail closed on route-access timeout in `useRouteAccess`.
+  - [x] Add Vitest coverage for Header prediction markets toggle.
+- [x] Public access: Raffles + Portfolio:
+  - [x] Make `/raffles`, `/raffles/:id`, and `/portfolio` public (`required_level = 0`) via migration `010_make_raffles_portfolio_public.sql`.
+  - [x] Allow anonymous `/api/access/check-access` calls (no `fid`/`wallet`) so public routes can be checked without a connected identity.
+  - [x] Add backend Vitest coverage for anonymous `/check-access?route=/raffles`.
 - [ ] Fix failing tests: ClaimCenter consolation prize behaviors (3 failures).
 - [ ] Fix failing tests: FaucetPage tab rendering and cooldown/claiming flows (5 failures).
 - [x] Fix failing tests: RaffleDetails toasts + ERC20 fallback (2 failures).

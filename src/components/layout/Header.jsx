@@ -8,6 +8,7 @@ import { Globe } from "lucide-react";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
+import { useRouteAccess } from "@/hooks/useRouteAccess";
 
 const Header = () => {
   const { t } = useTranslation("navigation");
@@ -15,6 +16,18 @@ const Header = () => {
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
+
+  const predictionMarketsToggle = useRouteAccess(
+    "__feature__/prediction_markets",
+    {
+      enabled: !!address,
+      resourceType: "feature",
+      resourceId: "prediction_markets",
+    },
+  );
+
+  const showPredictionMarkets =
+    !predictionMarketsToggle.isDisabled && predictionMarketsToggle.hasAccess;
 
   return (
     <header className="border-b bg-background text-foreground">
@@ -38,18 +51,20 @@ const Header = () => {
             >
               {t("raffles")}
             </NavLink>
-            <NavLink
-              to="/markets"
-              className={({ isActive }) =>
-                `transition-colors ${
-                  isActive
-                    ? "text-[#c82a54]"
-                    : "text-[#a89e99] hover:text-[#e25167]"
-                }`
-              }
-            >
-              {t("predictionMarkets")}
-            </NavLink>
+            {showPredictionMarkets ? (
+              <NavLink
+                to="/markets"
+                className={({ isActive }) =>
+                  `transition-colors ${
+                    isActive
+                      ? "text-[#c82a54]"
+                      : "text-[#a89e99] hover:text-[#e25167]"
+                  }`
+                }
+              >
+                {t("predictionMarkets")}
+              </NavLink>
+            ) : null}
             <NavLink
               to="/leaderboard"
               className={({ isActive }) =>
@@ -135,6 +150,38 @@ const Header = () => {
               const ready = mounted;
               const connected = ready && account && chain;
 
+              const handleOpenConnect = () => {
+                try {
+                  if (typeof openConnectModal !== "function") {
+                    // eslint-disable-next-line no-console
+                    console.error(
+                      "RainbowKit openConnectModal is not a function",
+                    );
+                    return;
+                  }
+                  openConnectModal();
+                } catch (e) {
+                  // eslint-disable-next-line no-console
+                  console.error("Failed to open connect modal", e);
+                }
+              };
+
+              const handleOpenAccount = () => {
+                try {
+                  if (typeof openAccountModal !== "function") {
+                    // eslint-disable-next-line no-console
+                    console.error(
+                      "RainbowKit openAccountModal is not a function",
+                    );
+                    return;
+                  }
+                  openAccountModal();
+                } catch (e) {
+                  // eslint-disable-next-line no-console
+                  console.error("Failed to open account modal", e);
+                }
+              };
+
               return (
                 <div
                   {...(!ready && {
@@ -150,7 +197,7 @@ const Header = () => {
                     if (!connected) {
                       return (
                         <button
-                          onClick={openConnectModal}
+                          onClick={handleOpenConnect}
                           type="button"
                           className="px-4 py-2 rounded-md transition-colors bg-[#c82a54] text-white hover:bg-[#e25167] active:bg-[#f9d6de]"
                         >
@@ -161,7 +208,7 @@ const Header = () => {
 
                     return (
                       <button
-                        onClick={openAccountModal}
+                        onClick={handleOpenAccount}
                         type="button"
                         className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors font-medium"
                       >

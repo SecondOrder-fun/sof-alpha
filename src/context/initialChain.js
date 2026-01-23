@@ -6,3 +6,5 @@ import { getChainConfig } from "@/lib/wagmi";
 const testnetChainConfig = getChainConfig("TESTNET");
 
 export const getInitialChain = () => testnetChainConfig.chain;
+
+export const getRainbowKitChains = () => [testnetChainConfig.chain];

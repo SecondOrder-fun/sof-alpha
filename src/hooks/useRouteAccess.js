@@ -44,11 +44,17 @@ async function checkRouteAccess({
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === "AbortError") {
-      // Timeout - allow access by default for better UX
+      // Timeout - fail closed (this hook is used for feature/page gating)
       return {
-        hasAccess: true,
-        reason: "Backend timeout - allowing access",
-        isPublicOverride: true,
+        hasAccess: false,
+        reason: "Backend timeout",
+        isPublicOverride: false,
+        isDisabled: false,
+        requiredLevel: 0,
+        requiredGroups: [],
+        userLevel: 0,
+        userGroups: [],
+        routeConfig: null,
       };
     }
     throw error;
@@ -121,7 +127,7 @@ export function useRouteConfig(route) {
     queryKey: ["route-config", route],
     queryFn: async () => {
       const res = await fetch(
-        `${API_BASE}/route-config?route=${encodeURIComponent(route)}`
+        `${API_BASE}/route-config?route=${encodeURIComponent(route)}`,
       );
       if (!res.ok) {
         if (res.status === 404) return null;
