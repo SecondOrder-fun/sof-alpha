@@ -139,87 +139,7 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ### 2. Prize Pool Sponsorship Feature
 
-- [ ] **Smart Contract Implementation (Multi-Token Support)**
-  - [ ] Add `sponsorPrizeERC20(uint256 seasonId, address token, uint256 amount)` function to `SOFBondingCurve.sol`
-    - Accept any ERC-20 token from any address
-    - Store in separate mapping: `mapping(uint256 => mapping(address => uint256)) public sponsoredTokens`
-    - If token is $SOF, add to `sofReserves` without minting tickets
-    - If token is other ERC-20, store separately for later distribution
-    - Emit `PrizeSponsored(address indexed sponsor, uint256 seasonId, address token, uint256 amount)` event
-    - Require season is active or not started (not locked)
-    - Use SafeERC20 for token transfers
-  - [ ] Add `sponsorPrizeAtCreation(address[] tokens, uint256[] amounts)` parameter to season creation flow
-    - Allow initial multi-token sponsorship during `createSeason()`
-    - Transfer tokens from creator to curve contract
-    - Validate arrays have matching lengths
-  - [ ] Add view functions for sponsored tokens
-    - `getSponsoredTokens(uint256 seasonId)` returns array of token addresses
-    - `getSponsoredAmount(uint256 seasonId, address token)` returns amount
-    - `getTotalSponsors(uint256 seasonId)` returns count of unique sponsors
-  - [ ] Add access control: anyone can sponsor (permissionless)
-  - [ ] Add Foundry tests for multi-token sponsorship
-    - Test $SOF sponsorship (adds to sofReserves)
-    - Test other ERC-20 sponsorship (stored separately)
-    - Test multiple token types in single season
-    - Test sponsorship during season creation
-    - Test sponsorship during active season
-    - Test rejection when season is locked
-    - Test SafeERC20 transfer failures
-
-- [ ] **Prize Distribution Integration**
-  - [ ] Update `RafflePrizeDistributor.sol` to handle multi-token prizes
-    - Add `claimSponsoredToken(uint256 seasonId, address token)` function
-    - Winner can claim all sponsored ERC-20 tokens
-    - Track claimed tokens per season per winner
-    - Emit `SponsoredTokenClaimed(address indexed winner, uint256 seasonId, address token, uint256 amount)`
-  - [ ] Update prize extraction flow in `Raffle.sol`
-    - Extract sponsored tokens from curve to distributor
-    - Configure distributor with sponsored token list
-
-- [ ] **Frontend UI Implementation**
-  - [ ] Add "Initial Sponsorship" section to `CreateSeasonForm.jsx`
-    - Token selector dropdown (common ERC-20s + custom address input)
-    - Amount input with balance display
-    - "Add Token" button to add multiple sponsorships
-    - List of added sponsorships with remove option
-    - Validate sufficient balance for each token
-    - Include in createSeason transaction
-  - [ ] Add "Sponsor Prize Pool" widget to `RaffleDetails.jsx`
-    - Display current prize pool breakdown by token
-    - Token selector for sponsorship
-    - Amount input with balance check
-    - "Sponsor" button with approval flow
-    - Show transaction status
-    - Only visible when season is active or not started
-  - [ ] Add sponsorship history display
-    - List sponsors with token type and amount
-    - Group by token type
-    - Show total sponsored per token
-    - Show sponsor addresses with profile links
-  - [ ] Update prize claim UI to show all claimable tokens
-    - List all sponsored ERC-20s winner can claim
-    - Individual claim buttons per token
-    - Batch claim option for all tokens
-
-- [ ] **Hook Implementation**
-  - [ ] Extend `useCurve.js` with `sponsorPrizeERC20` mutation
-  - [ ] Add `useTokenApproval` hook for ERC-20 approvals
-  - [ ] Add `useSponsoredTokens` hook to fetch sponsored token list
-  - [ ] Add transaction status handling
-
-- [ ] **Testing**
-  - [ ] Vitest tests for multi-token sponsor UI components
-  - [ ] Test token selector and amount validation
-  - [ ] Test approval flow for different tokens
-  - [ ] E2E test for multi-token sponsorship flow
-
-- [ ] **Future Enhancement: NFT Prize Support**
-  - [ ] Add `sponsorPrizeERC721(uint256 seasonId, address nftContract, uint256 tokenId)` function
-  - [ ] Add `sponsorPrizeERC1155(uint256 seasonId, address nftContract, uint256 tokenId, uint256 amount)` function
-  - [ ] Create NFT vault contract for holding sponsored NFTs
-  - [ ] Update winner selection to include NFT prize allocation
-  - [ ] UI for displaying NFT prizes with images/metadata
-  - [ ] NFT claim interface with transfer to winner
+- Canonical implementation is in `RafflePrizeDistributor.sol` (see Latest Progress 2025-10-03). Any prior plan to implement sponsorship via `SOFBondingCurve.sol` is superseded.
 
 ### 3. Trading Lock UI Improvements ✅ COMPLETED
 
@@ -755,22 +675,12 @@ All frontend development setup tasks have been completed:
 - [x] Implement advanced analytics endpoints
 - [x] Create comprehensive API documentation
 - [x] Create database schema and migrations (markets, positions, winnings, pricing cache)
-- [ ] Connect frontend to backend services (query/mutations wired to API)
 
 ### Frontend Features
 
-- [ ] Build raffle display components (season list, ticket positions, odds)
 - [x] Build InfoFi market components with real-time updates
 - [x] Implement arbitrage opportunity display (display-only; execution button pending)
-- [ ] Add "Execute Arbitrage" button functionality (future enhancement)
-  - Implement one-click arbitrage execution
-  - Handle multi-step transactions (buy raffle + sell market or vice versa)
-  - Add slippage protection and gas estimation
-  - Show execution progress and confirmation
-- [ ] Create cross-layer strategy panel
-- [ ] Add settlement status tracking
-- [ ] Build winnings claim interface
-- [ ] User experience refinement (copy, flows, accessibility)
+- Note: Arbitrage execution and cross-layer strategy work has been deferred and removed from the active task list.
 - [x] Implement Admin page authorization (default to deployer `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, allow adding more admins)
 
 #### Raffle Ticket Bonding Curve UI (GLICO-style) — Plan (2025-09-10)
