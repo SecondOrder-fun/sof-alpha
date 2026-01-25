@@ -75,6 +75,8 @@ import FaucetPage from "./routes/FaucetPage";
 import LocalizationAdmin from "./routes/LocalizationAdmin";
 import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 import Landing from "./routes/Landing";
+import Login from "./routes/Login";
+import PublicLayout from "./layouts/PublicLayout";
 
 // Import access control components
 import { ProtectedRoute } from "./components/access";
@@ -89,8 +91,17 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       {
-        index: true,
-        element: <Landing />,
+        element: <PublicLayout />,
+        children: [
+          {
+            index: true,
+            element: <Landing />,
+          },
+          {
+            path: "login",
+            element: <Login />,
+          },
+        ],
       },
       {
         element: <App />,

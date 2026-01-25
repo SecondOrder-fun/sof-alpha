@@ -114,7 +114,7 @@ const BondingCurvePanel = ({
       }
       const maxX = Number(steps[steps.length - 1]?.rangeTo ?? 0n);
       const prices = steps.map((s) =>
-        Number(formatUnits(s?.price ?? 0n, sofDecimals))
+        Number(formatUnits(s?.price ?? 0n, sofDecimals)),
       );
       const minY = Math.min(...prices);
       const maxY = Math.max(...prices);
@@ -133,10 +133,9 @@ const BondingCurvePanel = ({
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const maxX = chartData.maxX || 1;
-  const rawMinY = chartData.minY ?? 0;
   const rawMaxY = chartData.maxY ?? 1;
-  const domainMinY = mini ? 0 : rawMinY;
-  const domainMaxY = rawMaxY;
+  const domainMinY = 0;
+  const domainMaxY = Math.max(1e-9, rawMaxY);
   const yRange = Math.max(1e-9, domainMaxY - domainMinY);
   const xScale = (x) => margin.left + innerW * (x / maxX);
   const yScale = (y) =>
@@ -180,7 +179,7 @@ const BondingCurvePanel = ({
         }
       }
       return Number(
-        formatUnits(steps[steps.length - 1].price ?? 0n, sofDecimals)
+        formatUnits(steps[steps.length - 1].price ?? 0n, sofDecimals),
       );
     } catch {
       return 0;
@@ -193,9 +192,17 @@ const BondingCurvePanel = ({
 
   const onMouseMove = (e) => {
     if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint?.();
+    const ctm = svg.getScreenCTM?.();
+    if (!pt || !ctm) return;
+
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+
+    const localPoint = pt.matrixTransform(ctm.inverse());
+    const mx = localPoint.x;
+    const my = localPoint.y;
     // invert xScale → supply
     const clamped = Math.max(margin.left, Math.min(width - margin.right, mx));
     const ratio = (clamped - margin.left) / innerW;
@@ -329,7 +336,7 @@ const BondingCurvePanel = ({
               try {
                 const cs = Number(curveSupply ?? 0n);
                 const lastPrice = Number(
-                  formatUnits(currentPrice ?? 0n, sofDecimals)
+                  formatUnits(currentPrice ?? 0n, sofDecimals),
                 );
                 const cx = xScale(Math.min(cs, maxX));
                 const cy = yScale(lastPrice);
@@ -483,14 +490,14 @@ const BondingCurvePanel = ({
                             0,
                             Number(
                               (BigInt(s.rangeTo ?? 0) * 10000n) /
-                                (maxSupply || 1n)
-                            ) / 100
-                          )
+                                (maxSupply || 1n),
+                            ) / 100,
+                          ),
                         );
                         // Skip rendering a dot at the extreme right edge (100%) to remove the right-most circle
                         if (leftPct >= 100) return null;
                         const price = Number(
-                          formatUnits(s.price ?? 0n, sofDecimals)
+                          formatUnits(s.price ?? 0n, sofDecimals),
                         ).toFixed(4);
                         const stepNum = s?.step ?? idx + 1;
                         return (
@@ -502,7 +509,7 @@ const BondingCurvePanel = ({
                               onStepEnter(leftPct, price, String(stepNum))
                             }
                             aria-label={`${t("step")} ${String(stepNum)} ${t(
-                              "common:price"
+                              "common:price",
                             )} ${price} SOF`}
                           />
                         );
@@ -513,7 +520,7 @@ const BondingCurvePanel = ({
                           style={{ left: `${progressTip.leftPct}%` }}
                           role="tooltip"
                           aria-label={`${t("step")} ${progressTip.step} ${t(
-                            "common:price"
+                            "common:price",
                           )} ${progressTip.price} SOF`}
                           // Prevent tooltip from capturing the mouse and causing flicker
                           onMouseEnter={(e) => e.stopPropagation()}

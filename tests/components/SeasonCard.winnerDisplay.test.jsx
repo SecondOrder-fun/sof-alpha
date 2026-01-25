@@ -72,4 +72,31 @@ describe("SeasonCard completed winner display", () => {
     expect(onBuy).not.toHaveBeenCalled();
     expect(onSell).not.toHaveBeenCalled();
   });
+
+  it("hides price + buy/sell and shows ended message when endTime has passed", () => {
+    const onBuy = vi.fn();
+    const onSell = vi.fn();
+
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    render(
+      <SeasonCard
+        seasonId={12}
+        seasonConfig={{ name: "Ended Season", endTime: String(nowSec - 5) }}
+        status={1}
+        curveStep={{ price: 10000000000000000000n }}
+        allBondSteps={[]}
+        curveSupply={0n}
+        onBuy={onBuy}
+        onSell={onSell}
+      />,
+    );
+
+    expect(screen.getByText("common:tradingLocked")).toBeInTheDocument();
+    expect(screen.getByText("raffle:raffleEnded")).toBeInTheDocument();
+
+    expect(screen.queryByText("Current Price")).not.toBeInTheDocument();
+    expect(screen.queryByText("BUY")).not.toBeInTheDocument();
+    expect(screen.queryByText("SELL")).not.toBeInTheDocument();
+  });
 });

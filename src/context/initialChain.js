@@ -1,10 +1,18 @@
 /**
  * Export initial chain for RainbowKit configuration.
  */
-import { getChainConfig } from "@/lib/wagmi";
+import { getChainConfig, getStoredNetworkKey } from "@/lib/wagmi";
 
-const testnetChainConfig = getChainConfig("TESTNET");
+const initialNetworkKey = (() => {
+  try {
+    return getStoredNetworkKey();
+  } catch {
+    return "TESTNET";
+  }
+})();
 
-export const getInitialChain = () => testnetChainConfig.chain;
+const activeChainConfig = getChainConfig(initialNetworkKey);
 
-export const getRainbowKitChains = () => [testnetChainConfig.chain];
+export const getInitialChain = () => activeChainConfig.chain;
+
+export const getRainbowKitChains = () => [activeChainConfig.chain];

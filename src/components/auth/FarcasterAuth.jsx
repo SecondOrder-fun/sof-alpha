@@ -1,6 +1,6 @@
-import { SignInButton } from '@farcaster/auth-kit';
-import { useFarcaster } from '@/hooks/useFarcaster';
-import { useToast } from '@/hooks/useToast';
+import { SignInButton } from "@farcaster/auth-kit";
+import { useFarcaster } from "@/hooks/useFarcaster";
+import { useToast } from "@/hooks/useToast";
 
 const FarcasterAuth = () => {
   const { isAuthenticated, profile } = useFarcaster();
@@ -8,29 +8,26 @@ const FarcasterAuth = () => {
 
   const handleSuccess = ({ fid, username }) => {
     toast({
-      title: 'Authentication Successful',
+      title: "Authentication Successful",
       description: `Welcome, ${username}! Your FID: ${fid}`,
     });
   };
 
   const handleError = (error) => {
     toast({
-      title: 'Authentication Error',
+      title: "Authentication Error",
       description: error.message,
-      variant: 'destructive',
+      variant: "destructive",
     });
   };
 
   if (isAuthenticated && profile) {
     return (
       <div className="flex items-center gap-4">
-        <img 
-          src={profile.pfpUrl} 
-          alt={profile.displayName || profile.username} 
+        <img
+          src={profile.pfpUrl}
+          alt={profile.displayName || profile.username}
           className="w-8 h-8 rounded-full"
-          onError={(e) => {
-            e.target.src = 'https://placehold.co/32x32';
-          }}
         />
         <div className="flex flex-col">
           <span className="text-sm font-medium">

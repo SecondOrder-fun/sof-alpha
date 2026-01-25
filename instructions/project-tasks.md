@@ -54,6 +54,29 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+### Desktop UI: Adopt Farcaster Component Design (Audit + Proposal + Approval Gate) (2026-01-24)
+
+- [ ] **Audit Farcaster vs Desktop component differences**
+  - [ ] Identify component pairs (mobile/Farcaster vs desktop) for:
+    - Buttons
+    - Tab groups
+    - Links
+    - Cards
+    - Inputs
+    - Modals / sheets
+  - [ ] Document differences with file references and screenshots (if needed)
+- [ ] **Propose best approach for shared design system**
+  - [ ] Recommend whether to:
+    - Introduce shared primitives/variants in `src/components/ui/`
+    - Extract shared design tokens (Tailwind + CSS vars)
+    - Reuse existing mobile components on desktop with responsive variants
+  - [ ] Identify risks (a11y, regression, i18n, layout differences)
+- [ ] **Approval gate**
+  - [ ] Review every proposed component change with user and confirm "update" vs "do not update" before implementing
+- [ ] **Implementation + tests**
+  - [ ] Apply approved component updates to desktop UI
+  - [ ] Add/adjust Vitest coverage for updated components and routes
+
 ### Farcaster Portfolio Claims Tab (2026-01-23) ✅ COMPLETED
 
 - [x] **Implement Claims tab in Farcaster/mobile Portfolio UI**
@@ -218,6 +241,12 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Discovered During Work (2026-01-21)
 
+- [x] Fix Landing page access gating for Base App (2026-01-25)
+  - Symptom: Base App users with allowlisted FID could not enter the app from the landing page because the connected wallet differed from the Farcaster-attached wallet.
+  - Root Cause: Landing `OpenAppButton` only sourced `fid` from AuthKit context (`FarcasterProvider`), which is often not authenticated in Base App. As a result, the access check fell back to `wallet` only.
+  - Resolution: Updated `OpenAppButton` to prefer `useUserProfile().fid` (MiniApp SDK context), falling back to AuthKit fid if present, while keeping wallet fallback for desktop.
+  - Tests: Added `tests/components/landing/OpenAppButton.fidAccess.test.jsx` to ensure `fid` is included in the access check request when available.
+
 - [x] Historical odds backend implementation (service + API endpoint + tests) completed in sof-backend.
 - [x] Re-run full Vitest suite to capture failing tests after stop request and log fixes per failure.
 - [x] Fix CurveGraph y-domain test hang by mocking viem RPC calls and SOF decimals lookup.
@@ -264,6 +293,23 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - [x] Added `VITE_ADMIN_BEARER_TOKEN` requirement and wired `Authorization: Bearer <token>` into `AllowlistPanel.jsx` fetch calls.
   - [x] Added Vitest coverage: `tests/components/admin/AllowlistPanel.authHeader.test.jsx`.
   - [ ] Discovered During Work: Other admin tools still call protected endpoints without Authorization headers (e.g. RouteAccessPanel, NotificationPanel, NFT drops, backend wallet manager, manual market creation). Consolidate into a shared `fetchWithAdminAuth` helper and migrate remaining panels.
+
+- [x] Bonding curve preview Y-axis scales per season (2026-01-25)
+  - [x] Raffle list mini chart now uses Y domain `0..maxStepPrice` so initial price changes don\'t shift the chart baseline.
+  - [x] Updated Vitest coverage in `tests/components/CurveGraph.yDomain.test.jsx`.
+
+- [x] Bonding curve graph hover tooltip alignment (2026-01-25)
+  - [x] Converted hover mouse coordinates into SVG viewBox coordinates via `createSVGPoint()` and `getScreenCTM().inverse()` so the hover marker/tooltip aligns with the cursor when scaled.
+  - [x] Added Vitest coverage in `tests/components/CurveGraph.hoverCoords.test.jsx`.
+
+- [x] Auto-switch wallet to active network on Farcaster/Base connect (2026-01-25)
+  - Reason: Farcaster/Base MiniApp connectors can connect a wallet without prompting the user to switch networks, causing the app to be connected on the wrong chain.
+  - Implementation: Wired Wagmi + RainbowKit to use the active network key (from `VITE_DEFAULT_NETWORK` / stored network selection) instead of hardcoding `TESTNET`, and added an `EnsureActiveChain` effect that calls `switchChain({ chainId })` when connected on the wrong chain.
+  - Tests: Added `tests/context/WagmiConfigProvider.ensureActiveChain.test.jsx`.
+
+- [x] Remove Farcaster sign-in button from Landing/Main page (2026-01-25)
+  - Reason: The Farcaster sign-in button was visually out of place on the landing page.
+  - Implementation: Removed `FarcasterAuth` render block from `src/routes/Landing.jsx` (component remains available for re-adding elsewhere later).
 
 - [x] **CSMM Cleanup - Final Phase COMPLETED**
   - **Removed all deprecated files** (9 files total):

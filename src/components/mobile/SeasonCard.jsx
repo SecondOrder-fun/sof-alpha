@@ -13,6 +13,7 @@ import CountdownTimer from "@/components/common/CountdownTimer";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
+import { useMemo } from "react";
 
 export const SeasonCard = ({
   seasonId,
@@ -31,6 +32,14 @@ export const SeasonCard = ({
   const statusNum = Number(status);
   const isCompleted = statusNum === 4 || statusNum === 5;
   const isActiveSeason = statusNum === 1;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const seasonEndedByTime = useMemo(() => {
+    if (!seasonConfig?.endTime) return false;
+    const end = Number(seasonConfig.endTime);
+    if (!Number.isFinite(end)) return false;
+    return nowSec >= end;
+  }, [nowSec, seasonConfig?.endTime]);
+  const isSeasonEnded = isCompleted || seasonEndedByTime;
   const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
   const curveState = useCurveState(seasonConfig?.bondingCurve, {
     isActive: isActiveSeason,
@@ -72,7 +81,7 @@ export const SeasonCard = ({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 pt-0">
-        {!isCompleted && (
+        {!isSeasonEnded && (
           <>
             {/* Mini Curve Graph */}
             <div className="bg-black/40 rounded-md overflow-hidden h-32">
@@ -97,7 +106,7 @@ export const SeasonCard = ({
         )}
 
         {/* Countdown Timer */}
-        {!isCompleted && seasonConfig?.endTime && (
+        {!isSeasonEnded && seasonConfig?.endTime && (
           <div className="bg-[#c82a54] rounded-lg p-4">
             <div className="text-xs text-white/80 mb-1">
               {t("raffle:endsIn")}
@@ -107,6 +116,17 @@ export const SeasonCard = ({
               compact
               className="text-white font-bold text-lg"
             />
+          </div>
+        )}
+
+        {isSeasonEnded && !isCompleted && (
+          <div className="bg-[#c82a54] rounded-lg p-4 text-center">
+            <div className="text-white font-bold text-lg">
+              {t("common:tradingLocked", { defaultValue: "Trading is Locked" })}
+            </div>
+            <div className="text-white/80 text-sm mt-1">
+              {t("raffle:raffleEnded")}
+            </div>
           </div>
         )}
 
@@ -148,7 +168,7 @@ export const SeasonCard = ({
           )}
 
         {/* Action Buttons */}
-        {!isCompleted && (
+        {!isSeasonEnded && (
           <div className="flex gap-2">
             <Button
               onClick={(e) => {

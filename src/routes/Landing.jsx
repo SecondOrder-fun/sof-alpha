@@ -10,7 +10,6 @@ import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
 import OpenAppButton from "@/components/landing/OpenAppButton";
 import AccessLevelSelector from "@/components/admin/AccessLevelSelector";
 import StickyFooter from "@/components/layout/StickyFooter";
-import useFarcasterSDK from "@/hooks/useFarcasterSDK";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,8 +18,6 @@ import { ACCESS_LEVELS } from "@/config/accessLevels";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const Landing = () => {
-  // Initialize Farcaster SDK and call ready() to hide splash screen
-  useFarcasterSDK();
   const profile = useUserProfile();
 
   // Get user's actual access level from the allowlist system
