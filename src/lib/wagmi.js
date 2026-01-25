@@ -18,21 +18,23 @@ export function getChainConfig(networkKey) {
   const key = (networkKey || getDefaultNetworkKey()).toUpperCase();
   const cfg = getNetworkByKey(key);
 
+  const rpcUrls = [cfg.rpcUrl, ...(cfg.rpcFallbackUrls || [])].filter(Boolean);
+  if (rpcUrls.length === 0) {
+    throw new Error(`No RPC URL configured for network ${key}`);
+  }
+
   // Minimal chain object compatible with Wagmi custom chains
   const chain = {
     id: cfg.id,
     name: cfg.name,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: {
-      default: { http: [cfg.rpcUrl] },
-      public: { http: [cfg.rpcUrl] },
+      default: { http: rpcUrls },
+      public: { http: rpcUrls },
     },
   };
 
-  const fallbackUrls = cfg.rpcFallbackUrls || [];
-  const httpTransports = [cfg.rpcUrl, ...fallbackUrls]
-    .filter(Boolean)
-    .map((url) => http(url));
+  const httpTransports = rpcUrls.map((url) => http(url));
 
   const transport =
     httpTransports.length > 1

@@ -4,8 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
-import { useFarcasterSDK } from "@/context/FarcasterProvider";
+import { useAppIdentity } from "@/hooks/useAppIdentity";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL + "/access";
 
@@ -22,7 +21,7 @@ async function checkRouteAccess({
   resourceId,
 }) {
   const params = new URLSearchParams();
-  if (fid) params.append("fid", fid);
+  if (fid) params.append("fid", String(fid));
   if (wallet) params.append("wallet", wallet);
   params.append("route", route);
   if (resourceType) params.append("resourceType", resourceType);
@@ -79,18 +78,22 @@ async function checkRouteAccess({
  * }}
  */
 export function useRouteAccess(route, options = {}) {
-  const { address } = useAccount();
-  const { context: farcasterContext } = useFarcasterSDK();
-
-  const fid = farcasterContext?.user?.fid;
+  const identity = useAppIdentity();
   const { resourceType, resourceId, enabled = true } = options;
 
   const query = useQuery({
-    queryKey: ["route-access", route, resourceType, resourceId, fid, address],
+    queryKey: [
+      "route-access",
+      route,
+      resourceType,
+      resourceId,
+      identity.fid,
+      identity.walletAddress,
+    ],
     queryFn: () =>
       checkRouteAccess({
-        fid,
-        wallet: address,
+        fid: identity.fid,
+        wallet: identity.walletAddress,
         route,
         resourceType,
         resourceId,

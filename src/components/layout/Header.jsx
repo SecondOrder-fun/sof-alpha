@@ -33,10 +33,17 @@ const Header = () => {
     <header className="border-b bg-background text-foreground">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-8">
-          <Link to="/" className="text-2xl font-bold">
-            <span className="text-white">Second</span>
-            <span className="text-[#c82a54]">Order</span>
-            <span className="text-[#a89e99]">.fun</span>
+          <Link to="/" className="flex items-center gap-3 text-2xl font-bold">
+            <img
+              src="/images/logo.png"
+              alt={t("brandName")}
+              className="w-10 h-10"
+            />
+            <span>
+              <span className="text-white">Second</span>
+              <span className="text-[#c82a54]">Order</span>
+              <span className="text-[#a89e99]">.fun</span>
+            </span>
           </Link>
           <nav className="hidden md:flex space-x-6">
             <NavLink

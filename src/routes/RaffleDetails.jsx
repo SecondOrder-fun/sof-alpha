@@ -24,12 +24,7 @@ import BuySellWidget from "@/components/curve/BuySellWidget";
 import TransactionsTab from "@/components/curve/TransactionsTab";
 import TokenInfoTab from "@/components/curve/TokenInfoTab";
 import HoldersTab from "@/components/curve/HoldersTab";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/common/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurveEvents } from "@/hooks/useCurveEvents";
 import { useAccount } from "wagmi";
 import { RaffleAdminControls } from "@/components/admin/RaffleAdminControls";

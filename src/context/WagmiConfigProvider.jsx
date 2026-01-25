@@ -1,7 +1,14 @@
 // src/context/WagmiConfigProvider.jsx
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { WagmiProvider, createConfig, useConnect } from "wagmi";
+import {
+  WagmiProvider,
+  createConfig,
+  useAccount,
+  useChainId,
+  useConnect,
+  useSwitchChain,
+} from "wagmi";
 import { injected } from "wagmi/connectors";
 import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
 import { getChainConfig, getStoredNetworkKey } from "@/lib/wagmi";
@@ -15,15 +22,14 @@ const initialNetworkKey = (() => {
   }
 })();
 
-// Build chain config for TESTNET only
-const testnetChainConfig = getChainConfig("TESTNET");
+const activeChainConfig = getChainConfig(initialNetworkKey);
 
 // Create config with both injected and Farcaster connectors
 const config = createConfig({
-  chains: [testnetChainConfig.chain],
+  chains: [activeChainConfig.chain],
   connectors: [farcasterFrame(), injected()],
   transports: {
-    [testnetChainConfig.chain.id]: testnetChainConfig.transport,
+    [activeChainConfig.chain.id]: activeChainConfig.transport,
   },
 });
 
@@ -65,6 +71,44 @@ const FarcasterAutoConnect = () => {
   return null;
 };
 
+const EnsureActiveChain = () => {
+  const { isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const [hasAttempted, setHasAttempted] = useState(false);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setHasAttempted(false);
+      return;
+    }
+    if (hasAttempted) return;
+
+    let targetChainId;
+    try {
+      const activeNetworkKey = getStoredNetworkKey();
+      targetChainId = getChainConfig(activeNetworkKey).chain.id;
+    } catch {
+      targetChainId = null;
+    }
+
+    if (!targetChainId || chainId === targetChainId) {
+      setHasAttempted(true);
+      return;
+    }
+
+    try {
+      switchChain({ chainId: targetChainId });
+    } catch {
+      // Some connectors/environments may not support programmatic switching.
+    }
+
+    setHasAttempted(true);
+  }, [chainId, hasAttempted, isConnected, switchChain]);
+
+  return null;
+};
+
 export const WagmiConfigProvider = ({ children }) => {
   useEffect(() => {
     const handleNetworkChange = (event) => {
@@ -91,6 +135,7 @@ export const WagmiConfigProvider = ({ children }) => {
   return (
     <WagmiProvider config={config}>
       <FarcasterAutoConnect />
+      <EnsureActiveChain />
       {children}
     </WagmiProvider>
   );

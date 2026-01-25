@@ -6,9 +6,8 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
-import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { useFarcasterSDK } from "@/context/FarcasterProvider";
+import { useAppIdentity } from "@/hooks/useAppIdentity";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 export const OpenAppButton = ({
@@ -16,8 +15,7 @@ export const OpenAppButton = ({
   className = "",
 }) => {
   const navigate = useNavigate();
-  const { address, isConnected } = useAccount();
-  const { context: farcasterContext } = useFarcasterSDK();
+  const identity = useAppIdentity();
   const [isChecking, setIsChecking] = useState(false);
 
   const handleOpenApp = async () => {
@@ -26,12 +24,9 @@ export const OpenAppButton = ({
     try {
       // Check access via backend API
       const params = new URLSearchParams();
-      if (farcasterContext?.user?.fid) {
-        params.append("fid", farcasterContext.user.fid);
-      }
-      if (address) {
-        params.append("wallet", address);
-      }
+      if (identity.fid) params.append("fid", String(identity.fid));
+      if (identity.walletAddress)
+        params.append("wallet", identity.walletAddress);
       params.append("route", "/raffles");
 
       const controller = new AbortController();
@@ -42,7 +37,7 @@ export const OpenAppButton = ({
           `${
             import.meta.env.VITE_API_BASE_URL
           }/access/check-access?${params.toString()}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         clearTimeout(timeoutId);
 
@@ -57,8 +52,8 @@ export const OpenAppButton = ({
             alert(
               data.reason ||
                 `Access restricted. Required level: ${getAccessLevelName(
-                  requiredLevel
-                )}`
+                  requiredLevel,
+                )}`,
             );
           }
         } else {

@@ -22,7 +22,7 @@ vi.mock("@rainbow-me/rainbowkit", () => ({
 }));
 
 vi.mock("@/hooks/useFarcasterSDK", () => ({
-  default: () => null,
+  default: () => ({ isInFarcasterClient: false }),
 }));
 
 vi.mock("@/hooks/useUserProfile", () => ({
@@ -55,6 +55,10 @@ vi.mock("@/components/farcaster/LaunchAppButtons", () => ({
 }));
 
 vi.mock("@/components/landing/OpenAppButton", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/auth/FarcasterAuth", () => ({
   default: () => null,
 }));
 

@@ -4,8 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
-import { useFarcasterSDK } from "@/context/FarcasterProvider";
+import { useAppIdentity } from "@/hooks/useAppIdentity";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL + "/access";
@@ -27,7 +26,7 @@ async function checkUserAccess({ fid, wallet }) {
   }
 
   const params = new URLSearchParams();
-  if (fid) params.append("fid", fid);
+  if (fid) params.append("fid", String(fid));
   if (wallet) params.append("wallet", wallet);
 
   const res = await fetch(`${API_BASE}/check?${params.toString()}`);
@@ -57,16 +56,13 @@ async function checkUserAccess({ fid, wallet }) {
  * }}
  */
 export function useAllowlist() {
-  const { address, isConnected } = useAccount();
-  const { context: farcasterContext } = useFarcasterSDK();
-
-  // Prioritize FID over wallet
-  const fid = farcasterContext?.user?.fid;
+  const identity = useAppIdentity();
 
   const query = useQuery({
-    queryKey: ["allowlist-check", fid, address],
-    queryFn: () => checkUserAccess({ fid, wallet: address }),
-    enabled: isConnected && (!!fid || !!address),
+    queryKey: ["allowlist-check", identity.fid, identity.walletAddress],
+    queryFn: () =>
+      checkUserAccess({ fid: identity.fid, wallet: identity.walletAddress }),
+    enabled: !!identity.fid || !!identity.walletAddress,
     staleTime: 60000, // Cache for 1 minute
     refetchOnWindowFocus: false,
   });
