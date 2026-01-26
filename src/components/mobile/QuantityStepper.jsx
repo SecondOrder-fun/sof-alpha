@@ -15,6 +15,8 @@ export const QuantityStepper = ({
   min = 1,
   max = Infinity,
   step = 1,
+  maxValidationMessage,
+  minValidationMessage,
   className = "",
 }) => {
   const [inputValue, setInputValue] = useState(() => `${value}`);
@@ -48,6 +50,10 @@ export const QuantityStepper = ({
   const handleInputChange = (e) => {
     const next = e.target.value;
 
+    if (typeof e.target?.setCustomValidity === "function") {
+      e.target.setCustomValidity("");
+    }
+
     // Allow clearing the input; parent will disable submit when invalid.
     if (next === "") {
       setInputValue("");
@@ -62,6 +68,22 @@ export const QuantityStepper = ({
 
     setInputValue(next);
     onChange(next);
+  };
+
+  const handleInvalid = (e) => {
+    if (typeof e.target?.setCustomValidity !== "function") return;
+
+    const current = Number(e.target.value);
+    if (!Number.isFinite(current)) return;
+
+    if (Number.isFinite(max) && current > max && maxValidationMessage) {
+      e.target.setCustomValidity(maxValidationMessage);
+      return;
+    }
+
+    if (Number.isFinite(min) && current < min && minValidationMessage) {
+      e.target.setCustomValidity(minValidationMessage);
+    }
   };
 
   return (
@@ -80,6 +102,7 @@ export const QuantityStepper = ({
         type="number"
         value={inputValue}
         onChange={handleInputChange}
+        onInvalid={handleInvalid}
         min={min}
         max={max}
         className="flex-1 h-12 text-center text-white text-lg font-semibold bg-[#130013]/30 border-[#6b6b6b]"
@@ -104,6 +127,8 @@ QuantityStepper.propTypes = {
   min: PropTypes.number,
   max: PropTypes.number,
   step: PropTypes.number,
+  maxValidationMessage: PropTypes.string,
+  minValidationMessage: PropTypes.string,
   className: PropTypes.string,
 };
 
