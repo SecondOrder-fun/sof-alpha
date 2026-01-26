@@ -72,15 +72,13 @@ async function main() {
     // Step 3: Generate and record sample data
     console.log("3️⃣  Recording sample data...");
     const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
     // Generate data points spanning 1 week
     const dataPoints = generateSampleData(
       168, // 1 point per hour for 1 week
       oneWeekAgo,
-      60 * 60 * 1000 // 1 hour intervals
+      60 * 60 * 1000, // 1 hour intervals
     );
 
     console.log(`   Recording ${dataPoints.length} data points...`);
@@ -97,7 +95,7 @@ async function main() {
       const result = await historicalOddsService.getHistoricalOdds(
         SEASON_ID,
         MARKET_ID,
-        range
+        range,
       );
 
       console.log(`   📊 Range: ${range}`);
@@ -108,15 +106,15 @@ async function main() {
         const first = result.dataPoints[0];
         const last = result.dataPoints[result.dataPoints.length - 1];
         console.log(
-          `      First point: ${new Date(first.timestamp).toISOString()}`
+          `      First point: ${new Date(first.timestamp).toISOString()}`,
         );
         console.log(
-          `      Last point:  ${new Date(last.timestamp).toISOString()}`
+          `      Last point:  ${new Date(last.timestamp).toISOString()}`,
         );
         console.log(
           `      Sample odds: YES=${first.yes_bps / 100}%, NO=${
             first.no_bps / 100
-          }%`
+          }%`,
         );
       }
       console.log("");
@@ -127,7 +125,7 @@ async function main() {
     const largeDataset = generateSampleData(
       1000, // More than 500 (downsample threshold)
       oneWeekAgo,
-      10 * 60 * 1000 // 10 minute intervals
+      10 * 60 * 1000, // 10 minute intervals
     );
 
     console.log(`   Recording ${largeDataset.length} data points...`);
@@ -138,7 +136,7 @@ async function main() {
     const allData = await historicalOddsService.getHistoricalOdds(
       SEASON_ID,
       MARKET_ID,
-      "ALL"
+      "ALL",
     );
 
     console.log(`   Original points: 1000+`);
@@ -157,10 +155,10 @@ async function main() {
 
     if (stats.oldestTimestamp && stats.newestTimestamp) {
       console.log(
-        `   Oldest: ${new Date(stats.oldestTimestamp).toISOString()}`
+        `   Oldest: ${new Date(stats.oldestTimestamp).toISOString()}`,
       );
       console.log(
-        `   Newest: ${new Date(stats.newestTimestamp).toISOString()}`
+        `   Newest: ${new Date(stats.newestTimestamp).toISOString()}`,
       );
       const durationHours =
         (stats.newestTimestamp - stats.oldestTimestamp) / (1000 * 60 * 60);
@@ -172,7 +170,7 @@ async function main() {
     console.log("7️⃣  Testing cleanup (removing data older than 90 days)...");
     const removed = await historicalOddsService.cleanupOldData(
       SEASON_ID,
-      MARKET_ID
+      MARKET_ID,
     );
     console.log(`   Removed ${removed} old entries\n`);
 
@@ -191,7 +189,7 @@ async function main() {
     console.log("Next steps:");
     console.log("   1. Start the backend server: npm run dev:backend");
     console.log(
-      "   2. Test API endpoint: curl http://localhost:3000/api/infofi/markets/0/history?range=1D"
+      "   2. Test API endpoint: curl http://localhost:3000/api/infofi/markets/0/history?range=1D",
     );
     console.log("   3. Start the frontend: npm run dev");
     console.log("   4. Navigate to a market detail page to see the chart");
