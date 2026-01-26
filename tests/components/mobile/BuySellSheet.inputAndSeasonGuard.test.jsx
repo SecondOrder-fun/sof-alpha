@@ -52,6 +52,10 @@ const readContractMock = vi.fn(async ({ functionName }) => {
     // [totalSupply, sofReserves, currentStep, buyFee, sellFee, tradingLocked, initialized]
     return [0n, 0n, 0n, 0n, 0n, false, true];
   }
+  if (functionName === "getBondSteps") {
+    // Provide a deterministic max supply for remaining-supply computation.
+    return [{ rangeTo: 1000n, price: 0n }];
+  }
   if (functionName === "calculateBuyPrice") return 0n;
   if (functionName === "calculateSellPrice") return 0n;
   if (functionName === "playerTickets") return 0n;
@@ -126,7 +130,7 @@ describe("BuySellSheet (mobile/Farcaster) input + season guard", () => {
 
     const getTicketInput = () => {
       const inputs = screen.getAllByRole("spinbutton");
-      return inputs.find((el) => el.getAttribute("max") === "1000") || null;
+      return inputs.length > 0 ? inputs[0] : null;
     };
 
     const ticketInput = getTicketInput();
@@ -143,6 +147,44 @@ describe("BuySellSheet (mobile/Farcaster) input + season guard", () => {
     await waitFor(() => {
       const buyButton = screen.getByRole("button", { name: "BUY NOW" });
       expect(buyButton).toBeDisabled();
+    });
+  });
+
+  it("sets the input max to remaining supply (maxSupply - currentSupply)", async () => {
+    const user = userEvent.setup();
+
+    // totalSupply = 900, maxSupply (last rangeTo) = 1000 => remaining = 100
+    readContractMock.mockImplementationOnce(async ({ functionName }) => {
+      if (functionName === "curveConfig") {
+        return [900n, 0n, 0n, 0n, 0n, false, true];
+      }
+      if (functionName === "getBondSteps") {
+        return [{ rangeTo: 1000n, price: 0n }];
+      }
+      return 0n;
+    });
+
+    render(
+      <BuySellSheet
+        open
+        onOpenChange={() => {}}
+        bondingCurveAddress="0x0000000000000000000000000000000000000001"
+        seasonStatus={1}
+      />,
+    );
+
+    const inputs = await screen.findAllByRole("spinbutton");
+    const ticketInput = inputs[0];
+
+    await waitFor(() => {
+      expect(ticketInput.getAttribute("max")).toBe("100");
+    });
+
+    await user.clear(ticketInput);
+    await user.type(ticketInput, "101");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "BUY NOW" })).toBeDisabled();
     });
   });
 

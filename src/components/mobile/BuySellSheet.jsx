@@ -122,6 +122,12 @@ export const BuySellSheet = ({
 
   const isQuantityValid = parsedQuantity !== null && parsedQuantity >= 1;
 
+  const [maxBuyable, setMaxBuyable] = useState(null);
+  const maxBuyableNumber = useMemo(() => {
+    if (typeof maxBuyable === "number") return maxBuyable;
+    return null;
+  }, [maxBuyable]);
+
   const seasonStatusNumber = useMemo(() => {
     if (typeof seasonStatus === "number") return seasonStatus;
     const asNumber = Number(seasonStatus);
@@ -139,6 +145,11 @@ export const BuySellSheet = ({
 
   const seasonTimeNotActive = seasonNotActive || seasonEndedByTime;
 
+  const exceedsRemainingSupply =
+    maxBuyableNumber !== null && isQuantityValid
+      ? parsedQuantity > maxBuyableNumber
+      : false;
+
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
   const curveAbi = useMemo(
@@ -148,8 +159,58 @@ export const BuySellSheet = ({
 
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
-    return buildPublicClient(netKey);
-  }, [net?.rpcUrl, netKey]);
+    return buildPublicClient(net.rpcUrl, net.chainId ?? net.id);
+  }, [net]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRemainingSupply = async () => {
+      try {
+        if (!open) return;
+        if (!client || !bondingCurveAddress) return;
+
+        const cfg = await client.readContract({
+          address: bondingCurveAddress,
+          abi: curveAbi,
+          functionName: "curveConfig",
+          args: [],
+        });
+
+        const totalSupply = cfg?.[0] ?? 0n;
+
+        const steps = await client.readContract({
+          address: bondingCurveAddress,
+          abi: curveAbi,
+          functionName: "getBondSteps",
+          args: [],
+        });
+
+        const lastRangeTo = Array.isArray(steps)
+          ? (steps[steps.length - 1]?.rangeTo ?? 0n)
+          : 0n;
+
+        const remaining =
+          lastRangeTo > totalSupply ? lastRangeTo - totalSupply : 0n;
+
+        const remainingAsNumber = Number(remaining);
+        if (!Number.isFinite(remainingAsNumber) || remainingAsNumber < 0) {
+          if (!cancelled) setMaxBuyable(0);
+          return;
+        }
+
+        if (!cancelled) setMaxBuyable(Math.floor(remainingAsNumber));
+      } catch {
+        if (!cancelled) setMaxBuyable(0);
+      }
+    };
+
+    void loadRemainingSupply();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, client, bondingCurveAddress, curveAbi]);
 
   // Check if trading is locked
   useEffect(() => {
@@ -649,7 +710,6 @@ export const BuySellSheet = ({
     }
   };
 
-  const maxBuyable = 1000; // This should come from contract/props
   const rpcMissing = !net?.rpcUrl;
   const disabledTip = rpcMissing
     ? "Testnet RPC not configured. Set VITE_RPC_URL_TESTNET in .env and restart dev servers."
@@ -813,7 +873,16 @@ export const BuySellSheet = ({
                   value={quantityInput}
                   onChange={setQuantityInput}
                   min={1}
-                  max={maxBuyable}
+                  max={maxBuyableNumber ?? 0}
+                  maxValidationMessage={
+                    maxBuyableNumber !== null
+                      ? t("transactions:maxValueMessage", {
+                          defaultValue:
+                            "Value must be less than or equal to {{max}}",
+                          max: maxBuyableNumber,
+                        })
+                      : undefined
+                  }
                   step={1}
                 />
               </div>
@@ -839,6 +908,9 @@ export const BuySellSheet = ({
                 disabled={
                   rpcMissing ||
                   !isQuantityValid ||
+                  maxBuyableNumber === null ||
+                  maxBuyableNumber < 1 ||
+                  exceedsRemainingSupply ||
                   isLoading ||
                   tradingLocked ||
                   seasonTimeNotActive ||
