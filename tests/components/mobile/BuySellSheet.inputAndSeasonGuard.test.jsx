@@ -102,8 +102,15 @@ describe("BuySellSheet (mobile/Farcaster) input + season guard", () => {
         />,
       );
 
-      const buyButton = screen.getByRole("button", { name: "BUY NOW" });
-      expect(buyButton).not.toBeDisabled();
+      // Under fake timers, waitFor can stall. Flush microtasks/timers deterministically.
+      await act(async () => {
+        await Promise.resolve();
+        await vi.runOnlyPendingTimersAsync();
+      });
+
+      expect(
+        screen.getByRole("button", { name: "BUY NOW" }),
+      ).not.toBeDisabled();
 
       // Let the internal 1s interval tick past endTime
       await act(async () => {
@@ -154,13 +161,16 @@ describe("BuySellSheet (mobile/Farcaster) input + season guard", () => {
     const user = userEvent.setup();
 
     // totalSupply = 900, maxSupply (last rangeTo) = 1000 => remaining = 100
-    readContractMock.mockImplementationOnce(async ({ functionName }) => {
+    readContractMock.mockImplementation(async ({ functionName }) => {
       if (functionName === "curveConfig") {
         return [900n, 0n, 0n, 0n, 0n, false, true];
       }
       if (functionName === "getBondSteps") {
         return [{ rangeTo: 1000n, price: 0n }];
       }
+      if (functionName === "calculateBuyPrice") return 0n;
+      if (functionName === "calculateSellPrice") return 0n;
+      if (functionName === "playerTickets") return 0n;
       return 0n;
     });
 

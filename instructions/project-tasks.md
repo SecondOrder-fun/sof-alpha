@@ -54,6 +54,13 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+## Discovered During Work (2026-01-27)
+
+- [ ] **Restore strict ESLint gating + clean warnings (2026-01-27)**
+  - [ ] Revert `package.json` lint script back to `eslint . --max-warnings 0`
+  - [ ] Address existing warnings (primarily `no-console`, `no-unused-vars`, and `react-hooks/exhaustive-deps`) so CI can enforce strict lint again
+  - [ ] Keep changes scoped; avoid drive-by refactors
+
 ### Desktop UI: Adopt Farcaster Component Design (Audit + Proposal + Approval Gate) (2026-01-24)
 
 - [ ] **Audit Farcaster vs Desktop component differences**

@@ -15,11 +15,11 @@ import { useUsername } from "@/hooks/useUsername";
  * [Copy button] -> copies full address
  */
 const PlayerLabel = ({ address, name }) => {
+  const { data: resolvedUsername } = useUsername(address);
+
   if (!address) {
     return <span className="font-mono text-xs">—</span>;
   }
-
-  const { data: resolvedUsername } = useUsername(address);
 
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
   const display = name || resolvedUsername || truncated;
@@ -28,8 +28,12 @@ const PlayerLabel = ({ address, name }) => {
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const explorerBase = net?.explorer ? net.explorer.replace(/\/$/, "") : undefined;
-  const explorerHref = explorerBase ? `${explorerBase}/address/${address}` : undefined;
+  const explorerBase = net?.explorer
+    ? net.explorer.replace(/\/$/, "")
+    : undefined;
+  const explorerHref = explorerBase
+    ? `${explorerBase}/address/${address}`
+    : undefined;
 
   return (
     <div className="flex items-center gap-2">
