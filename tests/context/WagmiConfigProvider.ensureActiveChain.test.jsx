@@ -19,7 +19,7 @@ vi.mock("wagmi/connectors", () => ({
 }));
 
 vi.mock("@farcaster/miniapp-wagmi-connector", () => ({
-  farcasterFrame: vi.fn(() => ({ id: "farcaster-frame" })),
+  farcasterMiniApp: vi.fn(() => ({ id: "farcaster-miniapp" })),
 }));
 
 vi.mock("@/lib/wagmi", () => ({

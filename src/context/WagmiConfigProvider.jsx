@@ -10,7 +10,7 @@ import {
   useSwitchChain,
 } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
+import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 import { getChainConfig, getStoredNetworkKey } from "@/lib/wagmi";
 
 // Get initial network configuration
@@ -27,7 +27,7 @@ const activeChainConfig = getChainConfig(initialNetworkKey);
 // Create config with both injected and Farcaster connectors
 const config = createConfig({
   chains: [activeChainConfig.chain],
-  connectors: [farcasterFrame(), injected()],
+  connectors: [farcasterMiniApp(), injected()],
   transports: {
     [activeChainConfig.chain.id]: activeChainConfig.transport,
   },
@@ -52,9 +52,12 @@ const FarcasterAutoConnect = () => {
 
         if (ctx) {
           // We're in a Farcaster client - find and use the Farcaster connector
-          const farcasterConnector = connectors.find(
-            (c) => c.id === "farcaster-frame" || c.name === "Farcaster",
-          );
+          const farcasterConnector = connectors.find((c) => {
+            const id = typeof c?.id === "string" ? c.id.toLowerCase() : "";
+            const name =
+              typeof c?.name === "string" ? c.name.toLowerCase() : "";
+            return id.includes("farcaster") || name.includes("farcaster");
+          });
           if (farcasterConnector) {
             connect({ connector: farcasterConnector });
           }
