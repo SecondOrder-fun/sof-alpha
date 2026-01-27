@@ -77,12 +77,22 @@ const RaffleDetails = () => {
   // removed inline estimator state used by old form
   // helpers now imported from lib/curveMath
 
+  const [lastPositionRefreshAt, setLastPositionRefreshAt] = useState(0);
+
   // Subscribe to on-chain PositionUpdate events to refresh immediately
   useCurveEvents(bondingCurveAddress, {
     onPositionUpdate: () => {
       if (!isActiveSeason) return;
+
       // Reason: server-side state has changed; refresh chart/supply/reserves quickly
       debouncedRefresh(0);
+
+      // Keep wallet position fresh based on events too (mobile relies on this more heavily).
+      // Throttle to avoid spamming RPC reads when multiple logs arrive quickly.
+      const now = Date.now();
+      if (now - lastPositionRefreshAt < 1200) return;
+      setLastPositionRefreshAt(now);
+      refreshPositionNow();
     },
   });
 
@@ -275,11 +285,21 @@ const RaffleDetails = () => {
   if (isMobile && seasonDetailsQuery.data?.config) {
     const cfg = seasonDetailsQuery.data.config;
     const totalPrizePool = curveReserves || 0n;
-    const maxSupply = BigInt(
-      cfg?.maxSupply ||
-        allBondSteps?.[allBondSteps.length - 1]?.cumulativeSupply ||
-        0,
-    );
+    const maxSupply = (() => {
+      try {
+        if (cfg?.maxSupply != null) return BigInt(cfg.maxSupply);
+
+        const last =
+          Array.isArray(allBondSteps) && allBondSteps.length > 0
+            ? allBondSteps[allBondSteps.length - 1]
+            : null;
+
+        const candidate = last?.rangeTo ?? last?.cumulativeSupply ?? 0n;
+        return BigInt(candidate);
+      } catch {
+        return 0n;
+      }
+    })();
 
     return (
       <>

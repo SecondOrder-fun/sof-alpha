@@ -275,13 +275,16 @@ const UserProfile = () => {
               {(seasonBalancesQuery.data || []).length === 0 && (
                 <p className="text-muted-foreground">{t("noTicketBalances")}</p>
               )}
-              {(seasonBalancesQuery.data || []).map((row) => (
-                <RaffleHoldingRow
-                  key={row.seasonId}
-                  row={row}
-                  address={address}
-                />
-              ))}
+              {(seasonBalancesQuery.data || [])
+                .slice()
+                .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
+                .map((row) => (
+                  <RaffleHoldingRow
+                    key={row.seasonId}
+                    row={row}
+                    address={address}
+                  />
+                ))}
             </div>
           )}
         </CardContent>
@@ -559,7 +562,7 @@ const PredictionPositionsCard = ({ address }) => {
             positionsQuery.error?.message?.includes("No prediction markets")
               ? "No prediction markets available yet. Markets will be created automatically when players reach certain position thresholds."
               : `Error loading positions: ${String(
-                  positionsQuery.error?.message || positionsQuery.error
+                  positionsQuery.error?.message || positionsQuery.error,
                 )}`}
           </p>
         )}

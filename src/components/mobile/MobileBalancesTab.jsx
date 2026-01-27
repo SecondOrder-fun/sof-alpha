@@ -14,6 +14,10 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
   const [activeView, setActiveView] = useState("raffles");
   const { t } = useTranslation(["account", "market"]);
 
+  const sortedRafflePositions = (rafflePositions || [])
+    .slice()
+    .sort((a, b) => Number(b.seasonId) - Number(a.seasonId));
+
   return (
     <div className="space-y-3 mt-3">
       {/* SOF Balance Display */}
@@ -55,7 +59,7 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
                 {t("account:noTicketBalances")}
               </p>
             ) : (
-              rafflePositions.map((position) => (
+              sortedRafflePositions.map((position) => (
                 <RaffleBalanceItem
                   key={position.seasonId}
                   seasonId={position.seasonId}
@@ -83,7 +87,7 @@ MobileBalancesTab.propTypes = {
       name: PropTypes.string.isRequired,
       token: PropTypes.string.isRequired,
       ticketCount: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
 };
 
