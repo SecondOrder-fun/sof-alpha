@@ -1,5 +1,5 @@
 // src/components/common/SecondaryCard.jsx
-import React from 'react';
+import PropTypes from "prop-types";
 
 /**
  * SecondaryCard
@@ -15,6 +15,12 @@ const SecondaryCard = ({ title, right, children }) => {
       <div className="mt-2 text-sm">{children}</div>
     </div>
   );
+};
+
+SecondaryCard.propTypes = {
+  title: PropTypes.node,
+  right: PropTypes.node,
+  children: PropTypes.node,
 };
 
 export default SecondaryCard;
