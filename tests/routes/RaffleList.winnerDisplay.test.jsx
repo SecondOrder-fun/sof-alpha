@@ -2,7 +2,7 @@
   @vitest-environment jsdom
 */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -39,6 +39,18 @@ vi.mock("@/hooks/useAllSeasons", () => ({
         config: {
           name: "Active Season",
           bondingCurve: "0x0000000000000000000000000000000000000001",
+          startTime: `${Math.floor(Date.now() / 1000) - 60}`,
+          endTime: `${Math.floor(Date.now() / 1000) + 3600}`,
+        },
+      },
+      {
+        id: 4,
+        status: 0,
+        config: {
+          name: "Upcoming Season",
+          bondingCurve: "0x0000000000000000000000000000000000000004",
+          startTime: `${Math.floor(Date.now() / 1000) + 3600}`,
+          endTime: `${Math.floor(Date.now() / 1000) + 7200}`,
         },
       },
       {
@@ -92,6 +104,12 @@ vi.mock("@/components/curve/CurveGraph", () => ({
   default: () => <div />,
 }));
 
+// Stub countdown to avoid NumberFlow implementation issues in jsdom
+vi.mock("@/components/common/CountdownTimer", () => ({
+  __esModule: true,
+  default: () => <span>COUNTDOWN</span>,
+}));
+
 // Stub UsernameDisplay to avoid nested hooks
 vi.mock("@/components/user/UsernameDisplay", () => ({
   __esModule: true,
@@ -141,6 +159,23 @@ describe("RaffleList winner display", () => {
 
     expect(screen.getAllByText("#1")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Active Season")[0]).toBeInTheDocument();
+  });
+
+  it("renders startsIn countdown and hides curve/price for pre-start seasons", async () => {
+    renderPage();
+
+    expect(screen.getAllByText("#4")[0]).toBeInTheDocument();
+    const upcomingTitle = screen.getByText("Upcoming Season");
+    const upcomingCard = upcomingTitle.closest(".rounded-lg");
+    expect(upcomingCard).toBeTruthy();
+
+    const scoped = within(upcomingCard);
+
+    // Pre-start card should show startsIn and not show bonding-curve derived UI.
+    expect(scoped.getByText(/startsIn/)).toBeInTheDocument();
+    expect(scoped.queryByText("currentPrice")).not.toBeInTheDocument();
+    expect(scoped.queryByText("common:buy")).not.toBeInTheDocument();
+    expect(scoped.queryByText("common:sell")).not.toBeInTheDocument();
   });
 
   it("renders a no-winner fallback for completed seasons with no participants", async () => {

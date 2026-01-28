@@ -68,7 +68,8 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 - [x] **Pre-start season gating: hide Buy/Sell + show "Raffle starts in" countdown (2026-01-28)**
   - Symptom: Users could see Buy/Sell controls even when `now < startTime` (season not started).
   - Resolution: In mobile (`MobileRaffleDetail`) and desktop (`RaffleDetails`), detect pre-start via `startTime` and swap the header timer from `endsIn` to `startsIn`, remove trade actions until the season is active, and hide bonding-curve-derived UI (bonding curve graph + ticket/current price) before start.
-  - Testing: Added regression coverage in `tests/components/mobile/MobileRaffleDetail.preStartState.test.jsx` (includes price hidden assertion) and updated desktop tests to wait for `chainNow`-gated trade UI.
+  - Additional: Applied the same pre-start gating to raffle list cards (desktop `RaffleList` and mobile `SeasonCard`) so upcoming seasons do not show end-time, curve preview, current price, or Buy/Sell actions.
+  - Testing: Added regression coverage in `tests/components/mobile/MobileRaffleDetail.preStartState.test.jsx` (includes price hidden assertion) and `tests/routes/RaffleList.winnerDisplay.test.jsx` (pre-start list card), and updated desktop tests to wait for `chainNow`-gated trade UI.
 
 ## Discovered During Work (2026-01-27)
 

@@ -33,6 +33,13 @@ export const SeasonCard = ({
   const isCompleted = statusNum === 4 || statusNum === 5;
   const isActiveSeason = statusNum === 1;
   const nowSec = Math.floor(Date.now() / 1000);
+  const startTimeSec = seasonConfig?.startTime
+    ? Number(seasonConfig.startTime)
+    : null;
+  const isPreStart =
+    startTimeSec !== null && Number.isFinite(startTimeSec)
+      ? nowSec < startTimeSec
+      : false;
   const seasonEndedByTime = useMemo(() => {
     if (!seasonConfig?.endTime) return false;
     const end = Number(seasonConfig.endTime);
@@ -81,7 +88,7 @@ export const SeasonCard = ({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 pt-0">
-        {!isSeasonEnded && (
+        {!isSeasonEnded && !isPreStart && (
           <>
             {/* Mini Curve Graph */}
             <div className="bg-black/40 rounded-md overflow-hidden h-32">
@@ -106,7 +113,18 @@ export const SeasonCard = ({
         )}
 
         {/* Countdown Timer */}
-        {!isSeasonEnded && seasonConfig?.endTime && (
+        {isPreStart && startTimeSec !== null ? (
+          <div className="bg-[#c82a54] rounded-lg p-4">
+            <div className="text-xs text-white/80 mb-1">
+              {t("startsIn", { defaultValue: "Raffle starts in" })}
+            </div>
+            <CountdownTimer
+              targetTimestamp={startTimeSec}
+              compact
+              className="text-white font-bold text-lg"
+            />
+          </div>
+        ) : !isSeasonEnded && seasonConfig?.endTime ? (
           <div className="bg-[#c82a54] rounded-lg p-4">
             <div className="text-xs text-white/80 mb-1">
               {t("raffle:endsIn")}
@@ -117,7 +135,7 @@ export const SeasonCard = ({
               className="text-white font-bold text-lg"
             />
           </div>
-        )}
+        ) : null}
 
         {isSeasonEnded && !isCompleted && (
           <div className="bg-[#c82a54] rounded-lg p-4 text-center">
@@ -168,7 +186,7 @@ export const SeasonCard = ({
           )}
 
         {/* Action Buttons */}
-        {!isSeasonEnded && (
+        {!isSeasonEnded && !isPreStart && (
           <div className="flex gap-2">
             <Button
               onClick={(e) => {

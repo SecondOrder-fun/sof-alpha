@@ -30,6 +30,14 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const bondingCurveAddress = season?.config?.bondingCurve;
   const statusNum = Number(season?.status);
   const isActiveSeason = statusNum === 1;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const startTimeSec = season?.config?.startTime
+    ? Number(season.config.startTime)
+    : null;
+  const isPreStart =
+    startTimeSec !== null && Number.isFinite(startTimeSec)
+      ? nowSec < startTimeSec
+      : false;
   const totalTickets = BigInt(season?.totalTickets ?? 0n);
   const { curveSupply, curveStep, allBondSteps } = useCurveState(
     bondingCurveAddress,
@@ -67,19 +75,32 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
           </div>
           {renderBadge(season.status)}
         </div>
-        {/* Countdown timer for active seasons */}
-        {statusNum === 1 && endTime && (
+        {/* Countdown timer */}
+        {isPreStart && startTimeSec !== null ? (
           <div className="flex items-center gap-1 text-xs mt-1">
-            <span className="text-[#a89e99]">{t("endsIn")}:</span>
+            <span className="text-[#a89e99]">
+              {t("startsIn", { defaultValue: "Raffle starts in" })}:
+            </span>
             <CountdownTimer
-              targetTimestamp={Number(endTime)}
+              targetTimestamp={startTimeSec}
               className="text-[#f9d6de]"
             />
           </div>
+        ) : (
+          statusNum === 1 &&
+          endTime && (
+            <div className="flex items-center gap-1 text-xs mt-1">
+              <span className="text-[#a89e99]">{t("endsIn")}:</span>
+              <CountdownTimer
+                targetTimestamp={Number(endTime)}
+                className="text-[#f9d6de]"
+              />
+            </div>
+          )
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
-        {!isCompleted && (
+        {!isCompleted && !isPreStart && (
           <div className="overflow-hidden rounded-md bg-black/40">
             <div className="h-44">
               <BondingCurvePanel
@@ -126,7 +147,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
             </div>
           </div>
         )}
-        {!isCompleted && (
+        {!isCompleted && !isPreStart && (
           <div className="flex items-center justify-between text-sm">
             <div>
               <div className="text-xs text-[#c82a54]">{t("currentPrice")}</div>
@@ -162,6 +183,7 @@ ActiveSeasonCard.propTypes = {
     config: PropTypes.shape({
       name: PropTypes.string,
       bondingCurve: PropTypes.string,
+      startTime: PropTypes.any,
       // endTime can be string, number, or BigInt from blockchain
       endTime: PropTypes.any,
     }),

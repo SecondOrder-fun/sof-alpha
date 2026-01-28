@@ -50,7 +50,14 @@ vi.mock("@/hooks/useRaffleState", () => ({
 }));
 
 vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
-  useSeasonWinnerSummary: () => ({ data: null }),
+  useSeasonWinnerSummary: () => ({ isLoading: false, error: null, data: null }),
+  useSeasonWinnerSummaries: () => ({ isLoading: false, error: null, data: {} }),
+}));
+
+// CountdownTimer uses @number-flow/react which is not jsdom-friendly in tests.
+vi.mock("@/components/common/CountdownTimer", () => ({
+  __esModule: true,
+  default: () => <span>COUNTDOWN</span>,
 }));
 
 vi.mock("@/hooks/useCurveState", () => ({
