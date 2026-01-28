@@ -37,6 +37,8 @@ error InvalidBasisPoints(uint256 bps);
 error InvalidSeasonName();
 error InvalidStartTime(uint256 startTime, uint256 currentTime);
 error InvalidEndTime(uint256 endTime, uint256 startTime);
+error InvalidAddress();
+error InvalidBondSteps();
 
 /**
  * @title Raffle Contract
