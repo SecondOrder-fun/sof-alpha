@@ -10,8 +10,6 @@ import {
   act,
 } from "@testing-library/react";
 
-vi.useFakeTimers();
-
 // Mock i18n
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -204,7 +202,15 @@ describe("RaffleDetails toasts and ERC20 fallback", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("shows a toast with hash and auto-expires after 2 minutes", async () => {
+    vi.useFakeTimers();
+
     renderPage();
+
+    // BuySellWidget is gated on chainNow (async getBlock), so flush microtasks before asserting.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Sim Tx")).toBeInTheDocument();
 
     // Click to trigger toast
     fireEvent.click(screen.getByText("Sim Tx"));
@@ -225,10 +231,18 @@ describe("RaffleDetails toasts and ERC20 fallback", () => {
 
     // toast should be removed
     expect(screen.queryByText(/View Transaction/i)).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it("falls back to ERC20 balance when curve mapping is unavailable", async () => {
     renderPage();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Sim Tx")).toBeInTheDocument();
+
     fireEvent.click(screen.getByText("Sim Tx"));
 
     await waitFor(

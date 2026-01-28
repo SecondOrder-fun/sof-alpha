@@ -197,6 +197,7 @@ const MobilePortfolio = () => {
                     address={address}
                     sofBalance={sofBalance}
                     rafflePositions={rafflePositions}
+                    isLoadingRafflePositions={seasonBalancesQuery.isLoading}
                   />
                 </TabsContent>
 

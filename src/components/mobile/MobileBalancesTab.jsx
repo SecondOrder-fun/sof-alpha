@@ -4,15 +4,21 @@ import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import RaffleBalanceItem from "./RaffleBalanceItem";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
 
 /**
  * MobileBalancesTab - Mobile-optimized balances display with Raffles/InfoFi toggle
  */
-const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
+const MobileBalancesTab = ({
+  address,
+  sofBalance,
+  rafflePositions,
+  isLoadingRafflePositions = false,
+}) => {
   const [activeView, setActiveView] = useState("raffles");
-  const { t } = useTranslation(["account", "market"]);
+  const { t } = useTranslation(["account", "market", "common"]);
 
   const sortedRafflePositions = (rafflePositions || [])
     .slice()
@@ -54,7 +60,14 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
       <div className="space-y-3">
         {activeView === "raffles" && (
           <>
-            {rafflePositions.length === 0 ? (
+            {isLoadingRafflePositions ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  {t("common:loading", { defaultValue: "Loading..." })}
+                </span>
+              </div>
+            ) : rafflePositions.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 {t("account:noTicketBalances")}
               </p>
@@ -80,6 +93,7 @@ const MobileBalancesTab = ({ address, sofBalance, rafflePositions }) => {
 MobileBalancesTab.propTypes = {
   address: PropTypes.string,
   sofBalance: PropTypes.string.isRequired,
+  isLoadingRafflePositions: PropTypes.bool,
   rafflePositions: PropTypes.arrayOf(
     PropTypes.shape({
       seasonId: PropTypes.oneOfType([PropTypes.number, PropTypes.string])

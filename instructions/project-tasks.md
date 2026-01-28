@@ -60,6 +60,16 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
   - Resolution: Normalized `SOFBondingCurveAbi` and `ERC20Abi` shapes to an ABI array inside `src/routes/RaffleDetails.jsx` `refreshPositionNow()`.
   - Testing: Added regression coverage in `tests/routes/RaffleDetails.mobileYourTicketsRefresh.test.jsx`.
 
+- [x] **Farcaster Portfolio: Balances tab shows loading feedback before empty state (2026-01-28)**
+  - Symptom: Balances tab briefly showed "No balances" while the backend/onchain fetch was still in-flight.
+  - Resolution: Added `isLoadingRafflePositions` prop to `MobileBalancesTab` and render a spinner + "Loading..." while the balances query is loading.
+  - Testing: Added regression coverage in `tests/components/mobile/MobileBalancesTab.loadingState.test.jsx`.
+
+- [x] **Pre-start season gating: hide Buy/Sell + show "Raffle starts in" countdown (2026-01-28)**
+  - Symptom: Users could see Buy/Sell controls even when `now < startTime` (season not started).
+  - Resolution: In mobile (`MobileRaffleDetail`) and desktop (`RaffleDetails`), detect pre-start via `startTime` and swap the header timer from `endsIn` to `startsIn`, remove trade actions until the season is active, and hide bonding-curve-derived UI (bonding curve graph + ticket/current price) before start.
+  - Testing: Added regression coverage in `tests/components/mobile/MobileRaffleDetail.preStartState.test.jsx` (includes price hidden assertion) and updated desktop tests to wait for `chainNow`-gated trade UI.
+
 ## Discovered During Work (2026-01-27)
 
 - [ ] **Restore strict ESLint gating + clean warnings (2026-01-27)**

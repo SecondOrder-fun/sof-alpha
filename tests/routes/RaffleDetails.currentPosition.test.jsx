@@ -204,6 +204,12 @@ describe("RaffleDetails current position refresh", () => {
     // initially shows placeholder or 0 (i18n key: yourCurrentPosition)
     expect(screen.getByText("yourCurrentPosition")).toBeInTheDocument();
 
+    // BuySellWidget is now gated on chainNow (on-chain time) to prevent pre-start trading.
+    // Wait until the widget is rendered.
+    await waitFor(() => {
+      expect(screen.getByText("Simulate Buy")).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByText("Simulate Buy"));
 
     await waitFor(

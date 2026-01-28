@@ -53,8 +53,25 @@ export const MobileRaffleDetail = ({
   }, [totalPrizePool, winnerSummaryQuery.data]);
 
   const now = Math.floor(Date.now() / 1000);
+  const startTimeSec = seasonConfig?.startTime
+    ? Number(seasonConfig.startTime)
+    : null;
+  const endTimeSec = seasonConfig?.endTime
+    ? Number(seasonConfig.endTime)
+    : null;
+  const isPreStart =
+    !isCompleted && startTimeSec !== null && Number.isFinite(startTimeSec)
+      ? now < startTimeSec
+      : false;
   const isActive =
-    !isCompleted && seasonConfig?.endTime && Number(seasonConfig.endTime) > now;
+    !isCompleted &&
+    statusNum === 1 &&
+    startTimeSec !== null &&
+    endTimeSec !== null &&
+    Number.isFinite(startTimeSec) &&
+    Number.isFinite(endTimeSec)
+      ? now >= startTimeSec && now < endTimeSec
+      : false;
 
   return (
     <div className="px-3 pt-1 pb-20 space-y-3 max-w-screen-sm mx-auto">
@@ -79,7 +96,21 @@ export const MobileRaffleDetail = ({
             <h2 className="text-2xl font-bold mb-2">
               {seasonConfig?.name || "Loading..."}
             </h2>
-            {seasonConfig?.endTime && (
+            {isPreStart && startTimeSec !== null && (
+              <div className="bg-[#c82a54] px-4 py-2 rounded-lg">
+                <span className="text-white font-bold">
+                  {t("raffle:startsIn", {
+                    defaultValue: "Raffle starts in",
+                  })}{" "}
+                </span>
+                <CountdownTimer
+                  targetTimestamp={startTimeSec}
+                  compact
+                  className="text-white font-bold"
+                />
+              </div>
+            )}
+            {!isPreStart && seasonConfig?.endTime && (
               <div className="bg-[#c82a54] px-4 py-2 rounded-lg">
                 <span className="text-white font-bold">
                   {t("raffle:endsIn")}{" "}
@@ -103,14 +134,16 @@ export const MobileRaffleDetail = ({
 
           {/* Stat Cards */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-              <div className="text-xs text-muted-foreground mb-1">
-                {t("raffle:ticketPrice")}
+            {isPreStart ? null : (
+              <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+                <div className="text-xs text-muted-foreground mb-1">
+                  {t("raffle:ticketPrice")}
+                </div>
+                <div className="font-bold text-lg">
+                  {formatSOF(curveStep?.price)} $SOF
+                </div>
               </div>
-              <div className="font-bold text-lg">
-                {formatSOF(curveStep?.price)} $SOF
-              </div>
-            </div>
+            )}
             <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:yourTickets")}
@@ -165,7 +198,7 @@ export const MobileRaffleDetail = ({
             )}
 
           {/* Action Buttons */}
-          {isActive ? (
+          {isPreStart ? null : isActive ? (
             <div className="flex gap-3">
               <Button
                 onClick={onBuy}

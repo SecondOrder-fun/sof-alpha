@@ -265,11 +265,19 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
+    if (chainNow != null) {
+      const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
+      if (Number.isFinite(startTs) && chainNow < startTs) return;
+    }
     setSheetMode("buy");
     setSheetOpen(true);
   };
 
   const handleSell = async () => {
+    if (chainNow != null) {
+      const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
+      if (Number.isFinite(startTs) && chainNow < startTs) return;
+    }
     // Refresh position before opening sell sheet to get latest ticket count
     await refreshPositionNow();
 
@@ -417,16 +425,53 @@ const RaffleDetails = () => {
                 <span>
                   {t("end")}: {formatTimestamp(cfg.endTime)}
                 </span>
-                {statusNum === 1 && (
-                  <span className="flex items-center gap-1">
-                    <span className="text-[#c82a54]">{t("endsIn")}:</span>
-                    <CountdownTimer
-                      targetTimestamp={Number(cfg.endTime)}
-                      compact
-                      className="text-white"
-                    />
-                  </span>
-                )}
+                {(() => {
+                  if (!chainNow) return null;
+                  const startTs = Number(cfg.startTime);
+                  const endTs = Number(cfg.endTime);
+                  const preStart = Number.isFinite(startTs)
+                    ? chainNow < startTs
+                    : false;
+                  const activeWindow =
+                    statusNum === 1 &&
+                    Number.isFinite(startTs) &&
+                    Number.isFinite(endTs)
+                      ? chainNow >= startTs && chainNow < endTs
+                      : false;
+
+                  if (preStart) {
+                    return (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#c82a54]">
+                          {t("startsIn", {
+                            defaultValue: "Raffle starts in",
+                          })}
+                          :
+                        </span>
+                        <CountdownTimer
+                          targetTimestamp={startTs}
+                          compact
+                          className="text-white"
+                        />
+                      </span>
+                    );
+                  }
+
+                  if (activeWindow) {
+                    return (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#c82a54]">{t("endsIn")}:</span>
+                        <CountdownTimer
+                          targetTimestamp={endTs}
+                          compact
+                          className="text-white"
+                        />
+                      </span>
+                    );
+                  }
+
+                  return null;
+                })()}
               </div>
 
               {(() => {
@@ -491,54 +536,85 @@ const RaffleDetails = () => {
 
               {/* Bonding Curve UI */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Bonding Curve</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <BondingCurvePanel
-                      curveSupply={curveSupply}
-                      curveStep={curveStep}
-                      allBondSteps={allBondSteps}
-                    />
-                  </CardContent>
-                </Card>
+                {(() => {
+                  if (!chainNow) return null;
+                  const startTs = Number(cfg.startTime);
+                  const preStart = Number.isFinite(startTs)
+                    ? chainNow < startTs
+                    : false;
+                  if (preStart) return null;
+
+                  return (
+                    <Card className="lg:col-span-2">
+                      <CardHeader>
+                        <CardTitle>Bonding Curve</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <BondingCurvePanel
+                          curveSupply={curveSupply}
+                          curveStep={curveStep}
+                          allBondSteps={allBondSteps}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
                 <Card>
                   <CardContent>
-                    <BuySellWidget
-                      bondingCurveAddress={bc}
-                      initialTab={initialTradeTab}
-                      onTxSuccess={() => {
-                        setIsRefreshing(true);
-                        debouncedRefresh(250);
-                        refreshPositionNow();
-                        // schedule a couple of follow-ups in case indexers are lagging
-                        setTimeout(() => {
-                          debouncedRefresh(0);
-                          refreshPositionNow();
-                        }, 1500);
-                        setTimeout(() => {
-                          debouncedRefresh(0);
-                          refreshPositionNow();
-                          setIsRefreshing(false);
-                        }, 4000);
-                      }}
-                      onNotify={(evt) => {
-                        addToast(evt);
-                        setIsRefreshing(true);
-                        debouncedRefresh(0);
-                        refreshPositionNow();
-                        setTimeout(() => {
-                          debouncedRefresh(0);
-                          refreshPositionNow();
-                        }, 1500);
-                        setTimeout(() => {
-                          debouncedRefresh(0);
-                          refreshPositionNow();
-                          setIsRefreshing(false);
-                        }, 4000);
-                      }}
-                    />
+                    {(() => {
+                      if (!chainNow) return null;
+                      const startTs = Number(cfg.startTime);
+                      const endTs = Number(cfg.endTime);
+                      const preStart = Number.isFinite(startTs)
+                        ? chainNow < startTs
+                        : false;
+                      const activeWindow =
+                        statusNum === 1 &&
+                        Number.isFinite(startTs) &&
+                        Number.isFinite(endTs)
+                          ? chainNow >= startTs && chainNow < endTs
+                          : false;
+
+                      if (preStart) return null;
+                      if (!activeWindow) return null;
+
+                      return (
+                        <BuySellWidget
+                          bondingCurveAddress={bc}
+                          initialTab={initialTradeTab}
+                          onTxSuccess={() => {
+                            setIsRefreshing(true);
+                            debouncedRefresh(250);
+                            refreshPositionNow();
+                            // schedule a couple of follow-ups in case indexers are lagging
+                            setTimeout(() => {
+                              debouncedRefresh(0);
+                              refreshPositionNow();
+                            }, 1500);
+                            setTimeout(() => {
+                              debouncedRefresh(0);
+                              refreshPositionNow();
+                              setIsRefreshing(false);
+                            }, 4000);
+                          }}
+                          onNotify={(evt) => {
+                            addToast(evt);
+                            setIsRefreshing(true);
+                            debouncedRefresh(0);
+                            refreshPositionNow();
+                            setTimeout(() => {
+                              debouncedRefresh(0);
+                              refreshPositionNow();
+                            }, 1500);
+                            setTimeout(() => {
+                              debouncedRefresh(0);
+                              refreshPositionNow();
+                              setIsRefreshing(false);
+                            }, 4000);
+                          }}
+                        />
+                      );
+                    })()}
                     {/* Player position display - only visible when a wallet is connected */}
                     {isConnected && (
                       <SecondaryCard
