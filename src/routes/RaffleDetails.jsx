@@ -108,18 +108,24 @@ const RaffleDetails = () => {
       const netKey = getStoredNetworkKey();
       const client = buildPublicClient(netKey);
       if (!client) return;
+      const curveAbi = Array.isArray(SOFBondingCurveAbi)
+        ? SOFBondingCurveAbi
+        : (SOFBondingCurveAbi?.abi ?? SOFBondingCurveAbi);
+      const erc20Abi = Array.isArray(ERC20Abi)
+        ? ERC20Abi
+        : (ERC20Abi?.abi ?? ERC20Abi);
       // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
       try {
         const [pt, cfg] = await Promise.all([
           client.readContract({
             address: bondingCurveAddress,
-            abi: SOFBondingCurveAbi,
+            abi: curveAbi,
             functionName: "playerTickets",
             args: [address],
           }),
           client.readContract({
             address: bondingCurveAddress,
-            abi: SOFBondingCurveAbi,
+            abi: curveAbi,
             functionName: "curveConfig",
             args: [],
           }),
@@ -151,7 +157,7 @@ const RaffleDetails = () => {
           // eslint-disable-next-line no-await-in-loop
           const addr = await client.readContract({
             address: bondingCurveAddress,
-            abi: SOFBondingCurveAbi,
+            abi: curveAbi,
             functionName: fn,
             args: [],
           });
@@ -171,13 +177,13 @@ const RaffleDetails = () => {
       const [bal, supply] = await Promise.all([
         client.readContract({
           address: tokenAddress,
-          abi: ERC20Abi,
+          abi: erc20Abi,
           functionName: "balanceOf",
           args: [address],
         }),
         client.readContract({
           address: tokenAddress,
-          abi: ERC20Abi,
+          abi: erc20Abi,
           functionName: "totalSupply",
           args: [],
         }),

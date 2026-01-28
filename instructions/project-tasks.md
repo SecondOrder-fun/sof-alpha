@@ -54,6 +54,12 @@ Note: Backend API tests are now green locally (see Latest Progress for details).
 
 ## Frontend Tasks (2026-01-21)
 
+- [x] **Farcaster Raffle Details: "Your Tickets" now auto-refreshes after purchase (2026-01-28)**
+  - Symptom: In the Farcaster/mobile raffle detail view, "Tickets Sold" updated after buy, but "Your Tickets" stayed stale.
+  - Root Cause: `refreshPositionNow()` passed non-normalized ABI objects (e.g. `{ abi: [...] }`) into viem `readContract`, which can fail silently and prevent `localPosition` from updating.
+  - Resolution: Normalized `SOFBondingCurveAbi` and `ERC20Abi` shapes to an ABI array inside `src/routes/RaffleDetails.jsx` `refreshPositionNow()`.
+  - Testing: Added regression coverage in `tests/routes/RaffleDetails.mobileYourTicketsRefresh.test.jsx`.
+
 ## Discovered During Work (2026-01-27)
 
 - [ ] **Restore strict ESLint gating + clean warnings (2026-01-27)**
