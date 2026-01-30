@@ -121,6 +121,12 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
     }
 
     // Invariant: Hybrid price deviation from components is bounded
+    // Note: With 70/30 weights, the hybrid price is always between raffle and market values,
+    // but the deviation from each component depends on the weight and the spread between them.
+    // For 70% raffle weight, deviation from raffle = 0.3 * |raffle - market|
+    // For 30% market weight, deviation from market = 0.7 * |raffle - market|
+    // When spread is large (e.g., raffle=5000, market=36), deviations can exceed 5% from both.
+    // This invariant verifies the hybrid price follows the weighted average formula.
     function invariant_hybridPriceDeviationBounded() public view {
         // Get price data using the getPrice method
         InfoFiPriceOracle.PriceData memory priceData = oracle.getPrice(testFpmmAddress);
@@ -132,18 +138,18 @@ contract HybridPricingInvariantTest is StdInvariant, Test {
         uint256 marketSentiment = priceData.marketSentimentBps;
         uint256 hybridPrice = priceData.hybridPriceBps;
 
-        // Calculate deviation from raffle probability
-        uint256 raffleDeviation =
-            raffleProbability > hybridPrice ? raffleProbability - hybridPrice : hybridPrice - raffleProbability;
+        // The hybrid price must always be between the two component prices (inclusive)
+        uint256 minProb = raffleProbability < marketSentiment ? raffleProbability : marketSentiment;
+        uint256 maxProb = raffleProbability > marketSentiment ? raffleProbability : marketSentiment;
 
-        // Calculate deviation from market sentiment
-        uint256 marketDeviation =
-            marketSentiment > hybridPrice ? marketSentiment - hybridPrice : hybridPrice - marketSentiment;
+        assertTrue(hybridPrice >= minProb, "Hybrid price below min component");
+        assertTrue(hybridPrice <= maxProb, "Hybrid price above max component");
 
-        // At least one deviation should be within MAX_DEVIATION
-        assertTrue(
-            raffleDeviation <= MAX_DEVIATION || marketDeviation <= MAX_DEVIATION,
-            "Hybrid price deviates too much from both components"
-        );
+        // Calculate expected weighted average (same as invariant_hybridPriceCalculation)
+        uint256 expectedPrice = (INITIAL_RAFFLE_WEIGHT * raffleProbability + INITIAL_MARKET_WEIGHT * marketSentiment) / 10000;
+        uint256 difference = expectedPrice > hybridPrice ? expectedPrice - hybridPrice : hybridPrice - expectedPrice;
+
+        // Allow for small rounding errors due to integer division
+        assertTrue(difference <= 1, "Hybrid price does not match weighted average");
     }
 }

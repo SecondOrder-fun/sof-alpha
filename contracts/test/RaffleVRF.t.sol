@@ -23,6 +23,14 @@ contract RaffleHarness is Raffle {
         fulfillRandomWords(requestId, words);
     }
 
+    /// @notice Complete VRF flow: fulfill random words and finalize season
+    function testFulfillAndFinalize(uint256 requestId, uint256[] calldata words) external {
+        fulfillRandomWords(requestId, words);
+        uint256 seasonId = vrfRequestToSeason[requestId];
+        // Finalize the season to move from Distributing to Completed
+        this.finalizeSeason(seasonId);
+    }
+
     function testLockTrading(uint256 seasonId) external {
         SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
     }
@@ -32,6 +40,11 @@ contract RaffleHarness is Raffle {
         SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
         vrfRequestToSeason[requestId] = seasonId;
+    }
+
+    /// @notice Set total prize pool for testing (needed before finalizeSeason)
+    function testSetPrizePool(uint256 seasonId, uint256 amount) external {
+        seasonStates[seasonId].totalPrizePool = amount;
     }
 }
 
@@ -139,13 +152,13 @@ contract RaffleVRFTest is Test {
 
         // simulate VRF pending state for requestId=123
         uint256 reqId = 123;
-        raffle.testSetVrf(seasonId, reqId);
+        raffle.testRequestSeasonEnd(seasonId, reqId);
 
-        // build random words and fulfill
+        // build random words and fulfill + finalize
         uint256[] memory words = new uint256[](2);
         words[0] = 777;
         words[1] = 888;
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
 
         // assert season completed and winners set
         // Since getWinners requires Completed, calling it asserts status implicitly
@@ -179,24 +192,27 @@ contract RaffleVRFTest is Test {
         // lock trading via harness (Raffle holds the role on curve)
         raffle.testLockTrading(seasonId);
 
-        // further buy/sell should revert with "Bonding_Curve_Is_Frozen"
+        // further buy/sell should revert with TradingLocked custom error
         vm.startPrank(player1);
-        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
+        vm.expectRevert(abi.encodeWithSignature("TradingLocked()"));
         curve.buyTokens(1, 5 ether);
-        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
+        vm.expectRevert(abi.encodeWithSignature("TradingLocked()"));
         curve.sellTokens(1, 0);
         vm.stopPrank();
     }
 
     function testZeroParticipantsProducesNoWinners() public {
         (uint256 seasonId,) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
         // simulate VRF without any participants
         uint256 reqId = 321;
-        raffle.testSetVrf(seasonId, reqId);
+        raffle.testRequestSeasonEnd(seasonId, reqId);
         uint256[] memory words = new uint256[](2);
         words[0] = 1;
         words[1] = 2;
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
         assertEq(winners.length, 0);
@@ -224,12 +240,12 @@ contract RaffleVRFTest is Test {
         vm.stopPrank();
 
         uint256 reqId = 654;
-        raffle.testSetVrf(seasonId, reqId);
+        raffle.testRequestSeasonEnd(seasonId, reqId);
         uint256[] memory words = new uint256[](3);
         words[0] = 7;
         words[1] = 7;
         words[2] = 7; // all map to same participant
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
         assertEq(winners.length, 1);
@@ -295,15 +311,15 @@ contract RaffleVRFTest is Test {
 
         // curve should be locked
         vm.startPrank(player1);
-        vm.expectRevert(bytes("Bonding_Curve_Is_Frozen"));
+        vm.expectRevert(abi.encodeWithSignature("TradingLocked()"));
         curve.buyTokens(1, 5 ether);
         vm.stopPrank();
 
-        // fulfill VRF and assert completion
+        // fulfill VRF and finalize, then assert completion
         uint256[] memory words = new uint256[](2);
         words[0] = 11;
         words[1] = 22;
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
         address[] memory winners = raffle.getWinners(seasonId);
         assertGt(winners.length, 0);
     }
@@ -327,7 +343,7 @@ contract RaffleVRFTest is Test {
         uint256[] memory words = new uint256[](2);
         words[0] = 5;
         words[1] = 6;
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
 
         address[] memory winners = raffle.getWinners(seasonId);
         assertEq(winners.length, 0);
@@ -341,7 +357,7 @@ contract RaffleVRFTest is Test {
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
 
-        vm.expectRevert("Raffle: name empty");
+        vm.expectRevert(abi.encodeWithSignature("InvalidSeasonName()"));
         raffle.createSeason(cfg, _steps(), 50, 70);
     }
 }
