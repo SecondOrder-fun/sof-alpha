@@ -331,7 +331,8 @@ contract SellAllTicketsTest is Test {
         uint256 fee = (baseCost * 10) / 10000;
         uint256 totalCost = baseCost + fee;
         // Set max just below total cost to force slippage revert
-        vm.expectRevert(bytes("Curve: slippage"));
+        // Contract uses SlippageExceeded(cost, maxAllowed) custom error
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("SlippageExceeded(uint256,uint256)")), totalCost, totalCost - 1));
         curve.buyTokens(amount, totalCost - 1);
     }
 
@@ -353,7 +354,8 @@ contract SellAllTicketsTest is Test {
         // sellFeeBps = 70 in helper
         uint256 fee = (baseReturn * 70) / 10000;
         uint256 payout = baseReturn - fee;
-        vm.expectRevert(bytes("Curve: slippage"));
+        // Contract uses SlippageExceeded(payout, minAmount) custom error
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("SlippageExceeded(uint256,uint256)")), payout, payout + 1));
         curve.sellTokens(amount, payout + 1);
     }
 
