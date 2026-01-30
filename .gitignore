@@ -249,4 +249,5 @@ local/
 # Exception: README.md is allowed
 /*.md
 !README.md
+!CLAUDE.md
 .vercel

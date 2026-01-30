@@ -957,6 +957,101 @@ Applies Mint Club GLICO layout to our raffle ticket token. Ignore Locking, Airdr
 
 Note: Trading lock was validated at the curve level via `lockTrading()`; add a follow-up test to exercise `Raffle.requestSeasonEnd()` path and broader role-gated lifecycle actions.
 
+## Smart Contract Test Coverage Improvements (2026-01-30)
+
+### Critical Test Coverage Gaps
+
+These functions have 0% test coverage and need immediate attention:
+
+- [ ] **1. SOFBondingCurve.extractSof() Tests**
+  - [ ] Test successful SOF extraction by TREASURY_ROLE holder
+  - [ ] Test revert when called by non-TREASURY_ROLE address
+  - [ ] Test revert when contract has zero SOF balance
+  - [ ] Test extraction of full balance
+  - [ ] Test extraction of partial balance
+  - [ ] Test event emission on successful extraction
+  - [ ] Test interaction with trading lock state
+
+- [ ] **2. Raffle.requestSeasonEndEarly() Tests**
+  - [ ] Test successful early end by admin when season is active
+  - [ ] Test revert when called before season starts
+  - [ ] Test revert when season is already ended
+  - [ ] Test revert when called by non-admin
+  - [ ] Test trading lock is applied after call
+  - [ ] Test VRF request is initiated correctly
+  - [ ] Test event emission
+
+- [ ] **3. Raffle.pauseSeason() / unpauseSeason() Tests**
+  - [ ] Test successful pause by admin
+  - [ ] Test successful unpause by admin
+  - [ ] Test revert pause when already paused
+  - [ ] Test revert unpause when not paused
+  - [ ] Test revert when called by non-admin
+  - [ ] Test trading behavior during paused state
+  - [ ] Test participant operations during paused state
+
+- [ ] **4. Winner Selection Edge Cases**
+  - [ ] Test winner selection with exactly winnerCount participants
+  - [ ] Test winner selection with fewer participants than winnerCount
+  - [ ] Test winner selection with large participant pool (100+ addresses)
+  - [ ] Test duplicate random words produce unique winners
+  - [ ] Test same address with multiple positions
+  - [ ] Test winner selection after participant sells all tickets
+
+- [ ] **5. Access Control Enforcement Tests**
+  - [ ] Test all role-gated functions in SOFBondingCurve (RAFFLE_ROLE, TREASURY_ROLE)
+  - [ ] Test all role-gated functions in Raffle (DEFAULT_ADMIN_ROLE, VRF_ROLE)
+  - [ ] Test all role-gated functions in SOFToken (FEE_COLLECTOR_ROLE, TREASURY_ROLE)
+  - [ ] Test all role-gated functions in RafflePrizeDistributor (RAFFLE_ROLE, ADMIN_ROLE)
+  - [ ] Test role revocation prevents access
+  - [ ] Test role grant enables access
+
+### Edge Case Test Categories
+
+- [ ] **1. Season Timing Edge Cases**
+  - [ ] Test operations at exact startTime boundary
+  - [ ] Test operations at exact endTime boundary
+  - [ ] Test startTime in the past (should revert on create)
+  - [ ] Test endTime before startTime (should revert)
+  - [ ] Test very short season duration (e.g., 1 minute)
+  - [ ] Test very long season duration (e.g., 365 days)
+
+- [ ] **2. VRF Edge Cases**
+  - [ ] Test VRF callback with delayed response (simulate time passage)
+  - [ ] Test multiple VRF requests for same season (should revert duplicate)
+  - [ ] Test VRF callback with invalid requestId
+  - [ ] Test VRF callback after season already resolved
+  - [ ] Test VRF with zero/max random words
+
+- [ ] **3. Participant Edge Cases**
+  - [ ] Test 100+ unique participants in single season
+  - [ ] Test participant with maximum uint256 ticket purchase (should hit cap)
+  - [ ] Test rapid buy/sell sequence by same address
+  - [ ] Test participant buying exactly 1 ticket
+  - [ ] Test participant selling exactly 1 ticket
+
+- [ ] **4. Bonding Curve Pricing Edge Cases**
+  - [ ] Test purchase across multiple price steps
+  - [ ] Test sale across multiple price steps
+  - [ ] Test purchase at exact step boundary
+  - [ ] Test slippage with exact boundary values
+  - [ ] Test reserves consistency after partial fills
+  - [ ] Test price calculation at supply extremes (near 0, near max)
+
+- [ ] **5. State Transition Edge Cases**
+  - [ ] Test all valid state transitions (Pending->Active->VRFPending->Distributing->Completed)
+  - [ ] Test invalid state transitions (should revert)
+  - [ ] Test operations during each state (buy/sell allowed only in Active)
+  - [ ] Test finalizeSeason can only be called from Distributing
+  - [ ] Test season cannot restart after Completed
+
+### Test Infrastructure Improvements
+
+- [ ] Add test helpers for common patterns (createAndStartSeason, participantBuysTickets, etc.)
+- [ ] Add fuzzing tests for bonding curve math
+- [ ] Add invariant tests for participant tracking consistency
+- [ ] Improve test harness to expose more internal state
+
 ### Optimization & QA
 
 - [ ] Performance optimization for real-time pricing and SSE
