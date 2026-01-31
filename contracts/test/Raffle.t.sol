@@ -28,7 +28,7 @@ contract MockSeasonFactory is ISeasonFactory {
         SOFBondingCurve curve = new SOFBondingCurve(sof, address(this));
 
         // Initialize curve and set raffle info (msg.sender is Raffle contract)
-        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
+        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps, config.treasuryAddress);
         curve.setRaffleInfo(msg.sender, seasonId);
 
         // Grant curve mint/burn roles on token
@@ -53,6 +53,7 @@ contract RaffleTest is Test {
     Raffle public raffle;
     address public player1 = address(3);
     address public player2 = address(4);
+    address public treasury = address(5);
 
     // Mock SOF token
     MockERC20 public sof;
@@ -87,6 +88,7 @@ contract RaffleTest is Test {
         //cfg.maxParticipants = 0; // not enforced in contract currently
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500; // 65% grand prize
+        cfg.treasuryAddress = treasury; // fees go directly here
         RaffleTypes.BondStep[] memory steps = _defaultBondSteps();
         seasonId = raffle.createSeason(cfg, steps, 50, 70); // 0.5% buy, 0.7% sell
     }

@@ -50,7 +50,7 @@ contract DeployToSepolia is Script {
 
         // 1. Deploy SOF Token
         console2.log(unicode"\n📦 Deploying SOF Token...");
-        SOFToken sofToken = new SOFToken("SecondOrder Fun", "SOF", INITIAL_SOF_SUPPLY, deployer);
+        SOFToken sofToken = new SOFToken("SecondOrder Fun", "SOF", INITIAL_SOF_SUPPLY);
         sofTokenAddress = address(sofToken);
         console2.log(unicode"✅ SOF Token deployed:", sofTokenAddress);
 

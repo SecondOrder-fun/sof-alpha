@@ -5,7 +5,6 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "src/core/Raffle.sol";
 import "src/lib/RaffleTypes.sol";
-import "src/token/SOFToken.sol";
 
 contract CreateSeason is Script {
     function run() external {
@@ -41,6 +40,7 @@ contract CreateSeason is Script {
             endTime: endTs,
             winnerCount: 3,
             grandPrizeBps: 6500, // 65% of total pool to grand winner (rest to consolation)
+            treasuryAddress: caller, // Treasury receives accumulated fees
             raffleToken: address(0), // Will be set by the factory
             bondingCurve: address(0), // Will be set by the factory
             isActive: false,
@@ -82,22 +82,12 @@ contract CreateSeason is Script {
         }
 
         // Get bonding curve address from season
-        (,,,,, address bondingCurveAddr,,,) = raffle.seasons(seasonId);
-
-        // Grant FEE_COLLECTOR_ROLE to the bonding curve for treasury system
-        address sofAddress = vm.envAddress("SOF_ADDRESS_LOCAL");
-        if (sofAddress != address(0)) {
-            SOFToken sofToken = SOFToken(sofAddress);
-
-            try sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), bondingCurveAddr) {
-                console2.log("Granted FEE_COLLECTOR_ROLE to bonding curve:", bondingCurveAddr);
-            } catch {
-                console2.log("Failed to grant FEE_COLLECTOR_ROLE (may not be admin or already granted)");
-            }
-        }
+        (,,,,,, address bondingCurveAddr,,,) = raffle.seasons(seasonId);
+        console2.log("Bonding curve deployed at:", bondingCurveAddr);
 
         // Note: RAFFLE_MANAGER_ROLE is now automatically granted by SeasonFactory
         // during bonding curve creation (to both Raffle contract and deployer address)
+        // Treasury address is stored directly on the bonding curve for fee extraction
         console2.log("RAFFLE_MANAGER_ROLE automatically granted by SeasonFactory to deployer");
 
         vm.stopBroadcast();
