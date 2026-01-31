@@ -13,6 +13,7 @@ library RaffleTypes {
         address bondingCurve;
         bool isActive;
         bool isCompleted;
+        bool gated; // If true, users must pass gating requirements before buying tickets
     }
 
     struct BondStep {
