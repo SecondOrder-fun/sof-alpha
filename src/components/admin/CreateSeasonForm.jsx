@@ -1,16 +1,18 @@
 // src/components/admin/CreateSeasonForm.jsx
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import { usePublicClient } from "wagmi";
-import { parseUnits, formatUnits } from "viem";
+import { isAddress } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { CalendarIcon } from "lucide-react";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { ERC20Abi } from '@/utils/abis';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
-import TransactionStatus from "@/components/admin/TransactionStatus";
+import TransactionModal from "@/components/admin/TransactionModal";
+import BondingCurveEditor from "@/components/admin/BondingCurveEditor";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
 const fmtLocalDatetime = (sec) => {
@@ -26,31 +28,36 @@ const fmtLocalDatetime = (sec) => {
 
 // ERC20 ABI imported from centralized utility
 
+// Constants for default times (outside component to avoid useEffect dependency warnings)
+const DEFAULT_START_OFFSET_SECONDS = 5 * 60; // 5 minutes from now
+const DEFAULT_DURATION_SECONDS = 7 * 24 * 60 * 60; // 1 week
+
 const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
   const [name, setName] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [bondStepsText, setBondStepsText] = useState("");
-  const [maxTickets, setMaxTickets] = useState("100000");
-  const [numSteps, setNumSteps] = useState("10");
-  const [basePrice, setBasePrice] = useState("10"); // $SOF starting price
-  const [priceDelta, setPriceDelta] = useState("1"); // $SOF increase per step
   const [sofDecimals, setSofDecimals] = useState(18);
   const [grandPct, setGrandPct] = useState("65");
+  const [treasuryAddress, setTreasuryAddress] = useState("");
   const [formError, setFormError] = useState("");
   const [lastAttempt, setLastAttempt] = useState(null);
   const [nameError, setNameError] = useState("");
-  
+  const [treasuryError, setTreasuryError] = useState("");
+
+  // Bonding curve data from editor
+  const [curveData, setCurveData] = useState({
+    steps: [],
+    maxTickets: 100000,
+    isValid: false,
+  });
+
   const publicClient = usePublicClient();
   const addresses = getContractAddresses(getStoredNetworkKey());
 
-  // Calculate step size
-  const stepSize = useMemo(() => {
-    const max = Number(maxTickets);
-    const steps = Number(numSteps);
-    if (!max || !steps || steps <= 0) return 0;
-    return Math.ceil(max / steps);
-  }, [maxTickets, numSteps]);
+  // Handle curve editor changes
+  const handleCurveChange = useCallback((data) => {
+    setCurveData(data);
+  }, []);
 
   // Get current chain time for UI
   const nowSecUi = useMemo(() => {
@@ -94,42 +101,36 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
     };
   }, [addresses.SOF, publicClient]);
 
-  // Set initial start time if not set
+  // Set initial start time if not set (Now + 5 minutes)
   useEffect(() => {
     if (startTime) return;
     const nowSec =
       typeof chainTimeQuery.data === "number"
         ? chainTimeQuery.data
         : Math.floor(Date.now() / 1000);
-    const minStartSec = nowSec + 60; // 1 minute buffer for block time
+    const minStartSec = nowSec + DEFAULT_START_OFFSET_SECONDS;
     setStartTime(fmtLocalDatetime(minStartSec));
   }, [startTime, chainTimeQuery.data]);
 
-  // Auto-generate linear bond steps JSON when inputs change
+  // Auto-set end time when start time changes (Start + 1 week)
   useEffect(() => {
-    const max = Number(maxTickets);
-    const steps = Number(numSteps);
-    const b = Number(basePrice);
-    const d = Number(priceDelta);
-    if (!max || !steps || steps <= 0 || isNaN(b) || isNaN(d)) return;
-    const size = Math.ceil(max / steps);
-    const arr = Array.from({ length: steps }, (_, i) => {
-      const idx = i + 1;
-      const rangeTo = Math.min(size * idx, max);
-      const priceScaledBig =
-        parseUnits(b.toString(), sofDecimals) +
-        BigInt(i) * parseUnits(d.toString(), sofDecimals);
-      const priceHuman = Number(
-        Number(formatUnits(priceScaledBig, sofDecimals)).toFixed(6)
-      );
-      return {
-        rangeTo,
-        price: priceHuman,
-        priceScaled: priceScaledBig.toString(),
-      };
-    });
-    setBondStepsText(JSON.stringify(arr, null, 2));
-  }, [maxTickets, numSteps, basePrice, priceDelta, sofDecimals]);
+    if (!startTime || endTime) return;
+    const startSec = Math.floor(new Date(startTime).getTime() / 1000);
+    if (Number.isFinite(startSec)) {
+      setEndTime(fmtLocalDatetime(startSec + DEFAULT_DURATION_SECONDS));
+    }
+  }, [startTime, endTime]);
+
+  // Helper to reset dates to defaults
+  const resetToDefaultDates = () => {
+    const nowSec =
+      typeof chainTimeQuery.data === "number"
+        ? chainTimeQuery.data
+        : Math.floor(Date.now() / 1000);
+    const newStartSec = nowSec + DEFAULT_START_OFFSET_SECONDS;
+    setStartTime(fmtLocalDatetime(newStartSec));
+    setEndTime(fmtLocalDatetime(newStartSec + DEFAULT_DURATION_SECONDS));
+  };
 
   // Handle form errors from mutation
   useEffect(() => {
@@ -150,11 +151,24 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
     e.preventDefault();
     setFormError("");
     setNameError("");
+    setTreasuryError("");
 
     // Validate name is not empty
     if (!name || name.trim().length === 0) {
       setNameError("Season name is required");
       setFormError("Season name is required");
+      return;
+    }
+
+    // Validate treasury address
+    if (!treasuryAddress || treasuryAddress.trim().length === 0) {
+      setTreasuryError("Treasury wallet address is required");
+      setFormError("Treasury wallet address is required");
+      return;
+    }
+    if (!isAddress(treasuryAddress.trim())) {
+      setTreasuryError("Invalid Ethereum address");
+      setFormError("Invalid treasury wallet address");
       return;
     }
 
@@ -243,65 +257,30 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       endTime: BigInt(end),
       winnerCount: 1,
       grandPrizeBps,
+      treasuryAddress: treasuryAddress.trim(),
       raffleToken: "0x0000000000000000000000000000000000000000",
       bondingCurve: "0x0000000000000000000000000000000000000000",
       isActive: false,
       isCompleted: false,
     };
 
-    // Parse and validate bond steps
-    let bondSteps = [];
-    try {
-      const parsed = JSON.parse(bondStepsText || "[]");
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        setFormError(
-          "Bond steps required: provide a non-empty JSON array of { rangeTo, priceScaled }"
-        );
-        return;
-      }
-      // Basic shape validation
-      for (const s of parsed) {
-        if (
-          typeof s !== "object" ||
-          s === null ||
-          (typeof s.rangeTo !== "number" && typeof s.rangeTo !== "string") ||
-          (typeof s.priceScaled !== "number" &&
-            typeof s.priceScaled !== "string")
-        ) {
-          setFormError(
-            "Each bond step must have numeric rangeTo and priceScaled (smallest units of $SOF, 10^decimals)"
-          );
-          return;
-        }
-      }
-      // Convert to on-chain friendly types (uint128). priceScaled may be string; convert via BigInt.
-      bondSteps = parsed.map((s) => ({
-        rangeTo: BigInt(s.rangeTo),
-        price: BigInt(s.priceScaled),
-      }));
-
-      // Ensure strictly increasing rangeTo values
-      for (let i = 1; i < bondSteps.length; i += 1) {
-        if (bondSteps[i].rangeTo <= bondSteps[i - 1].rangeTo) {
-          setFormError(
-            "Each bond step must have a strictly increasing rangeTo value"
-          );
-          return;
-        }
-      }
-
-      if (bondSteps[bondSteps.length - 1].rangeTo !== BigInt(maxTickets || 0)) {
-        setFormError(
-          "Final bond step range must match the maximum ticket supply"
-        );
-        return;
-      }
-
-      setFormError("");
-    } catch (err) {
-      setFormError("Invalid JSON for bond steps");
+    // Validate bond steps from curve editor
+    if (!curveData.isValid) {
+      setFormError("Bonding curve configuration is invalid. Please check the curve editor.");
       return;
     }
+    if (!curveData.steps || curveData.steps.length === 0) {
+      setFormError("Bond steps required. Configure the bonding curve.");
+      return;
+    }
+
+    // Convert curve editor steps to on-chain format
+    const bondSteps = curveData.steps.map((s) => ({
+      rangeTo: BigInt(s.rangeTo),
+      price: BigInt(s.priceScaled),
+    }));
+
+    setFormError("");
     const buyFeeBps = 10; // 0.10%
     const sellFeeBps = 70; // 0.70%
     createSeason.mutate({ config, bondSteps, buyFeeBps, sellFeeBps });
@@ -335,21 +314,64 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         )}
       </div>
       <div className="space-y-1">
+        <label className="text-sm">Treasury Wallet</label>
         <Input
-          type="datetime-local"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
+          placeholder="0x..."
+          value={treasuryAddress}
+          onChange={(e) => {
+            setTreasuryAddress(e.target.value);
+            if (treasuryError) setTreasuryError("");
+          }}
+          required
+          className={treasuryError ? "border-red-500" : ""}
+          aria-invalid={treasuryError ? "true" : "false"}
+          aria-describedby={treasuryError ? "treasury-error" : undefined}
         />
+        {treasuryError && (
+          <p id="treasury-error" className="text-xs text-red-500">
+            {treasuryError}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
-          Start time must be at least {AUTO_START_BUFFER_SECONDS}{" "}
-          seconds ahead of the current chain time.
+          Wallet address where accumulated fees will be sent.
         </p>
       </div>
-      <Input
-        type="datetime-local"
-        value={endTime}
-        onChange={(e) => setEndTime(e.target.value)}
-      />
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Season Timing</label>
+        <div className="flex items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Start Time</label>
+            <Input
+              type="datetime-local"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-[210px] [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:bg-muted [&::-webkit-calendar-picker-indicator]:hover:bg-muted/80"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">End Time</label>
+            <Input
+              type="datetime-local"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-[210px] [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:bg-muted [&::-webkit-calendar-picker-indicator]:hover:bg-muted/80"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={resetToDefaultDates}
+            className="flex items-center gap-1 h-9"
+          >
+            <CalendarIcon className="h-4 w-4" />
+            Reset
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Default: Start in 5 minutes, End after 1 week. Start time must be at least {AUTO_START_BUFFER_SECONDS}s ahead of chain time.
+        </p>
+      </div>
       <div>
         <label className="text-sm">Grand Prize Split (%)</label>
         <div className="flex items-center gap-3">
@@ -370,79 +392,14 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
           Allowed range: 55%–75%. You can adjust per season.
         </p>
       </div>
-      <div>
-        <label className="text-sm">Bond Steps</label>
-        <div className="grid gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm">Max Tickets</label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="e.g. 1000000"
-                value={maxTickets}
-                onChange={(e) => setMaxTickets(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm"># of Bond Steps</label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="e.g. 500"
-                value={numSteps}
-                onChange={(e) => setNumSteps(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm">Initial Price ($SOF)</label>
-              <Input
-                type="number"
-                step="0.0001"
-                placeholder="e.g. 10"
-                value={basePrice}
-                onChange={(e) => setBasePrice(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm">
-                Price Increase per Step ($SOF)
-              </label>
-              <Input
-                type="number"
-                step="0.0001"
-                placeholder="e.g. 1"
-                value={priceDelta}
-                onChange={(e) => setPriceDelta(e.target.value)}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Step size: {stepSize || "-"} tickets/step • Price:{" "}
-            {basePrice || "-"} →{" "}
-            {numSteps && basePrice
-              ? (
-                  Number(basePrice) +
-                  (Number(numSteps) - 1) * Number(priceDelta)
-                ).toString()
-              : "-"}{" "}
-            $SOF
-          </p>
-          <label className="text-sm">Bond Steps (JSON)</label>
-          <textarea
-            className="mt-1 w-full border rounded p-2 text-sm"
-            rows={4}
-            placeholder='e.g. [{"rangeTo": 10000, "price": 10, "priceScaled": "10000000000000000000"}] // priceScaled is in smallest units of $SOF (10^decimals)'
-            value={bondStepsText}
-            onChange={(e) => setBondStepsText(e.target.value)}
-          />
-          {formError && (
-            <p className="text-xs text-red-500 mt-1">{formError}</p>
-          )}
-        </div>
-      </div>
+      {/* Bonding Curve Editor */}
+      <BondingCurveEditor
+        onChange={handleCurveChange}
+        sofDecimals={sofDecimals}
+      />
+      {formError && (
+        <p className="text-xs text-red-500">{formError}</p>
+      )}
       {startTooSoonUi && (
         <p className="text-xs text-amber-600 mb-1">
           Start time must be at least {AUTO_START_BUFFER_SECONDS}s ahead
@@ -451,11 +408,13 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       )}
       <Button
         type="submit"
-        disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0}
+        size="lg"
+        className="w-full"
+        disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0 || !treasuryAddress || !isAddress(treasuryAddress.trim()) || !curveData.isValid}
       >
         {createSeason?.isPending ? "Creating..." : "Create Season"}
       </Button>
-      <TransactionStatus mutation={createSeason} />
+      <TransactionModal mutation={createSeason} title="Creating Season" />
       {lastAttempt && (
         <div className="mt-3 text-xs border rounded p-2 bg-muted/30">
           <p>
