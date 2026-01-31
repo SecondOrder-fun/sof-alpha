@@ -67,4 +67,10 @@ abstract contract RaffleStorage {
     event ParticipantAdded(uint256 indexed seasonId, address participant, uint256 tickets, uint256 totalTickets);
     event ParticipantUpdated(uint256 indexed seasonId, address participant, uint256 newTickets, uint256 totalTickets);
     event ParticipantRemoved(uint256 indexed seasonId, address participant, uint256 totalTickets);
+
+    // Auto-finalization events
+    event VRFFulfilled(uint256 indexed seasonId, uint256 indexed requestId);
+    event AutoFinalizeAttempted(uint256 indexed seasonId, bool success);
+    event AutoFinalizeFailed(uint256 indexed seasonId, string reason);
+    event AutoFinalizeFailedLowLevel(uint256 indexed seasonId, bytes data);
 }

@@ -38,6 +38,8 @@ error InvalidSeasonName();
 error InvalidStartTime(uint256 startTime, uint256 currentTime);
 error InvalidEndTime(uint256 endTime, uint256 startTime);
 error InvalidTreasuryAddress();
+error UnauthorizedCaller();
+error NoVRFWords(uint256 seasonId);
 
 /**
  * @title Raffle Contract
@@ -239,8 +241,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         uint256 seasonId = vrfRequestToSeason[requestId];
-        require(seasonId != 0, "Raffle: bad req");
-        require(seasonStates[seasonId].status == SeasonStatus.VRFPending, "Raffle: bad status");
+        if (seasonId == 0) revert VRFRequestNotFound(requestId);
+        if (seasonStates[seasonId].status != SeasonStatus.VRFPending) {
+            revert InvalidSeasonStatus(seasonId, uint8(seasonStates[seasonId].status), uint8(SeasonStatus.VRFPending));
+        }
 
         SeasonState storage state = seasonStates[seasonId];
         delete state.vrfRandomWords;
@@ -249,6 +253,93 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         }
 
         state.status = SeasonStatus.Distributing;
+        emit VRFFulfilled(seasonId, requestId);
+
+        // Attempt auto-finalization (failure is non-fatal, manual finalizeSeason remains as fallback)
+        _tryAutoFinalize(seasonId);
+    }
+
+    /// @notice Attempts auto-finalization with graceful failure handling
+    /// @param seasonId The season to finalize
+    /// @return success True if auto-finalization succeeded
+    function _tryAutoFinalize(uint256 seasonId) internal returns (bool success) {
+        try this._executeFinalizationExternal(seasonId) {
+            emit AutoFinalizeAttempted(seasonId, true);
+            return true;
+        } catch Error(string memory reason) {
+            emit AutoFinalizeFailed(seasonId, reason);
+            return false;
+        } catch (bytes memory lowLevelData) {
+            emit AutoFinalizeFailedLowLevel(seasonId, lowLevelData);
+            return false;
+        }
+    }
+
+    /// @notice External wrapper to enable try/catch pattern for auto-finalization
+    /// @dev Only callable by this contract
+    function _executeFinalizationExternal(uint256 seasonId) external {
+        if (msg.sender != address(this)) revert UnauthorizedCaller();
+        _executeFinalization(seasonId);
+    }
+
+    /// @notice Internal finalization logic - selects winners, configures distributor, funds prizes
+    /// @param seasonId The season to finalize
+    function _executeFinalization(uint256 seasonId) internal {
+        SeasonState storage state = seasonStates[seasonId];
+        RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
+
+        uint256 totalPrizePool = state.totalPrizePool;
+
+        address[] memory winners = RaffleLogic._selectWinnersAddressBased(
+            state,
+            cfg.winnerCount,
+            state.vrfRandomWords
+        );
+        state.winners = winners;
+
+        emit WinnersSelected(seasonId, winners);
+
+        // Compute pool splits
+        if (prizeDistributor == address(0)) revert DistributorNotSet();
+
+        // If there are no participants or no winners, we can still complete the
+        // season but skip prize distribution logic that assumes a non-zero winner.
+        if (state.totalParticipants == 0 || winners.length == 0 || totalPrizePool == 0) {
+            cfg.isCompleted = true;
+            state.status = SeasonStatus.Completed;
+            emit PrizeDistributionSetup(seasonId, prizeDistributor);
+            return;
+        }
+
+        uint16 grandBps = cfg.grandPrizeBps == 0 ? defaultGrandPrizeBps : cfg.grandPrizeBps;
+        if (grandBps > 10000) revert InvalidBasisPoints(grandBps);
+        uint256 grandAmount = (totalPrizePool * uint256(grandBps)) / 10000;
+        uint256 consolationAmount = totalPrizePool - grandAmount;
+
+        address grandWinner = winners.length > 0 ? winners[0] : address(0);
+        if (grandWinner == address(0)) revert NoWinnersSelected();
+
+        uint256 totalParticipants = state.totalParticipants;
+
+        address curveAddr = cfg.bondingCurve;
+        if (curveAddr == address(0)) revert InvalidAddress();
+
+        IRafflePrizeDistributor(prizeDistributor).configureSeason(
+            seasonId,
+            address(sofToken),
+            grandWinner,
+            grandAmount,
+            consolationAmount,
+            totalParticipants
+        );
+
+        SOFBondingCurve(curveAddr).extractSof(prizeDistributor, totalPrizePool);
+
+        IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool);
+
+        cfg.isCompleted = true;
+        state.status = SeasonStatus.Completed;
+        emit PrizeDistributionSetup(seasonId, prizeDistributor);
     }
 
     // Called by curve
@@ -515,65 +606,18 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         revert("Raffle: use finalizeSeason");
     }
 
+    /// @notice Manual fallback to finalize a season if auto-finalization failed
+    /// @param seasonId The season to finalize
+    /// @dev Can be called by anyone when season is in Distributing status with VRF words
     function finalizeSeason(uint256 seasonId) external nonReentrant {
-        require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
+        if (seasonId == 0 || seasonId > currentSeasonId) revert SeasonNotFound(seasonId);
         SeasonState storage state = seasonStates[seasonId];
-        RaffleTypes.SeasonConfig storage cfg = seasons[seasonId];
-        require(state.status == SeasonStatus.Distributing, "Raffle: not ready");
-        require(state.vrfRandomWords.length > 0, "Raffle: no vrf words");
-
-        uint256 totalPrizePool = state.totalPrizePool;
-
-        address[] memory winners = RaffleLogic._selectWinnersAddressBased(
-            state,
-            cfg.winnerCount,
-            state.vrfRandomWords
-        );
-        state.winners = winners;
-
-        emit WinnersSelected(seasonId, winners);
-
-        // Compute pool splits
-        require(prizeDistributor != address(0), "Raffle: distributor not set");
-
-        // If there are no participants or no winners, we can still complete the
-        // season but skip prize distribution logic that assumes a non-zero winner.
-        if (state.totalParticipants == 0 || winners.length == 0 || totalPrizePool == 0) {
-            cfg.isCompleted = true;
-            state.status = SeasonStatus.Completed;
-            emit PrizeDistributionSetup(seasonId, prizeDistributor);
-            return;
+        if (state.status != SeasonStatus.Distributing) {
+            revert InvalidSeasonStatus(seasonId, uint8(state.status), uint8(SeasonStatus.Distributing));
         }
+        if (state.vrfRandomWords.length == 0) revert NoVRFWords(seasonId);
 
-        uint16 grandBps = cfg.grandPrizeBps == 0 ? defaultGrandPrizeBps : cfg.grandPrizeBps;
-        require(grandBps <= 10000, "Raffle: bad grand bps");
-        uint256 grandAmount = (totalPrizePool * uint256(grandBps)) / 10000;
-        uint256 consolationAmount = totalPrizePool - grandAmount;
-
-        address grandWinner = winners.length > 0 ? winners[0] : address(0);
-        require(grandWinner != address(0), "Raffle: winner zero");
-
-        uint256 totalParticipants = state.totalParticipants;
-
-        address curveAddr = cfg.bondingCurve;
-        require(curveAddr != address(0), "Raffle: curve zero");
-
-        IRafflePrizeDistributor(prizeDistributor).configureSeason(
-            seasonId,
-            address(sofToken),
-            grandWinner,
-            grandAmount,
-            consolationAmount,
-            totalParticipants
-        );
-
-        SOFBondingCurve(curveAddr).extractSof(prizeDistributor, totalPrizePool);
-
-        IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool);
-
-        cfg.isCompleted = true;
-        state.status = SeasonStatus.Completed;
-        emit PrizeDistributionSetup(seasonId, prizeDistributor);
+        _executeFinalization(seasonId);
     }
 
     // Merkle root function removed - consolation now uses direct claim

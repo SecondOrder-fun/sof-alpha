@@ -132,14 +132,15 @@ contract RaffleFinalizeSeasonTest is Test {
         vm.stopPrank();
 
 
-        // Simulate VRF callback: VRFPending -> Distributing with stored words
+        // Simulate VRF callback: VRFPending -> auto-finalize triggers Completed
         uint256 reqId = 42;
         uint256[] memory words = new uint256[](2);
         words[0] = 777;
         words[1] = 888;
         raffle.testSetVrfState(seasonId, reqId, words);
 
-        // At this point, status should be Distributing and no winners chosen yet
+        // With auto-finalization, the season should now be Completed (not Distributing)
+        // The VRF callback automatically triggers finalization
         (
             ,
             RaffleStorage.SeasonStatus status,
@@ -147,29 +148,18 @@ contract RaffleFinalizeSeasonTest is Test {
             uint256 totalTickets,
             uint256 totalPrizePool
         ) = raffle.getSeasonDetails(seasonId);
-        assertEq(uint8(status), uint8(RaffleStorage.SeasonStatus.Distributing));
+
+        // Auto-finalization completes the season during VRF callback
+        assertEq(uint8(status), uint8(RaffleStorage.SeasonStatus.Completed), "Auto-finalize should complete season");
         assertEq(totalParticipants, 2);
         assertEq(totalTickets, 15);
-        // totalPrizePool is populated by the real end-request flow; in this test
-        // we only care that finalizeSeason can execute from Distributing.
 
-        // Call finalizeSeason, which should:
-        // - select winners using stored VRF words
-        // - configure distributor
-        // - extract SOF from curve
-        // - fund distributor
-        // - mark season Completed
-        raffle.finalizeSeason(seasonId);
-
-        // Season should now be completed and winners available
+        // Season should be completed and winners available (set by auto-finalize)
         address[] memory winners = raffle.getWinners(seasonId);
-        assertGt(winners.length, 0);
+        assertGt(winners.length, 0, "Winners should be selected by auto-finalize");
 
-        // Status should be Completed
-        ( , status, totalParticipants, totalTickets, totalPrizePool) = raffle.getSeasonDetails(seasonId);
+        // Verify status is Completed
+        ( , status, , , ) = raffle.getSeasonDetails(seasonId);
         assertEq(uint8(status), uint8(RaffleStorage.SeasonStatus.Completed));
-        // We don't assert on totalPrizePool or curve reserves here; those are
-        // covered by other tests that exercise the full requestSeasonEnd flow.
-
     }
 }
