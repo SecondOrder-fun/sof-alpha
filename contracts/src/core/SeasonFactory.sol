@@ -55,7 +55,7 @@ contract SeasonFactory is AccessControl {
         curve.grantRole(curve.RAFFLE_MANAGER_ROLE(), raffleAddress);
 
         // Initialize the curve (requires RAFFLE_MANAGER_ROLE)
-        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
+        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps, config.treasuryAddress);
         curve.setRaffleInfo(raffleAddress, seasonId);
 
         // Grant curve rights on raffle token

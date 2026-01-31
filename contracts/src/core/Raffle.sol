@@ -37,6 +37,7 @@ error InvalidBasisPoints(uint256 bps);
 error InvalidSeasonName();
 error InvalidStartTime(uint256 startTime, uint256 currentTime);
 error InvalidEndTime(uint256 endTime, uint256 startTime);
+error InvalidTreasuryAddress();
 
 /**
  * @title Raffle Contract
@@ -123,6 +124,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         if (config.endTime <= config.startTime) revert InvalidEndTime(config.endTime, config.startTime);
         if (config.winnerCount == 0) revert InvalidWinnerCount(0);
         if (config.grandPrizeBps > 10000) revert InvalidBasisPoints(config.grandPrizeBps);
+        if (config.treasuryAddress == address(0)) revert InvalidTreasuryAddress();
         if (bondSteps.length == 0) revert InvalidBondSteps();
 
         seasonId = ++currentSeasonId;

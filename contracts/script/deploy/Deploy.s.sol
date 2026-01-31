@@ -43,11 +43,9 @@ contract DeployScript is Script {
         console2.log("VRF Subscription created with ID:", subscriptionId);
 
         // Deploy SOF token with a 100,000,000 SOF premint to the deployer (18 decimals)
-        // Treasury address set to deployer (account[0]) for testing; change to multisig for production
         uint256 initialSupply = 100_000_000 ether; // 100,000,000 * 1e18
-        SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply, deployerAddr);
+        SOFToken sof = new SOFToken("SOF Token", "SOF", initialSupply);
         console2.log("SOF initial supply minted to deployer:", initialSupply);
-        console2.log("SOF treasury address set to:", deployerAddr);
 
         // Deploy Raffle contract first
         Raffle raffle = new Raffle(address(sof), address(vrfCoordinator), subscriptionId, keyHash);
@@ -193,10 +191,6 @@ contract DeployScript is Script {
         console2.log("SOF Faucet deployed at:", address(faucet));
         console2.log("Deployer keeps", deployerKeeps / 1 ether, "SOF tokens");
         console2.log("Faucet funded with", faucetAmount / 1 ether, "SOF tokens");
-
-        // Grant FEE_COLLECTOR_ROLE to deployer/admin for manual fee collection
-        sof.grantRole(sof.FEE_COLLECTOR_ROLE(), deployerAddr);
-        console2.log("Granted FEE_COLLECTOR_ROLE to admin/deployer:", deployerAddr);
 
         vm.stopBroadcast();
 

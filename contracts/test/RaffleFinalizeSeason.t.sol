@@ -78,6 +78,7 @@ contract RaffleFinalizeSeasonTest is Test {
 
     address public player1 = address(0x11);
     address public player2 = address(0x22);
+    address public treasury = address(0x33);
 
     function setUp() public {
         sof = new MockSOF("SOF", "SOF", 18);
@@ -107,6 +108,7 @@ contract RaffleFinalizeSeasonTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);

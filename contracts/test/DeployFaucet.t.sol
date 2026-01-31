@@ -20,7 +20,7 @@ contract DeployFaucetTest is Test {
         vm.startPrank(deployer);
 
         // Deploy SOF token first
-        sofToken = new SOFToken("SecondOrder Fun Token", "SOF", 1_000_000 * 10 ** 18, deployer);
+        sofToken = new SOFToken("SecondOrder Fun Token", "SOF", 1_000_000 * 10 ** 18);
 
         // Set up environment for the deploy script
         vm.setEnv("PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"); // Anvil default private key

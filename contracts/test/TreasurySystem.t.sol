@@ -22,14 +22,12 @@ contract TreasurySystemTest is Test {
     uint16 constant SELL_FEE = 70; // 0.7%
 
     event FeesExtracted(address indexed to, uint256 amount);
-    event FeesCollected(address indexed from, uint256 amount);
-    event TreasuryTransfer(address indexed to, uint256 amount);
 
     function setUp() public {
         vm.startPrank(admin);
 
-        // Deploy SOF token with treasury address
-        sofToken = new SOFToken("SOF Token", "SOF", INITIAL_SUPPLY, treasury);
+        // Deploy SOF token (simplified - no treasury param)
+        sofToken = new SOFToken("SOF Token", "SOF", INITIAL_SUPPLY);
 
         // Deploy bonding curve with admin parameter
         bondingCurve = new SOFBondingCurve(address(sofToken), admin);
@@ -50,11 +48,10 @@ contract TreasurySystemTest is Test {
         bondSteps[1] = RaffleTypes.BondStep({rangeTo: 2000, price: 20 ether});
         bondSteps[2] = RaffleTypes.BondStep({rangeTo: 3000, price: 30 ether});
 
-        // Initialize curve
-        bondingCurve.initializeCurve(address(raffleToken), bondSteps, BUY_FEE, SELL_FEE);
+        // Initialize curve with treasury address (direct transfer)
+        bondingCurve.initializeCurve(address(raffleToken), bondSteps, BUY_FEE, SELL_FEE, treasury);
 
-        // Grant roles
-        sofToken.grantRole(sofToken.FEE_COLLECTOR_ROLE(), address(bondingCurve));
+        // Grant roles for raffle token minting/burning
         raffleToken.grantRole(raffleToken.MINTER_ROLE(), address(bondingCurve));
         raffleToken.grantRole(raffleToken.BURNER_ROLE(), address(bondingCurve));
 
@@ -63,6 +60,10 @@ contract TreasurySystemTest is Test {
         sofToken.transfer(user2, 50_000 ether);
 
         vm.stopPrank();
+    }
+
+    function testTreasuryAddressStoredInCurve() public view {
+        assertEq(bondingCurve.treasuryAddress(), treasury, "Treasury address should be stored in curve");
     }
 
     function testFeeAccumulationOnBuy() public {
@@ -107,7 +108,7 @@ contract TreasurySystemTest is Test {
         vm.stopPrank();
     }
 
-    function testExtractFeesToTreasury() public {
+    function testExtractFeesDirectlyToTreasury() public {
         // User buys tokens to accumulate fees
         vm.startPrank(user1);
         uint256 tokenAmount = 100;
@@ -119,14 +120,20 @@ contract TreasurySystemTest is Test {
         uint256 accumulatedFees = bondingCurve.accumulatedFees();
         assertTrue(accumulatedFees > 0, "Fees should be accumulated");
 
-        // Admin extracts fees
+        uint256 treasuryBalanceBefore = sofToken.balanceOf(treasury);
+
+        // Admin extracts fees - should go directly to treasury
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
-        emit FeesExtracted(address(sofToken), accumulatedFees);
+        emit FeesExtracted(treasury, accumulatedFees);
         bondingCurve.extractFeesToTreasury();
 
         assertEq(bondingCurve.accumulatedFees(), 0, "Accumulated fees should be zero after extraction");
-        assertEq(sofToken.balanceOf(address(sofToken)), accumulatedFees, "Fees should be in SOF token contract");
+        assertEq(
+            sofToken.balanceOf(treasury),
+            treasuryBalanceBefore + accumulatedFees,
+            "Fees should be sent directly to treasury"
+        );
     }
 
     function testCannotExtractWithoutRole() public {
@@ -146,90 +153,8 @@ contract TreasurySystemTest is Test {
 
     function testCannotExtractZeroFees() public {
         vm.prank(admin);
-        vm.expectRevert("Curve: no fees");
+        vm.expectRevert(AmountZero.selector);
         bondingCurve.extractFeesToTreasury();
-    }
-
-    function testTransferToTreasury() public {
-        // Accumulate and extract fees first
-        vm.startPrank(user1);
-        uint256 tokenAmount = 100;
-        uint256 totalCost = bondingCurve.calculateBuyPrice(tokenAmount) * 10010 / 10000;
-        sofToken.approve(address(bondingCurve), totalCost);
-        bondingCurve.buyTokens(tokenAmount, totalCost);
-        vm.stopPrank();
-
-        vm.prank(admin);
-        bondingCurve.extractFeesToTreasury();
-
-        uint256 sofTokenBalance = sofToken.balanceOf(address(sofToken));
-        uint256 treasuryBalanceBefore = sofToken.balanceOf(treasury);
-
-        // Transfer to treasury
-        vm.prank(admin);
-        vm.expectEmit(true, false, false, true);
-        emit TreasuryTransfer(treasury, sofTokenBalance);
-        sofToken.transferToTreasury(sofTokenBalance);
-
-        assertEq(sofToken.balanceOf(address(sofToken)), 0, "SOF token contract should have zero balance");
-        assertEq(
-            sofToken.balanceOf(treasury), treasuryBalanceBefore + sofTokenBalance, "Treasury should receive the fees"
-        );
-    }
-
-    function testCannotTransferToTreasuryWithoutRole() public {
-        // Accumulate and extract fees first
-        vm.startPrank(user1);
-        uint256 tokenAmount = 100;
-        uint256 totalCost = bondingCurve.calculateBuyPrice(tokenAmount) * 10010 / 10000;
-        sofToken.approve(address(bondingCurve), totalCost);
-        bondingCurve.buyTokens(tokenAmount, totalCost);
-        vm.stopPrank();
-
-        vm.prank(admin);
-        bondingCurve.extractFeesToTreasury();
-
-        uint256 sofTokenBalance = sofToken.balanceOf(address(sofToken));
-
-        // Non-admin tries to transfer
-        vm.prank(user2);
-        vm.expectRevert();
-        sofToken.transferToTreasury(sofTokenBalance);
-    }
-
-    function testTotalFeesCollectedTracking() public {
-        // First extraction
-        vm.startPrank(user1);
-        uint256 tokenAmount1 = 100;
-        uint256 totalCost1 = bondingCurve.calculateBuyPrice(tokenAmount1) * 10010 / 10000;
-        sofToken.approve(address(bondingCurve), totalCost1);
-        bondingCurve.buyTokens(tokenAmount1, totalCost1);
-        vm.stopPrank();
-
-        assertTrue(bondingCurve.accumulatedFees() > 0, "Fees should accumulate");
-
-        vm.prank(admin);
-        bondingCurve.extractFeesToTreasury();
-
-        // Note: SOFToken.collectFees() is called by extractFeesToTreasury
-        // but we're using direct transfer, so totalFeesCollected won't update
-        // This is expected behavior in the current implementation
-
-        // Second extraction
-        vm.startPrank(user2);
-        uint256 tokenAmount2 = 50;
-        uint256 totalCost2 = bondingCurve.calculateBuyPrice(tokenAmount2) * 10010 / 10000;
-        sofToken.approve(address(bondingCurve), totalCost2);
-        bondingCurve.buyTokens(tokenAmount2, totalCost2);
-        vm.stopPrank();
-
-        assertTrue(bondingCurve.accumulatedFees() > 0, "Fees should accumulate again");
-
-        vm.prank(admin);
-        bondingCurve.extractFeesToTreasury();
-
-        // Verify fees were extracted
-        assertEq(bondingCurve.accumulatedFees(), 0, "All fees should be extracted");
     }
 
     function testReservesNotAffectedByFees() public {
@@ -274,42 +199,7 @@ contract TreasurySystemTest is Test {
         assertTrue(feesAfterUser2 > feesAfterUser1, "Fees should accumulate from multiple users");
     }
 
-    function testSetTreasuryAddress() public {
-        address newTreasury = address(5);
-
-        vm.prank(admin);
-        sofToken.setTreasuryAddress(newTreasury);
-
-        assertEq(sofToken.treasuryAddress(), newTreasury, "Treasury address should be updated");
-    }
-
-    function testCannotSetZeroTreasuryAddress() public {
-        vm.prank(admin);
-        vm.expectRevert("Treasury cannot be zero address");
-        sofToken.setTreasuryAddress(address(0));
-    }
-
-    function testGetContractBalance() public {
-        // Accumulate and extract fees
-        vm.startPrank(user1);
-        uint256 tokenAmount = 100;
-        uint256 totalCost = bondingCurve.calculateBuyPrice(tokenAmount) * 10010 / 10000;
-        sofToken.approve(address(bondingCurve), totalCost);
-        bondingCurve.buyTokens(tokenAmount, totalCost);
-        vm.stopPrank();
-
-        vm.prank(admin);
-        bondingCurve.extractFeesToTreasury();
-
-        uint256 expectedBalance = sofToken.balanceOf(address(sofToken));
-        uint256 contractBalance = sofToken.getContractBalance();
-
-        assertEq(contractBalance, expectedBalance, "getContractBalance should return correct value");
-    }
-
     function testMultipleExtractions() public {
-        // Test that multiple extractions work correctly
-
         // First buy and extract
         vm.startPrank(user1);
         uint256 tokenAmount1 = 100;
@@ -319,12 +209,12 @@ contract TreasurySystemTest is Test {
         vm.stopPrank();
 
         uint256 fees1 = bondingCurve.accumulatedFees();
+        uint256 treasuryBalanceBefore = sofToken.balanceOf(treasury);
 
         vm.prank(admin);
         bondingCurve.extractFeesToTreasury();
 
-        uint256 balanceAfterFirst = sofToken.balanceOf(address(sofToken));
-        assertEq(balanceAfterFirst, fees1, "First extraction should transfer fees");
+        assertEq(sofToken.balanceOf(treasury), treasuryBalanceBefore + fees1, "First extraction to treasury");
 
         // Second buy and extract
         vm.startPrank(user2);
@@ -339,7 +229,68 @@ contract TreasurySystemTest is Test {
         vm.prank(admin);
         bondingCurve.extractFeesToTreasury();
 
-        uint256 balanceAfterSecond = sofToken.balanceOf(address(sofToken));
-        assertEq(balanceAfterSecond, fees1 + fees2, "Second extraction should add to existing balance");
+        assertEq(
+            sofToken.balanceOf(treasury),
+            treasuryBalanceBefore + fees1 + fees2,
+            "Second extraction should add to treasury balance"
+        );
+    }
+
+    function testDifferentTreasuryPerCurve() public {
+        // This test verifies that different curves can have different treasuries
+        // (enabling 3rd party raffles with their own fee destinations)
+
+        address treasury2 = address(10);
+
+        vm.startPrank(admin);
+
+        // Deploy second bonding curve with different treasury
+        SOFBondingCurve bondingCurve2 = new SOFBondingCurve(address(sofToken), admin);
+
+        RaffleToken raffleToken2 = new RaffleToken(
+            "Raffle Token 2",
+            "RAFFLE2",
+            2,
+            "Test Season 2",
+            block.timestamp,
+            block.timestamp + 14 days
+        );
+
+        RaffleTypes.BondStep[] memory bondSteps = new RaffleTypes.BondStep[](2);
+        bondSteps[0] = RaffleTypes.BondStep({rangeTo: 500, price: 5 ether});
+        bondSteps[1] = RaffleTypes.BondStep({rangeTo: 1000, price: 10 ether});
+
+        // Initialize with different treasury
+        bondingCurve2.initializeCurve(address(raffleToken2), bondSteps, BUY_FEE, SELL_FEE, treasury2);
+
+        raffleToken2.grantRole(raffleToken2.MINTER_ROLE(), address(bondingCurve2));
+        raffleToken2.grantRole(raffleToken2.BURNER_ROLE(), address(bondingCurve2));
+
+        vm.stopPrank();
+
+        // Verify different treasuries
+        assertEq(bondingCurve.treasuryAddress(), treasury, "First curve has treasury 1");
+        assertEq(bondingCurve2.treasuryAddress(), treasury2, "Second curve has treasury 2");
+
+        // Buy on curve2 and extract
+        vm.startPrank(user1);
+        uint256 tokenAmount = 50;
+        uint256 totalCost = bondingCurve2.calculateBuyPrice(tokenAmount) * 10010 / 10000;
+        sofToken.approve(address(bondingCurve2), totalCost);
+        bondingCurve2.buyTokens(tokenAmount, totalCost);
+        vm.stopPrank();
+
+        uint256 treasury2BalanceBefore = sofToken.balanceOf(treasury2);
+        uint256 fees = bondingCurve2.accumulatedFees();
+
+        vm.prank(admin);
+        bondingCurve2.extractFeesToTreasury();
+
+        // Fees should go to treasury2, not treasury
+        assertEq(
+            sofToken.balanceOf(treasury2),
+            treasury2BalanceBefore + fees,
+            "Fees should go to curve's designated treasury"
+        );
     }
 }

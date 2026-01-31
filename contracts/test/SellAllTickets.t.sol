@@ -34,7 +34,7 @@ contract MockSeasonFactory_SellAll is ISeasonFactory {
         raffleTokenAddr = address(token);
 
         SOFBondingCurve curve = new SOFBondingCurve(sof, address(this));
-        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps);
+        curve.initializeCurve(raffleTokenAddr, bondSteps, buyFeeBps, sellFeeBps, config.treasuryAddress);
         curve.setRaffleInfo(msg.sender, seasonId);
 
         token.grantRole(token.MINTER_ROLE(), address(curve));
@@ -97,6 +97,7 @@ contract SellAllTicketsTest is Test {
     MockERC20_SellAll public sof;
     MockSeasonFactory_SellAll public factory;
     address public deployer = address(this);
+    address public treasury = address(0x999);
 
     function setUp() public {
         sof = new MockERC20_SellAll("SOF Token", "SOF", 18);
@@ -121,6 +122,7 @@ contract SellAllTicketsTest is Test {
         cfg.endTime = nowTs + 1 days;
         cfg.winnerCount = 3;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 10, 70);
 
         vm.warp(nowTs + 1);
@@ -161,6 +163,7 @@ contract SellAllTicketsTest is Test {
         cfg.endTime = end;
         cfg.winnerCount = 3;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         seasonId = raffle.createSeason(cfg, steps, 10, 70);
         (RaffleTypes.SeasonConfig memory scfg,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(scfg.bondingCurve);

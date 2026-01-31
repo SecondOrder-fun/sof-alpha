@@ -72,6 +72,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
 
     // Treasury fee tracking
     uint256 public accumulatedFees;
+    address public treasuryAddress; // Where accumulated fees are sent
 
     // Events
     event TokensPurchased( // total paid including fee
@@ -113,15 +114,18 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param _bondSteps Array of BondStep defining the pricing curve
      * @param _buyFee Buy fee in basis points
      * @param _sellFee Sell fee in basis points
+     * @param _treasuryAddress Where accumulated fees are sent
      */
     function initializeCurve(
         address _raffleToken,
         RaffleTypes.BondStep[] calldata _bondSteps,
         uint16 _buyFee,
-        uint16 _sellFee
+        uint16 _sellFee,
+        address _treasuryAddress
     ) external onlyRole(RAFFLE_MANAGER_ROLE) {
         if (curveConfig.initialized) revert CurveAlreadyInitialized();
         if (_raffleToken == address(0)) revert InvalidAddress();
+        if (_treasuryAddress == address(0)) revert InvalidAddress();
         if (_bondSteps.length == 0) revert InvalidBondSteps();
         if (_buyFee > 1000) revert FeeTooHigh(_buyFee);
         if (_sellFee > 1000) revert FeeTooHigh(_sellFee);
@@ -153,6 +157,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             tradingLocked: false,
             initialized: true
         });
+
+        treasuryAddress = _treasuryAddress;
 
         emit CurveInitialized(_raffleToken, _bondSteps.length);
     }
@@ -398,19 +404,19 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @notice Extract accumulated fees to SOFToken treasury system
+     * @notice Extract accumulated fees directly to treasury address
      * @dev Can be called manually by admin or automatically at season end
      */
     function extractFeesToTreasury() external onlyRole(RAFFLE_MANAGER_ROLE) nonReentrant {
-        require(accumulatedFees > 0, "Curve: no fees");
+        if (accumulatedFees == 0) revert AmountZero();
 
         uint256 feesToExtract = accumulatedFees;
         accumulatedFees = 0;
 
-        // Transfer fees directly to SOFToken contract
-        sofToken.safeTransfer(address(sofToken), feesToExtract);
+        // Transfer fees directly to treasury address (no SOFToken intermediary)
+        sofToken.safeTransfer(treasuryAddress, feesToExtract);
 
-        emit FeesExtracted(address(sofToken), feesToExtract);
+        emit FeesExtracted(treasuryAddress, feesToExtract);
     }
 
     /**

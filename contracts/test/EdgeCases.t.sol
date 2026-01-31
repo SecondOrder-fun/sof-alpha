@@ -115,6 +115,7 @@ contract EdgeCasesTest is Test {
     address public player1 = address(0xA1);
     address public player2 = address(0xA2);
     address public player3 = address(0xA3);
+    address public treasury = address(0xFEE);
 
     function setUp() public {
         sof = new MockERC20EdgeCase("SOF", "SOF", 18);
@@ -147,6 +148,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
@@ -169,6 +171,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = startTs + 1 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
 
@@ -187,6 +190,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = block.timestamp + 1 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         vm.expectRevert();
         raffle.createSeason(cfg, _steps(), 50, 70);
@@ -199,6 +203,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = block.timestamp + 1; // Before startTime
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         vm.expectRevert();
         raffle.createSeason(cfg, _steps(), 50, 70);
@@ -212,6 +217,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = startTs + 1 minutes; // Only 1 minute
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         vm.warp(startTs);
@@ -229,6 +235,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = startTs + 365 days; // Full year
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         vm.warp(startTs);
@@ -383,6 +390,7 @@ contract EdgeCasesTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 5;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);

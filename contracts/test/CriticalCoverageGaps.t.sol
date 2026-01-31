@@ -146,6 +146,7 @@ contract CriticalCoverageGapsTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
@@ -381,6 +382,7 @@ contract CriticalCoverageGapsTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
@@ -418,6 +420,7 @@ contract CriticalCoverageGapsTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 5;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
@@ -510,6 +513,7 @@ contract CriticalCoverageGapsTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         vm.prank(nonAdmin);
         vm.expectRevert();
@@ -548,6 +552,7 @@ contract CriticalCoverageGapsTest is Test {
         cfg.endTime = newStartTime + 3 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId2 = raffle.createSeason(cfg, _steps(), 50, 70);
         vm.warp(newStartTime); // Warp exactly to startTime
         raffle.startSeason(seasonId2);

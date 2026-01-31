@@ -26,7 +26,7 @@ contract SOFFaucetTest is Test {
         vm.startPrank(owner);
 
         // Deploy SOF token
-        sofToken = new SOFToken("SecondOrder Fun Token", "SOF", INITIAL_SUPPLY, owner);
+        sofToken = new SOFToken("SecondOrder Fun Token", "SOF", INITIAL_SUPPLY);
 
         // Set up allowed chain IDs
         uint256[] memory allowedChainIds = new uint256[](2);

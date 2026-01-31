@@ -100,6 +100,7 @@ contract RaffleVRFTest is Test {
     MockERC20 public sof;
     address public player1 = address(0xA1);
     address public player2 = address(0xA2);
+    address public treasury = address(0xFEE);
 
     function setUp() public {
         sof = new MockERC20("SOF", "SOF", 18);
@@ -130,6 +131,7 @@ contract RaffleVRFTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 2;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         curve = SOFBondingCurve(out.bondingCurve);
@@ -226,6 +228,7 @@ contract RaffleVRFTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 3;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
         uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
         (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
         SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
@@ -356,6 +359,7 @@ contract RaffleVRFTest is Test {
         cfg.endTime = block.timestamp + 3 days;
         cfg.winnerCount = 1;
         cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
 
         vm.expectRevert(abi.encodeWithSignature("InvalidSeasonName()"));
         raffle.createSeason(cfg, _steps(), 50, 70);
