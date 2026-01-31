@@ -30,7 +30,11 @@ contract RaffleTestHarness is Raffle {
     function testFulfillAndFinalize(uint256 requestId, uint256[] calldata words) external {
         fulfillRandomWords(requestId, words);
         uint256 seasonId = vrfRequestToSeason[requestId];
-        this.finalizeSeason(seasonId);
+        // Only call finalizeSeason if auto-finalize failed (season still in Distributing)
+        if (seasonStates[seasonId].status == SeasonStatus.Distributing) {
+            this.finalizeSeason(seasonId);
+        }
+        // If auto-finalize succeeded, season is already Completed
     }
 
     function testLockTrading(uint256 seasonId) external {

@@ -29,7 +29,11 @@ contract RaffleEdgeCaseHarness is Raffle {
     function testFulfillAndFinalize(uint256 requestId, uint256[] calldata words) external {
         fulfillRandomWords(requestId, words);
         uint256 seasonId = vrfRequestToSeason[requestId];
-        this.finalizeSeason(seasonId);
+        // Only call finalizeSeason if auto-finalize failed (season still in Distributing)
+        if (seasonStates[seasonId].status == SeasonStatus.Distributing) {
+            this.finalizeSeason(seasonId);
+        }
+        // If auto-finalize succeeded, season is already Completed
     }
 
     function testLockTrading(uint256 seasonId) external {
@@ -577,18 +581,19 @@ contract EdgeCasesTest is Test {
         vm.expectRevert();
         raffle.finalizeSeason(seasonId);
 
-        // Fulfill VRF puts it in Distributing state
+        // Fulfill VRF triggers auto-finalization, completing the season
         uint256[] memory words = new uint256[](2);
         words[0] = 111;
         words[1] = 222;
         raffle.testFulfill(123, words);
 
-        // Now finalize should work
-        raffle.finalizeSeason(seasonId);
+        // With auto-finalization, season should already be Completed
+        // Manual finalizeSeason would only be needed if auto-finalize failed
+        // (In this test, auto-finalize succeeds so season is Completed)
 
         // After completion, getWinners should work (it requires Completed status)
         address[] memory winners = raffle.getWinners(seasonId);
-        assertGt(winners.length, 0, "Should have winners after completion");
+        assertGt(winners.length, 0, "Should have winners after auto-finalization");
     }
 
     function test_StateTransition_CannotRestartCompleted() public {
