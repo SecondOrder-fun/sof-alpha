@@ -17,6 +17,7 @@ import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 import {ITrackerACL} from "../lib/ITrackerACL.sol";
+import {ISeasonGating} from "../gating/ISeasonGating.sol";
 
 // ============================================================================
 // CUSTOM ERRORS - Clear, gas-efficient error reporting
@@ -40,6 +41,7 @@ error InvalidEndTime(uint256 endTime, uint256 startTime);
 error InvalidTreasuryAddress();
 error UnauthorizedCaller();
 error NoVRFWords(uint256 seasonId);
+error UserNotVerified(uint256 seasonId, address user);
 
 /**
  * @title Raffle Contract
@@ -101,6 +103,16 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     function setPrizeDistributor(address distributor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (distributor == address(0)) revert InvalidAddress();
         prizeDistributor = distributor;
+    }
+
+    /**
+     * @notice Set the gating contract for participation requirements
+     * @param _gatingContract The SeasonGating contract address
+     */
+    function setGatingContract(address _gatingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldContract = gatingContract;
+        gatingContract = _gatingContract;
+        emit GatingContractUpdated(oldContract, _gatingContract);
     }
 
     /**
@@ -348,7 +360,14 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         onlyRole(BONDING_CURVE_ROLE)
     {
         require(seasons[seasonId].isActive, "Raffle: season inactive");
-        
+
+        // Check gating requirements if season is gated
+        if (seasons[seasonId].gated && gatingContract != address(0)) {
+            if (!ISeasonGating(gatingContract).isUserVerified(seasonId, participant)) {
+                revert UserNotVerified(seasonId, participant);
+            }
+        }
+
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
         uint256 oldTickets = pos.ticketCount;

@@ -48,6 +48,9 @@ abstract contract RaffleStorage {
     mapping(uint256 => SeasonState) public seasonStates;
     mapping(uint256 => uint256) public vrfRequestToSeason;
 
+    // Gating contract for participation requirements
+    address public gatingContract;
+
     // Events
     event SeasonCreated(
         uint256 indexed seasonId,
@@ -73,4 +76,7 @@ abstract contract RaffleStorage {
     event AutoFinalizeAttempted(uint256 indexed seasonId, bool success);
     event AutoFinalizeFailed(uint256 indexed seasonId, string reason);
     event AutoFinalizeFailedLowLevel(uint256 indexed seasonId, bytes data);
+
+    // Gating events
+    event GatingContractUpdated(address indexed oldContract, address indexed newContract);
 }
