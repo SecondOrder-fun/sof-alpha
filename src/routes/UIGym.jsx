@@ -98,6 +98,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  CollapsibleItem,
 } from '@/components/ui/collapsible';
 import {
   Table,
@@ -189,6 +190,7 @@ const UIGym = () => {
                 <Button variant="primary">Primary</Button>
                 <Button variant="secondary">Secondary</Button>
                 <Button variant="outline">Outline</Button>
+                <Button variant="cancel">Cancel</Button>
                 <Button variant="ghost">Ghost</Button>
                 <Button variant="link">Link</Button>
                 <Button variant="destructive">Destructive</Button>
@@ -398,7 +400,7 @@ const UIGym = () => {
                       <p>Dialog content goes here.</p>
                     </div>
                     <DialogFooter>
-                      <Button variant="outline">Cancel</Button>
+                      <Button variant="cancel">Cancel</Button>
                       <Button>Confirm</Button>
                     </DialogFooter>
                   </DialogContent>
@@ -547,15 +549,15 @@ const UIGym = () => {
                     </CollapsibleTrigger>
                   </div>
                   <CollapsibleContent className="space-y-2 mt-2">
-                    <div className="rounded-md border px-4 py-2 text-sm">
+                    <CollapsibleItem index={0} totalItems={3} className="rounded-md border px-4 py-2 text-sm">
                       @radix-ui/primitives
-                    </div>
-                    <div className="rounded-md border px-4 py-2 text-sm">
+                    </CollapsibleItem>
+                    <CollapsibleItem index={1} totalItems={3} className="rounded-md border px-4 py-2 text-sm">
                       @radix-ui/colors
-                    </div>
-                    <div className="rounded-md border px-4 py-2 text-sm">
+                    </CollapsibleItem>
+                    <CollapsibleItem index={2} totalItems={3} className="rounded-md border px-4 py-2 text-sm">
                       @stitches/react
-                    </div>
+                    </CollapsibleItem>
                   </CollapsibleContent>
                 </Collapsible>
               </Subsection>

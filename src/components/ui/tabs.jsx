@@ -1,92 +1,107 @@
 // src/components/ui/tabs.jsx
+// Animated tabs with sliding highlight indicator
+// Inspired by animate-ui.com/docs/components/headless/tabs
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import PropTypes from "prop-types";
 
 import { cn } from "@/lib/utils";
 
-const TabsContext = React.createContext({
-  activeValue: undefined,
-});
-
-const Tabs = React.forwardRef(
-  ({ className, value, defaultValue, onValueChange, ...props }, ref) => {
-    const isControlled = value !== undefined;
-    const [uncontrolledValue, setUncontrolledValue] =
-      React.useState(defaultValue);
-
-    const activeValue = isControlled ? value : uncontrolledValue;
-
-    const handleValueChange = React.useCallback(
-      (nextValue) => {
-        if (!isControlled) {
-          setUncontrolledValue(nextValue);
-        }
-        onValueChange?.(nextValue);
-      },
-      [isControlled, onValueChange],
-    );
-
-    return (
-      <TabsContext.Provider value={{ activeValue }}>
-        <TabsPrimitive.Root
-          ref={ref}
-          value={activeValue}
-          defaultValue={defaultValue}
-          onValueChange={handleValueChange}
-          className={className}
-          {...props}
-        />
-      </TabsContext.Provider>
-    );
-  },
-);
-Tabs.displayName = TabsPrimitive.Root.displayName;
-
-Tabs.propTypes = {
-  className: PropTypes.string,
-  value: PropTypes.string,
-  defaultValue: PropTypes.string,
-  onValueChange: PropTypes.func,
-};
+const Tabs = TabsPrimitive.Root;
 
 const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
-  const { activeValue } = React.useContext(TabsContext);
+  const [indicatorStyle, setIndicatorStyle] = React.useState({ x: 0, width: 0, ready: false });
+  const [hoverStyle, setHoverStyle] = React.useState(null);
+  const listRef = React.useRef(null);
 
-  const childrenArray = React.Children.toArray(children);
-  const orderedTriggerValues = childrenArray
-    .filter(
-      (child) => React.isValidElement(child) && child.type === TabsTrigger,
-    )
-    .map((child) => child.props.value);
+  // The indicator follows hover position, or falls back to active tab
+  const displayStyle = hoverStyle || indicatorStyle;
 
-  const activeIndex =
-    typeof activeValue === "string"
-      ? orderedTriggerValues.indexOf(activeValue)
-      : -1;
+  // Update active tab position
+  const updateActivePosition = React.useCallback(() => {
+    if (!listRef.current) return;
+    const activeTab = listRef.current.querySelector('[data-state="active"]');
+    if (activeTab) {
+      const listRect = listRef.current.getBoundingClientRect();
+      const tabRect = activeTab.getBoundingClientRect();
+      setIndicatorStyle({
+        x: tabRect.left - listRect.left,
+        width: tabRect.width,
+        ready: true,
+      });
+    }
+  }, []);
 
-  const enhancedChildren = childrenArray.map((child) => {
-    if (!React.isValidElement(child) || child.type !== TabsTrigger)
-      return child;
+  // Observe for active state changes
+  React.useEffect(() => {
+    updateActivePosition();
 
-    const idx = orderedTriggerValues.indexOf(child.props.value);
+    const observer = new MutationObserver(updateActivePosition);
+    if (listRef.current) {
+      observer.observe(listRef.current, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ['data-state'],
+      });
+    }
+
+    window.addEventListener('resize', updateActivePosition);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateActivePosition);
+    };
+  }, [updateActivePosition]);
+
+  // Clone children to add hover handlers for sliding indicator
+  const enhancedChildren = React.Children.map(children, (child) => {
+    if (!React.isValidElement(child)) return child;
 
     return React.cloneElement(child, {
-      __tabIndex: idx,
-      __tabCount: orderedTriggerValues.length,
-      __activeIndex: activeIndex,
+      onMouseEnter: (e) => {
+        const listRect = listRef.current?.getBoundingClientRect();
+        const tabRect = e.currentTarget.getBoundingClientRect();
+        if (listRect) {
+          setHoverStyle({
+            x: tabRect.left - listRect.left,
+            width: tabRect.width,
+          });
+        }
+        child.props.onMouseEnter?.(e);
+      },
+      onMouseLeave: (e) => {
+        setHoverStyle(null);
+        child.props.onMouseLeave?.(e);
+      },
     });
   });
 
   return (
     <TabsPrimitive.List
-      ref={ref}
+      ref={(el) => {
+        listRef.current = el;
+        if (typeof ref === 'function') ref(el);
+        else if (ref) ref.current = el;
+      }}
       className={cn(
-        "inline-flex h-10 items-center justify-center text-muted-foreground",
+        "relative inline-flex items-center rounded-full border border-[#c82a54]",
         className,
       )}
       {...props}
     >
+      {/* Sliding indicator - same cochineal red, slides on hover */}
+      <span
+        className={cn(
+          "absolute left-0 rounded-full bg-[#c82a54]",
+          !displayStyle.ready && !hoverStyle && "opacity-0"
+        )}
+        style={{
+          transform: `translateX(${displayStyle.x}px)`,
+          width: displayStyle.width,
+          height: `calc(100% - 2px)`,
+          top: 1,
+          transition: 'transform 300ms ease-out, width 300ms ease-out',
+        }}
+      />
       {enhancedChildren}
     </TabsPrimitive.List>
   );
@@ -98,73 +113,27 @@ TabsList.propTypes = {
   children: PropTypes.node,
 };
 
-const TabsTrigger = React.forwardRef(
-  (
-    { className, __tabIndex, __tabCount, __activeIndex, value, ...props },
-    ref,
-  ) => {
-    const isActive =
-      typeof __activeIndex === "number" && __tabIndex === __activeIndex;
-
-    let roundingClasses = "";
-
-    if (
-      typeof __tabIndex === "number" &&
-      typeof __tabCount === "number" &&
-      __tabIndex >= 0 &&
-      __tabCount > 0
-    ) {
-      if (isActive) {
-        roundingClasses =
-          "!rounded-tl-md !rounded-tr-md !rounded-bl-md !rounded-br-md";
-      } else if (typeof __activeIndex === "number" && __activeIndex >= 0) {
-        const hasInactiveLeft =
-          __tabIndex > 0 && __tabIndex - 1 !== __activeIndex;
-        const hasInactiveRight =
-          __tabIndex < __tabCount - 1 && __tabIndex + 1 !== __activeIndex;
-
-        if (hasInactiveLeft && hasInactiveRight) {
-          roundingClasses =
-            "!rounded-tl-none !rounded-tr-none !rounded-bl-none !rounded-br-none";
-        } else if (hasInactiveLeft) {
-          roundingClasses =
-            "!rounded-tl-none !rounded-tr-md !rounded-bl-none !rounded-br-md";
-        } else if (hasInactiveRight) {
-          roundingClasses =
-            "!rounded-tl-md !rounded-tr-none !rounded-bl-md !rounded-br-none";
-        } else {
-          roundingClasses =
-            "!rounded-tl-md !rounded-tr-md !rounded-bl-md !rounded-br-md";
-        }
-      }
-    }
-
-    const joinOverlapClass =
-      typeof __tabIndex === "number" && __tabIndex > 0 ? "-ml-[1px]" : "";
-
-    return (
-      <TabsPrimitive.Trigger
-        ref={ref}
-        value={value}
-        className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-[#c82a54] data-[state=active]:underline data-[state=active]:underline-offset-4 data-[state=active]:text-base data-[state=active]:shadow-sm",
-          roundingClasses,
-          joinOverlapClass,
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
-);
+const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      // Base styles - z-10 to be above indicator
+      "relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      // Inactive: transparent bg, cochineal text, underlined - force no hover bg
+      "bg-transparent hover:bg-transparent text-[#c82a54] hover:text-white underline underline-offset-4",
+      // Active: white text, no underline (bg handled by sliding indicator)
+      "data-[state=active]:text-white data-[state=active]:no-underline data-[state=active]:bg-transparent",
+      // Override any Radix highlight state
+      "data-[highlighted]:bg-transparent",
+      className,
+    )}
+    {...props}
+  />
+));
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 TabsTrigger.propTypes = {
   className: PropTypes.string,
-  value: PropTypes.string,
-  __tabIndex: PropTypes.number,
-  __tabCount: PropTypes.number,
-  __activeIndex: PropTypes.number,
 };
 
 const TabsContent = React.forwardRef(({ className, ...props }, ref) => (

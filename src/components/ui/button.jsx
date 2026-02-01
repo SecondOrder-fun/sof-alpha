@@ -17,13 +17,16 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
         // Primary button: white text on Cochineal Red, Fabric Red on hover, Pastel Rose on active
         resolvedVariant === 'default' && 'bg-[#c82a54] text-white hover:bg-[#e25167] active:bg-[#f9d6de]',
         resolvedVariant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        resolvedVariant === 'outline' && 'border border-input hover:bg-accent hover:text-accent-foreground',
+        // Outline: White border, transparent background
+        resolvedVariant === 'outline' && 'border border-white text-white hover:bg-white/10',
+        // Cancel: Cochineal border/text on black, muted hover, inverted active
+        resolvedVariant === 'cancel' && 'border border-[#c82a54] text-[#c82a54] bg-black hover:bg-[#374151] hover:text-white active:bg-[#c82a54] active:text-black',
         // Secondary button: Cement background, Asphalt text, Cochineal Red border,
         // Fabric Red hover, Pastel Rose active
         resolvedVariant === 'secondary' && 'bg-[#a89e99] text-[#353e34] border border-[#c82a54] hover:bg-[#e25167] active:bg-[#f9d6de]',
         resolvedVariant === 'ghost' && 'hover:bg-accent hover:text-accent-foreground',
         resolvedVariant === 'link' && 'underline-offset-4 hover:underline text-primary',
-        size === 'default' && 'h-10 py-2 px-4',
+        (size === 'default' || !size) && 'h-10 py-2 px-4',
         size === 'sm' && 'h-9 px-3 rounded-md',
         size === 'lg' && 'h-11 px-8 rounded-md',
         className
@@ -43,6 +46,7 @@ Button.propTypes = {
     'primary',
     'secondary',
     'outline',
+    'cancel',
     'ghost',
     'link',
     'destructive',
