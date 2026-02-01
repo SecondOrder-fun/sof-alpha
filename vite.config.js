@@ -54,7 +54,7 @@ export default defineConfig(() => {
       sourcemap: true,
     },
     server: {
-      port: 5173,
+      port: 5174,
       strictPort: true, // Fail if port is already in use instead of trying next available
       host: "127.0.0.1",
       open: true,
