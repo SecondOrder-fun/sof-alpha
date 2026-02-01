@@ -2,8 +2,17 @@
   @vitest-environment jsdom
 */
 // tests/components/CreateSeasonForm.validation.test.jsx
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+// ResizeObserver polyfill for Radix UI components
+beforeAll(() => {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 
 // Mock dependencies
 vi.mock('wagmi', () => ({

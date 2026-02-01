@@ -7,6 +7,7 @@
  * @property {`0x${string}` | string} RAFFLE
  * @property {`0x${string}` | string} SOF
  * @property {`0x${string}` | string} SEASON_FACTORY
+ * @property {`0x${string}` | string} SEASON_GATING
  * @property {`0x${string}` | string} INFOFI_FACTORY
  * @property {`0x${string}` | string} INFOFI_ORACLE
  * @property {`0x${string}` | string} INFOFI_SETTLEMENT
@@ -18,8 +19,10 @@
  */
 
 import RAFFLE_ABI_JSON from "../contracts/abis/Raffle.json";
+import SEASON_GATING_ABI_JSON from "../contracts/abis/SeasonGating.json";
 
 export const RAFFLE_ABI = RAFFLE_ABI_JSON;
+export const SEASON_GATING_ABI = SEASON_GATING_ABI_JSON;
 
 /** @type {Record<string, ContractAddresses>} */
 export const CONTRACTS = {
@@ -27,6 +30,7 @@ export const CONTRACTS = {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_LOCAL || "",
     SOF: import.meta.env.VITE_SOF_ADDRESS_LOCAL || "",
     SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_LOCAL || "",
+    SEASON_GATING: import.meta.env.VITE_SEASON_GATING_ADDRESS_LOCAL || "",
     INFOFI_FACTORY: import.meta.env.VITE_INFOFI_FACTORY_ADDRESS_LOCAL || "",
     INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_LOCAL || "",
     INFOFI_SETTLEMENT:
@@ -44,6 +48,7 @@ export const CONTRACTS = {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || "",
     SOF: import.meta.env.VITE_SOF_ADDRESS_TESTNET || "",
     SEASON_FACTORY: import.meta.env.VITE_SEASON_FACTORY_ADDRESS_TESTNET || "",
+    SEASON_GATING: import.meta.env.VITE_SEASON_GATING_ADDRESS_TESTNET || "",
     INFOFI_FACTORY: import.meta.env.VITE_INFOFI_FACTORY_ADDRESS_TESTNET || "",
     INFOFI_ORACLE: import.meta.env.VITE_INFOFI_ORACLE_ADDRESS_TESTNET || "",
     INFOFI_SETTLEMENT:

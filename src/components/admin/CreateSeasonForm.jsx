@@ -13,6 +13,7 @@ import { ERC20Abi } from '@/utils/abis';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 import TransactionModal from "@/components/admin/TransactionModal";
 import BondingCurveEditor from "@/components/admin/BondingCurveEditor";
+import GatingConfig from "@/components/admin/GatingConfig";
 
 // Helper: format epoch seconds to a local "YYYY-MM-DDTHH:mm" string for <input type="datetime-local">
 const fmtLocalDatetime = (sec) => {
@@ -50,6 +51,11 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
     maxTickets: 100000,
     isValid: false,
   });
+
+  // Gating configuration
+  const [gated, setGated] = useState(false);
+  // Note: gatingGates will be used when configuring the SeasonGating contract after season creation
+  const [, setGatingGates] = useState([]);
 
   const publicClient = usePublicClient();
   const addresses = getContractAddresses(getStoredNetworkKey());
@@ -262,6 +268,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       bondingCurve: "0x0000000000000000000000000000000000000000",
       isActive: false,
       isCompleted: false,
+      gated,
     };
 
     // Validate bond steps from curve editor
@@ -396,6 +403,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       <BondingCurveEditor
         onChange={handleCurveChange}
         sofDecimals={sofDecimals}
+      />
+      {/* Gating Configuration */}
+      <GatingConfig
+        gated={gated}
+        onGatedChange={setGated}
+        onGatesChange={setGatingGates}
       />
       {formError && (
         <p className="text-xs text-red-500">{formError}</p>

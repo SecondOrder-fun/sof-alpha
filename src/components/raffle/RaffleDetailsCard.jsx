@@ -17,8 +17,10 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { useRaffle } from "@/hooks/useRaffle";
 import { useSOFToken } from "@/hooks/useSOFToken";
+import { useSeasonGating } from "@/hooks/useSeasonGating";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
 import CountdownTimer from "@/components/common/CountdownTimer";
+import GatingVerification from "@/components/raffle/GatingVerification";
 
 /**
  * RaffleDetailsCard component for displaying and interacting with a raffle
@@ -29,6 +31,7 @@ const RaffleDetailsCard = ({ seasonId }) => {
   const { seasonDetails, userPosition, winners, isLoading, error, buyTickets } =
     useRaffle(seasonId);
   const { balance: sofBalance } = useSOFToken();
+  const { isVerified, hasGates, refetchVerified } = useSeasonGating(seasonId);
 
   const [ticketAmount, setTicketAmount] = useState("");
   const [maxCost, setMaxCost] = useState("");
@@ -169,8 +172,18 @@ const RaffleDetailsCard = ({ seasonId }) => {
           </div>
         )}
 
-        {/* Buy tickets form (if active) */}
-        {seasonDetails.isActive && isConnected && (
+        {/* Gating verification (if season is gated) */}
+        {seasonDetails.isActive && isConnected && hasGates && !isVerified && (
+          <div className="mt-6">
+            <GatingVerification
+              seasonId={seasonId}
+              onVerified={refetchVerified}
+            />
+          </div>
+        )}
+
+        {/* Buy tickets form (if active and verified) */}
+        {seasonDetails.isActive && isConnected && isVerified && (
           <div className="mt-6">
             <h3 className="text-lg font-semibold mb-2">
               {t("buyTicketsTitle")}
