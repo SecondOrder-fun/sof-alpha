@@ -77,6 +77,8 @@ import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 import Landing from "./routes/Landing";
 import Login from "./routes/Login";
 import PublicLayout from "./layouts/PublicLayout";
+// Dev-only: UI Gym component showcase (tree-shaken in production)
+import UIGym from "./routes/UIGym";
 
 // Import access control components
 import { ProtectedRoute } from "./components/access";
@@ -180,6 +182,15 @@ const router = createBrowserRouter([
             path: "faucet",
             element: <FaucetPage />,
           },
+          // Dev-only: UI Gym component showcase
+          ...(import.meta.env.DEV
+            ? [
+                {
+                  path: "ui-gym",
+                  element: <UIGym />,
+                },
+              ]
+            : []),
           {
             path: "*",
             element: <NotFound />,
