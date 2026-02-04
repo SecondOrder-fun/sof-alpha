@@ -203,7 +203,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
                 callbackGasLimit: vrfCallbackGasLimit,
                 numWords: seasons[seasonId].winnerCount,
                 extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: true})
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
             })
         );
@@ -241,7 +241,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
                 callbackGasLimit: vrfCallbackGasLimit,
                 numWords: seasons[seasonId].winnerCount,
                 extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: true})
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
                 )
             })
         );
