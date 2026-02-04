@@ -320,6 +320,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             cfg.isCompleted = true;
             state.status = SeasonStatus.Completed;
             emit PrizeDistributionSetup(seasonId, prizeDistributor);
+            emit SeasonCompleted(seasonId);
             return;
         }
 
@@ -352,6 +353,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         cfg.isCompleted = true;
         state.status = SeasonStatus.Completed;
         emit PrizeDistributionSetup(seasonId, prizeDistributor);
+        emit SeasonCompleted(seasonId);
     }
 
     // Called by curve
