@@ -167,6 +167,11 @@
         "name": "marketType",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "probabilityBps",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],

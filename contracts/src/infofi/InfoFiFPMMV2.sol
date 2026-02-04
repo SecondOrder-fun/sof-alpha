@@ -416,7 +416,7 @@ contract InfoFiFPMMV2 is AccessControl, ReentrancyGuard {
         _grantRole(FACTORY_ROLE, _admin);
     }
 
-    function createMarket(uint256 seasonId, address player, bytes32 conditionId)
+    function createMarket(uint256 seasonId, address player, bytes32 conditionId, uint256 probabilityBps)
         external
         onlyRole(FACTORY_ROLE)
         nonReentrant
@@ -466,13 +466,42 @@ contract InfoFiFPMMV2 is AccessControl, ReentrancyGuard {
         uint256 yesPositionId = fpmmContract.positionIds(0);
         uint256 noPositionId = fpmmContract.positionIds(1);
 
-        // Transfer outcome tokens to FPMM to initialize reserves (50/50 split)
-        conditionalTokens.safeTransferFrom(address(this), fpmm, yesPositionId, INITIAL_FUNDING / 2, "");
+        // ✅ ORACLE-SEEDED INITIAL RESERVES
+        // Set reserves proportional to raffle probability instead of hardcoded 50/50
+        // In CPMM: P(YES) = noReserve / (yesReserve + noReserve)
+        // So: yesReserve ∝ (1 - probability), noReserve ∝ probability
+        //
+        // Floor each side at 5% of INITIAL_FUNDING to prevent single-trade liquidity drain
+        uint256 minReserve = INITIAL_FUNDING / 20; // 5 SOF minimum per side
 
-        conditionalTokens.safeTransferFrom(address(this), fpmm, noPositionId, INITIAL_FUNDING / 2, "");
+        // Clamp probability to [500, 9500] bps (5%-95%) to ensure minimum reserves
+        uint256 clampedBps = probabilityBps;
+        if (clampedBps < 500) clampedBps = 500;
+        if (clampedBps > 9500) clampedBps = 9500;
 
-        // Initialize FPMM reserves
-        fpmmContract.initializeReserves(INITIAL_FUNDING / 2, INITIAL_FUNDING / 2);
+        uint256 yesReserve = (INITIAL_FUNDING * (10000 - clampedBps)) / 10000;
+        uint256 noReserve = (INITIAL_FUNDING * clampedBps) / 10000;
+
+        // Safety: ensure minimum reserves (should already be guaranteed by clamping)
+        if (yesReserve < minReserve) yesReserve = minReserve;
+        if (noReserve < minReserve) noReserve = minReserve;
+
+        // Transfer proportional outcome tokens to FPMM
+        conditionalTokens.safeTransferFrom(address(this), fpmm, yesPositionId, yesReserve, "");
+        conditionalTokens.safeTransferFrom(address(this), fpmm, noPositionId, noReserve, "");
+
+        // Send remaining outcome tokens to treasury (not wasted — can be used for future liquidity)
+        uint256 yesRemainder = INITIAL_FUNDING - yesReserve;
+        uint256 noRemainder = INITIAL_FUNDING - noReserve;
+        if (yesRemainder > 0) {
+            conditionalTokens.safeTransferFrom(address(this), treasury, yesPositionId, yesRemainder, "");
+        }
+        if (noRemainder > 0) {
+            conditionalTokens.safeTransferFrom(address(this), treasury, noPositionId, noRemainder, "");
+        }
+
+        // Initialize FPMM reserves with proportional amounts
+        fpmmContract.initializeReserves(yesReserve, noReserve);
 
         // Mint SOLP tokens to factory (treasury)
         solpToken.mint(msg.sender, INITIAL_FUNDING);

@@ -243,7 +243,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
 
         // ✅ CREATE MARKET IF THRESHOLD CROSSED
         if (newBps >= THRESHOLD_BPS && oldBps < THRESHOLD_BPS && !marketCreated[seasonId][player]) {
-            _createMarket(seasonId, player);
+            _createMarket(seasonId, player, newBps);
         }
     }
 
@@ -253,7 +253,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
      * @param seasonId The season identifier
      * @param player The player address
      */
-    function _createMarket(uint256 seasonId, address player) internal {
+    function _createMarket(uint256 seasonId, address player, uint256 probabilityBps) internal {
         // ✅ DETERMINE MARKET TYPE
         // For now, always use WINNER_PREDICTION (backward compatible)
         // In future, can add logic to determine different market types based on criteria
@@ -268,7 +268,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         }
 
         // ✅ ATTEMPT MARKET CREATION WITH ERROR HANDLING
-        try this._createMarketInternal(seasonId, player, marketType) {
+        try this._createMarketInternal(seasonId, player, marketType, probabilityBps) {
             // Success - status already updated in _createMarketInternal
         } catch Error(string memory reason) {
             // Solidity error with message
@@ -368,7 +368,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
      * @param player The player address
      * @param marketType The type of market to create (validated against registry)
      */
-    function _createMarketInternal(uint256 seasonId, address player, bytes32 marketType) external {
+    function _createMarketInternal(uint256 seasonId, address player, bytes32 marketType, uint256 probabilityBps) external {
         // ✅ AUTHORIZATION CHECK
         if (msg.sender != address(this)) revert UnauthorizedCaller();
 
@@ -450,7 +450,7 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         }
         require(sofToken.approve(address(fpmmManager), INITIAL_LIQUIDITY), "Approval failed");
 
-        (address fpmm,) = fpmmManager.createMarket(seasonId, player, conditionId);
+        (address fpmm,) = fpmmManager.createMarket(seasonId, player, conditionId, probabilityBps);
 
         // ✅ STEP 4: SET ALL STATE AT END
         marketCreated[seasonId][player] = true;
@@ -538,8 +538,16 @@ contract InfoFiMarketFactory is AccessControl, ReentrancyGuard {
         // ✅ VALIDATION: Market must be in failed state
         if (marketStatus[seasonId][player] != MarketCreationStatus.Failed) revert NotInFailedState();
 
+        // ✅ CALCULATE CURRENT PROBABILITY FROM ON-CHAIN STATE
+        (,,, uint256 totalTickets,) = raffle.getSeasonDetails(seasonId);
+        uint256 probabilityBps = 5000; // default 50% if no data
+        if (totalTickets > 0) {
+            IRaffleRead.ParticipantPosition memory pos = raffle.getParticipantPosition(seasonId, player);
+            probabilityBps = (pos.ticketCount * 10000) / totalTickets;
+        }
+
         // ✅ RETRY MARKET CREATION
-        _createMarket(seasonId, player);
+        _createMarket(seasonId, player, probabilityBps);
     }
 
     // ============ VIEW FUNCTIONS ============
