@@ -117,6 +117,28 @@ contract DeployToSepolia is Script {
         prizeDistributor.grantRole(raffleRole, raffleAddress);
         console2.log(unicode"\n✅ RAFFLE_ROLE granted");
 
+        // 9.5 Set PrizeDistributor in Raffle
+        console2.log(unicode"\n⚙️  Setting PrizeDistributor in Raffle...");
+        raffle.setPrizeDistributor(prizeDistributorAddress);
+        console2.log(unicode"\n✅ PrizeDistributor set");
+
+        // 9.6 Grant SEASON_CREATOR_ROLE and EMERGENCY_ROLE to deployer
+        console2.log(unicode"\n⚙️  Granting SEASON_CREATOR_ROLE + EMERGENCY_ROLE to deployer...");
+        raffle.grantRole(keccak256("SEASON_CREATOR_ROLE"), deployer);
+        raffle.grantRole(keccak256("EMERGENCY_ROLE"), deployer);
+        console2.log(unicode"\n✅ Deployer roles granted");
+
+        // NOTE: If redeploying ONLY the Raffle (not SeasonFactory), you must also:
+        //   seasonFactory.grantRole(keccak256("RAFFLE_ADMIN_ROLE"), newRaffleAddress);
+        // SeasonFactory auto-grants RAFFLE_ADMIN_ROLE in its constructor, but only to
+        // the Raffle address passed at deploy time.
+        //
+        // TODO: Research Hats Protocol for SEASON_CREATOR_ROLE management.
+        // Goal: Let anyone with a stake of $SOF tokens be granted a Hat role that maps
+        // to SEASON_CREATOR_ROLE — permissionless season creation gated by skin-in-the-game.
+        // This avoids contract updates AND prevents bot spam (must hold staked SOF).
+        // See: https://www.hatsprotocol.xyz/
+
         // 10. Fund SOFFaucet with SOF tokens
         console2.log(unicode"\n💰 Funding SOFFaucet with SOF tokens...");
         uint256 faucetFundAmount = 100_000e18; // 100,000 SOF for faucet
