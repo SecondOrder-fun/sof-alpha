@@ -76,6 +76,11 @@
             "internalType": "uint16"
           },
           {
+            "name": "treasuryAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "raffleToken",
             "type": "address",
             "internalType": "address"
@@ -92,6 +97,11 @@
           },
           {
             "name": "isCompleted",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "gated",
             "type": "bool",
             "internalType": "bool"
           }
