@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -60,8 +60,7 @@ const farcasterConfig =
       }
     : {};
 
-// Import route components directly instead of lazy loading for now
-// This will help us diagnose the issues more easily
+// Import route components
 import Home from "./routes/Home";
 import Test from "./routes/Test";
 import NotFound from "./routes/NotFound";
@@ -75,9 +74,6 @@ import UserProfile from "./routes/UserProfile";
 import FaucetPage from "./routes/FaucetPage";
 import LocalizationAdmin from "./routes/LocalizationAdmin";
 import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
-import Landing from "./routes/Landing";
-import Login from "./routes/Login";
-import PublicLayout from "./layouts/PublicLayout";
 // Dev-only: UI Gym component showcase (tree-shaken in production)
 import UIGym from "./routes/UIGym";
 
@@ -85,7 +81,6 @@ import UIGym from "./routes/UIGym";
 import { ProtectedRoute } from "./components/access";
 
 // Create router
-
 const router = createBrowserRouter([
   {
     path: "/",
@@ -98,88 +93,86 @@ const router = createBrowserRouter([
       },
       {
         path: "test",
-            element: <Test />,
-          },
-          {
-            path: "raffles",
-            element: <RaffleList />,
-          },
-          {
-            path: "markets",
-            element: (
-              <ProtectedRoute
-                route="__feature__/prediction_markets"
-                redirectTo="/raffles"
-              >
-                <ProtectedRoute route="/markets">
-                  <MarketsIndex />
-                </ProtectedRoute>
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path: "markets/:marketId",
-            element: (
-              <ProtectedRoute
-                route="__feature__/prediction_markets"
-                redirectTo="/raffles"
-              >
-                <ProtectedRoute route="/markets/:id" resourceType="market">
-                  <InfoFiMarketDetail />
-                </ProtectedRoute>
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path: "raffles/:seasonId",
-            element: <RaffleDetails />,
-          },
-          {
-            path: "leaderboard",
-            element: <UsersIndex />,
-          },
-          {
-            path: "users/:address",
-            element: <UserProfile />,
-          },
-          {
-            path: "admin",
-            element: (
-              <ProtectedRoute route="/admin">
-                <AdminPanel />
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path: "admin/localization",
-            element: (
-              <ProtectedRoute route="/admin">
-                <LocalizationAdmin />
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path: "portfolio",
-            element: <AccountPage />,
-          },
-          {
-            path: "faucet",
-            element: <FaucetPage />,
-          },
-          // Dev-only: UI Gym component showcase
-          ...(import.meta.env.DEV
-            ? [
-                {
-                  path: "ui-gym",
-                  element: <UIGym />,
-                },
-              ]
-            : []),
-          {
-            path: "*",
-            element: <NotFound />,
-          },
-        ],
+        element: <Test />,
+      },
+      {
+        path: "raffles",
+        element: <RaffleList />,
+      },
+      {
+        path: "markets",
+        element: (
+          <ProtectedRoute
+            route="__feature__/prediction_markets"
+            redirectTo="/raffles"
+          >
+            <ProtectedRoute route="/markets">
+              <MarketsIndex />
+            </ProtectedRoute>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "markets/:marketId",
+        element: (
+          <ProtectedRoute
+            route="__feature__/prediction_markets"
+            redirectTo="/raffles"
+          >
+            <ProtectedRoute route="/markets/:id" resourceType="market">
+              <InfoFiMarketDetail />
+            </ProtectedRoute>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "raffles/:seasonId",
+        element: <RaffleDetails />,
+      },
+      {
+        path: "leaderboard",
+        element: <UsersIndex />,
+      },
+      {
+        path: "users/:address",
+        element: <UserProfile />,
+      },
+      {
+        path: "admin",
+        element: (
+          <ProtectedRoute route="/admin">
+            <AdminPanel />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "admin/localization",
+        element: (
+          <ProtectedRoute route="/admin">
+            <LocalizationAdmin />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "portfolio",
+        element: <AccountPage />,
+      },
+      {
+        path: "faucet",
+        element: <FaucetPage />,
+      },
+      // Dev-only: UI Gym component showcase
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: "ui-gym",
+              element: <UIGym />,
+            },
+          ]
+        : []),
+      {
+        path: "*",
+        element: <NotFound />,
       },
     ],
   },
@@ -248,30 +241,30 @@ import("./i18n").then(() => {
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
             <WagmiConfigProvider>
-            <ProviderErrorBoundary>
-              <AuthKitProvider config={farcasterConfig}>
-                <ProviderErrorBoundary>
-                  <RainbowKitProvider
-                    locale="en"
-                    initialChain={getInitialChain()}
-                    chains={getRainbowKitChains()}
-                  >
-                    <ProviderErrorBoundary>
-                      <FarcasterProvider>
-                        <SSEProvider>
-                          <UsernameProvider>
-                            <RouterProvider router={router} />
-                            {import.meta.env.DEV && (
-                              <ReactQueryDevtools initialIsOpen={false} />
-                            )}
-                          </UsernameProvider>
-                        </SSEProvider>
-                      </FarcasterProvider>
-                    </ProviderErrorBoundary>
-                  </RainbowKitProvider>
-                </ProviderErrorBoundary>
-              </AuthKitProvider>
-            </ProviderErrorBoundary>
+              <ProviderErrorBoundary>
+                <AuthKitProvider config={farcasterConfig}>
+                  <ProviderErrorBoundary>
+                    <RainbowKitProvider
+                      locale="en"
+                      initialChain={getInitialChain()}
+                      chains={getRainbowKitChains()}
+                    >
+                      <ProviderErrorBoundary>
+                        <FarcasterProvider>
+                          <SSEProvider>
+                            <UsernameProvider>
+                              <RouterProvider router={router} />
+                              {import.meta.env.DEV && (
+                                <ReactQueryDevtools initialIsOpen={false} />
+                              )}
+                            </UsernameProvider>
+                          </SSEProvider>
+                        </FarcasterProvider>
+                      </ProviderErrorBoundary>
+                    </RainbowKitProvider>
+                  </ProviderErrorBoundary>
+                </AuthKitProvider>
+              </ProviderErrorBoundary>
             </WagmiConfigProvider>
           </QueryClientProvider>
         </ThemeProvider>
