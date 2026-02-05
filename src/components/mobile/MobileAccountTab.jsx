@@ -26,7 +26,7 @@ const MobileAccountTab = ({ address, username }) => {
   return (
     <div className="space-y-3 mt-3">
       {/* Username Section */}
-      <Card className="border-[#353e34] bg-[#130013]">
+      <Card>
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground mb-2">
             {t("account:username")}
@@ -38,7 +38,7 @@ const MobileAccountTab = ({ address, username }) => {
             <button
               type="button"
               onClick={() => setIsEditingUsername(!isEditingUsername)}
-              className="p-0 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+              className="p-0 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
               aria-label={
                 isEditingUsername
                   ? t("account:cancelUsernameEdit")
@@ -66,7 +66,7 @@ const MobileAccountTab = ({ address, username }) => {
       </Card>
 
       {/* Address Section */}
-      <Card className="border-[#353e34] bg-[#130013]">
+      <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs text-muted-foreground">
@@ -75,7 +75,7 @@ const MobileAccountTab = ({ address, username }) => {
             <button
               type="button"
               onClick={handleCopyAddress}
-              className="p-1 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+              className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
               aria-label={t("common:copyToClipboard")}
               title={copied ? t("common:copied") : t("common:copyToClipboard")}
             >
@@ -93,10 +93,10 @@ const MobileAccountTab = ({ address, username }) => {
       <FaucetWidget />
 
       {/* NFTs Section - Placeholder */}
-      <Card className="border-[#353e34] bg-[#130013]">
+      <Card>
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground mb-2">NFTs</div>
-          <div className="border-2 border-dashed border-[#353e34] rounded-lg p-6 text-center bg-black/20">
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-black/20">
             <p className="text-sm text-muted-foreground">NFT Gallery</p>
             <p className="text-xs text-muted-foreground mt-2">
               {t("account:nftGalleryComingSoon")}
