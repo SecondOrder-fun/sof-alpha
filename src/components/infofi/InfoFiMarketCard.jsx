@@ -20,7 +20,7 @@ import { getAddress, formatUnits } from "viem";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useRaffleRead, useSeasonDetailsQuery } from "@/hooks/useRaffleRead";
 import ExplorerLink from "@/components/common/ExplorerLink";
-import { useUserMarketPosition } from "@/hooks/useUserMarketPosition";
+import { useUserMarketPosition, useMarketInfo } from "@/hooks/useUserMarketPosition";
 
 /**
  * InfoFiMarketCard
@@ -169,11 +169,11 @@ const InfoFiMarketCard = ({ market }) => {
     error: userPosition.error,
   };
 
-  // Market info would come from backend API when endpoint is available
-  // For now, use placeholder values
+  // Market info from backend API or FPMM contract
+  const marketInfoQuery = useMarketInfo(effectiveMarketId);
   const marketInfo = {
-    data: { totalYesPool: 0n, totalNoPool: 0n },
-    isLoading: false,
+    data: marketInfoQuery.data || { totalYesPool: 0n, totalNoPool: 0n },
+    isLoading: marketInfoQuery.isLoading,
   };
 
   const [form, setForm] = React.useState({ side: "YES", amount: "" });
@@ -462,15 +462,33 @@ const InfoFiMarketCard = ({ market }) => {
             </div>
           )}
 
-          {/* Total Volume */}
+          {/* Total Liquidity (pool reserves) */}
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">{t("totalVolume")}</span>
+            <span className="text-muted-foreground">Liquidity</span>
             <span className="font-medium">
               {(() => {
                 try {
                   const yes = marketInfo.data?.totalYesPool ?? 0n;
                   const no = marketInfo.data?.totalNoPool ?? 0n;
                   const totalSof = formatUnits(yes + no, 18);
+                  const num = Number(totalSof);
+                  if (num >= 1000) return `${(num / 1000).toFixed(2)}k SOF`;
+                  return `${num.toFixed(2)} SOF`;
+                } catch {
+                  return "0 SOF";
+                }
+              })()}
+            </span>
+          </div>
+
+          {/* Total Volume (SOF traded) */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{t("totalVolume")}</span>
+            <span className="font-medium">
+              {(() => {
+                try {
+                  const vol = marketInfo.data?.volume ?? 0n;
+                  const totalSof = formatUnits(vol, 18);
                   const num = Number(totalSof);
                   if (num >= 1000) return `${(num / 1000).toFixed(2)}k SOF`;
                   return `${num.toFixed(2)} SOF`;
