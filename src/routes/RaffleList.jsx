@@ -8,13 +8,7 @@ import { useCurveState } from "@/hooks/useCurveState";
 import { useAccount, useChains } from "wagmi";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
 import SOFBondingCurveJson from "@/contracts/abis/SOFBondingCurve.json";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import CountdownTimer from "@/components/common/CountdownTimer";
@@ -64,11 +58,11 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const isCompleted = statusNum === 4 || statusNum === 5;
 
   return (
-    <Card className="flex flex-col h-full border border-[#353e34] bg-[#130013]">
+    <Card className="flex flex-col h-full">
       <CardHeader className="py-1 pb-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-mono text-sm text-[#f9d6de]">
+            <span className="font-mono text-sm text-primary">
               #{season.id}
             </span>
             <span className="font-medium truncate">{season.config?.name}</span>
@@ -78,22 +72,22 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
         {/* Countdown timer */}
         {isPreStart && startTimeSec !== null ? (
           <div className="flex items-center gap-1 text-xs mt-1">
-            <span className="text-[#a89e99]">
+            <span className="text-muted-foreground">
               {t("startsIn", { defaultValue: "Raffle starts in" })}:
             </span>
             <CountdownTimer
               targetTimestamp={startTimeSec}
-              className="text-[#f9d6de]"
+              className="text-primary"
             />
           </div>
         ) : (
           statusNum === 1 &&
           endTime && (
             <div className="flex items-center gap-1 text-xs mt-1">
-              <span className="text-[#a89e99]">{t("endsIn")}:</span>
+              <span className="text-muted-foreground">{t("endsIn")}:</span>
               <CountdownTimer
                 targetTimestamp={Number(endTime)}
-                className="text-[#f9d6de]"
+                className="text-primary"
               />
             </div>
           )
@@ -101,7 +95,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
         {!isCompleted && !isPreStart && (
-          <div className="overflow-hidden rounded-md bg-black/40">
+          <div className="overflow-hidden rounded-md bg-muted/40">
             <div className="h-44">
               <BondingCurvePanel
                 curveSupply={curveSupply}
@@ -113,12 +107,12 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
           </div>
         )}
         {isCompleted && winnerSummary && (
-          <div className="rounded-md border border-[#353e34] bg-black/40 p-4 text-base text-muted-foreground">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-base text-muted-foreground">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm uppercase tracking-wide text-[#c82a54]">
+              <span className="text-sm uppercase tracking-wide text-primary">
                 {t("winner")}
               </span>
-              <span className="text-lg font-semibold text-white">
+              <span className="text-lg font-semibold text-foreground">
                 <UsernameDisplay
                   address={winnerSummary.winnerAddress}
                   className="text-lg"
@@ -138,8 +132,8 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
           </div>
         )}
         {isCompleted && !winnerSummary && totalTickets === 0n && (
-          <div className="rounded-md border border-[#353e34] bg-black/40 p-4 text-base text-muted-foreground">
-            <div className="text-sm font-semibold text-white">
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-base text-muted-foreground">
+            <div className="text-sm font-semibold text-foreground">
               {t("noWinner")}
             </div>
             <div className="mt-2 text-sm text-muted-foreground">
@@ -150,7 +144,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
         {!isCompleted && !isPreStart && (
           <div className="flex items-center justify-between text-sm">
             <div>
-              <div className="text-xs text-[#c82a54]">{t("currentPrice")}</div>
+              <div className="text-xs text-primary">{t("currentPrice")}</div>
               <div className="font-mono text-base">{currentPriceLabel} SOF</div>
             </div>
             <div className="flex gap-2">
@@ -333,29 +327,27 @@ const RaffleList = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">{t("title")}</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("allSeasons")}</CardTitle>
-          <CardDescription>{t("allSeasonsDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
-          {allSeasonsQuery.error && <p>Error loading seasons.</p>}
-          {seasonsSorted.length === 0 && !allSeasonsQuery.isLoading && (
-            <p>{t("noActiveSeasons")}</p>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {seasonsSorted.map((season) => (
-              <ActiveSeasonCard
-                key={season.id}
-                season={season}
-                renderBadge={renderBadge}
-                winnerSummary={winnerSummariesQuery.data?.[season.id]}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">{t("allSeasons")}</h2>
+          <p className="text-sm text-muted-foreground">{t("allSeasonsDescription")}</p>
+        </div>
+        {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+        {allSeasonsQuery.error && <p>Error loading seasons.</p>}
+        {seasonsSorted.length === 0 && !allSeasonsQuery.isLoading && (
+          <p>{t("noActiveSeasons")}</p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {seasonsSorted.map((season) => (
+            <ActiveSeasonCard
+              key={season.id}
+              season={season}
+              renderBadge={renderBadge}
+              winnerSummary={winnerSummariesQuery.data?.[season.id]}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

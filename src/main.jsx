@@ -17,6 +17,7 @@ import ErrorPage from "./components/common/ErrorPage";
 import { FarcasterProvider } from "./context/FarcasterProvider";
 import { SSEProvider } from "./context/SSEProvider";
 import { UsernameProvider } from "./context/UsernameContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -77,6 +78,8 @@ import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 import Landing from "./routes/Landing";
 import Login from "./routes/Login";
 import PublicLayout from "./layouts/PublicLayout";
+// Dev-only: UI Gym component showcase (tree-shaken in production)
+import UIGym from "./routes/UIGym";
 
 // Import access control components
 import { ProtectedRoute } from "./components/access";
@@ -180,6 +183,15 @@ const router = createBrowserRouter([
             path: "faucet",
             element: <FaucetPage />,
           },
+          // Dev-only: UI Gym component showcase
+          ...(import.meta.env.DEV
+            ? [
+                {
+                  path: "ui-gym",
+                  element: <UIGym />,
+                },
+              ]
+            : []),
           {
             path: "*",
             element: <NotFound />,
@@ -250,8 +262,9 @@ import("./i18n").then(() => {
   ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <ProviderErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <WagmiConfigProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <WagmiConfigProvider>
             <ProviderErrorBoundary>
               <AuthKitProvider config={farcasterConfig}>
                 <ProviderErrorBoundary>
@@ -276,8 +289,9 @@ import("./i18n").then(() => {
                 </ProviderErrorBoundary>
               </AuthKitProvider>
             </ProviderErrorBoundary>
-          </WagmiConfigProvider>
-        </QueryClientProvider>
+            </WagmiConfigProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
       </ProviderErrorBoundary>
     </React.StrictMode>,
   );

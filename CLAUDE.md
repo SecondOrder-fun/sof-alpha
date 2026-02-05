@@ -84,6 +84,33 @@ Add all tasks with detailed sub-tasks to `instructions/project-tasks.md`.
 - **shadcn/ui:** Component library (built on Radix UI)
 - **Tailwind CSS:** Styling
 
+### Theming (CRITICAL)
+
+**NEVER hardcode colors in components.** All colors MUST use CSS variables via semantic Tailwind classes.
+
+```jsx
+// ❌ WRONG - hardcoded colors
+className="text-[#c82a54] bg-[#f9d6de] border-[#130013]"
+className="text-[#a89e99] hover:text-[#e25167]"
+
+// ✅ CORRECT - semantic classes that reference CSS variables
+className="text-primary bg-muted border-foreground"
+className="text-muted-foreground hover:text-primary"
+```
+
+**Available semantic classes:**
+
+- `bg-background`, `text-foreground` - main background/text
+- `bg-primary`, `text-primary` - brand accent (Cochineal Red)
+- `bg-muted`, `text-muted-foreground` - subtle backgrounds/text
+- `bg-card`, `text-card-foreground` - card surfaces
+- `border-border`, `border-primary` - borders
+- `bg-destructive`, `text-destructive` - error states
+
+**CSS variables are defined in `src/styles/tailwind.css`** - this is the ONLY place colors should be defined. Components reference these via Tailwind's semantic classes.
+
+**No `dark:` prefix scattering.** Theme switching happens via CSS variables, not scattered dark mode overrides in components.
+
 ### Research Resources
 - Use web search for best practices
 - Reference OpenZeppelin documentation for contract patterns

@@ -14,6 +14,7 @@ This document outlines the development standards, patterns, and best practices f
 - **Tailwind CSS** for utility-first styling
 - **shadcn/ui** for consistent, accessible components (built on **Radix UI**)
 - **Radix UI primitives** adopted for headless a11y and focus management
+- **framer-motion** for complex animations (use with Motion Primitives patterns for Radix)
 
 ### State Management
 
@@ -154,7 +155,12 @@ Guidelines:
 - **Prefer Radix** for overlays and complex a11y: dialog, popover, tooltip, dropdown-menu, select, toast, sheet, navigation-menu, context-menu.
 - **Keep exports stable**: wrap Radix primitives in shadcn-style components with Tailwind classes and export simple APIs.
 - **Styling**: Tailwind utilities + `cn` helper; no inline styles.
-- **Animation**: use existing tailwindcss-animate utilities.
+- **Animation**:
+  - **Simple animations**: use `tailwindcss-animate` utilities for basic transitions
+  - **Complex animations**: use **framer-motion** with **Motion Primitives** for Radix UI components
+  - Motion Primitives provides spring-based animations designed specifically for shadcn/Radix UI
+  - Use motion's `asChild` prop pattern to wrap Radix primitives without breaking accessibility
+  - Prefer CSS transitions for hover/active states, framer-motion for entrance/exit/layout animations
 
 ### Component Guidelines
 

@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 // Root re-export to keep usage: <Dialog open onOpenChange>...
 const Dialog = DialogPrimitive.Root;
 
+const DialogTrigger = DialogPrimitive.Trigger;
+
 const DialogPortal = DialogPrimitive.Portal;
 
 const DialogOverlay = forwardRef(({ className, ...props }, ref) => (
@@ -106,4 +108,4 @@ DialogFooter.propTypes = {
   children: PropTypes.node,
 };
 
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };
+export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };
