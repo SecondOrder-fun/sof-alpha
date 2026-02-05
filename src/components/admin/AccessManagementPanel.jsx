@@ -43,7 +43,12 @@ import {
   ChevronDown,
   ChevronRight,
   Save,
+  Route,
+  Globe,
+  Lock,
+  ToggleLeft,
 } from "lucide-react";
+/* native checkboxes used instead of shadcn Checkbox */
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL + "/access";
@@ -776,6 +781,478 @@ function AccessGroupsSection({ getAuthHeaders }) {
   );
 }
 
+// ─── Section 4: Route Access Configuration ──────────────────────────────────
+
+const ROUTE_LEVEL_COLORS = {
+  0: "bg-green-500",
+  1: "bg-blue-500",
+  2: "bg-yellow-500 text-black",
+  3: "bg-purple-500",
+  4: "bg-red-500",
+};
+
+const RESOURCE_TYPE_OPTIONS = [
+  { value: "page", label: "Page" },
+  { value: "feature", label: "Feature" },
+  { value: "api", label: "API" },
+];
+
+function routeLevelBadge(level) {
+  const names = { 0: "PUBLIC", 1: "CONNECTED", 2: "ALLOWLIST", 3: "BETA", 4: "ADMIN" };
+  return (
+    <Badge className={ROUTE_LEVEL_COLORS[level] || "bg-gray-500"}>
+      {names[level] || `LEVEL ${level}`}
+    </Badge>
+  );
+}
+
+function RouteConfigSection({ getAuthHeaders }) {
+  const queryClient = useQueryClient();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newRoute, setNewRoute] = useState({
+    routePattern: "",
+    name: "",
+    requiredLevel: "0",
+    resourceType: "page",
+    isPublic: false,
+    isDisabled: false,
+  });
+  const [editingRoute, setEditingRoute] = useState(null);
+
+  // Fetch all route configs
+  const configsQuery = useQuery({
+    queryKey: ["access-route-configs"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/route-configs`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to fetch route configs");
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  // Create / update route config
+  const upsertMutation = useMutation({
+    mutationFn: async (body) => {
+      const res = await fetch(`${API_BASE}/route-config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save route config");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access-route-configs"] });
+      setEditingRoute(null);
+    },
+  });
+
+  // Toggle public override
+  const togglePublicMutation = useMutation({
+    mutationFn: async ({ routePattern, isPublic }) => {
+      const res = await fetch(`${API_BASE}/set-public-override`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ routePattern, isPublic }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to toggle public override");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access-route-configs"] });
+    },
+  });
+
+  // Toggle disabled
+  const toggleDisabledMutation = useMutation({
+    mutationFn: async ({ routePattern, isDisabled }) => {
+      const res = await fetch(`${API_BASE}/set-disabled`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ routePattern, isDisabled }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to toggle disabled status");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access-route-configs"] });
+    },
+  });
+
+  // Delete route config
+  const deleteMutation = useMutation({
+    mutationFn: async (routePattern) => {
+      const encoded = encodeURIComponent(routePattern);
+      const res = await fetch(`${API_BASE}/route-config/${encoded}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete route config");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access-route-configs"] });
+    },
+  });
+
+  const handleAddRoute = () => {
+    if (!newRoute.routePattern.trim()) {
+      alert("Route pattern is required");
+      return;
+    }
+    upsertMutation.mutate({
+      routePattern: newRoute.routePattern.trim(),
+      name: newRoute.name.trim() || undefined,
+      requiredLevel: parseInt(newRoute.requiredLevel, 10),
+      resourceType: newRoute.resourceType,
+      isPublic: newRoute.isPublic,
+      isDisabled: newRoute.isDisabled,
+    });
+    setNewRoute({
+      routePattern: "",
+      name: "",
+      requiredLevel: "0",
+      resourceType: "page",
+      isPublic: false,
+      isDisabled: false,
+    });
+    setShowAddForm(false);
+  };
+
+  const handleLevelChange = (routePattern, newLevel) => {
+    upsertMutation.mutate({
+      routePattern,
+      requiredLevel: parseInt(newLevel, 10),
+    });
+  };
+
+  const configs = configsQuery.data?.configs || [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Route className="h-5 w-5" />
+              Route Access Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure access requirements for individual routes
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => configsQuery.refetch()}
+              disabled={configsQuery.isFetching}
+            >
+              <RefreshCw className={`h-4 w-4 ${configsQuery.isFetching ? "animate-spin" : ""}`} />
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowAddForm(!showAddForm)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Route
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Add New Route Form */}
+        {showAddForm && (
+          <div className="border rounded-md p-4 space-y-3">
+            <h4 className="text-sm font-medium">Add New Route Config</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Route Pattern</Label>
+                <Input
+                  placeholder="/markets"
+                  value={newRoute.routePattern}
+                  onChange={(e) =>
+                    setNewRoute({ ...newRoute, routePattern: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Name</Label>
+                <Input
+                  placeholder="InfoFi Markets"
+                  value={newRoute.name}
+                  onChange={(e) =>
+                    setNewRoute({ ...newRoute, name: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Required Level</Label>
+                <Select
+                  value={newRoute.requiredLevel}
+                  onValueChange={(v) =>
+                    setNewRoute({ ...newRoute, requiredLevel: v })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCESS_LEVEL_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Resource Type</Label>
+                <Select
+                  value={newRoute.resourceType}
+                  onValueChange={(v) =>
+                    setNewRoute({ ...newRoute, resourceType: v })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RESOURCE_TYPE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newRoute.isPublic}
+                  onChange={(e) =>
+                    setNewRoute({ ...newRoute, isPublic: e.target.checked })
+                  }
+                  className="rounded border-input"
+                />
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                Public Override
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newRoute.isDisabled}
+                  onChange={(e) =>
+                    setNewRoute({ ...newRoute, isDisabled: e.target.checked })
+                  }
+                  className="rounded border-input"
+                />
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                Disabled (Maintenance)
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleAddRoute}
+                disabled={upsertMutation.isPending}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Route
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewRoute({
+                    routePattern: "",
+                    name: "",
+                    requiredLevel: "0",
+                    resourceType: "page",
+                    isPublic: false,
+                    isDisabled: false,
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+            {upsertMutation.isError && (
+              <p className="text-sm text-red-500">{upsertMutation.error.message}</p>
+            )}
+          </div>
+        )}
+
+        {/* Route Configs Table */}
+        {configsQuery.isLoading ? (
+          <p className="text-muted-foreground">Loading route configs...</p>
+        ) : configsQuery.isError ? (
+          <p className="text-sm text-red-500">{configsQuery.error.message}</p>
+        ) : configs.length === 0 ? (
+          <p className="text-muted-foreground">No route configs yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Route Pattern</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Required Level</TableHead>
+                  <TableHead className="text-center">Public</TableHead>
+                  <TableHead className="text-center">Disabled</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {configs.map((cfg) => (
+                  <TableRow key={cfg.route_pattern || cfg.routePattern}>
+                    <TableCell className="font-mono text-sm">
+                      {cfg.route_pattern || cfg.routePattern}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {cfg.name || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {editingRoute === (cfg.route_pattern || cfg.routePattern) ? (
+                        <Select
+                          value={String(cfg.required_level ?? cfg.requiredLevel ?? 0)}
+                          onValueChange={(v) => {
+                            handleLevelChange(
+                              cfg.route_pattern || cfg.routePattern,
+                              v,
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACCESS_LEVEL_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <button
+                          className="cursor-pointer hover:opacity-80"
+                          onClick={() =>
+                            setEditingRoute(cfg.route_pattern || cfg.routePattern)
+                          }
+                          title="Click to change level"
+                        >
+                          {routeLevelBadge(cfg.required_level ?? cfg.requiredLevel ?? 0)}
+                        </button>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <button
+                        onClick={() =>
+                          togglePublicMutation.mutate({
+                            routePattern: cfg.route_pattern || cfg.routePattern,
+                            isPublic: !(cfg.is_public ?? cfg.isPublic),
+                          })
+                        }
+                        disabled={togglePublicMutation.isPending}
+                        title={
+                          (cfg.is_public ?? cfg.isPublic)
+                            ? "Public — click to remove override"
+                            : "Not public — click to set public"
+                        }
+                        className="inline-flex"
+                      >
+                        <Globe
+                          className={`h-5 w-5 ${
+                            (cfg.is_public ?? cfg.isPublic)
+                              ? "text-green-500"
+                              : "text-muted-foreground/40"
+                          }`}
+                        />
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <button
+                        onClick={() =>
+                          toggleDisabledMutation.mutate({
+                            routePattern: cfg.route_pattern || cfg.routePattern,
+                            isDisabled: !(cfg.is_disabled ?? cfg.isDisabled),
+                          })
+                        }
+                        disabled={toggleDisabledMutation.isPending}
+                        title={
+                          (cfg.is_disabled ?? cfg.isDisabled)
+                            ? "Disabled — click to enable"
+                            : "Enabled — click to disable"
+                        }
+                        className="inline-flex"
+                      >
+                        <Lock
+                          className={`h-5 w-5 ${
+                            (cfg.is_disabled ?? cfg.isDisabled)
+                              ? "text-red-500"
+                              : "text-muted-foreground/40"
+                          }`}
+                        />
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const pattern = cfg.route_pattern || cfg.routePattern;
+                          if (confirm(`Delete route config "${pattern}"?`)) {
+                            deleteMutation.mutate(pattern);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {deleteMutation.isError && (
+          <p className="text-sm text-red-500">{deleteMutation.error.message}</p>
+        )}
+        {togglePublicMutation.isError && (
+          <p className="text-sm text-red-500">{togglePublicMutation.error.message}</p>
+        )}
+        {toggleDisabledMutation.isError && (
+          <p className="text-sm text-red-500">{toggleDisabledMutation.error.message}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function AccessManagementPanel() {
@@ -802,6 +1279,9 @@ export default function AccessManagementPanel() {
 
       {/* Section 3: Access Groups */}
       <AccessGroupsSection getAuthHeaders={getAuthHeaders} />
+
+      {/* Section 4: Route Access Configuration */}
+      <RouteConfigSection getAuthHeaders={getAuthHeaders} />
     </div>
   );
 }
