@@ -6,13 +6,12 @@ const Card = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      // Outer shell: Cochineal Red border with small gap to inner panel
-      "rounded-lg border border-[#c82a54] p-1 shadow-sm",
+      "rounded-lg border border-primary p-1 shadow-sm bg-[var(--card-shell)]",
       className,
     )}
     {...props}
   >
-    <div className="rounded-md bg-[#353e34]/65 text-[#a89e99] h-full overflow-hidden">
+    <div className="rounded-md h-full overflow-hidden bg-[var(--card-inner-bg)] border border-border text-card-foreground">
       {children}
     </div>
   </div>

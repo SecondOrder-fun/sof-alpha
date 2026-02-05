@@ -72,7 +72,7 @@ export const SelectLabel = ({ className, ...props }) => (
 );
 
 export const SelectSeparator = ({ className, ...props }) => (
-  <SelectPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />
+  <SelectPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-primary", className)} {...props} />
 );
 
 export const SelectScrollUpButton = ({ className, ...props }) => (

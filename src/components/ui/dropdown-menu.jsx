@@ -75,7 +75,7 @@ export const DropdownMenuLabel = ({ className, inset, ...props }) => (
 
 export const DropdownMenuSeparator = ({ className, ...props }) => (
   <DropdownMenuPrimitive.Separator
-    className={cn("-mx-1 my-1 h-px bg-border", className)}
+    className={cn("-mx-1 my-1 h-px bg-primary", className)}
     {...props}
   />
 );

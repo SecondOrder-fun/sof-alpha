@@ -112,9 +112,8 @@ import {
 // Section wrapper component
 const Section = ({ title, children }) => (
   <div className="mb-12">
-    <h2 className="text-xl font-bold mb-4 text-white border-b border-[#c82a54] pb-2">
-      {title}
-    </h2>
+    <h2 className="text-xl font-bold mb-2">{title}</h2>
+    <Separator className="mb-4" />
     <div className="space-y-6">{children}</div>
   </div>
 );
@@ -151,7 +150,7 @@ const UIGym = () => {
         {/* Header */}
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">UI Gym</h1>
+            <h1 className="text-3xl font-bold mb-2">UI Gym</h1>
             <p className="text-muted-foreground">
               Component showcase for design system development. Changes here propagate to production.
             </p>
@@ -161,7 +160,7 @@ const UIGym = () => {
           </div>
 
           {/* Navigation */}
-          <div className="mb-8 sticky top-0 bg-background/95 backdrop-blur py-4 z-10 border-b border-border">
+          <div className="mb-8 sticky top-0 bg-background/95 backdrop-blur py-4 z-10">
             <div className="flex flex-wrap gap-2 text-sm">
               {[
                 'Buttons',
@@ -180,6 +179,7 @@ const UIGym = () => {
                 </a>
               ))}
             </div>
+            <Separator className="mt-4" />
           </div>
 
           {/* Buttons Section */}

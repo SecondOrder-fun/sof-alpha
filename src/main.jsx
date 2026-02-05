@@ -17,6 +17,7 @@ import ErrorPage from "./components/common/ErrorPage";
 import { FarcasterProvider } from "./context/FarcasterProvider";
 import { SSEProvider } from "./context/SSEProvider";
 import { UsernameProvider } from "./context/UsernameContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Initialize query client
 const queryClient = new QueryClient({
@@ -261,8 +262,9 @@ import("./i18n").then(() => {
   ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <ProviderErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <WagmiConfigProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <WagmiConfigProvider>
             <ProviderErrorBoundary>
               <AuthKitProvider config={farcasterConfig}>
                 <ProviderErrorBoundary>
@@ -287,8 +289,9 @@ import("./i18n").then(() => {
                 </ProviderErrorBoundary>
               </AuthKitProvider>
             </ProviderErrorBoundary>
-          </WagmiConfigProvider>
-        </QueryClientProvider>
+            </WagmiConfigProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
       </ProviderErrorBoundary>
     </React.StrictMode>,
   );

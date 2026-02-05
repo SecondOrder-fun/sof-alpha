@@ -4,70 +4,91 @@
 
 @layer base {
   :root {
-    /* Black background */
-    --background: 300 100% 3.7%;
-    /* Cement default text */
-    --foreground: 20 9% 63%;
+    /* LIGHT MODE - Brand palette */
+    --background: 0 0% 100%; /* White */
+    --foreground: 100 10% 22%; /* Asphalt #353e34 */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Pastel Rose #f9d6de for muted/skeleton backgrounds */
+    --muted: 346 66% 91%;
+    --muted-foreground: 100 10% 22%; /* Asphalt */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 300 100% 4%; /* Black #130013 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 100 10% 22%; /* Asphalt */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    /* Fabric Red #e25167 for borders/separators */
+    --border: 351 70% 60%;
+    --input: 351 70% 60%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Cochineal Red #c82a54 for primary */
+    --primary: 343 66% 47%;
+    --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 346 66% 91%; /* Pastel Rose */
+    --secondary-foreground: 300 100% 4%; /* Black */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 346 66% 91%; /* Pastel Rose */
+    --accent-foreground: 300 100% 4%; /* Black */
 
     --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 215 20.2% 65.1%;
+    --ring: 343 66% 47%; /* Cochineal Red */
+
+    /* Heading color - Black in light mode */
+    --heading: 300 100% 4%;
+
+    /* Card shell - visible in light mode */
+    --card-shell: hsl(346 66% 91%);
+
+    /* Card inner background - solid in light mode */
+    --card-inner-bg: hsl(var(--card));
 
     --radius: 0.5rem;
   }
 
   .dark {
-    /* Match dark mode to brand palette as well */
-    --background: 300 100% 3.7%;
-    --foreground: 20 9% 63%;
+    /* DARK MODE - Brand palette */
+    --background: 300 100% 4%; /* Black #130013 */
+    --foreground: 20 9% 63%; /* Cement #a89e99 */
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 100 10% 22%; /* Asphalt #353e34 */
+    --muted-foreground: 20 9% 63%; /* Cement */
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
+    --popover: 300 100% 4%; /* Black */
+    --popover-foreground: 20 9% 63%; /* Cement */
 
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
+    --card: 100 10% 22%; /* Asphalt */
+    --card-foreground: 20 9% 63%; /* Cement */
 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
+    --border: 0 0% 30%; /* Dark grey for borders */
+    --input: 0 0% 30%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 1.2%;
+    /* Cochineal Red stays primary in dark mode too */
+    --primary: 343 66% 47%;
+    --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 100 10% 22%; /* Asphalt */
+    --secondary-foreground: 20 9% 63%; /* Cement */
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 100 10% 22%; /* Asphalt */
+    --accent-foreground: 20 9% 63%; /* Cement */
 
     --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 216 34% 17%;
+    --ring: 343 66% 47%; /* Cochineal Red */
+
+    /* Heading color - White in dark mode */
+    --heading: 0 0% 100%;
+
+    /* Card shell - transparent in dark mode */
+    --card-shell: transparent;
+
+    /* Card inner background - 75% opacity in dark mode */
+    --card-inner-bg: hsl(var(--card) / 0.75);
 
     --radius: 0.5rem;
   }
@@ -82,32 +103,37 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Global link styling */
+  /* Global link styling - uses CSS variables */
   a {
-    color: #a89e99; /* Cement */
+    color: hsl(var(--muted-foreground));
   }
 
   a:hover {
-    color: #e25167; /* Fabric Red */
+    color: hsl(var(--primary));
   }
 
   a:active {
-    color: #c82a54; /* Cochineal Red */
+    color: hsl(var(--primary));
   }
 
-  /* Global primary-style button override */
+  /* Global button styling - uses CSS variables */
   button {
     @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors;
-    background-color: #c82a54; /* Cochineal Red */
-    color: #ffffff; /* White */
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
   }
 
   button:hover {
-    background-color: #e25167; /* Fabric Red */
+    background-color: hsl(var(--primary) / 0.8);
   }
 
   button:active {
-    background-color: #f9d6de; /* Pastel Rose */
-    color: #130013; /* Black text for contrast on light background */
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Headings use --heading variable */
+  h1, h2, h3, h4, h5, h6 {
+    color: hsl(var(--heading));
   }
 }

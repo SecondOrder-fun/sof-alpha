@@ -4,11 +4,13 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "@/components/common/LanguageToggle";
-import { Globe } from "lucide-react";
+import { Globe, Sun, Moon, Monitor } from "lucide-react";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 import { useRouteAccess } from "@/hooks/useRouteAccess";
+import { useTheme } from "@/context/ThemeContext";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Header = () => {
   const { t } = useTranslation("navigation");
@@ -16,6 +18,7 @@ const Header = () => {
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
+  const { theme, setTheme } = useTheme();
 
   const predictionMarketsToggle = useRouteAccess(
     "__feature__/prediction_markets",
@@ -29,6 +32,10 @@ const Header = () => {
   const showPredictionMarkets =
     !predictionMarketsToggle.isDisabled && predictionMarketsToggle.hasAccess;
 
+  // Shared nav link styling
+  const navLinkClass = ({ isActive }) =>
+    `transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+
   return (
     <header className="border-b bg-background text-foreground">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -40,74 +47,29 @@ const Header = () => {
               className="w-10 h-10"
             />
             <span>
-              <span className="text-white">Second</span>
-              <span className="text-[#c82a54]">Order</span>
-              <span className="text-[#a89e99]">.fun</span>
+              <span className="text-foreground">Second</span>
+              <span className="text-primary">Order</span>
+              <span className="text-muted-foreground">.fun</span>
             </span>
           </Link>
           <nav className="hidden md:flex space-x-6">
-            <NavLink
-              to="/raffles"
-              className={({ isActive }) =>
-                `transition-colors ${
-                  isActive
-                    ? "text-[#c82a54]"
-                    : "text-[#a89e99] hover:text-[#e25167]"
-                }`
-              }
-            >
+            <NavLink to="/raffles" className={navLinkClass}>
               {t("raffles")}
             </NavLink>
             {showPredictionMarkets ? (
-              <NavLink
-                to="/markets"
-                className={({ isActive }) =>
-                  `transition-colors ${
-                    isActive
-                      ? "text-[#c82a54]"
-                      : "text-[#a89e99] hover:text-[#e25167]"
-                  }`
-                }
-              >
+              <NavLink to="/markets" className={navLinkClass}>
                 {t("predictionMarkets")}
               </NavLink>
             ) : null}
-            <NavLink
-              to="/leaderboard"
-              className={({ isActive }) =>
-                `transition-colors ${
-                  isActive
-                    ? "text-[#c82a54]"
-                    : "text-[#a89e99] hover:text-[#e25167]"
-                }`
-              }
-            >
+            <NavLink to="/leaderboard" className={navLinkClass}>
               {t("leaderboard")}
             </NavLink>
             {isAdmin && (
               <>
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `transition-colors ${
-                      isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
-                    }`
-                  }
-                >
+                <NavLink to="/admin" className={navLinkClass}>
                   {t("admin")}
                 </NavLink>
-                <NavLink
-                  to="/admin/localization"
-                  className={({ isActive }) =>
-                    `transition-colors ${
-                      isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
-                    }`
-                  }
-                >
+                <NavLink to="/admin/localization" className={navLinkClass}>
                   <span className="flex items-center gap-1">
                     <Globe className="h-4 w-4" />
                     Localization
@@ -115,28 +77,10 @@ const Header = () => {
                 </NavLink>
               </>
             )}
-            <NavLink
-              to="/portfolio"
-              className={({ isActive }) =>
-                `transition-colors ${
-                  isActive
-                    ? "text-[#c82a54]"
-                    : "text-[#a89e99] hover:text-[#e25167]"
-                }`
-              }
-            >
+            <NavLink to="/portfolio" className={navLinkClass}>
               {t("portfolio")}
             </NavLink>
-            <NavLink
-              to="/faucet"
-              className={({ isActive }) =>
-                `transition-colors ${
-                  isActive
-                    ? "text-[#c82a54]"
-                    : "text-[#a89e99] hover:text-[#e25167]"
-                }`
-              }
-            >
+            <NavLink to="/faucet" className={navLinkClass}>
               {t("betaFaucets")}
             </NavLink>
           </nav>
@@ -145,6 +89,20 @@ const Header = () => {
           <div className="flex items-center gap-2">
             {/* Wallet toolbar lives here (RainbowKit) */}
           </div>
+          {/* Theme toggle */}
+          <Tabs value={theme} onValueChange={setTheme} className="h-9">
+            <TabsList className="h-8 p-0.5">
+              <TabsTrigger value="light" className="h-7 px-2 text-xs no-underline">
+                <Sun className="h-3.5 w-3.5" />
+              </TabsTrigger>
+              <TabsTrigger value="dark" className="h-7 px-2 text-xs no-underline">
+                <Moon className="h-3.5 w-3.5" />
+              </TabsTrigger>
+              <TabsTrigger value="system" className="h-7 px-2 text-xs no-underline">
+                <Monitor className="h-3.5 w-3.5" />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <LanguageToggle />
           <ConnectButton.Custom>
             {({
@@ -206,7 +164,7 @@ const Header = () => {
                         <button
                           onClick={handleOpenConnect}
                           type="button"
-                          className="px-4 py-2 rounded-md transition-colors bg-[#c82a54] text-white hover:bg-[#e25167] active:bg-[#f9d6de]"
+                          className="px-4 py-2 rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/80 active:bg-muted"
                         >
                           {t("connectWallet")}
                         </button>
