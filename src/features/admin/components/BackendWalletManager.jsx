@@ -1,6 +1,7 @@
 // src/features/admin/components/BackendWalletManager.jsx
-// Backend wallet management and monitoring component
+// Backend wallet management, paymaster status, and infrastructure monitoring
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,18 @@ import {
   CheckCircle,
   Copy,
   RefreshCw,
-  Wallet,
+  Server,
+  ArrowRightLeft,
+  Loader2,
 } from "lucide-react";
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 import { useToast } from "@/hooks/useToast";
 
 export function BackendWalletManager() {
   const { toast } = useToast();
+  const [probabilityResults, setProbabilityResults] = useState(null);
+  const [isRefreshingProbabilities, setIsRefreshingProbabilities] =
+    useState(false);
 
   // Query backend wallet info
   const {
@@ -30,7 +36,7 @@ export function BackendWalletManager() {
       if (!response.ok) throw new Error("Failed to fetch wallet info");
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30s
+    refetchInterval: 30000,
   });
 
   // Query market creation stats
@@ -45,7 +51,22 @@ export function BackendWalletManager() {
       if (!response.ok) throw new Error("Failed to fetch stats");
       return response.json();
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
+  });
+
+  // Query paymaster status
+  const {
+    data: paymasterStatus,
+    refetch: refetchPaymaster,
+    isLoading: isLoadingPaymaster,
+  } = useQuery({
+    queryKey: ["paymasterStatus"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/admin/paymaster-status`);
+      if (!response.ok) throw new Error("Failed to fetch paymaster status");
+      return response.json();
+    },
+    refetchInterval: 60000,
   });
 
   const getBalanceColor = (balanceEth) => {
@@ -65,13 +86,39 @@ export function BackendWalletManager() {
   const handleRefresh = () => {
     refetchWallet();
     refetchStats();
+    refetchPaymaster();
     toast({
       title: "Refreshed",
-      description: "Wallet and stats data updated",
+      description: "All service data updated",
     });
   };
 
-  if (isLoadingWallet || isLoadingStats) {
+  const handleRefreshProbabilities = async () => {
+    setIsRefreshingProbabilities(true);
+    setProbabilityResults(null);
+    try {
+      const response = await fetch(`${API_BASE}/admin/refresh-probabilities`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to refresh probabilities");
+      const data = await response.json();
+      setProbabilityResults(data);
+      toast({
+        title: "Probabilities Refreshed",
+        description: `Updated ${data.updated || 0} of ${data.total || 0} markets`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshingProbabilities(false);
+    }
+  };
+
+  if (isLoadingWallet || isLoadingStats || isLoadingPaymaster) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -83,12 +130,12 @@ export function BackendWalletManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Wallet className="h-6 w-6" />
-          Backend Wallet Management
+          <Server className="h-6 w-6" />
+          Services &amp; Infrastructure
         </h2>
         <Button variant="outline" size="sm" onClick={handleRefresh}>
           <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
+          Refresh All
         </Button>
       </div>
 
@@ -163,6 +210,180 @@ export function BackendWalletManager() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Paymaster Status Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Paymaster Status</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm text-muted-foreground">
+              Smart Account Address
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <code className="text-sm bg-muted px-2 py-1 rounded break-all">
+                {paymasterStatus?.smartAccountAddress || "Not initialized"}
+              </code>
+              {paymasterStatus?.smartAccountAddress && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(paymasterStatus.smartAccountAddress)
+                  }
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground">
+                Initialization
+              </label>
+              <div className="mt-1">
+                {paymasterStatus?.initialized ? (
+                  <Badge className="bg-green-600 hover:bg-green-700">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Initialized
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Not Initialized
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">Network</label>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-medium">
+                  {paymasterStatus?.network || "Unknown"}
+                </span>
+                {paymasterStatus?.isTestnet && (
+                  <Badge variant="secondary">Testnet</Badge>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">
+                Paymaster URL
+              </label>
+              <div className="mt-1">
+                {paymasterStatus?.paymasterUrlConfigured ? (
+                  <Badge className="bg-green-600 hover:bg-green-700">
+                    Configured
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">Not Configured</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {paymasterStatus?.initializationError && (
+            <div className="flex items-start gap-2 p-3 rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                <span className="font-medium">Initialization Error: </span>
+                {paymasterStatus.initializationError}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Oracle & Probability Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5" />
+            Oracle &amp; Probability Controls
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Sync on-chain FPMM prices to the database. This refreshes all
+                market probabilities from their smart contracts.
+              </p>
+            </div>
+            <Button
+              onClick={handleRefreshProbabilities}
+              disabled={isRefreshingProbabilities}
+            >
+              {isRefreshingProbabilities ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Refresh All Probabilities
+            </Button>
+          </div>
+
+          {probabilityResults && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-muted-foreground">
+                  Updated:{" "}
+                  <span className="font-medium text-foreground">
+                    {probabilityResults.updated || 0}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  Total:{" "}
+                  <span className="font-medium text-foreground">
+                    {probabilityResults.total || 0}
+                  </span>
+                </span>
+              </div>
+
+              {probabilityResults.results &&
+                probabilityResults.results.length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {probabilityResults.results.map((result, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 bg-muted rounded text-sm"
+                      >
+                        <span className="truncate mr-4">
+                          {result.title || result.marketId || `Market #${idx + 1}`}
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-muted-foreground">
+                            {(result.oldProbability != null
+                              ? (result.oldProbability * 100).toFixed(1)
+                              : "?")}
+                            %
+                          </span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-medium">
+                            {(result.newProbability != null
+                              ? (result.newProbability * 100).toFixed(1)
+                              : "?")}
+                            %
+                          </span>
+                          {result.oldProbability !== result.newProbability && (
+                            <Badge variant="secondary" className="text-xs">
+                              changed
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -244,14 +465,14 @@ export function BackendWalletManager() {
 
       {/* Alerts and Recommendations */}
       {walletInfo?.balanceEth < 0.5 && (
-        <Card className="border-yellow-500 bg-yellow-50">
+        <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-yellow-700">
+            <CardTitle className="flex items-center gap-2 text-yellow-700 dark:text-yellow-500">
               <AlertCircle className="h-5 w-5" />
               Action Required
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-yellow-700">
+          <CardContent className="text-yellow-700 dark:text-yellow-500">
             <p className="mb-2">
               Backend wallet balance is running low. Consider funding the wallet
               to ensure continuous market creation.

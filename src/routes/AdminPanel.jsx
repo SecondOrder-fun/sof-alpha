@@ -26,7 +26,6 @@ import NftDropsPanel from "@/components/admin/NftDropsPanel";
 import TransactionStatus from "@/components/admin/TransactionStatus";
 import CreateSeasonForm from "@/components/admin/CreateSeasonForm";
 import SeasonList from "@/components/admin/SeasonList";
-import InfoFiMarketsPanel from "@/components/admin/InfoFiMarketsPanel";
 import useFundDistributor from "@/hooks/useFundDistributor";
 import { BackendWalletManager } from "@/features/admin/components/BackendWalletManager";
 import { ManualMarketCreation } from "@/features/admin/components/ManualMarketCreation";
@@ -109,10 +108,9 @@ function AdminPanel() {
       </div>
 
       <Tabs defaultValue="seasons" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="seasons">Seasons</TabsTrigger>
-          <TabsTrigger value="markets">InfoFi Markets</TabsTrigger>
-          <TabsTrigger value="backend">Backend Wallet</TabsTrigger>
+          <TabsTrigger value="backend">Services</TabsTrigger>
           <TabsTrigger value="manual">Manual Markets</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
@@ -168,10 +166,6 @@ function AdminPanel() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="markets" className="space-y-4">
-          <InfoFiMarketsPanel />
         </TabsContent>
 
         <TabsContent value="backend" className="space-y-4">
