@@ -1,6 +1,7 @@
 // src/components/admin/BondingCurveEditor/AdvancedView.jsx
 // Advanced table/card view for editing individual bond steps
 
+import { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,42 @@ const StepCard = ({
   validationError,
 }) => {
   const ticketsInStep = step.rangeTo - prevRangeTo;
+
+  // Allow empty fields while editing; commit on blur
+  const [draftRangeTo, setDraftRangeTo] = useState(null);
+  const [draftPrice, setDraftPrice] = useState(null);
+
+  const handleRangeToChange = useCallback((e) => {
+    const raw = e.target.value;
+    setDraftRangeTo(raw);
+    const n = Number(raw);
+    if (raw !== "" && !Number.isNaN(n) && n > 0) onUpdate("rangeTo", n);
+  }, [onUpdate]);
+
+  const handleRangeToBlur = useCallback(() => {
+    if (draftRangeTo === null) return;
+    const n = Number(draftRangeTo);
+    if (draftRangeTo === "" || Number.isNaN(n) || n <= 0) {
+      onUpdate("rangeTo", step.rangeTo); // reset to current
+    }
+    setDraftRangeTo(null);
+  }, [draftRangeTo, onUpdate, step.rangeTo]);
+
+  const handlePriceChange = useCallback((e) => {
+    const raw = e.target.value;
+    setDraftPrice(raw);
+    const n = Number(raw);
+    if (raw !== "" && !Number.isNaN(n) && n > 0) onUpdate("price", n);
+  }, [onUpdate]);
+
+  const handlePriceBlur = useCallback(() => {
+    if (draftPrice === null) return;
+    const n = Number(draftPrice);
+    if (draftPrice === "" || Number.isNaN(n) || n <= 0) {
+      onUpdate("price", step.price); // reset to current
+    }
+    setDraftPrice(null);
+  }, [draftPrice, onUpdate, step.price]);
 
   return (
     <div className={`p-3 rounded-lg border ${validationError ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "bg-card"}`}>
@@ -56,8 +93,9 @@ const StepCard = ({
               type="number"
               min={prevRangeTo + 1}
               max={isLast ? maxTickets : undefined}
-              value={step.rangeTo}
-              onChange={(e) => onUpdate("rangeTo", Number(e.target.value))}
+              value={draftRangeTo !== null ? draftRangeTo : step.rangeTo}
+              onChange={handleRangeToChange}
+              onBlur={handleRangeToBlur}
               className="font-mono"
               disabled={isLast} // Last step must equal maxTickets
             />
@@ -73,8 +111,9 @@ const StepCard = ({
             type="number"
             min={0.01}
             step={0.01}
-            value={step.price}
-            onChange={(e) => onUpdate("price", Number(e.target.value))}
+            value={draftPrice !== null ? draftPrice : step.price}
+            onChange={handlePriceChange}
+            onBlur={handlePriceBlur}
             className="font-mono"
           />
         </div>

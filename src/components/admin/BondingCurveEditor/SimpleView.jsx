@@ -1,11 +1,45 @@
 // src/components/admin/BondingCurveEditor/SimpleView.jsx
 // Simple parameter-based view for linear bonding curves
 
+import { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+
+/**
+ * Hook for numeric input that allows empty field while editing.
+ * Commits the numeric value on blur; shows raw string while typing.
+ */
+function useNumericInput(value, setter, { min = 0, fallback = 0 } = {}) {
+  const [draft, setDraft] = useState(null); // null = use value prop
+
+  const displayValue = draft !== null ? draft : value;
+
+  const onChange = useCallback((e) => {
+    const raw = e.target.value;
+    setDraft(raw); // let user type freely (including empty)
+    // If it parses to a valid number, propagate immediately so the graph updates
+    const n = Number(raw);
+    if (raw !== "" && !Number.isNaN(n) && n >= min) {
+      setter(n);
+    }
+  }, [setter, min]);
+
+  const onBlur = useCallback(() => {
+    if (draft === null) return;
+    const n = Number(draft);
+    if (draft === "" || Number.isNaN(n) || n < min) {
+      setter(fallback); // reset to fallback on bad input
+    } else {
+      setter(n);
+    }
+    setDraft(null); // switch back to controlled value
+  }, [draft, setter, min, fallback]);
+
+  return { displayValue, onChange, onBlur };
+}
 
 const SimpleView = ({
   maxTickets,
@@ -22,6 +56,12 @@ const SimpleView = ({
   // Computed values for display
   const stepSize = numSteps > 0 ? Math.ceil(maxTickets / numSteps) : 0;
   const finalPrice = basePrice + (numSteps - 1) * priceDelta;
+
+  // Numeric inputs that allow empty fields while editing
+  const maxTicketsInput = useNumericInput(maxTickets, setMaxTickets, { min: 1, fallback: 100000 });
+  const numStepsInput = useNumericInput(numSteps, setNumSteps, { min: 1, fallback: 10 });
+  const basePriceInput = useNumericInput(basePrice, setBasePrice, { min: 0.01, fallback: 10 });
+  const priceDeltaInput = useNumericInput(priceDelta, setPriceDelta, { min: 0, fallback: 1 });
 
   return (
     <div className="space-y-4">
@@ -54,8 +94,9 @@ const SimpleView = ({
           <Input
             type="number"
             min={1}
-            value={maxTickets}
-            onChange={(e) => setMaxTickets(Number(e.target.value) || 1)}
+            value={maxTicketsInput.displayValue}
+            onChange={maxTicketsInput.onChange}
+            onBlur={maxTicketsInput.onBlur}
             disabled={isCustom}
           />
           <p className="text-xs text-muted-foreground">
@@ -69,8 +110,9 @@ const SimpleView = ({
             type="number"
             min={1}
             max={100}
-            value={numSteps}
-            onChange={(e) => setNumSteps(Math.min(100, Math.max(1, Number(e.target.value) || 1)))}
+            value={numStepsInput.displayValue}
+            onChange={numStepsInput.onChange}
+            onBlur={numStepsInput.onBlur}
             disabled={isCustom}
           />
           <p className="text-xs text-muted-foreground">
@@ -84,8 +126,9 @@ const SimpleView = ({
             type="number"
             min={0.01}
             step={0.01}
-            value={basePrice}
-            onChange={(e) => setBasePrice(Number(e.target.value) || 0.01)}
+            value={basePriceInput.displayValue}
+            onChange={basePriceInput.onChange}
+            onBlur={basePriceInput.onBlur}
             disabled={isCustom}
           />
           <p className="text-xs text-muted-foreground">
@@ -99,8 +142,9 @@ const SimpleView = ({
             type="number"
             min={0}
             step={0.1}
-            value={priceDelta}
-            onChange={(e) => setPriceDelta(Number(e.target.value) || 0)}
+            value={priceDeltaInput.displayValue}
+            onChange={priceDeltaInput.onChange}
+            onBlur={priceDeltaInput.onBlur}
             disabled={isCustom}
           />
           <p className="text-xs text-muted-foreground">
