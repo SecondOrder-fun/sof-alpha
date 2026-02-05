@@ -61,6 +61,9 @@ const FarcasterAutoConnect = () => {
           if (farcasterConnector) {
             connect({ connector: farcasterConnector });
           }
+          // Signal Mini App is ready to prevent stuck loading screen
+          // Per dTech docs: must call ready() after context detection
+          sdk.actions.ready();
         }
       } catch {
         // Not in Farcaster client - no auto-connect

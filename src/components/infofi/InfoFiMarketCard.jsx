@@ -324,22 +324,36 @@ const InfoFiMarketCard = ({ market }) => {
     <Card className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
       {/* Polymarket-style header with market question */}
       <CardHeader className="pb-3">
-        <Link to={`/markets/${market.id}`} className="block">
-          <CardTitle className="text-base font-medium leading-tight cursor-pointer hover:underline">
+          <CardTitle className="text-base font-medium leading-tight text-muted-foreground">
             {isWinnerPrediction ? (
               <span>
                 {parts.prefix}{" "}
-                <UsernameDisplay
-                  address={market.player}
-                  className="font-medium"
-                />{" "}
-                {parts.seasonLabel}
+                <Link
+                  to={`/users/${market.player}`}
+                  className="text-muted-foreground underline hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <UsernameDisplay
+                    address={market.player}
+                    className="font-medium"
+                  />
+                </Link>{" "}
+                win{" "}
+                <Link
+                  to={`/raffles/${seasonId}`}
+                  className="text-muted-foreground underline hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Raffle Season {seasonId}
+                </Link>
+                ?
               </span>
             ) : (
-              title
+              <Link to={`/markets/${market.id}`} className="text-muted-foreground hover:underline">
+                {title}
+              </Link>
             )}
           </CardTitle>
-        </Link>
       </CardHeader>
 
       <CardContent className="pt-0 space-y-4">
