@@ -3,10 +3,11 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, TrendingUp, TrendingDown, Check } from "lucide-react";
+import { Plus, Minus, Check } from "lucide-react";
+import UsernameDisplay from "@/components/user/UsernameDisplay";
 
 /**
- * BettingInterface - YES/NO toggle betting interface with amount controls
+ * BettingInterface - Mobile-optimized YES/NO betting interface
  * @param {Object} props
  * @param {Object} props.market - Market data with probabilities
  * @param {function} props.onBet - Callback when bet is placed
@@ -25,26 +26,35 @@ const BettingInterface = ({
   // Calculate probabilities (from basis points)
   const yesProbability = market?.current_probability_bps
     ? (market.current_probability_bps / 100).toFixed(1)
-    : "0.0";
+    : "50.0";
   const noProbability = market?.current_probability_bps
     ? ((10000 - market.current_probability_bps) / 100).toFixed(1)
-    : "100.0";
+    : "50.0";
 
-  // Calculate odds (payout per 1 SOF bet)
-  const yesOdds = market?.current_probability_bps
+  // Calculate payout per 1 SOF bet
+  const yesPayout = market?.current_probability_bps
     ? (10000 / market.current_probability_bps).toFixed(2)
-    : "0.00";
-  const noOdds = market?.current_probability_bps
+    : "2.00";
+  const noPayout = market?.current_probability_bps
     ? (10000 / (10000 - market.current_probability_bps)).toFixed(2)
-    : "0.00";
+    : "2.00";
 
-  const handleIncrement = () => {
-    setBetAmount((prev) => prev + 1);
-  };
+  // Build dynamic market question
+  const marketQuestion = (() => {
+    if (market?.question) return market.question;
+    const seasonId = market?.raffle_id ?? market?.seasonId;
+    if (market?.market_type === "WINNER_PREDICTION" && market?.player && seasonId != null) {
+      return null; // Will render with UsernameDisplay below
+    }
+    return market?.market_type || "Market";
+  })();
 
-  const handleDecrement = () => {
-    setBetAmount((prev) => Math.max(1, prev - 1));
-  };
+  const isWinnerPrediction =
+    market?.market_type === "WINNER_PREDICTION" && market?.player;
+  const seasonId = market?.raffle_id ?? market?.seasonId;
+
+  const handleIncrement = () => setBetAmount((prev) => prev + 1);
+  const handleDecrement = () => setBetAmount((prev) => Math.max(1, prev - 1));
 
   const handleAmountChange = (e) => {
     const value = parseInt(e.target.value, 10);
@@ -65,16 +75,27 @@ const BettingInterface = ({
 
   return (
     <div className="space-y-4">
-      {/* Market Question */}
+      {/* Market Question - Dynamic */}
       <div className="text-center">
         <h3 className="text-lg font-bold text-foreground">
-          Will Player 1 Win Raffle Season 1?
+          {isWinnerPrediction ? (
+            <span>
+              Will{" "}
+              <UsernameDisplay
+                address={market.player}
+                className="font-bold"
+              />{" "}
+              win Season {seasonId}?
+            </span>
+          ) : (
+            marketQuestion
+          )}
         </h3>
       </div>
 
-      {/* YES/NO Display - Clickable to toggle */}
+      {/* YES/NO Buttons */}
       <div className="grid grid-cols-2 gap-3">
-        {/* YES Column */}
+        {/* YES */}
         <button
           type="button"
           onClick={() => setBetSide("YES")}
@@ -85,19 +106,18 @@ const BettingInterface = ({
           }`}
         >
           {betSide === "YES" && (
-            <Check className="absolute top-2 right-2 h-5 w-5 text-green-500" />
+            <Check className="absolute top-2 right-2 h-4 w-4 text-green-500" />
           )}
           <div className="text-3xl font-bold text-green-500">
             {yesProbability}%
           </div>
           <div className="text-sm font-medium text-foreground mt-1">Yes</div>
           <div className="text-xs text-muted-foreground mt-2">
-            {yesOdds} SOF
+            {yesPayout}× payout
           </div>
-          <div className="text-xs text-muted-foreground">per 1 SOF bet</div>
         </button>
 
-        {/* NO Column */}
+        {/* NO */}
         <button
           type="button"
           onClick={() => setBetSide("NO")}
@@ -108,35 +128,32 @@ const BettingInterface = ({
           }`}
         >
           {betSide === "NO" && (
-            <Check className="absolute top-2 right-2 h-5 w-5 text-red-400" />
+            <Check className="absolute top-2 right-2 h-4 w-4 text-red-400" />
           )}
           <div className="text-3xl font-bold text-red-400">
             {noProbability}%
           </div>
           <div className="text-sm font-medium text-foreground mt-1">No</div>
-          <div className="text-xs text-muted-foreground mt-2">{noOdds} SOF</div>
-          <div className="text-xs text-muted-foreground">per 1 SOF bet</div>
+          <div className="text-xs text-muted-foreground mt-2">
+            {noPayout}× payout
+          </div>
         </button>
-      </div>
-
-      {/* Odds Indicators */}
-      <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-1">
-          <span>Odds:</span>
-          <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="flex items-center justify-center gap-1">
-          <span>Odds:</span>
-          <TrendingDown className="h-4 w-4" />
-        </div>
       </div>
 
       {/* Bet Amount Control */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-foreground">
-          Bet {betSide === "YES" ? "Yes" : "No"}:
+          Bet {betSide}:
         </label>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDecrement}
+            className="h-10 w-10 shrink-0 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
+          >
+            <Minus className="h-5 w-5" />
+          </Button>
           <Input
             type="number"
             value={betAmount}
@@ -148,17 +165,9 @@ const BettingInterface = ({
             variant="outline"
             size="sm"
             onClick={handleIncrement}
-            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
+            className="h-10 w-10 shrink-0 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
           >
             <Plus className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDecrement}
-            className="h-10 w-10 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
-          >
-            <Minus className="h-5 w-5" />
           </Button>
         </div>
       </div>

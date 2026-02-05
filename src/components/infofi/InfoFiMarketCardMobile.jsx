@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import BettingInterface from "./BettingInterface";
-import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useAccount } from "wagmi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { placeBetTx } from "@/services/onchainInfoFi";
@@ -72,18 +71,8 @@ const InfoFiMarketCardMobile = ({ market }) => {
 
   return (
     <Card className="w-full border-2 border-border bg-card">
-      <CardContent className="p-6">
-        {/* Player Info */}
-        {market.player && (
-          <div className="mb-4 text-center">
-            <div className="text-sm text-muted-foreground mb-1">
-              {t("market:player")}
-            </div>
-            <UsernameDisplay address={market.player} />
-          </div>
-        )}
-
-        {/* Betting Interface */}
+      <CardContent className="p-4">
+        {/* Betting Interface (includes dynamic market question + player) */}
         <BettingInterface
           market={market}
           onBet={handleBet}
@@ -91,38 +80,18 @@ const InfoFiMarketCardMobile = ({ market }) => {
           isLoading={placeBetMutation.isPending}
         />
 
-        {/* Market Metadata */}
-        <div className="mt-4 pt-4 border-t border-border">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-muted-foreground">
-                {t("market:marketType")}
-              </div>
-              <div className="font-medium">
-                {market.market_type === "WINNER_PREDICTION"
-                  ? t("market:winnerPrediction")
-                  : market.market_type === "POSITION_SIZE"
-                  ? t("market:positionSize")
-                  : market.market_type === "BEHAVIORAL"
-                  ? t("market:behavioral")
-                  : market.market_type}
-              </div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">
-                {t("market:settlementStatus")}
-              </div>
-              <div className="font-medium">
-                {market.is_active ? (
-                  <span className="text-green-500">{t("market:pending")}</span>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {t("market:resolved")}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Status indicator */}
+        <div className="mt-3 pt-3 border-t border-border flex justify-center">
+          {market.is_active ? (
+            <span className="text-xs font-medium text-green-500 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              {t("market:pending")}
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("market:resolved")}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
