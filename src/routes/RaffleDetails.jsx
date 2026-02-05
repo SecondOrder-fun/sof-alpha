@@ -36,8 +36,10 @@ import { formatTimestamp } from "@/lib/utils";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileRaffleDetail from "@/components/mobile/MobileRaffleDetail";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
+import PasswordGateModal from "@/components/gating/PasswordGateModal";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
+import { useSeasonGating } from "@/hooks/useSeasonGating";
 
 const RaffleDetails = () => {
   const { t } = useTranslation("raffle");
@@ -61,6 +63,18 @@ const RaffleDetails = () => {
     seasonIdNumber,
     seasonDetailsQuery?.data?.status,
   );
+
+  // ── Season gating ──
+  const isSeasonGated = Boolean(seasonDetailsQuery?.data?.config?.gated);
+  const {
+    isVerified: isGatingVerified,
+    verifyPassword,
+    refetch: refetchGating,
+  } = useSeasonGating(seasonIdNumber, { isGated: isSeasonGated });
+  const [gateModalOpen, setGateModalOpen] = useState(false);
+  // Track which action to resume after password verification
+  const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
+
   const {
     curveSupply,
     curveReserves,
@@ -269,6 +283,12 @@ const RaffleDetails = () => {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
+    // If season is gated and user not verified, show password modal first
+    if (isSeasonGated && isGatingVerified === false) {
+      setPendingAction("buy");
+      setGateModalOpen(true);
+      return;
+    }
     setSheetMode("buy");
     setSheetOpen(true);
   };
@@ -277,6 +297,12 @@ const RaffleDetails = () => {
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
+    }
+    // If season is gated and user not verified, show password modal first
+    if (isSeasonGated && isGatingVerified === false) {
+      setPendingAction("sell");
+      setGateModalOpen(true);
+      return;
     }
     // Refresh position before opening sell sheet to get latest ticket count
     await refreshPositionNow();
@@ -293,6 +319,21 @@ const RaffleDetails = () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     setSheetOpen(true);
+  };
+
+  // Called after successful password verification
+  const handleGateVerified = async () => {
+    refetchGating();
+    if (pendingAction === "buy") {
+      setSheetMode("buy");
+      setSheetOpen(true);
+    } else if (pendingAction === "sell") {
+      await refreshPositionNow();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      setSheetMode("sell");
+      setSheetOpen(true);
+    }
+    setPendingAction(null);
   };
 
   // Mobile view for Farcaster Mini App and Base App
@@ -328,6 +369,8 @@ const RaffleDetails = () => {
           totalPrizePool={totalPrizePool}
           onBuy={handleBuy}
           onSell={handleSell}
+          isGated={isSeasonGated}
+          isVerified={isGatingVerified}
         />
         <BuySellSheet
           key={`position-${localPosition?.tickets?.toString() || "0"}`}
@@ -368,6 +411,13 @@ const RaffleDetails = () => {
             debouncedRefresh(0);
             refreshPositionNow();
           }}
+        />
+        <PasswordGateModal
+          open={gateModalOpen}
+          onOpenChange={setGateModalOpen}
+          seasonName={cfg?.name || ""}
+          onVerify={verifyPassword}
+          onVerified={handleGateVerified}
         />
       </>
     );
@@ -746,6 +796,13 @@ const RaffleDetails = () => {
             </>
           );
         })()}
+      <PasswordGateModal
+        open={gateModalOpen}
+        onOpenChange={setGateModalOpen}
+        seasonName={seasonDetailsQuery?.data?.config?.name || ""}
+        onVerify={verifyPassword}
+        onVerified={handleGateVerified}
+      />
     </div>
   );
 };

@@ -16,29 +16,22 @@ import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
 // ---------------------------------------------------------------------------
 const FarcasterHome = () => {
   return (
-    <div className="relative min-h-[80vh] bg-[#0d0d0d]">
+    <div className="relative min-h-[80vh] bg-background">
       <MeltyLines />
 
       {/* Main content */}
       <main className="relative z-10 flex items-center justify-center px-4 py-12">
         <div
-          className="w-full max-w-2xl mx-auto p-8 rounded-lg"
-          style={{
-            backgroundColor: "rgba(20, 20, 20, 0.9)",
-            border: "1px solid #c82a54",
-            boxShadow: "0 0 30px rgba(200, 42, 84, 0.2)",
-          }}
+          className="w-full max-w-2xl mx-auto p-8 rounded-lg bg-card/90 border border-primary shadow-[0_0_30px_rgba(200,42,84,0.2)]"
         >
           <h2
-            className="text-2xl font-bold mb-6 tracking-widest"
-            style={{ color: "#c82a54", fontFamily: "monospace" }}
+            className="text-2xl font-bold mb-6 tracking-widest text-primary font-mono"
           >
             COMING SOON
           </h2>
 
           <p
-            className="mb-8 leading-relaxed"
-            style={{ color: "#a89e99", fontFamily: "monospace" }}
+            className="mb-8 leading-relaxed text-muted-foreground font-mono"
           >
             SecondOrder.fun transforms memecoins from chaotic infinite games
             into structured, fair finite games. Join our community and be the
@@ -46,8 +39,7 @@ const FarcasterHome = () => {
           </p>
 
           <h3
-            className="text-lg font-semibold mb-6"
-            style={{ color: "#e25167" }}
+            className="text-lg font-semibold mb-6 text-primary/80"
           >
             Memecoins without the hangover
           </h3>
@@ -66,13 +58,12 @@ const FarcasterHome = () => {
           </div>
 
           {/* Social Links */}
-          <div className="flex flex-col min-[400px]:flex-row items-center justify-center gap-2 pt-6 border-t border-[#333]">
+          <div className="flex flex-col min-[400px]:flex-row items-center justify-center gap-2 pt-6 border-t border-border">
             <a
               href="https://x.com/SecondOrderfun"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-[#c82a54]/20"
-              style={{ color: "#a89e99" }}
+              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-primary/20 text-muted-foreground"
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -84,8 +75,7 @@ const FarcasterHome = () => {
               href="https://farcaster.xyz/secondorderfun"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-[#c82a54]/20"
-              style={{ color: "#a89e99" }}
+              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-primary/20 text-muted-foreground"
             >
               <svg
                 viewBox="0 0 1000 1000"
@@ -118,8 +108,7 @@ const WebHome = () => {
 
       <div className="relative z-10 flex items-center justify-center min-h-[45vh]">
         <div
-          className="w-full max-w-4xl mx-auto px-8 py-12 rounded-lg text-center"
-          style={{ backgroundColor: "rgba(128, 128, 128, 0.1)" }}
+          className="w-full max-w-4xl mx-auto px-8 py-12 rounded-lg text-center bg-muted/10"
         >
           <h1 className="text-2xl font-semibold mb-4">{t("home.welcome")}</h1>
           <p className="text-muted-foreground leading-relaxed mb-8">
@@ -130,13 +119,13 @@ const WebHome = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/raffles"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-[#c82a54] text-white font-semibold hover:bg-[#a82248] transition-colors"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-primary/80 transition-colors"
             >
               View Raffles
             </Link>
             <Link
               to="/markets"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-lg border border-[#c82a54] text-[#c82a54] font-semibold hover:bg-[#c82a54]/10 transition-colors"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-lg border border-primary text-primary font-semibold hover:bg-primary/10 transition-colors"
             >
               Explore Markets
             </Link>

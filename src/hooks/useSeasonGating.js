@@ -1,24 +1,16 @@
 // src/hooks/useSeasonGating.js
-// Hook for SeasonGating contract interactions
+// Hook for reading season gating status and verifying passwords.
 
-import { useMemo, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { keccak256, encodePacked } from 'viem';
-import { getContractAddresses, SEASON_GATING_ABI } from '@/config/contracts';
-import { getStoredNetworkKey } from '@/lib/wagmi';
-
-/**
- * Hash a password for gating configuration
- * @param {string} password - The plaintext password
- * @returns {`0x${string}`} The keccak256 hash of the password
- */
-export function hashPassword(password) {
-  return keccak256(encodePacked(['string'], [password]));
-}
+import { useMemo, useCallback } from "react";
+import { createPublicClient, http, keccak256, toHex } from "viem";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccount, useWriteContract } from "wagmi";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getNetworkByKey } from "@/config/networks";
+import { getContractAddresses, SEASON_GATING_ABI } from "@/config/contracts";
 
 /**
- * Gate types enum matching the contract
+ * Gate type enum matching ISeasonGating.GateType
  */
 export const GateType = {
   NONE: 0,
@@ -29,272 +21,166 @@ export const GateType = {
 };
 
 /**
- * Hook for reading and writing to the SeasonGating contract
- * @param {number|bigint} seasonId - The season ID to check gating for
- * @returns {Object} Gating state and actions
+ * Hash a password the same way the contract does:
+ * keccak256(abi.encodePacked(password))
+ * @param {string} password
+ * @returns {`0x${string}`}
  */
-export function useSeasonGating(seasonId) {
-  const { address } = useAccount();
-  const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-
-  const netKey = getStoredNetworkKey();
-  const { SEASON_GATING } = getContractAddresses(netKey);
-
-  const hasContract = Boolean(SEASON_GATING);
-  const seasonIdBigInt = seasonId ? BigInt(seasonId) : 0n;
-
-  // Read: Check if user is verified for the season
-  const {
-    data: isVerified,
-    isLoading: isLoadingVerified,
-    refetch: refetchVerified
-  } = useReadContract({
-    address: SEASON_GATING,
-    abi: SEASON_GATING_ABI,
-    functionName: 'isUserVerified',
-    args: [seasonIdBigInt, address],
-    query: {
-      enabled: hasContract && !!address && seasonIdBigInt > 0n,
-    },
-  });
-
-  // Read: Get season gates configuration
-  const {
-    data: gates,
-    refetch: refetchGates
-  } = useReadContract({
-    address: SEASON_GATING,
-    abi: SEASON_GATING_ABI,
-    functionName: 'getSeasonGates',
-    args: [seasonIdBigInt],
-    query: {
-      enabled: hasContract && seasonIdBigInt > 0n,
-    },
-  });
-
-  // Read: Get gate count
-  const { data: gateCount } = useReadContract({
-    address: SEASON_GATING,
-    abi: SEASON_GATING_ABI,
-    functionName: 'getGateCount',
-    args: [seasonIdBigInt],
-    query: {
-      enabled: hasContract && seasonIdBigInt > 0n,
-    },
-  });
-
-  // Determine if season has gates configured
-  const hasGates = useMemo(() => {
-    return gates && gates.length > 0;
-  }, [gates]);
-
-  // Get enabled gates only
-  const enabledGates = useMemo(() => {
-    if (!gates) return [];
-    return gates.filter(g => g.enabled);
-  }, [gates]);
-
-  // Write: Verify password mutation
-  const verifyPasswordMutation = useMutation({
-    mutationFn: async ({ gateIndex, password }) => {
-      if (!hasContract) throw new Error('SeasonGating contract not configured');
-      if (!password) throw new Error('Password is required');
-
-      // Simulate first
-      if (publicClient && address) {
-        try {
-          await publicClient.simulateContract({
-            address: SEASON_GATING,
-            abi: SEASON_GATING_ABI,
-            functionName: 'verifyPassword',
-            args: [seasonIdBigInt, BigInt(gateIndex), password],
-            account: address,
-          });
-        } catch (simErr) {
-          // Parse error message
-          const msg = simErr?.shortMessage || simErr?.message || 'Verification failed';
-          throw new Error(msg);
-        }
-      }
-
-      return writeContractAsync({
-        address: SEASON_GATING,
-        abi: SEASON_GATING_ABI,
-        functionName: 'verifyPassword',
-        args: [seasonIdBigInt, BigInt(gateIndex), password],
-      });
-    },
-    onSuccess: () => {
-      // Invalidate queries to refresh state
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'isUserVerified' }] });
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'isGateVerified' }] });
-    },
-  });
-
-  const verifyPasswordHash = verifyPasswordMutation.data;
-  const {
-    isLoading: isVerifyConfirming,
-    isSuccess: isVerifyConfirmed
-  } = useWaitForTransactionReceipt({ hash: verifyPasswordHash });
-
-  // Refetch after confirmation
-  if (isVerifyConfirmed) {
-    refetchVerified();
-  }
-
-  // Callback to verify password
-  const verifyPassword = useCallback(async (gateIndex, password) => {
-    return verifyPasswordMutation.mutateAsync({ gateIndex, password });
-  }, [verifyPasswordMutation]);
-
-  return {
-    // Contract state
-    hasContract,
-
-    // Read state
-    isVerified: isVerified ?? true, // If no gates, user is verified
-    isLoadingVerified,
-    gates: gates || [],
-    enabledGates,
-    hasGates,
-    gateCount: gateCount ? Number(gateCount) : 0,
-
-    // Write state
-    verifyPassword,
-    isVerifying: verifyPasswordMutation.isPending,
-    isVerifyConfirming,
-    isVerifyConfirmed,
-    verifyError: verifyPasswordMutation.error,
-
-    // Refetch helpers
-    refetchVerified,
-    refetchGates,
-  };
+export function hashPassword(password) {
+  return keccak256(toHex(password));
 }
 
 /**
- * Hook for admin gating configuration
- * @returns {Object} Admin configuration functions
+ * @notice Hook for reading gating status and submitting password verification.
+ * @param {number|string|null} seasonId
+ * @param {object} [options]
+ * @param {boolean} [options.isGated] - Hint from season config (avoids an extra read)
+ * @returns {{
+ *   isGated: boolean,
+ *   isVerified: boolean | null,
+ *   gateCount: number,
+ *   gates: Array,
+ *   isLoading: boolean,
+ *   verifyPassword: (password: string) => Promise<string>,
+ *   refetch: () => void,
+ * }}
  */
-export function useSeasonGatingAdmin() {
-  const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
-  const { address } = useAccount();
-  const { writeContractAsync } = useWriteContract();
-
+export function useSeasonGating(seasonId, options = {}) {
+  const { isGated: isGatedHint } = options;
   const netKey = getStoredNetworkKey();
-  const { SEASON_GATING } = getContractAddresses(netKey);
+  const net = getNetworkByKey(netKey);
+  const addr = getContractAddresses(netKey);
+  const { address: connectedAddress } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const queryClient = useQueryClient();
 
-  const hasContract = Boolean(SEASON_GATING);
+  const client = useMemo(() => {
+    if (!net?.rpcUrl) return null;
+    return createPublicClient({
+      chain: {
+        id: net.id,
+        name: net.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [net.rpcUrl] } },
+      },
+      transport: http(net.rpcUrl),
+    });
+  }, [net?.id, net?.name, net?.rpcUrl]);
 
-  // Write: Configure gates mutation
-  const configureGatesMutation = useMutation({
-    mutationFn: async ({ seasonId, gates }) => {
-      if (!hasContract) throw new Error('SeasonGating contract not configured');
+  const gatingAddress = addr.SEASON_GATING;
+  const sid = seasonId != null ? BigInt(seasonId) : null;
 
-      const seasonIdBigInt = BigInt(seasonId);
-
-      // Format gates for contract
-      const formattedGates = gates.map(g => ({
-        gateType: g.gateType,
-        enabled: g.enabled,
-        configHash: g.configHash,
-      }));
-
-      // Simulate first
-      if (publicClient && address) {
-        try {
-          await publicClient.simulateContract({
-            address: SEASON_GATING,
-            abi: SEASON_GATING_ABI,
-            functionName: 'configureGates',
-            args: [seasonIdBigInt, formattedGates],
-            account: address,
-          });
-        } catch (simErr) {
-          const msg = simErr?.shortMessage || simErr?.message || 'Configuration failed';
-          throw new Error(msg);
-        }
-      }
-
-      return writeContractAsync({
-        address: SEASON_GATING,
-        abi: SEASON_GATING_ABI,
-        functionName: 'configureGates',
-        args: [seasonIdBigInt, formattedGates],
-      });
+  // ── Read gate count + gates ──
+  const gatesQuery = useQuery({
+    queryKey: ["seasonGating", netKey, "gates", String(seasonId), gatingAddress],
+    queryFn: async () => {
+      if (!client || !gatingAddress || sid == null) return null;
+      const [count, gates] = await Promise.all([
+        client.readContract({
+          address: gatingAddress,
+          abi: SEASON_GATING_ABI,
+          functionName: "getGateCount",
+          args: [sid],
+        }),
+        client.readContract({
+          address: gatingAddress,
+          abi: SEASON_GATING_ABI,
+          functionName: "getSeasonGates",
+          args: [sid],
+        }),
+      ]);
+      return { count: Number(count), gates };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'getSeasonGates' }] });
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'getGateCount' }] });
-    },
+    enabled: Boolean(client && gatingAddress && sid != null && isGatedHint),
+    staleTime: 30_000,
+    retry: false,
   });
 
-  const configureGatesHash = configureGatesMutation.data;
-  const {
-    isLoading: isConfigureConfirming,
-    isSuccess: isConfigureConfirmed
-  } = useWaitForTransactionReceipt({ hash: configureGatesHash });
+  // ── Read user verification status ──
+  const verifiedQuery = useQuery({
+    queryKey: [
+      "seasonGating",
+      netKey,
+      "isVerified",
+      String(seasonId),
+      connectedAddress,
+      gatingAddress,
+    ],
+    queryFn: async () => {
+      if (!client || !gatingAddress || sid == null || !connectedAddress)
+        return null;
+      const result = await client.readContract({
+        address: gatingAddress,
+        abi: SEASON_GATING_ABI,
+        functionName: "isUserVerified",
+        args: [sid, connectedAddress],
+      });
+      return Boolean(result);
+    },
+    enabled: Boolean(
+      client && gatingAddress && sid != null && connectedAddress && isGatedHint,
+    ),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: false,
+  });
 
-  // Write: Clear gates mutation
-  const clearGatesMutation = useMutation({
-    mutationFn: async ({ seasonId }) => {
-      if (!hasContract) throw new Error('SeasonGating contract not configured');
+  // ── verifyPassword write ──
+  const verifyPassword = useCallback(
+    async (password) => {
+      if (!gatingAddress || sid == null) {
+        throw new Error("Gating contract or season not available");
+      }
+      const hash = await writeContractAsync({
+        address: gatingAddress,
+        abi: SEASON_GATING_ABI,
+        functionName: "verifyPassword",
+        args: [sid, 0n, password],
+      });
 
-      const seasonIdBigInt = BigInt(seasonId);
-
-      if (publicClient && address) {
-        try {
-          await publicClient.simulateContract({
-            address: SEASON_GATING,
-            abi: SEASON_GATING_ABI,
-            functionName: 'clearGates',
-            args: [seasonIdBigInt],
-            account: address,
-          });
-        } catch (simErr) {
-          const msg = simErr?.shortMessage || simErr?.message || 'Clear failed';
-          throw new Error(msg);
-        }
+      // Wait for tx confirmation via public client then refetch
+      if (client && hash) {
+        await client.waitForTransactionReceipt({ hash, confirmations: 1 });
       }
 
-      return writeContractAsync({
-        address: SEASON_GATING,
-        abi: SEASON_GATING_ABI,
-        functionName: 'clearGates',
-        args: [seasonIdBigInt],
+      // Invalidate verification query so UI updates
+      queryClient.invalidateQueries({
+        queryKey: [
+          "seasonGating",
+          netKey,
+          "isVerified",
+          String(seasonId),
+          connectedAddress,
+          gatingAddress,
+        ],
       });
+
+      return hash;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'getSeasonGates' }] });
-      queryClient.invalidateQueries({ queryKey: ['readContract', { functionName: 'getGateCount' }] });
-    },
-  });
+    [
+      gatingAddress,
+      sid,
+      writeContractAsync,
+      client,
+      queryClient,
+      netKey,
+      seasonId,
+      connectedAddress,
+    ],
+  );
+
+  const refetch = useCallback(() => {
+    verifiedQuery.refetch();
+    gatesQuery.refetch();
+  }, [verifiedQuery, gatesQuery]);
 
   return {
-    hasContract,
-
-    // Configure gates
-    configureGates: configureGatesMutation.mutateAsync,
-    isConfiguring: configureGatesMutation.isPending,
-    isConfigureConfirming,
-    isConfigureConfirmed,
-    configureError: configureGatesMutation.error,
-
-    // Clear gates
-    clearGates: clearGatesMutation.mutateAsync,
-    isClearing: clearGatesMutation.isPending,
-    clearError: clearGatesMutation.error,
-
-    // Helper to create password gate config
-    createPasswordGate: (password, enabled = true) => ({
-      gateType: GateType.PASSWORD,
-      enabled,
-      configHash: hashPassword(password),
-    }),
+    isGated: Boolean(isGatedHint),
+    isVerified: verifiedQuery.data ?? null,
+    gateCount: gatesQuery.data?.count ?? 0,
+    gates: gatesQuery.data?.gates ?? [],
+    isLoading: verifiedQuery.isLoading || gatesQuery.isLoading,
+    verifyPassword,
+    refetch,
   };
 }
-
-export default useSeasonGating;

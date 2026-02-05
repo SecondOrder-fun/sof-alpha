@@ -7,7 +7,7 @@ import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits } from "viem";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProgressBar from "@/components/mobile/ProgressBar";
@@ -27,6 +27,8 @@ export const MobileRaffleDetail = ({
   totalPrizePool,
   onBuy,
   onSell,
+  isGated = false,
+  isVerified = null,
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation(["common", "raffle"]);
@@ -197,6 +199,23 @@ export const MobileRaffleDetail = ({
               </div>
             )}
 
+          {/* Gated badge */}
+          {isGated && isActive && (
+            <div className="flex items-center justify-center">
+              {isVerified === true ? (
+                <div className="flex items-center gap-1.5 text-green-500 text-sm font-medium bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  {t("raffle:verified", { defaultValue: "Verified" })}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-primary text-sm font-medium bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                  <Lock className="w-4 h-4" />
+                  {t("raffle:passwordRequired", { defaultValue: "Password Required" })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action Buttons */}
           {isPreStart ? null : isActive ? (
             <div className="flex gap-3">
@@ -204,16 +223,22 @@ export const MobileRaffleDetail = ({
                 onClick={onBuy}
                 variant="primary"
                 size="lg"
-                className="flex-1"
+                className="flex-1 relative"
               >
+                {isGated && isVerified !== true && (
+                  <Lock className="w-4 h-4 mr-1.5" />
+                )}
                 {t("common:buy").toUpperCase()}
               </Button>
               <Button
                 onClick={onSell}
                 variant="primary"
                 size="lg"
-                className="flex-1"
+                className="flex-1 relative"
               >
+                {isGated && isVerified !== true && (
+                  <Lock className="w-4 h-4 mr-1.5" />
+                )}
                 {t("common:sell").toUpperCase()}
               </Button>
             </div>
@@ -263,6 +288,8 @@ MobileRaffleDetail.propTypes = {
   totalPrizePool: PropTypes.bigint,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
+  isGated: PropTypes.bool,
+  isVerified: PropTypes.bool,
 };
 
 export default MobileRaffleDetail;
