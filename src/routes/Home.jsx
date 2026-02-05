@@ -6,7 +6,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Settings } from "lucide-react";
 
 import MeltyLines from "@/components/backgrounds/MeltyLines";
@@ -80,20 +79,6 @@ const FarcasterHome = () => {
             boxShadow: "0 0 30px rgba(200, 42, 84, 0.2)",
           }}
         >
-          {/* Logo */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <img
-              src="/images/logo.png"
-              alt="SecondOrder.fun Logo"
-              className="w-12 h-12"
-            />
-            <h1 className="text-2xl font-bold">
-              <span className="text-white">Second</span>
-              <span className="text-[#c82a54]">Order</span>
-              <span className="text-[#a89e99]">.fun</span>
-            </h1>
-          </div>
-
           <h2
             className="text-2xl font-bold mb-6 tracking-widest"
             style={{ color: "#c82a54", fontFamily: "monospace" }}
@@ -116,11 +101,6 @@ const FarcasterHome = () => {
           >
             Memecoins without the hangover
           </h3>
-
-          {/* Connect Wallet */}
-          <div className="mb-6 flex justify-center">
-            <ConnectButton />
-          </div>
 
           {/* Add to Farcaster */}
           <div className="mb-6">

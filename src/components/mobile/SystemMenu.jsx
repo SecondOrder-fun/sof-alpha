@@ -1,8 +1,7 @@
 // src/components/mobile/SystemMenu.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useAccount, useDisconnect } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useDisconnect, useConnect } from "wagmi";
 import { Globe, Wallet, LogOut, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +20,27 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
   const { t, i18n } = useTranslation(["account", "common", "navigation"]);
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
+  const { connect, connectors } = useConnect();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
+
+  // Connect wallet using the best available connector (Farcaster first, then injected)
+  const handleConnect = useCallback(() => {
+    const farcasterConnector = connectors.find((c) => {
+      const id = typeof c?.id === "string" ? c.id.toLowerCase() : "";
+      const name = typeof c?.name === "string" ? c.name.toLowerCase() : "";
+      return id.includes("farcaster") || name.includes("farcaster");
+    });
+
+    if (farcasterConnector) {
+      connect({ connector: farcasterConnector });
+    } else {
+      // Fallback to first available connector (injected)
+      const fallback = connectors[0];
+      if (fallback) {
+        connect({ connector: fallback });
+      }
+    }
+  }, [connect, connectors]);
 
   // Update selected language when i18n language changes
   useEffect(() => {
@@ -127,78 +146,14 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                     {t("account:disconnectWallet")}
                   </Button>
                 ) : (
-                  <ConnectButton.Custom>
-                    {({
-                      account,
-                      chain,
-                      openAccountModal,
-                      openChainModal,
-                      openConnectModal,
-                      authenticationStatus,
-                      mounted,
-                    }) => {
-                      const ready =
-                        mounted &&
-                        (!authenticationStatus ||
-                          !authenticationStatus.loading);
-                      const connected = ready && account && chain;
-
-                      return (
-                        <div
-                          {...(!ready && {
-                            "aria-hidden": true,
-                            style: {
-                              opacity: 0,
-                              pointerEvents: "none",
-                              userSelect: "none",
-                            },
-                          })}
-                        >
-                          {(() => {
-                            if (!connected) {
-                              return (
-                                <Button
-                                  onClick={openConnectModal}
-                                  variant="outline"
-                                  className="w-full text-white border-[#353e34] hover:bg-white/10"
-                                >
-                                  <Wallet className="w-4 h-4 mr-2" />
-                                  {t("account:connectWallet")}
-                                </Button>
-                              );
-                            }
-
-                            if (chain.unsupported) {
-                              return (
-                                <Button
-                                  onClick={openChainModal}
-                                  variant="outline"
-                                  className="w-full text-white border-[#353e34] hover:bg-white/10"
-                                >
-                                  {t("account:wrongNetwork")}
-                                </Button>
-                              );
-                            }
-
-                            return (
-                              <div style={{ display: "flex", gap: 12 }}>
-                                <Button
-                                  onClick={openAccountModal}
-                                  variant="outline"
-                                  className="w-full text-white border-[#353e34] hover:bg-white/10"
-                                >
-                                  {account.displayName}
-                                  {account.displayBalance
-                                    ? ` (${account.displayBalance})`
-                                    : ""}
-                                </Button>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      );
-                    }}
-                  </ConnectButton.Custom>
+                  <Button
+                    onClick={handleConnect}
+                    variant="outline"
+                    className="w-full text-white border-[#353e34] hover:bg-white/10"
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    {t("account:connectWallet")}
+                  </Button>
                 )}
               </div>
             </CardContent>
