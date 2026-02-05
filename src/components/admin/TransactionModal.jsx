@@ -128,7 +128,7 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
   if (!shouldShow && !isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setDismissed(true); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
