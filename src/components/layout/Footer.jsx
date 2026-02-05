@@ -22,8 +22,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -36,8 +36,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -50,8 +50,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -64,8 +64,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -83,8 +83,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -97,8 +97,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -111,8 +111,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -125,8 +125,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -144,8 +144,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -158,8 +158,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >
@@ -172,8 +172,8 @@ const Footer = () => {
                   className={({ isActive }) =>
                     `text-sm transition-colors ${
                       isActive
-                        ? "text-[#c82a54]"
-                        : "text-[#a89e99] hover:text-[#e25167]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-primary/80"
                     }`
                   }
                 >

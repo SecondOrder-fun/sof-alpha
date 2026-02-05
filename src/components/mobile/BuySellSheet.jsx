@@ -720,7 +720,7 @@ export const BuySellSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="bg-[#130013] border-t-2 border-[#c82a54] rounded-t-2xl px-3 max-w-screen-sm mx-auto"
+        className="bg-background border-t-2 border-primary rounded-t-2xl px-3 max-w-screen-sm mx-auto"
       >
         <SheetHeader className="mb-6">
           <div className="flex flex-col space-y-2">
@@ -759,11 +759,11 @@ export const BuySellSheet = ({
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="mb-6 bg-black/40 border border-[#353e34] rounded-lg p-4">
+          <div className="mb-6 bg-black/40 border border-border rounded-lg p-4">
             <div className="text-sm font-medium mb-2 text-white">
               {t("common:slippage", { defaultValue: "Slippage tolerance" })}
             </div>
-            <div className="text-xs text-muted-foreground mb-3 text-[#a89e99]">
+            <div className="text-xs text-muted-foreground mb-3">
               {t("common:slippageDescription", {
                 defaultValue:
                   "Maximum percentage you are willing to lose due to unfavorable price changes.",
@@ -775,7 +775,7 @@ export const BuySellSheet = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setSlippagePct("0")}
-                className="border-[#c82a54] text-white hover:bg-[#c82a54]"
+                className="border-primary text-white hover:bg-primary"
               >
                 0.0%
               </Button>
@@ -784,7 +784,7 @@ export const BuySellSheet = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setSlippagePct("1")}
-                className="border-[#c82a54] text-white hover:bg-[#c82a54]"
+                className="border-primary text-white hover:bg-primary"
               >
                 1.0%
               </Button>
@@ -793,7 +793,7 @@ export const BuySellSheet = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setSlippagePct("2")}
-                className="border-[#c82a54] text-white hover:bg-[#c82a54]"
+                className="border-primary text-white hover:bg-primary"
               >
                 2.0%
               </Button>
@@ -803,14 +803,14 @@ export const BuySellSheet = ({
                 type="number"
                 value={slippagePct}
                 onChange={(e) => setSlippagePct(e.target.value)}
-                className="bg-black/60 border-[#353e34] text-white"
+                className="bg-black/60 border-border text-white"
                 placeholder="1.0"
               />
               <Button
                 type="button"
                 size="sm"
                 onClick={() => setShowSettings(false)}
-                className="bg-[#c82a54] hover:bg-[#d8396b] text-white"
+                className="bg-primary hover:bg-primary/80 text-white"
               >
                 {t("common:save", { defaultValue: "Save" })}
               </Button>
@@ -837,7 +837,7 @@ export const BuySellSheet = ({
         {/* Wallet Not Connected Overlay */}
         {!tradingLocked && walletNotConnected && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-t-2xl backdrop-blur-sm">
-            <div className="text-center p-6 rounded-lg bg-black/75 text-[#a89e99] shadow-lg max-w-sm">
+            <div className="text-center p-6 rounded-lg bg-black/75 text-muted-foreground shadow-lg max-w-sm">
               <p className="text-lg font-semibold">
                 {t("common:connectWalletToTrade", {
                   defaultValue: "Connect your wallet to trade",
@@ -851,13 +851,13 @@ export const BuySellSheet = ({
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/40 p-1.5">
             <TabsTrigger
               value="buy"
-              className="data-[state=active]:text-[#c82a54] data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
+              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
             >
               BUY
             </TabsTrigger>
             <TabsTrigger
               value="sell"
-              className="data-[state=active]:text-[#c82a54] data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
+              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
             >
               SELL
             </TabsTrigger>
@@ -887,7 +887,7 @@ export const BuySellSheet = ({
                 />
               </div>
 
-              <div className="bg-black/40 border border-[#353e34] rounded-lg p-4">
+              <div className="bg-black/40 border border-border rounded-lg p-4">
                 <div className="text-sm text-muted-foreground mb-1">
                   {t("common:estimatedCost", {
                     defaultValue: "Estimated cost",
@@ -897,7 +897,7 @@ export const BuySellSheet = ({
                   {formatSOF(estBuyWithFees)} $SOF
                 </div>
                 {buyFeeBps > 0 && (
-                  <div className="text-xs text-[#a89e99] mt-1">
+                  <div className="text-xs text-muted-foreground mt-1">
                     Includes {buyFeeBps / 100}% fee
                   </div>
                 )}
@@ -969,14 +969,14 @@ export const BuySellSheet = ({
                         ? t("common:max", { defaultValue: "Max" })
                         : "Connect wallet"
                     }
-                    className="border-[#c82a54] text-white hover:bg-[#c82a54] px-4"
+                    className="border-primary text-white hover:bg-primary px-4"
                   >
                     MAX
                   </Button>
                 </div>
               </div>
 
-              <div className="bg-black/40 border border-[#353e34] rounded-lg p-4">
+              <div className="bg-black/40 border border-border rounded-lg p-4">
                 <div className="text-sm text-muted-foreground mb-1">
                   {t("common:estimatedProceeds", {
                     defaultValue: "Estimated proceeds",
@@ -986,7 +986,7 @@ export const BuySellSheet = ({
                   {formatSOF(estSellAfterFees)} $SOF
                 </div>
                 {sellFeeBps > 0 && (
-                  <div className="text-xs text-[#a89e99] mt-1">
+                  <div className="text-xs text-muted-foreground mt-1">
                     After {sellFeeBps / 100}% fee
                   </div>
                 )}

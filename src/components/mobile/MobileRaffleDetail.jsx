@@ -97,7 +97,7 @@ export const MobileRaffleDetail = ({
               {seasonConfig?.name || "Loading..."}
             </h2>
             {isPreStart && startTimeSec !== null && (
-              <div className="bg-[#c82a54] px-4 py-2 rounded-lg">
+              <div className="bg-primary px-4 py-2 rounded-lg">
                 <span className="text-white font-bold">
                   {t("raffle:startsIn", {
                     defaultValue: "Raffle starts in",
@@ -111,7 +111,7 @@ export const MobileRaffleDetail = ({
               </div>
             )}
             {!isPreStart && seasonConfig?.endTime && (
-              <div className="bg-[#c82a54] px-4 py-2 rounded-lg">
+              <div className="bg-primary px-4 py-2 rounded-lg">
                 <span className="text-white font-bold">
                   {t("raffle:endsIn")}{" "}
                 </span>
@@ -135,7 +135,7 @@ export const MobileRaffleDetail = ({
           {/* Stat Cards */}
           <div className="grid grid-cols-2 gap-4">
             {isPreStart ? null : (
-              <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+              <div className="bg-black/40 rounded-lg p-4 border border-border">
                 <div className="text-xs text-muted-foreground mb-1">
                   {t("raffle:ticketPrice")}
                 </div>
@@ -144,7 +144,7 @@ export const MobileRaffleDetail = ({
                 </div>
               </div>
             )}
-            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+            <div className="bg-black/40 rounded-lg p-4 border border-border">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:yourTickets")}
               </div>
@@ -154,7 +154,7 @@ export const MobileRaffleDetail = ({
                   : "0"}
               </div>
               {localPosition && (
-                <div className="text-xs text-[#a89e99] text-center mt-1">
+                <div className="text-xs text-muted-foreground text-center mt-1">
                   {((localPosition.probBps || 0) / 100).toFixed(2)}% chance
                 </div>
               )}
@@ -162,8 +162,8 @@ export const MobileRaffleDetail = ({
           </div>
 
           {/* Grand Prize */}
-          <div className="bg-[#c82a54]/10 border-2 border-[#c82a54] rounded-lg p-4 text-center">
-            <div className="text-[#c82a54] text-sm font-semibold mb-1">
+          <div className="bg-primary/10 border-2 border-primary rounded-lg p-4 text-center">
+            <div className="text-primary text-sm font-semibold mb-1">
               {t("raffle:grandPrize").toUpperCase()}
             </div>
             <div className="text-2xl font-bold">
@@ -172,7 +172,7 @@ export const MobileRaffleDetail = ({
           </div>
 
           {isCompleted && winnerSummaryQuery.data && (
-            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+            <div className="bg-black/40 rounded-lg p-4 border border-border">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:winner")}
               </div>
@@ -187,7 +187,7 @@ export const MobileRaffleDetail = ({
           {isCompleted &&
             !winnerSummaryQuery.data &&
             BigInt(curveSupply ?? 0n) === 0n && (
-              <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
+              <div className="bg-black/40 rounded-lg p-4 border border-border">
                 <div className="text-sm font-semibold text-white">
                   {t("raffle:noWinner")}
                 </div>
@@ -202,15 +202,17 @@ export const MobileRaffleDetail = ({
             <div className="flex gap-3">
               <Button
                 onClick={onBuy}
+                variant="primary"
                 size="lg"
-                className="flex-1 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54]"
+                className="flex-1"
               >
                 {t("common:buy").toUpperCase()}
               </Button>
               <Button
                 onClick={onSell}
+                variant="primary"
                 size="lg"
-                className="flex-1 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54]"
+                className="flex-1"
               >
                 {t("common:sell").toUpperCase()}
               </Button>
@@ -220,21 +222,23 @@ export const MobileRaffleDetail = ({
               <div className="flex gap-3 opacity-30">
                 <Button
                   disabled
+                  variant="primary"
                   size="lg"
-                  className="flex-1 bg-[#c82a54] text-white border-2 border-[#c82a54]"
+                  className="flex-1"
                 >
                   {t("common:buy").toUpperCase()}
                 </Button>
                 <Button
                   disabled
+                  variant="primary"
                   size="lg"
-                  className="flex-1 bg-[#c82a54] text-white border-2 border-[#c82a54]"
+                  className="flex-1"
                 >
                   {t("common:sell").toUpperCase()}
                 </Button>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-black/90 border border-[#c82a54] rounded-lg px-4 py-2">
+                <div className="bg-black/90 border border-primary rounded-lg px-4 py-2">
                   <p className="text-sm font-semibold text-white">
                     {t("raffle:raffleEnded")}
                   </p>

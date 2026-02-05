@@ -80,23 +80,23 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
 
       {/* Menu Container - drops down from below header */}
       <div
-        className={`absolute top-16 left-0 right-0 bg-[#130013] border-b border-[#6b6b6b]/20 shadow-lg transform transition-transform duration-300 ease-out pointer-events-auto ${
+        className={`absolute top-16 left-0 right-0 bg-background border-b border-border/20 shadow-lg transform transition-transform duration-300 ease-out pointer-events-auto ${
           isOpen ? "translate-y-0" : "-translate-y-full"
         }`}
       >
         {/* Menu Header */}
-        <div className="px-4 py-3 border-b border-[#6b6b6b]/20">
+        <div className="px-4 py-3 border-b border-border/20">
           <h2 className="text-white font-medium">{t("account:systemMenu")}</h2>
         </div>
 
         {/* Menu Content */}
         <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-visible">
           {/* Account Section */}
-          <Card className="border-[#353e34] bg-[#1a1a1a]">
+          <Card className="border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 {isConnected && profile ? (
-                  <div className="w-12 h-12 border-2 border-[#c82a54] rounded-full overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
+                  <div className="w-12 h-12 border-2 border-primary rounded-full overflow-hidden bg-card flex items-center justify-center">
                     {profile.pfpUrl ? (
                       <img
                         src={profile.pfpUrl}
@@ -104,19 +104,19 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <User className="w-5 h-5 text-[#a89e99]" />
+                      <User className="w-5 h-5 text-muted-foreground" />
                     )}
                   </div>
                 ) : (
-                  <div className="w-12 h-12 border-2 border-[#353e34] rounded-full overflow-hidden bg-[#2a2a2a] flex items-center justify-center">
-                    <User className="w-6 h-6 text-[#6b6b6b]" />
+                  <div className="w-12 h-12 border-2 border-border rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                    <User className="w-6 h-6 text-muted-foreground/60" />
                   </div>
                 )}
                 <div>
                   <div className="text-white font-medium">
                     {profile?.displayName || t("account:notSet")}
                   </div>
-                  <div className="text-sm text-[#6b6b6b]">
+                  <div className="text-sm text-muted-foreground/60">
                     {isConnected
                       ? `${address.slice(0, 6)}...${address.slice(-4)}`
                       : t("account:noAccountLinked")}
@@ -130,7 +130,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   <Button
                     onClick={handleDisconnect}
                     variant="outline"
-                    className="w-full text-white border-[#353e34] hover:bg-red-500/10 hover:border-red-500"
+                    className="w-full text-white border-border hover:bg-red-500/10 hover:border-red-500"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     {t("account:disconnectWallet")}
@@ -139,7 +139,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   <Button
                     onClick={handleConnect}
                     variant="outline"
-                    className="w-full text-white border-[#353e34] hover:bg-white/10"
+                    className="w-full text-white border-border hover:bg-white/10"
                   >
                     <Wallet className="w-4 h-4 mr-2" />
                     {t("account:connectWallet")}
@@ -150,10 +150,10 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
           </Card>
 
           {/* Language Settings Section */}
-          <Card className="border-[#353e34] bg-[#1a1a1a]">
+          <Card className="border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Globe className="w-5 h-5 text-[#c82a54]" />
+                <Globe className="w-5 h-5 text-primary" />
                 <h3 className="text-white font-medium">
                   {t("account:languageSettings")}
                 </h3>
@@ -162,7 +162,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
               {/* Language Selector Button */}
               <Button
                 variant="outline"
-                className="w-full justify-between text-white border-[#353e34] hover:bg-white/10"
+                className="w-full justify-between text-white border-border hover:bg-white/10"
                 onClick={() => setIsLanguagePickerOpen(true)}
               >
                 <span className="flex items-center gap-2">
@@ -189,17 +189,17 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                 className="absolute inset-0 bg-black/60"
                 onClick={() => setIsLanguagePickerOpen(false)}
               />
-              <div className="relative bg-[#1a1a1a] border border-[#353e34] rounded-lg p-5 mx-4 w-full max-w-sm shadow-xl">
+              <div className="relative bg-card border border-border rounded-lg p-5 mx-4 w-full max-w-sm shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-[#c82a54]" />
+                    <Globe className="w-5 h-5 text-primary" />
                     <h3 className="text-white font-medium">
                       {t("account:languageSettings")}
                     </h3>
                   </div>
                   <button
                     onClick={() => setIsLanguagePickerOpen(false)}
-                    className="p-1 rounded hover:bg-white/10 text-[#6b6b6b] hover:text-white transition-colors"
+                    className="p-1 rounded hover:bg-white/10 text-muted-foreground/60 hover:text-white transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -214,8 +214,8 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                       }}
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors ${
                         selectedLanguage === language.code
-                          ? "bg-[#c82a54]/20 border border-[#c82a54] text-[#c82a54]"
-                          : "bg-[#2a2a2a] border border-transparent text-white hover:bg-white/10"
+                          ? "bg-primary/20 border border-primary text-primary"
+                          : "bg-muted border border-transparent text-white hover:bg-white/10"
                       }`}
                     >
                       <span className="text-lg">{language.flag}</span>

@@ -42,7 +42,7 @@ const Landing = () => {
   }, [requiredAccessLevel, isAdmin]);
 
   return (
-    <div className="relative min-h-screen bg-[#0d0d0d]">
+    <div className="relative min-h-screen bg-background">
       {/* Animated Melty Lines Background */}
       <MeltyLines />
 
@@ -57,8 +57,8 @@ const Landing = () => {
           />
           <h1 className="text-2xl font-bold">
             <span className="text-white">Second</span>
-            <span className="text-[#c82a54]">Order</span>
-            <span className="text-[#a89e99]">.fun</span>
+            <span className="text-primary">Order</span>
+            <span className="text-muted-foreground">.fun</span>
           </h1>
         </div>
 
@@ -70,7 +70,7 @@ const Landing = () => {
               className="p-2 rounded-lg hover:bg-white/10 transition-colors"
               title="Configure Access Level"
             >
-              <Settings className="w-5 h-5 text-[#a89e99] hover:text-white" />
+              <Settings className="w-5 h-5 text-muted-foreground hover:text-white" />
             </button>
           )}
 
@@ -105,14 +105,14 @@ const Landing = () => {
                   className="rounded-full"
                   aria-label={connected ? "Open account" : "Connect wallet"}
                 >
-                  <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
+                  <Avatar className="w-10 h-10 border-2 border-primary">
                     {profile.pfpUrl ? (
                       <AvatarImage
                         src={profile.pfpUrl}
                         alt={profile.displayName || "User"}
                       />
                     ) : null}
-                    <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
+                    <AvatarFallback className="bg-card text-muted-foreground">
                       {profile.displayName ? (
                         profile.displayName[0].toUpperCase()
                       ) : (
@@ -130,11 +130,11 @@ const Landing = () => {
       {/* Access Level Configuration Panel (Admin Only) */}
       {showAccessConfig && isAdmin() && (
         <div className="relative z-10 px-8 mb-6">
-          <div className="bg-[#1a1a1a] border border-[#c82a54] rounded-lg p-4">
+          <div className="bg-card border border-primary rounded-lg p-4">
             <h3 className="text-white font-semibold mb-2">
               Admin: Configure Required Access Level
             </h3>
-            <p className="text-[#a89e99] text-sm mb-3">
+            <p className="text-muted-foreground text-sm mb-3">
               Set the minimum access level required to enter the app
             </p>
             <AccessLevelSelector
@@ -148,23 +148,16 @@ const Landing = () => {
       {/* Main Content */}
       <main className="relative z-10 flex items-center justify-center px-4 py-12">
         <div
-          className="w-full max-w-2xl mx-auto p-8 rounded-lg"
-          style={{
-            backgroundColor: "rgba(20, 20, 20, 0.9)",
-            border: "1px solid #c82a54",
-            boxShadow: "0 0 30px rgba(200, 42, 84, 0.2)",
-          }}
+          className="w-full max-w-2xl mx-auto p-8 rounded-lg bg-card/90 border border-primary shadow-[0_0_30px_rgba(200,42,84,0.2)]"
         >
           <h2
-            className="text-2xl font-bold mb-6 tracking-widest"
-            style={{ color: "#c82a54", fontFamily: "monospace" }}
+            className="text-2xl font-bold mb-6 tracking-widest text-primary font-mono"
           >
             COMING SOON
           </h2>
 
           <p
-            className="mb-8 leading-relaxed"
-            style={{ color: "#a89e99", fontFamily: "monospace" }}
+            className="mb-8 leading-relaxed text-muted-foreground font-mono"
           >
             SecondOrder.fun transforms memecoins from chaotic infinite games
             into structured, fair finite games. Join our community and be the
@@ -172,8 +165,7 @@ const Landing = () => {
           </p>
 
           <h3
-            className="text-lg font-semibold mb-6"
-            style={{ color: "#e25167" }}
+            className="text-lg font-semibold mb-6 text-primary/80"
           >
             Memecoins without the hangover
           </h3>
@@ -200,13 +192,12 @@ const Landing = () => {
           </div>
 
           {/* Social Links */}
-          <div className="flex flex-col min-[400px]:flex-row items-center justify-center gap-2 pt-6 border-t border-[#333]">
+          <div className="flex flex-col min-[400px]:flex-row items-center justify-center gap-2 pt-6 border-t border-border">
             <a
               href="https://x.com/SecondOrderfun"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-[#c82a54]/20"
-              style={{ color: "#a89e99" }}
+              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-primary/20 text-muted-foreground"
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -218,8 +209,7 @@ const Landing = () => {
               href="https://farcaster.xyz/secondorderfun"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-[#c82a54]/20"
-              style={{ color: "#a89e99" }}
+              className="flex items-center gap-2 px-4 py-2 rounded-md transition-all hover:bg-primary/20 text-muted-foreground"
             >
               <svg
                 viewBox="0 0 1000 1000"
