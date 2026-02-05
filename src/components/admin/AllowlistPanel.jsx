@@ -36,29 +36,23 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function getApiBase() {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!baseUrl) {
+  if (!API_BASE) {
     throw new Error("Missing VITE_API_BASE_URL");
   }
-  return `${baseUrl}/allowlist`;
-}
-
-function getAdminAuthHeaders() {
-  const token = import.meta.env.VITE_ADMIN_BEARER_TOKEN;
-  if (!token) {
-    throw new Error("Missing VITE_ADMIN_BEARER_TOKEN");
-  }
-  return { Authorization: `Bearer ${token}` };
+  return `${API_BASE}/allowlist`;
 }
 
 /**
  * Fetch allowlist statistics
  */
-async function fetchStats() {
+async function fetchStats(authHeaders) {
   const res = await fetch(`${getApiBase()}/stats`, {
-    headers: getAdminAuthHeaders(),
+    headers: authHeaders,
   });
   if (!res.ok) throw new Error("Failed to fetch stats");
   return res.json();
@@ -67,11 +61,11 @@ async function fetchStats() {
 /**
  * Fetch allowlist entries
  */
-async function fetchEntries(activeOnly = true) {
+async function fetchEntries(activeOnly = true, authHeaders = {}) {
   const res = await fetch(
     `${getApiBase()}/entries?activeOnly=${activeOnly}&limit=200`,
     {
-      headers: getAdminAuthHeaders(),
+      headers: authHeaders,
     },
   );
   if (!res.ok) throw new Error("Failed to fetch entries");
@@ -81,12 +75,12 @@ async function fetchEntries(activeOnly = true) {
 /**
  * Add to allowlist
  */
-async function addToAllowlist({ fid, wallet }) {
+async function addToAllowlist({ fid, wallet, authHeaders = {} }) {
   const res = await fetch(`${getApiBase()}/add`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAdminAuthHeaders(),
+      ...authHeaders,
     },
     body: JSON.stringify(fid ? { fid } : { wallet }),
   });
@@ -100,12 +94,12 @@ async function addToAllowlist({ fid, wallet }) {
 /**
  * Remove from allowlist
  */
-async function removeFromAllowlist(fid) {
+async function removeFromAllowlist({ fid, authHeaders = {} }) {
   const res = await fetch(`${getApiBase()}/remove`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAdminAuthHeaders(),
+      ...authHeaders,
     },
     body: JSON.stringify({ fid }),
   });
@@ -119,12 +113,12 @@ async function removeFromAllowlist(fid) {
 /**
  * Update allowlist config
  */
-async function updateConfig({ windowStart, windowEnd, maxEntries }) {
+async function updateConfig({ windowStart, windowEnd, maxEntries, authHeaders = {} }) {
   const res = await fetch(`${getApiBase()}/config`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAdminAuthHeaders(),
+      ...authHeaders,
     },
     body: JSON.stringify({ windowStart, windowEnd, maxEntries }),
   });
@@ -138,10 +132,10 @@ async function updateConfig({ windowStart, windowEnd, maxEntries }) {
 /**
  * Retry pending wallet resolutions
  */
-async function retryResolutions() {
+async function retryResolutions(authHeaders = {}) {
   const res = await fetch(`${getApiBase()}/retry-resolutions`, {
     method: "POST",
-    headers: getAdminAuthHeaders(),
+    headers: authHeaders,
   });
   if (!res.ok) throw new Error("Failed to retry resolutions");
   return res.json();
@@ -150,10 +144,10 @@ async function retryResolutions() {
 /**
  * Import from notification tokens
  */
-async function importFromNotifications() {
+async function importFromNotifications(authHeaders = {}) {
   const res = await fetch(`${getApiBase()}/import-from-notifications`, {
     method: "POST",
-    headers: getAdminAuthHeaders(),
+    headers: authHeaders,
   });
   if (!res.ok) throw new Error("Failed to import");
   return res.json();
@@ -177,6 +171,7 @@ function truncateAddress(addr) {
 
 export default function AllowlistPanel() {
   const queryClient = useQueryClient();
+  const { getAuthHeaders } = useAdminAuth();
   const [addInput, setAddInput] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [configWindowEnd, setConfigWindowEnd] = useState("");
@@ -184,19 +179,19 @@ export default function AllowlistPanel() {
   // Queries
   const statsQuery = useQuery({
     queryKey: ["allowlist-stats"],
-    queryFn: fetchStats,
+    queryFn: () => fetchStats(getAuthHeaders()),
     refetchInterval: 30000,
   });
 
   const entriesQuery = useQuery({
     queryKey: ["allowlist-entries", !showInactive],
-    queryFn: () => fetchEntries(!showInactive),
+    queryFn: () => fetchEntries(!showInactive, getAuthHeaders()),
     refetchInterval: 30000,
   });
 
   // Mutations
   const addMutation = useMutation({
-    mutationFn: addToAllowlist,
+    mutationFn: (vars) => addToAllowlist({ ...vars, authHeaders: getAuthHeaders() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allowlist-stats"] });
       queryClient.invalidateQueries({ queryKey: ["allowlist-entries"] });
@@ -205,7 +200,7 @@ export default function AllowlistPanel() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: removeFromAllowlist,
+    mutationFn: (fid) => removeFromAllowlist({ fid, authHeaders: getAuthHeaders() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allowlist-stats"] });
       queryClient.invalidateQueries({ queryKey: ["allowlist-entries"] });
@@ -213,7 +208,7 @@ export default function AllowlistPanel() {
   });
 
   const retryMutation = useMutation({
-    mutationFn: retryResolutions,
+    mutationFn: () => retryResolutions(getAuthHeaders()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allowlist-stats"] });
       queryClient.invalidateQueries({ queryKey: ["allowlist-entries"] });
@@ -221,7 +216,7 @@ export default function AllowlistPanel() {
   });
 
   const importMutation = useMutation({
-    mutationFn: importFromNotifications,
+    mutationFn: () => importFromNotifications(getAuthHeaders()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allowlist-stats"] });
       queryClient.invalidateQueries({ queryKey: ["allowlist-entries"] });
@@ -229,7 +224,7 @@ export default function AllowlistPanel() {
   });
 
   const configMutation = useMutation({
-    mutationFn: updateConfig,
+    mutationFn: (vars) => updateConfig({ ...vars, authHeaders: getAuthHeaders() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allowlist-stats"] });
       setConfigWindowEnd("");

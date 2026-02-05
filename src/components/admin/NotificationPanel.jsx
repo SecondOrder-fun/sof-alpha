@@ -18,14 +18,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Send, Users, RefreshCw } from "lucide-react";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * Fetch notification statistics
  */
-async function fetchNotificationStats() {
-  const response = await fetch(`${API_BASE_URL}/admin/notification-stats`);
+async function fetchNotificationStats(authHeaders = {}) {
+  const response = await fetch(`${API_BASE_URL}/admin/notification-stats`, {
+    headers: authHeaders,
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch notification stats");
   }
@@ -35,8 +38,10 @@ async function fetchNotificationStats() {
 /**
  * Fetch notification tokens list
  */
-async function fetchNotificationTokens() {
-  const response = await fetch(`${API_BASE_URL}/admin/notification-tokens`);
+async function fetchNotificationTokens(authHeaders = {}) {
+  const response = await fetch(`${API_BASE_URL}/admin/notification-tokens`, {
+    headers: authHeaders,
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch notification tokens");
   }
@@ -46,11 +51,12 @@ async function fetchNotificationTokens() {
 /**
  * Send a notification
  */
-async function sendNotification({ fid, title, body, targetUrl }) {
+async function sendNotification({ fid, title, body, targetUrl, authHeaders = {} }) {
   const response = await fetch(`${API_BASE_URL}/admin/send-notification`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders,
     },
     body: JSON.stringify({ fid, title, body, targetUrl }),
   });
@@ -65,6 +71,7 @@ async function sendNotification({ fid, title, body, targetUrl }) {
 
 function NotificationPanel() {
   const queryClient = useQueryClient();
+  const { getAuthHeaders } = useAdminAuth();
 
   // Form state
   const [title, setTitle] = useState("");
@@ -76,19 +83,19 @@ function NotificationPanel() {
   // Fetch stats
   const statsQuery = useQuery({
     queryKey: ["notificationStats"],
-    queryFn: fetchNotificationStats,
+    queryFn: () => fetchNotificationStats(getAuthHeaders()),
     refetchInterval: 30000,
   });
 
   // Fetch tokens
   const tokensQuery = useQuery({
     queryKey: ["notificationTokens"],
-    queryFn: fetchNotificationTokens,
+    queryFn: () => fetchNotificationTokens(getAuthHeaders()),
   });
 
   // Send notification mutation
   const sendMutation = useMutation({
-    mutationFn: sendNotification,
+    mutationFn: (vars) => sendNotification({ ...vars, authHeaders: getAuthHeaders() }),
     onSuccess: () => {
       setTitle("");
       setBody("");

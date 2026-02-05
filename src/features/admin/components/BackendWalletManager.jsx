@@ -17,9 +17,11 @@ import {
 } from "lucide-react";
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 import { useToast } from "@/hooks/useToast";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 export function BackendWalletManager() {
   const { toast } = useToast();
+  const { getAuthHeaders } = useAdminAuth();
   const [probabilityResults, setProbabilityResults] = useState(null);
   const [isRefreshingProbabilities, setIsRefreshingProbabilities] =
     useState(false);
@@ -32,7 +34,9 @@ export function BackendWalletManager() {
   } = useQuery({
     queryKey: ["backendWallet"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/admin/backend-wallet`);
+      const response = await fetch(`${API_BASE}/admin/backend-wallet`, {
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Failed to fetch wallet info");
       return response.json();
     },
@@ -47,7 +51,9 @@ export function BackendWalletManager() {
   } = useQuery({
     queryKey: ["marketCreationStats"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/admin/market-creation-stats`);
+      const response = await fetch(`${API_BASE}/admin/market-creation-stats`, {
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Failed to fetch stats");
       return response.json();
     },
@@ -62,7 +68,9 @@ export function BackendWalletManager() {
   } = useQuery({
     queryKey: ["paymasterStatus"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/admin/paymaster-status`);
+      const response = await fetch(`${API_BASE}/admin/paymaster-status`, {
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Failed to fetch paymaster status");
       return response.json();
     },
@@ -99,6 +107,7 @@ export function BackendWalletManager() {
     try {
       const response = await fetch(`${API_BASE}/admin/refresh-probabilities`, {
         method: "POST",
+        headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to refresh probabilities");
       const data = await response.json();

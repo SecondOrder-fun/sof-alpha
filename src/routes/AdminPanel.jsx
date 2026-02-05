@@ -18,6 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { keccak256, stringToHex } from "viem";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
+import { AdminAuthProvider } from "@/context/AdminAuthContext";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { Button } from "@/components/ui/button";
 
 // Import NFT drops panel
 import NftDropsPanel from "@/components/admin/NftDropsPanel";
@@ -31,13 +34,18 @@ import { BackendWalletManager } from "@/features/admin/components/BackendWalletM
 import NotificationPanel from "@/components/admin/NotificationPanel";
 import AllowlistPanel from "@/components/admin/AllowlistPanel";
 
-function AdminPanel() {
+/**
+ * Inner panel that requires JWT authentication for admin write operations.
+ * Rendered inside <AdminAuthProvider>.
+ */
+function AdminPanelInner() {
   const { createSeason, startSeason, requestSeasonEnd } = useRaffleWrite();
   const allSeasonsQuery = useAllSeasons();
   const { address } = useAccount();
   const { hasRole } = useAccessControl();
   const chainId = useChainId();
   const publicClient = usePublicClient();
+  const { isAuthenticated, isLoading: isAuthLoading, error: authError, login } = useAdminAuth();
 
   // Network configuration
   const netKey = getStoredNetworkKey();
@@ -95,6 +103,33 @@ function AdminPanel() {
 
   if (!isAdmin) {
     return <p>You are not authorized to view this page.</p>;
+  }
+
+  // Auth gate: require JWT for write operations
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">Admin Panel</h2>
+          <p className="text-sm text-muted-foreground">
+            Sign in with your wallet to access admin controls.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="pt-6 flex flex-col items-center gap-4">
+            <p className="text-muted-foreground">
+              Your wallet has admin access. Sign a message to authenticate for this session.
+            </p>
+            <Button onClick={login} disabled={isAuthLoading} size="lg">
+              {isAuthLoading ? "Signing…" : "Sign in to access admin controls"}
+            </Button>
+            {authError && (
+              <p className="text-sm text-red-500">{authError}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -183,6 +218,14 @@ function AdminPanel() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function AdminPanel() {
+  return (
+    <AdminAuthProvider>
+      <AdminPanelInner />
+    </AdminAuthProvider>
   );
 }
 

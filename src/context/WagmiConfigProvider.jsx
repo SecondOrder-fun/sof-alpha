@@ -25,7 +25,8 @@ const initialNetworkKey = (() => {
 const activeChainConfig = getChainConfig(initialNetworkKey);
 
 // Create config with both injected and Farcaster connectors
-const config = createConfig({
+// Exported so imperative @wagmi/core actions (e.g. signMessage) can reference it.
+export const config = createConfig({
   chains: [activeChainConfig.chain],
   connectors: [farcasterMiniApp(), injected()],
   transports: {
