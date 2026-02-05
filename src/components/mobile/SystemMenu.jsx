@@ -2,15 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
-import { Globe, Wallet, LogOut, User, ChevronDown } from "lucide-react";
+import { Globe, Wallet, LogOut, User, ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import PropTypes from "prop-types";
 
 /**
@@ -22,6 +16,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
+  const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
 
   // Connect wallet using the best available connector (Farcaster first, then injected)
   const handleConnect = useCallback(() => {
@@ -60,11 +55,6 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
     { code: "pt", name: "Portuguese", nativeName: "Português", flag: "🇵🇹" },
     { code: "ru", name: "Russian", nativeName: "Русский", flag: "🇷🇺" },
   ];
-
-  // Update selected language when i18n language changes
-  useEffect(() => {
-    setSelectedLanguage(i18n.language);
-  }, [i18n.language]);
 
   // Handle language change
   const handleLanguageChange = (languageCode) => {
@@ -169,59 +159,75 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                 </h3>
               </div>
 
-              {/* Language Dropdown using Shadcn */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between text-white border-[#353e34] hover:bg-white/10"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {languages.find(
-                          (lang) => lang.code === selectedLanguage
-                        )?.flag || "🇬🇧"}
-                      </span>
-                      <span>
-                        {languages.find(
-                          (lang) => lang.code === selectedLanguage
-                        )?.nativeName || "English"}
-                      </span>
-                    </span>
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="bg-[#1a1a1a] border-[#353e34] z-[9999]"
-                  sideOffset={4}
-                >
-                  {languages.map((language) => (
-                    <DropdownMenuItem
-                      key={language.code}
-                      onClick={() => handleLanguageChange(language.code)}
-                      className={`text-white hover:bg-white/10 ${
-                        selectedLanguage === language.code
-                          ? "bg-[#c82a54]/20 text-[#c82a54]"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{language.flag}</span>
-                        <div>
-                          <div className="font-medium">
-                            {language.nativeName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {language.name}
-                          </div>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Language Selector Button */}
+              <Button
+                variant="outline"
+                className="w-full justify-between text-white border-[#353e34] hover:bg-white/10"
+                onClick={() => setIsLanguagePickerOpen(true)}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-lg">
+                    {languages.find(
+                      (lang) => lang.code === selectedLanguage
+                    )?.flag || "🇬🇧"}
+                  </span>
+                  <span>
+                    {languages.find(
+                      (lang) => lang.code === selectedLanguage
+                    )?.nativeName || "English"}
+                  </span>
+                </span>
+                <ChevronDown className="w-4 h-4" />
+              </Button>
             </CardContent>
           </Card>
+
+          {/* Language Picker Modal Overlay */}
+          {isLanguagePickerOpen && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+              <div
+                className="absolute inset-0 bg-black/60"
+                onClick={() => setIsLanguagePickerOpen(false)}
+              />
+              <div className="relative bg-[#1a1a1a] border border-[#353e34] rounded-lg p-5 mx-4 w-full max-w-sm shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-[#c82a54]" />
+                    <h3 className="text-white font-medium">
+                      {t("account:languageSettings")}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsLanguagePickerOpen(false)}
+                    className="p-1 rounded hover:bg-white/10 text-[#6b6b6b] hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {languages.map((language) => (
+                    <button
+                      key={language.code}
+                      onClick={() => {
+                        handleLanguageChange(language.code);
+                        setIsLanguagePickerOpen(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                        selectedLanguage === language.code
+                          ? "bg-[#c82a54]/20 border border-[#c82a54] text-[#c82a54]"
+                          : "bg-[#2a2a2a] border border-transparent text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span className="text-lg">{language.flag}</span>
+                      <span className="text-sm font-medium truncate">
+                        {language.nativeName}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
