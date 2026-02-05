@@ -25,7 +25,7 @@ const MarketTypeCarousel = ({
 
   const renderMarketType = (marketType) => {
     return (
-      <div className="flex items-center justify-center gap-3 py-4 px-6 bg-muted/50 rounded-lg border border-border">
+      <div className="flex items-center justify-center gap-3 py-2 px-6 bg-muted/50 rounded-lg border border-border">
         <div className="text-center flex-1">
           <span className="text-lg font-bold">{marketType.name}</span>
           {marketType.count > 0 && (
@@ -47,10 +47,7 @@ const MarketTypeCarousel = ({
   }
 
   return (
-    <div className="mb-4">
-      <label className="block text-sm font-medium mb-2 text-foreground">
-        Market Type
-      </label>
+    <div className="mb-2">
       <Carousel
         items={marketTypes}
         currentIndex={currentIndex >= 0 ? currentIndex : 0}

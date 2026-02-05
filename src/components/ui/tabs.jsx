@@ -119,10 +119,10 @@ const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
     className={cn(
       // Base styles - z-10 to be above indicator
       "relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-      // Inactive: transparent bg, cochineal text, underlined - force no hover bg
-      "bg-transparent hover:bg-transparent text-[#c82a54] hover:text-white underline underline-offset-4",
-      // Active: white text, no underline (bg handled by sliding indicator)
-      "data-[state=active]:text-white data-[state=active]:no-underline data-[state=active]:bg-transparent",
+      // Inactive: transparent bg, primary text, underlined
+      "bg-transparent hover:bg-transparent text-primary hover:text-white underline underline-offset-4",
+      // Active: force white text, no underline (bg handled by sliding indicator)
+      "data-[state=active]:!text-white data-[state=active]:no-underline data-[state=active]:bg-transparent",
       // Override any Radix highlight state
       "data-[highlighted]:bg-transparent",
       className,

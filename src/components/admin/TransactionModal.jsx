@@ -13,10 +13,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-const AUTO_DISMISS_DELAY = 5000; // 5 seconds
-
 const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [pendingSince, setPendingSince] = useState(null);
   const [showPendingWarn, setShowPendingWarn] = useState(false);
 
@@ -42,22 +41,19 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
     );
   }, [mutation?.isPending, mutation?.isConfirming, mutation?.hash, mutation?.isConfirmed, mutation?.isError]);
 
-  // Open modal when transaction activity starts
+  // Open modal when transaction activity starts (but not if user manually dismissed)
   useEffect(() => {
-    if (shouldShow && !isOpen) {
+    if (shouldShow && !isOpen && !dismissed) {
       setIsOpen(true);
     }
-  }, [shouldShow, isOpen]);
-
-  // Auto-close after success (5 seconds)
-  useEffect(() => {
-    if (mutation?.isConfirmed && mutation?.receipt?.status === "success") {
-      const timer = setTimeout(() => {
-        setIsOpen(false);
-      }, AUTO_DISMISS_DELAY);
-      return () => clearTimeout(timer);
+    // Reset dismissed flag when a new transaction starts
+    if (mutation?.isPending && dismissed) {
+      setDismissed(false);
+      setIsOpen(true);
     }
-  }, [mutation?.isConfirmed, mutation?.receipt?.status]);
+  }, [shouldShow, isOpen, dismissed, mutation?.isPending]);
+
+  // No auto-close — user closes manually
 
   // Track pending duration for warning
   useEffect(() => {
@@ -79,6 +75,7 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
+    setDismissed(true);
   }, []);
 
   // Prevent link click from closing modal
@@ -148,9 +145,7 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
             </Button>
           </DialogTitle>
           <DialogDescription>
-            {mutation?.isConfirmed && mutation?.receipt?.status === "success"
-              ? "This modal will close automatically in a few seconds."
-              : "Track your transaction progress below."}
+            Track your transaction progress below.
           </DialogDescription>
         </DialogHeader>
 

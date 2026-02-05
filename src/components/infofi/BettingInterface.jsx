@@ -99,7 +99,7 @@ const BettingInterface = ({
         <button
           type="button"
           onClick={() => setBetSide("YES")}
-          className={`relative p-4 rounded-lg border-2 transition-all ${
+          className={`relative p-3 rounded-lg border-2 transition-all text-center ${
             betSide === "YES"
               ? "border-green-500 bg-green-500/10"
               : "border-border bg-muted/30 hover:bg-muted/50"
@@ -111,8 +111,8 @@ const BettingInterface = ({
           <div className="text-3xl font-bold text-green-500">
             {yesProbability}%
           </div>
-          <div className="text-sm font-medium text-foreground mt-1">Yes</div>
-          <div className="text-xs text-muted-foreground mt-2">
+          <div className="text-sm font-medium text-foreground">Yes</div>
+          <div className="text-[11px] text-muted-foreground mt-1">
             {yesPayout}× payout
           </div>
         </button>
@@ -121,7 +121,7 @@ const BettingInterface = ({
         <button
           type="button"
           onClick={() => setBetSide("NO")}
-          className={`relative p-4 rounded-lg border-2 transition-all ${
+          className={`relative p-3 rounded-lg border-2 transition-all text-center ${
             betSide === "NO"
               ? "border-red-400 bg-red-400/10"
               : "border-border bg-muted/30 hover:bg-muted/50"
@@ -133,8 +133,8 @@ const BettingInterface = ({
           <div className="text-3xl font-bold text-red-400">
             {noProbability}%
           </div>
-          <div className="text-sm font-medium text-foreground mt-1">No</div>
-          <div className="text-xs text-muted-foreground mt-2">
+          <div className="text-sm font-medium text-foreground">No</div>
+          <div className="text-[11px] text-muted-foreground mt-1">
             {noPayout}× payout
           </div>
         </button>
