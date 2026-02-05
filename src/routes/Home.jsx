@@ -3,71 +3,21 @@
 // - Farcaster/Base App: Landing-style content (COMING SOON, Add App, social links)
 // - Web: Welcome blurb with navigation CTAs
 
-import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Settings } from "lucide-react";
 
 import MeltyLines from "@/components/backgrounds/MeltyLines";
 import { usePlatform } from "@/hooks/usePlatform";
 import AddMiniAppButton from "@/components/farcaster/AddMiniAppButton";
 import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
-import AccessLevelSelector from "@/components/admin/AccessLevelSelector";
-import { useAllowlist } from "@/hooks/useAllowlist";
-import { ACCESS_LEVELS } from "@/config/accessLevels";
 
 // ---------------------------------------------------------------------------
 // Farcaster / Base App view
 // ---------------------------------------------------------------------------
 const FarcasterHome = () => {
-  const { isAdmin } = useAllowlist();
-  const [showAccessConfig, setShowAccessConfig] = useState(false);
-
-  const [requiredAccessLevel, setRequiredAccessLevel] = useState(() => {
-    const stored = localStorage.getItem("openAppAccessLevel");
-    return stored ? parseInt(stored) : ACCESS_LEVELS.CONNECTED;
-  });
-
-  useEffect(() => {
-    if (isAdmin()) {
-      localStorage.setItem(
-        "openAppAccessLevel",
-        requiredAccessLevel.toString(),
-      );
-    }
-  }, [requiredAccessLevel, isAdmin]);
-
   return (
     <div className="relative min-h-[80vh] bg-[#0d0d0d]">
       <MeltyLines />
-
-      {/* Admin access-level toggle */}
-      {isAdmin() && (
-        <div className="relative z-10 px-4 pt-4">
-          <button
-            onClick={() => setShowAccessConfig(!showAccessConfig)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-            title="Configure Access Level"
-          >
-            <Settings className="w-5 h-5 text-[#a89e99] hover:text-white" />
-          </button>
-
-          {showAccessConfig && (
-            <div className="mt-2 bg-[#1a1a1a] border border-[#c82a54] rounded-lg p-4">
-              <h3 className="text-white font-semibold mb-2">
-                Admin: Configure Required Access Level
-              </h3>
-              <p className="text-[#a89e99] text-sm mb-3">
-                Set the minimum access level required to enter the app
-              </p>
-              <AccessLevelSelector
-                currentLevel={requiredAccessLevel}
-                onLevelChange={setRequiredAccessLevel}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Main content */}
       <main className="relative z-10 flex items-center justify-center px-4 py-12">
