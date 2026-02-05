@@ -13,7 +13,6 @@ import MeltyLines from "@/components/backgrounds/MeltyLines";
 import { usePlatform } from "@/hooks/usePlatform";
 import AddMiniAppButton from "@/components/farcaster/AddMiniAppButton";
 import LaunchAppButtons from "@/components/farcaster/LaunchAppButtons";
-import StickyFooter from "@/components/layout/StickyFooter";
 import AccessLevelSelector from "@/components/admin/AccessLevelSelector";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
@@ -173,7 +172,6 @@ const FarcasterHome = () => {
         </div>
       </main>
 
-      <StickyFooter />
     </div>
   );
 };
