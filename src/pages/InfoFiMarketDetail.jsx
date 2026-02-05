@@ -98,21 +98,25 @@ const InfoFiMarketDetail = () => {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
-                  <CardTitle className="text-xl font-bold">
+                  <CardTitle className="text-xl font-bold text-muted-foreground">
                     {isWinnerPrediction ? (
                       <>
                         Will{" "}
-                        <UsernameDisplay
-                          address={market.player}
-                          linkTo={`/users/${market.player}`}
-                          className="font-bold text-primary"
-                        />{" "}
+                        <Link
+                          to={`/users/${market.player}`}
+                          className="text-muted-foreground underline hover:text-foreground"
+                        >
+                          <UsernameDisplay
+                            address={market.player}
+                            className="font-bold"
+                          />
+                        </Link>{" "}
                         win{" "}
                         <Link
                           to={`/raffles/${seasonId}`}
-                          className="text-primary hover:underline"
+                          className="text-muted-foreground underline hover:text-foreground"
                         >
-                          Season {seasonId}
+                          Raffle Season {seasonId}
                         </Link>
                         ?
                       </>
