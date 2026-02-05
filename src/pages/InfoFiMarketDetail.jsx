@@ -1,30 +1,30 @@
 // src/pages/InfoFiMarketDetail.jsx
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ExternalLink, Clock } from "lucide-react";
+import { ArrowLeft, Clock, ExternalLink as ExternalLinkIcon, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OddsChart from "@/components/infofi/OddsChart";
 import BuySellWidget from "@/components/infofi/BuySellWidget";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
+import ExplorerLink from "@/components/common/ExplorerLink";
 import { useQuery } from "@tanstack/react-query";
 import { useRaffleRead } from "@/hooks/useRaffleRead";
-import { buildMarketTitleParts } from "@/lib/marketTitle";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import { useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * InfoFiMarketDetail Page
  * Displays detailed market information with odds-over-time chart and trading interface
- * Inspired by Polymarket's market detail page design
  */
 const InfoFiMarketDetail = () => {
   const { marketId } = useParams();
   const { t } = useTranslation("market");
 
-  // Fetch market data from backend API (synced from blockchain on startup)
+  // Fetch market data from backend API
   const { data: marketData, isLoading } = useQuery({
     queryKey: ["infofiMarket", marketId],
     queryFn: async () => {
@@ -36,7 +36,7 @@ const InfoFiMarketDetail = () => {
       return data.market;
     },
     enabled: Boolean(marketId),
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 
   const market = marketData;
@@ -77,7 +77,6 @@ const InfoFiMarketDetail = () => {
     );
   }
 
-  const parts = buildMarketTitleParts(market);
   const isWinnerPrediction = market.market_type === "WINNER_PREDICTION";
 
   return (
@@ -99,25 +98,24 @@ const InfoFiMarketDetail = () => {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
-                  <CardTitle className="text-2xl font-bold">
+                  <CardTitle className="text-xl font-bold">
                     {isWinnerPrediction ? (
-                      <span className="flex flex-col gap-2">
-                        <span>
-                          {parts.prefix}{" "}
-                          <UsernameDisplay
-                            address={market.player}
-                            linkTo={`/users/${market.player}`}
-                            className="font-bold text-primary"
-                          />
-                        </span>
+                      <>
+                        Will{" "}
+                        <UsernameDisplay
+                          address={market.player}
+                          linkTo={`/users/${market.player}`}
+                          className="font-bold text-primary"
+                        />{" "}
+                        win{" "}
                         <Link
                           to={`/raffles/${seasonId}`}
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+                          className="text-primary hover:underline"
                         >
-                          {parts.seasonLabel}
-                          <ExternalLink className="h-3 w-3" />
+                          Season {seasonId}
                         </Link>
-                      </span>
+                        ?
+                      </>
                     ) : (
                       market.question || market.market_type
                     )}
@@ -170,47 +168,27 @@ const InfoFiMarketDetail = () => {
                 </TabsList>
 
                 <TabsContent value="activity" className="mt-4">
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>{t("activityComingSoon")}</p>
-                  </div>
+                  <ActivityFeed marketId={marketId} />
                 </TabsContent>
 
                 <TabsContent value="holders" className="mt-4">
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>{t("holdersComingSoon")}</p>
-                  </div>
+                  <TopHolders marketId={marketId} />
                 </TabsContent>
 
                 <TabsContent value="info" className="mt-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-2">{t("marketType")}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {market.market_type}
-                      </p>
-                    </div>
-                    {market.description && (
-                      <div>
-                        <h4 className="font-medium mb-2">{t("description")}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {market.description}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-medium mb-2">{t("marketId")}</h4>
-                      <p className="text-sm font-mono text-muted-foreground">
-                        {marketId}
-                      </p>
-                    </div>
-                  </div>
+                  <MarketInfo
+                    market={market}
+                    marketId={marketId}
+                    seasonId={seasonId}
+                    isWinnerPrediction={isWinnerPrediction}
+                  />
                 </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar - Buy/Sell widget - 1/3 width on large screens */}
+        {/* Sidebar - Buy/Sell widget */}
         <div className="lg:col-span-1">
           <div className="sticky top-6">
             <BuySellWidget marketId={marketId} market={market} />
@@ -220,5 +198,338 @@ const InfoFiMarketDetail = () => {
     </div>
   );
 };
+
+// ─── Activity Feed ───────────────────────────────────────────
+
+const ActivityFeed = ({ marketId }) => {
+  const { t } = useTranslation("market");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["marketTrades", marketId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE}/infofi/markets/${marketId}/trades?limit=50`
+      );
+      if (!response.ok) throw new Error("Failed to fetch trades");
+      return response.json();
+    },
+    enabled: Boolean(marketId),
+    staleTime: 15000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="animate-pulse flex items-center gap-3">
+            <div className="h-4 bg-gray-200 rounded w-32"></div>
+            <div className="h-4 bg-gray-200 rounded w-16"></div>
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("failedToLoadActivity") || "Failed to load activity."}
+      </p>
+    );
+  }
+
+  const trades = data?.trades || [];
+
+  if (trades.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("noActivityYet") || "No activity yet."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-0 divide-y divide-border">
+      {trades.map((trade) => (
+        <div
+          key={trade.id}
+          className="flex items-center justify-between py-3 text-sm"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <UsernameDisplay
+              address={trade.user_address}
+              linkTo={`/users/${trade.user_address}`}
+              className="font-medium truncate"
+            />
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                trade.outcome === "YES"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+              }`}
+            >
+              {trade.outcome}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-muted-foreground shrink-0">
+            <span className="font-medium text-foreground">
+              {parseFloat(trade.amount || 0).toFixed(2)} SOF
+            </span>
+            <span className="text-xs">
+              {trade.created_at
+                ? formatDistanceToNow(new Date(trade.created_at), {
+                    addSuffix: true,
+                  })
+                : ""}
+            </span>
+            {trade.tx_hash && (
+              <ExplorerLink
+                value={trade.tx_hash}
+                type="tx"
+                text="↗"
+                className="text-xs text-primary hover:underline"
+                showCopy={false}
+              />
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Top Holders ─────────────────────────────────────────────
+
+const TopHolders = ({ marketId }) => {
+  const { t } = useTranslation("market");
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["marketHolders", marketId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE}/infofi/markets/${marketId}/holders`
+      );
+      if (!response.ok) throw new Error("Failed to fetch holders");
+      return response.json();
+    },
+    enabled: Boolean(marketId),
+    staleTime: 30000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        {[0, 1].map((i) => (
+          <div key={i} className="animate-pulse space-y-2">
+            <div className="h-4 bg-gray-200 rounded w-16"></div>
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("failedToLoadHolders") || "Failed to load holders."}
+      </p>
+    );
+  }
+
+  const yesHolders = data?.yes || [];
+  const noHolders = data?.no || [];
+
+  if (yesHolders.length === 0 && noHolders.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("noHoldersYet") || "No holders yet."}
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* YES Holders */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-600 mb-3 flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+          {t("yes") || "YES"} Holders
+        </h4>
+        {yesHolders.length === 0 ? (
+          <p className="text-xs text-muted-foreground">None</p>
+        ) : (
+          <div className="space-y-2">
+            {yesHolders.map((holder, i) => (
+              <div
+                key={holder.address}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-muted-foreground text-xs w-4">
+                    #{i + 1}
+                  </span>
+                  <UsernameDisplay
+                    address={holder.address}
+                    linkTo={`/users/${holder.address}`}
+                    className="truncate"
+                  />
+                </div>
+                <span className="font-medium shrink-0">
+                  {parseFloat(holder.total_amount || 0).toFixed(2)} SOF
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* NO Holders */}
+      <div>
+        <h4 className="text-sm font-semibold text-rose-600 mb-3 flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+          {t("no") || "NO"} Holders
+        </h4>
+        {noHolders.length === 0 ? (
+          <p className="text-xs text-muted-foreground">None</p>
+        ) : (
+          <div className="space-y-2">
+            {noHolders.map((holder, i) => (
+              <div
+                key={holder.address}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-muted-foreground text-xs w-4">
+                    #{i + 1}
+                  </span>
+                  <UsernameDisplay
+                    address={holder.address}
+                    linkTo={`/users/${holder.address}`}
+                    className="truncate"
+                  />
+                </div>
+                <span className="font-medium shrink-0">
+                  {parseFloat(holder.total_amount || 0).toFixed(2)} SOF
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Market Info ─────────────────────────────────────────────
+
+const MarketInfo = ({ market, marketId, seasonId, isWinnerPrediction }) => {
+  const { t } = useTranslation("market");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Market ID */}
+      <InfoRow label={t("marketId") || "Market ID"}>
+        <span className="font-mono text-sm">{marketId}</span>
+      </InfoRow>
+
+      {/* Contract Address */}
+      {market.contract_address && (
+        <InfoRow label={t("contractAddress") || "Contract Address"}>
+          <div className="flex items-center gap-2">
+            <ExplorerLink
+              value={market.contract_address}
+              type="address"
+              className="font-mono text-xs break-all"
+              showCopy={true}
+            />
+          </div>
+        </InfoRow>
+      )}
+
+      {/* Market Type */}
+      <InfoRow label={t("marketType") || "Market Type"}>
+        <span className="text-sm px-2 py-0.5 rounded bg-muted">
+          {market.market_type}
+        </span>
+      </InfoRow>
+
+      {/* Season */}
+      {seasonId && (
+        <InfoRow label={t("season") || "Season"}>
+          <Link
+            to={`/raffles/${seasonId}`}
+            className="text-sm text-primary hover:underline"
+          >
+            Season {seasonId}
+          </Link>
+        </InfoRow>
+      )}
+
+      {/* Player (for WINNER_PREDICTION) */}
+      {isWinnerPrediction && market.player && (
+        <InfoRow label={t("player") || "Player"}>
+          <UsernameDisplay
+            address={market.player}
+            linkTo={`/users/${market.player}`}
+            className="text-sm"
+          />
+        </InfoRow>
+      )}
+
+      {/* Status */}
+      <InfoRow label={t("status") || "Status"}>
+        <span
+          className={`text-sm font-medium ${
+            market.is_active
+              ? "text-emerald-600"
+              : market.is_settled
+                ? "text-amber-600"
+                : "text-muted-foreground"
+          }`}
+        >
+          {market.is_active
+            ? t("active") || "Active"
+            : market.is_settled
+              ? t("settled") || "Settled"
+              : t("inactive") || "Inactive"}
+        </span>
+      </InfoRow>
+
+      {/* Created */}
+      {market.created_at && (
+        <InfoRow label={t("created") || "Created"}>
+          <span className="text-sm">
+            {format(new Date(market.created_at), "MMM d, yyyy HH:mm")}
+          </span>
+        </InfoRow>
+      )}
+
+      {/* Description */}
+      {market.description && (
+        <InfoRow label={t("description") || "Description"}>
+          <p className="text-sm text-muted-foreground">{market.description}</p>
+        </InfoRow>
+      )}
+    </div>
+  );
+};
+
+const InfoRow = ({ label, children }) => (
+  <div className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-b-0">
+    <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+    <div className="text-right">{children}</div>
+  </div>
+);
 
 export default InfoFiMarketDetail;
