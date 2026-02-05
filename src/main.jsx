@@ -85,36 +85,19 @@ import UIGym from "./routes/UIGym";
 import { ProtectedRoute } from "./components/access";
 
 // Create router
-// TEMPORARY: Root redirects to /landing, but app routes work directly
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Outlet />,
+    element: <App />,
     errorElement: <ErrorPage />,
     children: [
       {
-        element: <PublicLayout />,
-        children: [
-          {
-            index: true,
-            element: <Landing />,
-          },
-          {
-            path: "login",
-            element: <Login />,
-          },
-        ],
+        index: true,
+        element: <Home />,
       },
       {
-        element: <App />,
-        children: [
-          {
-            path: "home",
-            element: <Home />,
-          },
-          {
-            path: "test",
+        path: "test",
             element: <Test />,
           },
           {
