@@ -2,14 +2,21 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import RaffleBalanceItem from "./RaffleBalanceItem";
+import { Loader2, ExternalLink, ChevronRight } from "lucide-react";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
 
 /**
  * MobileBalancesTab - Mobile-optimized balances display with Raffles/InfoFi toggle
+ * Uses consistent UI Gym accordion style for both sections
  */
 const MobileBalancesTab = ({
   address,
@@ -27,7 +34,7 @@ const MobileBalancesTab = ({
   return (
     <div className="space-y-3 mt-3">
       {/* SOF Balance Display */}
-      <Card className="border-[#353e34] bg-[#130013]">
+      <Card className="border-border bg-background">
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground mb-1">
             {t("account:sofBalance")}
@@ -37,7 +44,7 @@ const MobileBalancesTab = ({
       </Card>
 
       {/* Toggle between Raffles and InfoFi */}
-      <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-[#353e34]">
+      <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-border">
         <Button
           variant={activeView === "raffles" ? "default" : "ghost"}
           onClick={() => setActiveView("raffles")}
@@ -72,15 +79,62 @@ const MobileBalancesTab = ({
                 {t("account:noTicketBalances")}
               </p>
             ) : (
-              sortedRafflePositions.map((position) => (
-                <RaffleBalanceItem
-                  key={position.seasonId}
-                  seasonId={position.seasonId}
-                  name={position.name}
-                  contractAddress={position.token}
-                  ticketCount={position.ticketCount}
-                />
-              ))
+              <Accordion type="multiple" className="space-y-2">
+                {sortedRafflePositions.map((position) => (
+                  <AccordionItem
+                    key={`raffle-${position.seasonId}`}
+                    value={`raffle-${position.seasonId}`}
+                  >
+                    <AccordionTrigger className="px-3 py-2 text-left">
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-white">
+                            #{position.seasonId} - {position.name}
+                          </span>
+                          <div className="text-right shrink-0">
+                            <span className="font-bold text-white">
+                              {position.ticketCount}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              tickets
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-mono truncate mt-1">
+                          {position.token}
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="mt-2 border-t border-border pt-3 space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">
+                            Token Contract
+                          </span>
+                          <a
+                            href={`https://sepolia.basescan.org/token/${position.token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary/80 flex items-center gap-1"
+                          >
+                            View
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <Link
+                          to={`/raffles/${position.seasonId}`}
+                          className="flex items-center justify-between p-3 bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                        >
+                          <span className="text-white font-medium">
+                            Go to Raffle
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-primary" />
+                        </Link>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             )}
           </>
         )}
