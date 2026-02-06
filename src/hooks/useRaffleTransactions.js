@@ -28,9 +28,6 @@ export const useRaffleTransactions = (
     queryKey: ["raffleTransactions", bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
-          client: !!client,
-          bondingCurveAddress,
-        });
         return [];
       }
 
@@ -68,22 +65,10 @@ export const useRaffleTransactions = (
           toBlock: "latest",
         });
 
-          bondingCurveAddress,
-          fromBlock: fromBlock.toString(),
-          toBlock: "latest",
-          totalLogs: logs.length,
-          seasonId,
-        });
-
         // Filter by seasonId if provided
         const filteredLogs = seasonId
           ? logs.filter((log) => Number(log.args.seasonId) === Number(seasonId))
           : logs;
-
-        console.log(
-          "[useRaffleTransactions] Filtered logs:",
-          filteredLogs.length,
-        );
 
         // Fetch block timestamps for each transaction
         const transactions = await Promise.all(
@@ -105,13 +90,11 @@ export const useRaffleTransactions = (
                 newTickets,
                 ticketsDelta,
                 totalTickets: BigInt(log.args.totalTickets || 0n),
-                // Calculate probability from position/total (probabilityBps not in event)
                 probabilityBps: 0,
                 type: ticketsDelta > 0n ? "buy" : "sell",
                 logIndex: log.logIndex,
               };
             } catch (error) {
-              console.error("Error fetching block for transaction:", error);
               // Return transaction without timestamp if block fetch fails
               const oldTickets = BigInt(log.args.oldTickets || 0n);
               const newTickets = BigInt(log.args.newTickets || 0n);
@@ -135,19 +118,8 @@ export const useRaffleTransactions = (
         );
 
         // Sort by block number (descending) and return
-        const sorted = transactions.sort(
-          (a, b) => b.blockNumber - a.blockNumber,
-        );
-        console.log(
-          "[useRaffleTransactions] Returning transactions:",
-          sorted.length,
-        );
-        return sorted;
+        return transactions.sort((a, b) => b.blockNumber - a.blockNumber);
       } catch (error) {
-        console.error(
-          "[useRaffleTransactions] Error fetching transactions:",
-          error,
-        );
         throw error;
       }
     },

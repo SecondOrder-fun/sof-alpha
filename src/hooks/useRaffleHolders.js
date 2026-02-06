@@ -11,7 +11,7 @@ import { queryLogsInChunks } from "@/utils/blockRangeQuery";
  * Aggregates PositionUpdate events to build current holder list
  * @param {string} bondingCurveAddress - The bonding curve contract address
  * @param {number} seasonId - The season ID for filtering
- * @param {object} options - Query options
+ * @param {object} options - Query options (startBlock, startTime, enablePolling)
  * @returns {object} Query result with holders data
  */
 export const useRaffleHolders = (
@@ -29,9 +29,6 @@ export const useRaffleHolders = (
     queryKey: ["raffleHolders", bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
-          client: !!client,
-          bondingCurveAddress,
-        });
         return [];
       }
 
@@ -69,18 +66,10 @@ export const useRaffleHolders = (
           toBlock: "latest",
         });
 
-          bondingCurveAddress,
-          fromBlock: fromBlock.toString(),
-          toBlock: "latest",
-          totalLogs: logs.length,
-          seasonId,
-        });
-
         // Filter by seasonId if provided
         const filteredLogs = seasonId
           ? logs.filter((log) => Number(log.args.seasonId) === Number(seasonId))
           : logs;
-
 
         // Aggregate positions by player (keep only latest position per player)
         const playerPositions = new Map();
@@ -103,11 +92,10 @@ export const useRaffleHolders = (
               player,
               ticketCount: BigInt(log.args.newTickets || 0n),
               totalTicketsAtTime: BigInt(log.args.totalTickets || 0n),
-              // probabilityBps not in event - will be calculated from totals
               winProbabilityBps: 0,
               blockNumber,
               logIndex,
-              lastUpdate: null, // Will be filled with timestamp
+              lastUpdate: null,
             });
           }
         }
@@ -123,8 +111,7 @@ export const useRaffleHolders = (
                 ...holder,
                 lastUpdate: Number(block.timestamp),
               };
-            } catch (error) {
-              console.error("Error fetching block timestamp:", error);
+            } catch {
               return holder;
             }
           }),
@@ -143,18 +130,15 @@ export const useRaffleHolders = (
         });
 
         // Calculate ACTUAL current total by summing all holder tickets
-        // This is more accurate than using totalTicketsAtTime from any single event
         const currentTotalTickets = sortedHolders.reduce(
           (sum, holder) => sum + holder.ticketCount,
           0n,
         );
 
         // Recalculate ALL probabilities based on current total
-        // This ensures all players' odds update when anyone buys/sells
         return sortedHolders.map((holder, index) => ({
           ...holder,
           rank: index + 1,
-          // Recalculate live probability for this holder
           winProbabilityBps:
             currentTotalTickets > 0n
               ? Math.floor(
@@ -164,7 +148,6 @@ export const useRaffleHolders = (
               : 0,
         }));
       } catch (error) {
-        console.error("Error fetching raffle holders:", error);
         throw error;
       }
     },
@@ -193,7 +176,6 @@ export const useRaffleHolders = (
    */
   const totalTickets = useMemo(() => {
     if (!query.data || query.data.length === 0) return 0n;
-    // Sum all holder tickets for accurate total
     return query.data.reduce((sum, holder) => sum + holder.ticketCount, 0n);
   }, [query.data]);
 
