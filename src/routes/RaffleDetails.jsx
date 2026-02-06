@@ -287,8 +287,8 @@ const RaffleDetails = () => {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
-    // If season is gated and user not verified, show password modal first
-    if (isSeasonGated && isGatingVerified === false) {
+    // If season is gated and user not verified (or still loading), show password modal
+    if (isSeasonGated && isGatingVerified !== true) {
       setPendingAction("buy");
       setGateModalOpen(true);
       return;
@@ -302,8 +302,8 @@ const RaffleDetails = () => {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
-    // If season is gated and user not verified, show password modal first
-    if (isSeasonGated && isGatingVerified === false) {
+    // If season is gated and user not verified (or still loading), show password modal
+    if (isSeasonGated && isGatingVerified !== true) {
       setPendingAction("sell");
       setGateModalOpen(true);
       return;
