@@ -266,6 +266,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       treasuryAddress: treasuryAddress.trim(),
       raffleToken: "0x0000000000000000000000000000000000000000",
       bondingCurve: "0x0000000000000000000000000000000000000000",
+      sponsor: "0x0000000000000000000000000000000000000000", // Set by contract
       isActive: false,
       isCompleted: false,
       gated,
