@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../../src/core/Raffle.sol";
 import "../../src/core/SeasonFactory.sol";
+import "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 
 /**
  * @title RedeployRaffleV2
@@ -72,7 +73,14 @@ contract RedeployRaffleV2 is Script {
         console2.log(unicode"✅ Sponsor Hat ID set");
         
         // ═══════════════════════════════════════════════════════════════════
-        // STEP 4: Grant roles
+        // STEP 4: Add Raffle as VRF consumer
+        // ═══════════════════════════════════════════════════════════════════
+        console2.log(unicode"\n⚙️  Adding Raffle as VRF consumer...");
+        IVRFCoordinatorV2Plus(VRF_COORDINATOR).addConsumer(VRF_SUBSCRIPTION_ID, address(raffle));
+        console2.log(unicode"✅ VRF consumer added");
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 5: Grant roles
         // ═══════════════════════════════════════════════════════════════════
         console2.log(unicode"\n🔑 Granting roles...");
         bytes32 SEASON_CREATOR_ROLE = keccak256("SEASON_CREATOR_ROLE");
@@ -92,9 +100,8 @@ contract RedeployRaffleV2 is Script {
         console2.log("VRF Subscription:", VRF_SUBSCRIPTION_ID);
         console2.log(unicode"═══════════════════════════════════════════════════════");
         console2.log(unicode"\n🔧 MANUAL STEPS:");
-        console2.log("1. Add Raffle as VRF consumer on Chainlink");
-        console2.log("2. Update RAFFLE_ADDRESS in Vercel + Railway");
-        console2.log("3. Update SEASON_FACTORY_ADDRESS in Railway");
+        console2.log("1. Update RAFFLE_ADDRESS in Vercel + Railway");
+        console2.log("2. Update SEASON_FACTORY_ADDRESS in Railway");
         console2.log(unicode"═══════════════════════════════════════════════════════\n");
     }
 }
