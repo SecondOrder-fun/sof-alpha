@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { formatUnits } from "viem";
-import { getContractAddresses } from "@/config/contracts";
+import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { queryLogsInChunks } from "@/utils/blockRangeQuery";
@@ -38,20 +38,43 @@ export function useSOFTransactions(address, options = {}) {
         return [];
       }
 
-      // Fetch all seasons to get bonding curve and FPMM addresses
-      let seasons = [];
+      // Fetch all seasons from on-chain to get bonding curve addresses
+      const bondingCurveMap = {};
       let fpmmAddresses = [];
+      
       try {
-        const seasonsRes = await fetch(`${API_BASE}/seasons`);
-        if (seasonsRes.ok) {
-          const data = await seasonsRes.json();
-          seasons = data.seasons || [];
+        // Get current season ID from Raffle contract
+        if (contracts.RAFFLE) {
+          const currentSeasonId = await publicClient.readContract({
+            address: contracts.RAFFLE,
+            abi: RAFFLE_ABI,
+            functionName: "currentSeasonId",
+          });
+          
+          // Fetch details for each season
+          for (let i = 1; i <= Number(currentSeasonId); i++) {
+            try {
+              const details = await publicClient.readContract({
+                address: contracts.RAFFLE,
+                abi: RAFFLE_ABI,
+                functionName: "getSeasonDetails",
+                args: [BigInt(i)],
+              });
+              const config = details?.[0];
+              const curveAddr = config?.bondingCurve?.toLowerCase();
+              if (curveAddr && !/^0x0{40}$/i.test(curveAddr)) {
+                bondingCurveMap[curveAddr] = { seasonId: i, name: config?.name };
+              }
+            } catch (err) {
+              // Skip seasons that error
+            }
+          }
         }
-        // Fetch FPMM market addresses
+        
+        // Fetch FPMM market addresses from API
         const marketsRes = await fetch(`${API_BASE}/infofi/markets`);
         if (marketsRes.ok) {
           const data = await marketsRes.json();
-          // Collect all FPMM contract addresses from all seasons
           Object.values(data.markets || {}).forEach(seasonMarkets => {
             seasonMarkets.forEach(m => {
               if (m.contract_address) {
@@ -64,14 +87,6 @@ export function useSOFTransactions(address, options = {}) {
         console.warn("[SOFTransactions] Failed to fetch seasons/markets:", err);
       }
 
-      // Build map of bonding curve addresses to season info
-      const bondingCurveMap = {};
-      for (const s of seasons) {
-        const curveAddr = s?.config?.bondingCurve?.toLowerCase();
-        if (curveAddr) {
-          bondingCurveMap[curveAddr] = { seasonId: s.id, name: s.config?.name };
-        }
-      }
       const bondingCurveAddresses = Object.keys(bondingCurveMap);
 
       // Get current block and calculate fromBlock
