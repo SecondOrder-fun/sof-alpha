@@ -136,8 +136,8 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full"
+              size="sm"
+              className="h-6 w-6 p-0 rounded-full"
               onClick={handleClose}
             >
               <X className="h-4 w-4" />
