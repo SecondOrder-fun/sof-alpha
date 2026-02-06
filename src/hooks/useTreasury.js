@@ -44,7 +44,7 @@ export function useTreasury(seasonId, bondingCurveAddress) {
     functionName: 'seasons',
     args: [BigInt(seasonId)],
     query: {
-      enabled: !!seasonId && !bondingCurveAddress, // Only fetch if not provided
+      enabled: !!contracts.RAFFLE && !!seasonId && !bondingCurveAddress, // Only fetch if not provided
       select: (data) => {
         if (!data) return undefined;
         if (typeof data.bondingCurve === 'string') return data.bondingCurve;
@@ -82,6 +82,9 @@ export function useTreasury(seasonId, bondingCurveAddress) {
     address: contracts.SOF,
     abi: SOFTokenAbi,
     functionName: 'getContractBalance',
+    query: {
+      enabled: !!contracts.SOF,
+    },
   });
 
   // Get treasury address
@@ -89,6 +92,9 @@ export function useTreasury(seasonId, bondingCurveAddress) {
     address: contracts.SOF,
     abi: SOFTokenAbi,
     functionName: 'treasuryAddress',
+    query: {
+      enabled: !!contracts.SOF,
+    },
   });
 
   // Get total fees collected (cumulative)
@@ -96,6 +102,9 @@ export function useTreasury(seasonId, bondingCurveAddress) {
     address: contracts.SOF,
     abi: SOFTokenAbi,
     functionName: 'totalFeesCollected',
+    query: {
+      enabled: !!contracts.SOF,
+    },
   });
 
   // Get RAFFLE_MANAGER_ROLE hash from contract
