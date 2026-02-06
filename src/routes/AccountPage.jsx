@@ -32,6 +32,7 @@ import useIsMobile from "@/hooks/useIsMobile";
 import MobilePortfolio from "@/components/mobile/MobilePortfolio";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
+import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
 
 const AccountPage = () => {
   const isMobile = useIsMobile();
@@ -356,13 +357,18 @@ const DesktopAccountPage = () => {
               <CardTitle>{t("account:balance")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="raffle" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+              <Tabs defaultValue="sof" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="sof">SOF Holdings</TabsTrigger>
                   <TabsTrigger value="raffle">
                     {t("account:raffleHoldings")}
                   </TabsTrigger>
                   <TabsTrigger value="infofi">InfoFi Positions</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="sof" className="mt-4">
+                  <SOFTransactionHistory address={address} />
+                </TabsContent>
 
                 <TabsContent value="raffle" className="mt-4">
                   {seasonBalancesQuery.isLoading && (
