@@ -771,18 +771,21 @@ const RaffleDetails = () => {
                         curveReserves={curveReserves}
                         seasonStatus={seasonDetailsQuery.data.status}
                         totalPrizePool={seasonDetailsQuery.data.totalPrizePool}
+                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                     <TabsContent value="transactions">
                       <TransactionsTab
                         bondingCurveAddress={bc}
                         seasonId={seasonIdNumber}
+                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                     <TabsContent value="holders">
                       <HoldersTab
                         bondingCurveAddress={bc}
                         seasonId={seasonIdNumber}
+                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                   </Tabs>

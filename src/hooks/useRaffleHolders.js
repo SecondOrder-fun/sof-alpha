@@ -41,14 +41,21 @@ export const useRaffleHolders = (
         const currentBlock = await client.getBlockNumber();
         console.log("[useRaffleHolders] Current block:", currentBlock);
 
-        // Use startBlock from options if available, otherwise use lookback
-        // Passing startBlock significantly reduces RPC load
-        const LOOKBACK_BLOCKS = 200000n; // ~4.6 days on Base (reduced from 500k)
-        const fromBlock = options.startBlock
-          ? BigInt(options.startBlock)
-          : currentBlock > LOOKBACK_BLOCKS
-            ? currentBlock - LOOKBACK_BLOCKS
-            : 0n;
+        // Calculate fromBlock from startTime if available (trading starts at startTime)
+        // Base has ~2s blocks, so: blocksAgo = secondsAgo / 2
+        let fromBlock = 0n;
+        if (options.startTime) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          const secondsAgo = nowSec - Number(options.startTime);
+          const blocksAgo = BigInt(Math.ceil(secondsAgo / 2)) + 1000n; // +1000 buffer
+          fromBlock = currentBlock > blocksAgo ? currentBlock - blocksAgo : 0n;
+        } else if (options.startBlock) {
+          fromBlock = BigInt(options.startBlock);
+        } else {
+          // Fallback: 50k blocks (~1 day) if no timing info provided
+          const FALLBACK_LOOKBACK = 50000n;
+          fromBlock = currentBlock > FALLBACK_LOOKBACK ? currentBlock - FALLBACK_LOOKBACK : 0n;
+        }
 
         const positionUpdateEvent = parseAbiItem(
           "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)",
