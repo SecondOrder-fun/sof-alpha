@@ -12,6 +12,7 @@ import {
   encodePacked,
   parseUnits,
 } from "viem";
+import { getWalletClient } from "@wagmi/core";
 import {
   InfoFiMarketFactoryAbi,
   InfoFiPriceOracleAbi,
@@ -25,6 +26,7 @@ import {
   queryLogsInChunks,
   estimateBlockFromTimestamp,
 } from "@/utils/blockRangeQuery";
+import { config as wagmiConfig } from "@/context/WagmiConfigProvider";
 
 // Build a public client (HTTP) and optional WS client for subscriptions
 function buildClients(networkKey) {
@@ -245,15 +247,10 @@ export async function createWinnerPredictionMarketTx({
   player,
   networkKey = getDefaultNetworkKey(),
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
-  const chain = getNetworkByKey(networkKey);
-  const walletClient = createWalletClient({
-    chain: { id: chain.id },
-    transport: custom(window.ethereum),
-  });
-  const accountList = await walletClient.getAddresses();
-  const from = accountList?.[0];
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const walletClient = await getWalletClient(wagmiConfig);
+  if (!walletClient) throw new Error("Connect wallet first");
+  const from = walletClient.account?.address;
   if (!from) throw new Error("Connect wallet first");
 
   const { factory } = getContracts(networkKey);
@@ -777,18 +774,16 @@ export async function placeBetTx({
   networkKey = getDefaultNetworkKey(),
   fpmmAddress: providedFpmmAddress,
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const walletClient = await getWalletClient(wagmiConfig);
+  if (!walletClient) throw new Error("Connect wallet first");
+  
   const chain = getNetworkByKey(networkKey);
-  const walletClient = createWalletClient({
-    chain: { id: chain.id },
-    transport: custom(window.ethereum),
-  });
   const publicClient = createPublicClient({
     chain: { id: chain.id },
     transport: http(chain.rpcUrl),
   });
-  const [from] = await walletClient.getAddresses();
+  const from = walletClient.account?.address;
   if (!from) throw new Error("Connect wallet first");
 
   const addrs = getContractAddresses(networkKey);
@@ -898,8 +893,16 @@ export async function claimPayoutTx({
     throw new Error("Contract address is required");
   }
 
-  const { walletClient, publicClient } = buildClients(networkKey);
-  const [from] = await walletClient.getAddresses();
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const walletClient = await getWalletClient(wagmiConfig);
+  if (!walletClient) throw new Error("Connect wallet first");
+  
+  const chain = getNetworkByKey(networkKey);
+  const publicClient = createPublicClient({
+    chain: { id: chain.id },
+    transport: http(chain.rpcUrl),
+  });
+  const from = walletClient.account?.address;
   if (!from) throw new Error("Connect wallet first");
 
   const idB32 = toBytes32Id(marketId);
@@ -931,18 +934,16 @@ export async function redeemPositionTx({
   fpmmAddress: providedFpmmAddress,
   networkKey = getDefaultNetworkKey(),
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const walletClient = await getWalletClient(wagmiConfig);
+  if (!walletClient) throw new Error("Connect wallet first");
+  
   const chain = getNetworkByKey(networkKey);
-  const walletClient = createWalletClient({
-    chain: { id: chain.id },
-    transport: custom(window.ethereum),
-  });
   const publicClient = createPublicClient({
     chain: { id: chain.id },
     transport: http(chain.rpcUrl),
   });
-  const [from] = await walletClient.getAddresses();
+  const from = walletClient.account?.address;
   if (!from) throw new Error("Connect wallet first");
 
   const addrs = getContractAddresses(networkKey);
