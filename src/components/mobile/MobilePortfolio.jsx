@@ -160,7 +160,7 @@ const MobilePortfolio = () => {
         >
           {(activeTab) => (
             <>
-              <TabsList className="grid w-full grid-cols-3 bg-black/40 p-1.5">
+              <TabsList className="grid w-full grid-cols-3 bg-primary/20 p-1.5">
                 <SmartTabsTrigger
                   value="account"
                   activeTab={activeTab}

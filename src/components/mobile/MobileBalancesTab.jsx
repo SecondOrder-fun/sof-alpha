@@ -44,7 +44,7 @@ const MobileBalancesTab = ({
       </Card>
 
       {/* Toggle between Raffles and InfoFi */}
-      <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-border">
+      <div className="flex gap-2 bg-primary/20 p-1 rounded-lg border border-primary/30">
         <Button
           variant={activeView === "raffles" ? "default" : "ghost"}
           onClick={() => setActiveView("raffles")}
