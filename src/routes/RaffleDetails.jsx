@@ -289,6 +289,7 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
+    alert(`handleBuy called! isSeasonGated=${isSeasonGated}, isGatingVerified=${isGatingVerified}`);
     console.log("[handleBuy] CHECK:", { isSeasonGated, isGatingVerified, configGated: seasonDetailsQuery?.data?.config?.gated });
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
@@ -296,6 +297,7 @@ const RaffleDetails = () => {
     }
     // If season is gated and user not verified (or still loading), show password modal
     if (isSeasonGated && isGatingVerified !== true) {
+      alert("SHOULD SHOW PASSWORD MODAL NOW");
       console.log("[handleBuy] BLOCKED - showing password modal");
       setPendingAction("buy");
       setGateModalOpen(true);
