@@ -289,16 +289,19 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
+    console.log("[handleBuy] CHECK:", { isSeasonGated, isGatingVerified, configGated: seasonDetailsQuery?.data?.config?.gated });
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
     // If season is gated and user not verified (or still loading), show password modal
     if (isSeasonGated && isGatingVerified !== true) {
+      console.log("[handleBuy] BLOCKED - showing password modal");
       setPendingAction("buy");
       setGateModalOpen(true);
       return;
     }
+    console.log("[handleBuy] ALLOWED - opening buy sheet");
     setSheetMode("buy");
     setSheetOpen(true);
   };
