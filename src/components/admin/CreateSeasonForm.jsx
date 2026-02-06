@@ -1,13 +1,13 @@
 // src/components/admin/CreateSeasonForm.jsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { usePublicClient } from "wagmi";
-import { isAddress } from "viem";
+import { usePublicClient, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { isAddress, decodeEventLog } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
-import { getContractAddresses } from "@/config/contracts";
+import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { ERC20Abi } from '@/utils/abis';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
@@ -54,11 +54,16 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 
   // Gating configuration
   const [gated, setGated] = useState(false);
-  // Note: gatingGates will be used when configuring the SeasonGating contract after season creation
-  const [, setGatingGates] = useState([]);
+  const [gatingGates, setGatingGates] = useState([]);
+  const [gatingStatus, setGatingStatus] = useState(""); // "", "pending", "success", "error"
+  const pendingSeasonIdRef = useRef(null);
 
   const publicClient = usePublicClient();
-  const addresses = getContractAddresses(getStoredNetworkKey());
+  const netKey = getStoredNetworkKey();
+  const addresses = getContractAddresses(netKey);
+  
+  // For configuring gates after season creation
+  const { writeContractAsync: writeGatingContract } = useWriteContract();
 
   // Handle curve editor changes
   const handleCurveChange = useCallback((data) => {
@@ -145,19 +150,83 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
     }
   }, [createSeason?.isError, createSeason?.error]);
 
-  // Reset form on successful creation
+  // Configure gates and reset form on successful season creation
   useEffect(() => {
-    if (createSeason?.isConfirmed) {
+    if (!createSeason?.isConfirmed || !createSeason?.receipt) return;
+    
+    // Parse seasonId from SeasonCreated event in receipt
+    const seasonCreatedLog = createSeason.receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: RAFFLE_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === "SeasonCreated";
+      } catch {
+        return false;
+      }
+    });
+
+    if (!seasonCreatedLog) {
+      console.warn("[CreateSeasonForm] Could not find SeasonCreated event in receipt");
       setStartTime("");
       setEndTime("");
+      return;
     }
-  }, [createSeason?.isConfirmed]);
+
+    const decoded = decodeEventLog({
+      abi: RAFFLE_ABI,
+      data: seasonCreatedLog.data,
+      topics: seasonCreatedLog.topics,
+    });
+    const seasonId = decoded.args.seasonId;
+    console.log("[CreateSeasonForm] Season created with ID:", seasonId.toString());
+
+    // If gated with gates configured, call configureGates
+    if (gated && gatingGates.length > 0 && addresses.SEASON_GATING) {
+      setGatingStatus("pending");
+      
+      // Format gates for contract: [{ gateType, enabled, configHash }]
+      const formattedGates = gatingGates.map((g) => ({
+        gateType: g.gateType,
+        enabled: g.enabled,
+        configHash: g.configHash,
+      }));
+
+      writeGatingContract({
+        address: addresses.SEASON_GATING,
+        abi: SEASON_GATING_ABI,
+        functionName: "configureGates",
+        args: [seasonId, formattedGates],
+      })
+        .then(async (hash) => {
+          console.log("[CreateSeasonForm] configureGates tx:", hash);
+          // Wait for confirmation
+          if (publicClient) {
+            await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+          }
+          setGatingStatus("success");
+          console.log("[CreateSeasonForm] Gates configured successfully");
+        })
+        .catch((err) => {
+          console.error("[CreateSeasonForm] Failed to configure gates:", err);
+          setGatingStatus("error");
+          setFormError(`Season created but failed to configure gates: ${err.message}`);
+        });
+    }
+
+    // Reset form
+    setStartTime("");
+    setEndTime("");
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, writeGatingContract, publicClient]);
 
   const handleCreateSeason = async (e) => {
     e.preventDefault();
     setFormError("");
     setNameError("");
     setTreasuryError("");
+    setGatingStatus("");
 
     // Validate name is not empty
     if (!name || name.trim().length === 0) {
@@ -429,6 +498,15 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         {createSeason?.isPending ? "Creating..." : "Create Season"}
       </Button>
       <TransactionModal mutation={createSeason} title="Creating Season" />
+      {gatingStatus === "pending" && (
+        <p className="text-xs text-amber-600">Configuring password gates...</p>
+      )}
+      {gatingStatus === "success" && (
+        <p className="text-xs text-green-600">Password gates configured successfully!</p>
+      )}
+      {gatingStatus === "error" && (
+        <p className="text-xs text-red-500">Failed to configure gates. You may need to set them manually.</p>
+      )}
       {lastAttempt && (
         <div className="mt-3 text-xs border rounded p-2 bg-muted/30">
           <p>
