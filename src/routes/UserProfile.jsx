@@ -32,7 +32,9 @@ import { useUsernameContext } from "@/context/UsernameContext";
 import { Badge } from "@/components/ui/badge";
 import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
 import { Accordion } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
+import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
 
 const UserProfile = () => {
   const { t } = useTranslation("account");
@@ -251,51 +253,51 @@ const UserProfile = () => {
 
       <Card className="mb-4">
         <CardHeader>
-          <CardTitle>{t("raffleHoldings")}</CardTitle>
-          <CardDescription>
-            {t("raffleHoldingsDescription")}
-            {seasonBalancesQuery.isSuccess && (
-              <span className="ml-2">
-                {t("total")}:{" "}
-                <span className="font-semibold">
-                  {totalTicketsAcrossSeasons}
-                </span>
-              </span>
-            )}
-          </CardDescription>
+          <CardTitle>{t("balance")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {seasonBalancesQuery.isLoading && (
-            <p className="text-muted-foreground">{t("common:loading")}</p>
-          )}
-          {seasonBalancesQuery.error && (
-            <p className="text-red-500">{t("errorLoadingTicketBalances")}</p>
-          )}
-          {!seasonBalancesQuery.isLoading && !seasonBalancesQuery.error && (
-            <div className="space-y-2">
-              {(seasonBalancesQuery.data || []).length === 0 && (
-                <p className="text-muted-foreground">{t("noTicketBalances")}</p>
+          <Tabs defaultValue="raffle" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="raffle">{t("raffleHoldings")}</TabsTrigger>
+              <TabsTrigger value="infofi">InfoFi Positions</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="raffle" className="mt-4">
+              {seasonBalancesQuery.isLoading && (
+                <p className="text-muted-foreground">{t("common:loading")}</p>
               )}
-              {(seasonBalancesQuery.data || []).length > 0 && (
-                <Accordion type="multiple" className="space-y-2">
-                  {(seasonBalancesQuery.data || [])
-                    .slice()
-                    .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
-                    .map((row) => (
-                      <RaffleHoldingRow
-                        key={row.seasonId}
-                        row={row}
-                        address={address}
-                      />
-                    ))}
-                </Accordion>
+              {seasonBalancesQuery.error && (
+                <p className="text-red-500">{t("errorLoadingTicketBalances")}</p>
               )}
-            </div>
-          )}
+              {!seasonBalancesQuery.isLoading && !seasonBalancesQuery.error && (
+                <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
+                  {(seasonBalancesQuery.data || []).length === 0 && (
+                    <p className="text-muted-foreground">{t("noTicketBalances")}</p>
+                  )}
+                  {(seasonBalancesQuery.data || []).length > 0 && (
+                    <Accordion type="multiple" className="space-y-2">
+                      {(seasonBalancesQuery.data || [])
+                        .slice()
+                        .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
+                        .map((row) => (
+                          <RaffleHoldingRow
+                            key={row.seasonId}
+                            row={row}
+                            address={address}
+                          />
+                        ))}
+                    </Accordion>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="infofi" className="mt-4">
+              <InfoFiPositionsTab address={address} />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
-
-      <PositionsPanel address={address} seasons={allSeasonsQuery.data || []} />
 
       {/* Claims Panel (only visible for logged-in user viewing own profile) */}
       {myAddress &&
