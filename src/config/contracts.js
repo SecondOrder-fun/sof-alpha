@@ -90,13 +90,5 @@ export const CONTRACTS = {
  */
 export function getContractAddresses(key) {
   const k = (key || "LOCAL").toUpperCase();
-  const result = CONTRACTS[k] || CONTRACTS.LOCAL;
-  console.log('[contracts] getContractAddresses:', { 
-    requestedKey: key, 
-    resolvedKey: k, 
-    RAFFLE: result.RAFFLE,
-    envTestnet: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET,
-    envLocal: import.meta.env.VITE_RAFFLE_ADDRESS_LOCAL,
-  });
-  return result;
+  return CONTRACTS[k] || CONTRACTS.LOCAL;
 }
