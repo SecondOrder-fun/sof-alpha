@@ -40,16 +40,18 @@ export const useRaffleTransactions = (
         const currentBlock = await client.getBlockNumber();
         console.log("[useRaffleTransactions] Current block:", currentBlock);
 
-        // Calculate fromBlock from startTime if available (trading starts at startTime)
-        // Base has ~2s blocks, so: blocksAgo = secondsAgo / 2
+        // Use startBlock (exact) if available, otherwise estimate from startTime
         let fromBlock = 0n;
-        if (options.startTime) {
+        if (options.startBlock) {
+          // Exact block from database - most efficient
+          fromBlock = BigInt(options.startBlock);
+        } else if (options.startTime) {
+          // Estimate from startTime (trading starts at startTime)
+          // Base has ~2s blocks, so: blocksAgo = secondsAgo / 2
           const nowSec = Math.floor(Date.now() / 1000);
           const secondsAgo = nowSec - Number(options.startTime);
           const blocksAgo = BigInt(Math.ceil(secondsAgo / 2)) + 1000n; // +1000 buffer
           fromBlock = currentBlock > blocksAgo ? currentBlock - blocksAgo : 0n;
-        } else if (options.startBlock) {
-          fromBlock = BigInt(options.startBlock);
         } else {
           // Fallback: 50k blocks (~1 day) if no timing info provided
           const FALLBACK_LOOKBACK = 50000n;

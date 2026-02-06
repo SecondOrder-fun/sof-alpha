@@ -21,14 +21,15 @@ import {
  * HoldersTab - Display token holders with ranking, sorting, and pagination
  * @param {string} bondingCurveAddress - Bonding curve contract address
  * @param {number|string} seasonId - Season ID
- * @param {number} startTime - Season start timestamp (Unix seconds) for efficient block queries
+ * @param {number} startBlock - Created block number (preferred, exact)
+ * @param {number} startTime - Season start timestamp (fallback)
  */
-const HoldersTab = ({ bondingCurveAddress, seasonId, startTime }) => {
+const HoldersTab = ({ bondingCurveAddress, seasonId, startBlock, startTime }) => {
   const { t } = useTranslation("raffle");
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const { holders, totalHolders, totalTickets, isLoading, error } =
-    useRaffleHolders(bondingCurveAddress, seasonId, { startTime });
+    useRaffleHolders(bondingCurveAddress, seasonId, { startBlock, startTime });
 
   // Real-time updates: invalidate query when new PositionUpdate events occur
   useCurveEvents(bondingCurveAddress, {
@@ -319,6 +320,7 @@ const HoldersTab = ({ bondingCurveAddress, seasonId, startTime }) => {
 HoldersTab.propTypes = {
   bondingCurveAddress: PropTypes.string,
   seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  startBlock: PropTypes.number,
   startTime: PropTypes.number,
 };
 
