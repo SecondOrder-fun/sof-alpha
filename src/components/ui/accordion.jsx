@@ -130,8 +130,8 @@ const AccordionTrigger = React.forwardRef(
         ref={ref}
         className={cn(
           "flex flex-1 items-center justify-between py-2 px-3 text-sm font-medium transition-all",
-          // Default: muted; Hover: foreground; Active/Open: white
-          "text-muted-foreground hover:text-foreground [&[data-state=open]]:text-white",
+          // Default: muted; Hover: foreground; Active/Open: foreground (works in both light/dark)
+          "text-muted-foreground hover:text-foreground [&[data-state=open]]:text-foreground",
           "bg-transparent border-none outline-none",
           className
         )}
