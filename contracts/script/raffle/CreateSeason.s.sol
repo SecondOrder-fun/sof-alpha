@@ -43,6 +43,7 @@ contract CreateSeason is Script {
             treasuryAddress: caller, // Treasury receives accumulated fees
             raffleToken: address(0), // Will be set by the factory
             bondingCurve: address(0), // Will be set by the factory
+            sponsor: address(0), // Will be set to msg.sender by contract
             isActive: false,
             isCompleted: false,
             gated: false // No gating by default
@@ -83,7 +84,7 @@ contract CreateSeason is Script {
         }
 
         // Get bonding curve address from season
-        (,,,,,, address bondingCurveAddr,,,,) = raffle.seasons(seasonId);
+        (,,,,,, address bondingCurveAddr,,,,,) = raffle.seasons(seasonId);
         console2.log("Bonding curve deployed at:", bondingCurveAddr);
 
         // Note: RAFFLE_MANAGER_ROLE is now automatically granted by SeasonFactory

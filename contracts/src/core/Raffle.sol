@@ -15,6 +15,7 @@ import "../lib/RaffleLogic.sol";
 import "../lib/IInfoFiMarketFactory.sol";
 import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
+import "../lib/IHats.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 import {ITrackerACL} from "../lib/ITrackerACL.sol";
 import {ISeasonGating} from "../gating/ISeasonGating.sol";
@@ -71,6 +72,13 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     // Default grand prize split in BPS (e.g., 6500 = 65%). If seasonConfig.grandPrizeBps == 0, use this default.
     uint16 public defaultGrandPrizeBps = 6500;
 
+    // Hats Protocol integration for permissionless season creation
+    IHats public hatsProtocol;
+    uint256 public sponsorHatId;
+
+    event SponsorHatUpdated(uint256 indexed oldHatId, uint256 indexed newHatId);
+    event HatsProtocolUpdated(address indexed oldAddress, address indexed newAddress);
+
     /// @dev Emitted on every position change (buy/sell) with post-change totals
     /// @dev Backend listens to this event and triggers InfoFi market creation via Paymaster
     event PositionUpdate(
@@ -124,6 +132,46 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     /**
+     * @notice Set the Hats Protocol contract address
+     * @param _hatsProtocol The Hats.sol contract address (or address(0) to disable)
+     */
+    function setHatsProtocol(address _hatsProtocol) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldAddress = address(hatsProtocol);
+        hatsProtocol = IHats(_hatsProtocol);
+        emit HatsProtocolUpdated(oldAddress, _hatsProtocol);
+    }
+
+    /**
+     * @notice Set the Sponsor Hat ID for permissionless season creation
+     * @param _hatId The hat ID that grants sponsor rights (or 0 to disable)
+     */
+    function setSponsorHat(uint256 _hatId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 oldHatId = sponsorHatId;
+        sponsorHatId = _hatId;
+        emit SponsorHatUpdated(oldHatId, _hatId);
+    }
+
+    /**
+     * @notice Check if an address can create seasons (has Sponsor hat OR SEASON_CREATOR_ROLE)
+     * @param account The address to check
+     * @return bool True if the account can create seasons
+     */
+    function canCreateSeason(address account) public view returns (bool) {
+        // Check role-based access first
+        if (hasRole(SEASON_CREATOR_ROLE, account)) {
+            return true;
+        }
+        
+        // Check hat-based access if Hats is configured
+        if (address(hatsProtocol) != address(0) && sponsorHatId != 0) {
+            return hatsProtocol.isWearerOfHat(account, sponsorHatId) 
+                && hatsProtocol.isInGoodStanding(account, sponsorHatId);
+        }
+        
+        return false;
+    }
+
+    /**
      * @notice Create a new season: deploy RaffleToken and SOFBondingCurve, grant roles, init curve.
      */
     function createSeason(
@@ -131,7 +179,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         RaffleTypes.BondStep[] memory bondSteps,
         uint16 buyFeeBps,
         uint16 sellFeeBps
-    ) external onlyRole(SEASON_CREATOR_ROLE) nonReentrant returns (uint256 seasonId) {
+    ) external nonReentrant returns (uint256 seasonId) {
+        // Check authorization: must have SEASON_CREATOR_ROLE or valid Sponsor hat
+        if (!canCreateSeason(msg.sender)) revert UnauthorizedCaller();
+        
         if (address(seasonFactory) == address(0)) revert FactoryNotSet();
         if (bytes(config.name).length == 0) revert InvalidSeasonName();
         if (config.startTime <= block.timestamp) revert InvalidStartTime(config.startTime, block.timestamp);
@@ -146,9 +197,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         (address raffleTokenAddr, address curveAddr) =
             seasonFactory.createSeasonContracts(seasonId, config, bondSteps, buyFeeBps, sellFeeBps);
 
-        // Persist config
+        // Persist config - set sponsor to caller
         config.raffleToken = raffleTokenAddr;
         config.bondingCurve = curveAddr;
+        config.sponsor = msg.sender;
         config.isActive = false;
         config.isCompleted = false;
         seasons[seasonId] = config;

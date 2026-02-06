@@ -43,6 +43,7 @@ contract CreateTestSeason is Script {
             treasuryAddress: caller,
             raffleToken: address(0),
             bondingCurve: address(0),
+            sponsor: address(0), // Will be set to msg.sender by contract
             isActive: false,
             isCompleted: false,
             gated: false

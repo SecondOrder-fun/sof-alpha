@@ -11,6 +11,7 @@ library RaffleTypes {
         address treasuryAddress; // Where accumulated fees are sent (set by season creator)
         address raffleToken;
         address bondingCurve;
+        address sponsor; // Season sponsor (creator in permissionless mode, or explicit sponsor)
         bool isActive;
         bool isCompleted;
         bool gated; // If true, users must pass gating requirements before buying tickets
