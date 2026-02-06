@@ -68,6 +68,7 @@ export function SOFTransactionHistory({ address }) {
     if (filter === "PRIZES") {
       return transactions.filter(
         (tx) =>
+          tx.type === "PRIZE_CLAIM" ||
           tx.type === "PRIZE_CLAIM_GRAND" ||
           tx.type === "PRIZE_CLAIM_CONSOLATION"
       );
@@ -106,7 +107,9 @@ export function SOFTransactionHistory({ address }) {
 
     const prizeCount = transactions.filter(
       (tx) =>
-        tx.type === "PRIZE_CLAIM_GRAND" || tx.type === "PRIZE_CLAIM_CONSOLATION"
+        tx.type === "PRIZE_CLAIM" ||
+        tx.type === "PRIZE_CLAIM_GRAND" ||
+        tx.type === "PRIZE_CLAIM_CONSOLATION"
     ).length;
 
     return {
@@ -342,6 +345,7 @@ function TransactionRow({ tx, network }) {
         return <TrendingUpIcon className="h-4 w-4 text-purple-600" />;
       case "INFOFI_SELL":
         return <TrendingDownIcon className="h-4 w-4 text-purple-600" />;
+      case "PRIZE_CLAIM":
       case "PRIZE_CLAIM_GRAND":
       case "PRIZE_CLAIM_CONSOLATION":
         return <TrophyIcon className="h-4 w-4 text-yellow-600" />;
@@ -363,6 +367,7 @@ function TransactionRow({ tx, network }) {
       BONDING_CURVE_SELL: { label: "Raffle Sell", variant: "secondary" },
       INFOFI_BUY: { label: "InfoFi Buy", variant: "default" },
       INFOFI_SELL: { label: "InfoFi Sell", variant: "secondary" },
+      PRIZE_CLAIM: { label: "Prize Claim", variant: "default" },
       PRIZE_CLAIM_GRAND: { label: t("grandPrize"), variant: "default" },
       PRIZE_CLAIM_CONSOLATION: {
         label: t("consolation"),

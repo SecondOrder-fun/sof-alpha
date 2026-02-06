@@ -395,12 +395,44 @@ export function useSOFTransactions(address, options = {}) {
         }
       }
 
+      // Get prize distributor address for categorizing incoming prize transfers
+      let prizeDistributorAddress = null;
+      if (contracts.RAFFLE) {
+        try {
+          const distributor = await publicClient.readContract({
+            address: contracts.RAFFLE,
+            abi: RAFFLE_ABI,
+            functionName: "prizeDistributor",
+          });
+          if (distributor && !/^0x0{40}$/i.test(distributor)) {
+            prizeDistributorAddress = distributor.toLowerCase();
+          }
+        } catch (err) {
+          // Ignore if can't fetch
+        }
+      }
+
+      // Build set of transaction hashes that are already categorized (prize claims)
+      const categorizedHashes = new Set(
+        transactions
+          .filter(tx => tx.type === "PRIZE_CLAIM_GRAND" || tx.type === "PRIZE_CLAIM_CONSOLATION")
+          .map(tx => tx.hash?.toLowerCase())
+      );
+
       // Categorize incoming transfers based on sender
       // Re-categorize TRANSFER_IN items based on source
       for (let i = 0; i < transactions.length; i++) {
         const tx = transactions[i];
         if (tx.type === "TRANSFER_IN") {
           const senderLower = tx.from?.toLowerCase();
+          const txHashLower = tx.hash?.toLowerCase();
+          
+          // Skip if this transfer is already categorized as a prize claim
+          if (categorizedHashes.has(txHashLower)) {
+            // Mark for removal (we already have the specific prize claim entry)
+            transactions[i] = null;
+            continue;
+          }
           
           // From a bonding curve = raffle sell proceeds
           if (bondingCurveAddresses.includes(senderLower)) {
@@ -422,15 +454,26 @@ export function useSOFTransactions(address, options = {}) {
               description: "InfoFi position sold/redeemed",
             };
           }
+          // From prize distributor = prize claim (fallback if event wasn't captured)
+          else if (prizeDistributorAddress && senderLower === prizeDistributorAddress) {
+            transactions[i] = {
+              ...tx,
+              type: "PRIZE_CLAIM",
+              description: "Prize claim",
+            };
+          }
         }
       }
+      
+      // Filter out null entries (duplicates we marked for removal)
+      const filteredTransactions = transactions.filter(tx => tx !== null);
 
       // Sort by block number (most recent first)
-      transactions.sort(
+      filteredTransactions.sort(
         (a, b) => Number(b.blockNumber) - Number(a.blockNumber)
       );
 
-      return transactions;
+      return filteredTransactions;
     },
     enabled: Boolean(address && contracts.SOF && publicClient && enabled),
     staleTime: 30_000, // 30 seconds
