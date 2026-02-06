@@ -83,7 +83,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
         else if (ref) ref.current = el;
       }}
       className={cn(
-        "relative inline-flex items-center rounded-full border border-[#c82a54]",
+        "relative inline-flex items-center rounded-full border border-primary",
         className,
       )}
       {...props}
@@ -91,7 +91,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
       {/* Sliding indicator - same cochineal red, slides on hover */}
       <span
         className={cn(
-          "absolute left-0 rounded-full bg-[#c82a54]",
+          "absolute left-0 rounded-full bg-primary",
           !displayStyle.ready && !hoverStyle && "opacity-0"
         )}
         style={{

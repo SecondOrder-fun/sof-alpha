@@ -124,8 +124,8 @@ export function CarouselPrevious({ className, ...props }) {
       onClick={() => ctx.emblaApi && ctx.emblaApi.scrollPrev()}
       disabled={disabled}
       className={cn(
-        "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full z-10 h-8 w-8 rounded-full border border-[#c82a54] bg-[#130013] text-[#c82a54]",
-        "flex items-center justify-center text-xs hover:bg-[#e25167] hover:text-white disabled:opacity-40",
+        "absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full z-10 h-8 w-8 rounded-full border border-primary bg-background text-primary",
+        "flex items-center justify-center text-xs hover:bg-primary/80 hover:text-white disabled:opacity-40",
         className
       )}
       {...props}
@@ -151,8 +151,8 @@ export function CarouselNext({ className, ...props }) {
       onClick={() => ctx.emblaApi && ctx.emblaApi.scrollNext()}
       disabled={disabled}
       className={cn(
-        "absolute right-0 top-1/2 -translate-y-1/2 translate-x-full z-10 h-8 w-8 rounded-full border border-[#c82a54] bg-[#130013] text-[#c82a54]",
-        "flex items-center justify-center text-xs hover:bg-[#e25167] hover:text-white disabled:opacity-40",
+        "absolute right-0 top-1/2 -translate-y-1/2 translate-x-full z-10 h-8 w-8 rounded-full border border-primary bg-background text-primary",
+        "flex items-center justify-center text-xs hover:bg-primary/80 hover:text-white disabled:opacity-40",
         className
       )}
       {...props}

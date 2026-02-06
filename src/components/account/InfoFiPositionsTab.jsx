@@ -223,7 +223,7 @@ const InfoFiPositionsTab = ({ address }) => {
                                   </span>
                                 </div>
                                 {pos?.player && (
-                                  <p className="text-xs text-[#f9d6de]">
+                                  <p className="text-xs text-muted-foreground font-mono">
                                     Player: {pos.player.slice(0, 6)}...
                                     {pos.player.slice(-4)}
                                   </p>

@@ -15,7 +15,7 @@ const RaffleBalanceItem = ({
 }) => {
   return (
     <Link to={`/raffles/${seasonId}`}>
-      <Card className="border-[#353e34] bg-[#130013] hover:border-[#c82a54]/50 transition-colors cursor-pointer">
+      <Card className="border-border bg-background hover:border-primary/50 transition-colors cursor-pointer">
         <CardContent className="p-4">
           <div className="flex justify-between items-center gap-3 mb-2">
             <div className="font-medium text-white">

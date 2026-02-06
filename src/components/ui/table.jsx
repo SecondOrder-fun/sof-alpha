@@ -38,7 +38,7 @@ const Table = React.forwardRef(({ className, children, ...props }, ref) => {
         {hoverRect && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute left-0 right-0 bg-[#f9d6de]/15 transition-all duration-200"
+            className="pointer-events-none absolute left-0 right-0 bg-primary/10 transition-all duration-200"
             style={{
               top: hoverRect.top,
               height: hoverRect.height,
@@ -146,7 +146,7 @@ const TableHead = React.forwardRef(({ className, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-[#c82a54] [&:has([role=checkbox])]:pr-0",
+      "h-12 px-4 text-left align-middle font-medium text-primary [&:has([role=checkbox])]:pr-0",
       className,
     )}
     {...props}

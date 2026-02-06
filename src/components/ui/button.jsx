@@ -14,16 +14,16 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
     <Comp
       className={cn(
         'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background',
-        // Primary button: white text on Cochineal Red, Fabric Red on hover, Pastel Rose on active
-        resolvedVariant === 'default' && 'bg-[#c82a54] text-white hover:bg-[#e25167] active:bg-[#f9d6de]',
+        // Primary button: white text on Cochineal Red, Fabric Red on hover, darker red on active
+        resolvedVariant === 'default' && 'bg-primary text-white hover:bg-primary/80 active:bg-primary/60',
         resolvedVariant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
         // Outline: White border, transparent background
         resolvedVariant === 'outline' && 'border border-white text-white hover:bg-white/10',
-        // Cancel: Cochineal border/text on black, muted hover, inverted active
-        resolvedVariant === 'cancel' && 'border border-[#c82a54] text-[#c82a54] bg-black hover:bg-[#374151] hover:text-white active:bg-[#c82a54] active:text-black',
-        // Secondary button: Cement background, Asphalt text, Cochineal Red border,
-        // Fabric Red hover, Pastel Rose active
-        resolvedVariant === 'secondary' && 'bg-[#a89e99] text-[#353e34] border border-[#c82a54] hover:bg-[#e25167] active:bg-[#f9d6de]',
+        // Cancel: primary border/text on black, muted hover, inverted active
+        resolvedVariant === 'cancel' && 'border border-primary text-primary bg-black hover:bg-muted hover:text-white active:bg-primary active:text-black',
+        // Secondary button: Cement background, Asphalt text, primary border,
+        // primary hover, darker active
+        resolvedVariant === 'secondary' && 'bg-muted-foreground text-muted border border-primary hover:bg-primary/80 active:bg-primary/60',
         resolvedVariant === 'ghost' && 'hover:bg-accent hover:text-accent-foreground',
         resolvedVariant === 'link' && 'underline-offset-4 hover:underline text-primary',
         (size === 'default' || !size) && 'h-10 py-2 px-4',

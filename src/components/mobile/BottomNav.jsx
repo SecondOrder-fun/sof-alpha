@@ -64,7 +64,7 @@ export const BottomNav = ({ className = "" }) => {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 bg-[#130013] border-t border-[#6b6b6b]/20 ${className}`}
+      className={`fixed bottom-0 left-0 right-0 bg-background border-t border-border/20 ${className}`}
       style={{
         paddingBottom: `max(${safeArea.bottom}px, 8px)`,
       }}
@@ -82,7 +82,7 @@ export const BottomNav = ({ className = "" }) => {
                 onClick={() => navigate(tab.path)}
                 className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all ${
                   isActive
-                    ? "bg-[#c82a54] text-white shadow-lg shadow-[#c82a54]/30 border border-white"
+                    ? "bg-primary text-white shadow-lg shadow-primary/30 border border-white"
                     : "text-white hover:bg-white/10"
                 }`}
               >

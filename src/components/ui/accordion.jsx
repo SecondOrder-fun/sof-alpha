@@ -49,7 +49,7 @@ const Accordion = React.forwardRef(
             aria-hidden="true"
             className={cn(
               "pointer-events-none absolute left-0 right-0 z-10 rounded-md",
-              "ring-1 ring-[#f9d6de]/60 bg-[#f9d6de]/15",
+              "ring-1 ring-primary/30 bg-primary/10",
               "transition-all duration-200 ease-out",
               activeIndex !== null ? "opacity-100" : "opacity-0"
             )}
@@ -108,7 +108,7 @@ const AccordionItem = React.forwardRef(({ className, _index, ...props }, ref) =>
       }}
       onMouseEnter={handleMouseEnter}
       className={cn(
-        "border border-[#353e34] rounded-md bg-[#1b151b] transition-colors",
+        "border border-border rounded-md bg-card transition-colors",
         className
       )}
       {...props}
@@ -130,8 +130,8 @@ const AccordionTrigger = React.forwardRef(
         ref={ref}
         className={cn(
           "flex flex-1 items-center justify-between py-2 px-3 text-sm font-medium transition-all",
-          // Default: Cement; Hover: black; Active/Open: white
-          "text-[#a89e99] hover:text-[#130013] [&[data-state=open]]:text-white",
+          // Default: muted; Hover: foreground; Active/Open: white
+          "text-muted-foreground hover:text-foreground [&[data-state=open]]:text-white",
           "bg-transparent border-none outline-none",
           className
         )}
@@ -154,7 +154,7 @@ const AccordionContent = React.forwardRef(
     <AccordionPrimitive.Content
       ref={ref}
       className={cn(
-        "overflow-hidden text-sm text-[#a89e99]",
+        "overflow-hidden text-sm text-muted-foreground",
         "data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down",
         className
       )}

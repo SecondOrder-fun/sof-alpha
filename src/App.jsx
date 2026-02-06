@@ -22,7 +22,7 @@ const App = () => {
   if (isMobile) {
     return (
       <div
-        className="min-h-screen bg-[#130013] flex flex-col"
+        className="min-h-screen bg-background flex flex-col"
         style={{
           paddingTop: `${safeArea.top}px`,
           paddingBottom: `${safeArea.bottom}px`,

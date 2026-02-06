@@ -28,7 +28,7 @@ export const MobileHeader = ({ className = "" }) => {
   return (
     <>
       <header
-        className={`sticky top-0 z-50 bg-[#130013] border-b border-[#6b6b6b]/20 ${className}`}
+        className={`sticky top-0 z-50 bg-background border-b border-border/20 ${className}`}
       >
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo + Branding - matching landing page */}
@@ -40,8 +40,8 @@ export const MobileHeader = ({ className = "" }) => {
             />
             <h1 className="text-lg font-bold">
               <span className="text-white">Second</span>
-              <span className="text-[#c82a54]">Order</span>
-              <span className="text-[#a89e99]">.fun</span>
+              <span className="text-primary">Order</span>
+              <span className="text-muted-foreground">.fun</span>
             </h1>
           </Link>
 
@@ -51,14 +51,14 @@ export const MobileHeader = ({ className = "" }) => {
             className="relative p-0 bg-transparent border-0 hover:bg-transparent active:bg-transparent"
             style={{ borderRadius: "9999px" }}
           >
-            <Avatar className="w-10 h-10 border-2 border-[#c82a54]">
+            <Avatar className="w-10 h-10 border-2 border-primary">
               {profile.pfpUrl ? (
                 <AvatarImage
                   src={profile.pfpUrl}
                   alt={profile.displayName || t("account:username")}
                 />
               ) : null}
-              <AvatarFallback className="bg-[#1a1a1a] text-[#a89e99]">
+              <AvatarFallback className="bg-card text-muted-foreground">
                 {profile.displayName ? (
                   profile.displayName[0].toUpperCase()
                 ) : (
