@@ -1,10 +1,16 @@
 // src/routes/UsersIndex.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAccount } from "wagmi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
+import {
+  DataTable,
+  DataTableColumnHeader,
+  DataTablePagination,
+  DataTableToolbar,
+} from "@/components/common/DataTable";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -14,8 +20,12 @@ const UsersIndex = () => {
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState([]);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 25;
+
+  // DataTable state
+  const [sorting, setSorting] = useState([]);
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+  const [globalFilter, setGlobalFilter] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -24,7 +34,6 @@ const UsersIndex = () => {
       setError(null);
 
       try {
-        // Fetch players from backend API (which queries Supabase database)
         const response = await fetch(`${API_BASE}/users`);
 
         if (!response.ok) {
@@ -34,8 +43,13 @@ const UsersIndex = () => {
         const data = await response.json();
 
         if (!cancelled) {
-          setPlayers(data.players || []);
-          // eslint-disable-next-line no-console
+          // Transform data to include rank
+          const playersWithRank = (data.players || []).map((player, index) => ({
+            rank: index + 1,
+            address: typeof player === "string" ? player : player?.address,
+            username: typeof player === "string" ? null : player?.username,
+          }));
+          setPlayers(playersWithRank);
           console.log(
             "[UsersIndex] Loaded",
             data.count,
@@ -43,7 +57,6 @@ const UsersIndex = () => {
           );
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("[UsersIndex] Error loading players:", err);
         if (!cancelled) {
           setError(err.message);
@@ -60,16 +73,56 @@ const UsersIndex = () => {
     };
   }, []);
 
-  // Reset to first page when players list changes
-  useEffect(() => {
-    setPage(1);
-  }, [players.length]);
+  // Define table columns
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "rank",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column}>#</DataTableColumnHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="font-mono text-muted-foreground">
+            {row.getValue("rank")}
+          </span>
+        ),
+        size: 60,
+      },
+      {
+        accessorKey: "address",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column}>
+            {t("player")}
+          </DataTableColumnHeader>
+        ),
+        cell: ({ row }) => {
+          const addr = row.getValue("address");
+          if (!addr) return null;
 
-  const total = players.length;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start = (page - 1) * PAGE_SIZE;
-  const end = start + PAGE_SIZE;
-  const pageSlice = players.slice(start, end);
+          const isMyAddress =
+            myAddress && addr?.toLowerCase?.() === myAddress.toLowerCase();
+          const linkTo = isMyAddress ? "/portfolio" : `/users/${addr}`;
+
+          return (
+            <Link
+              to={linkTo}
+              className="hover:text-primary transition-colors"
+            >
+              <UsernameDisplay address={addr} showBadge={true} />
+            </Link>
+          );
+        },
+        size: 300,
+        filterFn: (row, columnId, filterValue) => {
+          const address = row.getValue(columnId)?.toLowerCase() || "";
+          const username = row.original.username?.toLowerCase() || "";
+          const filter = filterValue.toLowerCase();
+          return address.includes(filter) || username.includes(filter);
+        },
+      },
+    ],
+    [t, myAddress]
+  );
 
   return (
     <div>
@@ -98,62 +151,65 @@ const UsersIndex = () => {
             </div>
           )}
           {!loading && !error && players.length > 0 && (
-            <div className="divide-y rounded border">
-              {pageSlice.map((player) => {
-                // Support both legacy string entries and new object shape { address, username }
-                const addr =
-                  typeof player === "string" ? player : player?.address;
-
-                if (!addr) {
-                  return null;
-                }
-
-                const isMyAddress =
-                  myAddress &&
-                  addr?.toLowerCase?.() === myAddress.toLowerCase();
-                const linkTo = isMyAddress ? "/portfolio" : `/users/${addr}`;
-
-                return (
-                  <Link
-                    key={addr}
-                    to={linkTo}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-accent/40 transition-colors"
-                  >
-                    <UsernameDisplay address={addr} showBadge={true} />
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-          {/* Pagination Controls */}
-          {!loading && !error && players.length > 0 && (
-            <div className="flex items-center justify-between mt-3">
-              <div className="text-sm text-muted-foreground">
-                {t("showingRange", {
-                  start: start + 1,
-                  end: Math.min(end, total),
-                  total,
-                })}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-1 rounded border disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  {t("previous")}
-                </button>
-                <span className="text-sm">
-                  {t("page")} {page} / {pageCount}
-                </span>
-                <button
-                  className="px-3 py-1 rounded border disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={page >= pageCount}
-                >
-                  {t("next")}
-                </button>
-              </div>
+            <div className="space-y-4">
+              <DataTableToolbar
+                table={{
+                  getState: () => ({ columnFilters, globalFilter }),
+                  getColumn: (id) => ({
+                    getFilterValue: () =>
+                      columnFilters.find((f) => f.id === id)?.value,
+                    setFilterValue: (value) => {
+                      setColumnFilters((prev) => {
+                        const filtered = prev.filter((f) => f.id !== id);
+                        return value !== undefined
+                          ? [...filtered, { id, value }]
+                          : filtered;
+                      });
+                    },
+                  }),
+                  resetColumnFilters: () => setColumnFilters([]),
+                  setGlobalFilter: setGlobalFilter,
+                }}
+                searchColumn="address"
+                searchPlaceholder={t("searchAddress")}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+              />
+              <DataTable
+                columns={columns}
+                data={players}
+                sorting={sorting}
+                setSorting={setSorting}
+                columnFilters={columnFilters}
+                setColumnFilters={setColumnFilters}
+                pagination={pagination}
+                setPagination={setPagination}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+              />
+              <DataTablePagination
+                table={{
+                  getState: () => ({ pagination }),
+                  setPageSize: (size) =>
+                    setPagination((prev) => ({ ...prev, pageSize: size })),
+                  previousPage: () =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      pageIndex: Math.max(0, prev.pageIndex - 1),
+                    })),
+                  nextPage: () =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      pageIndex: prev.pageIndex + 1,
+                    })),
+                  getCanPreviousPage: () => pagination.pageIndex > 0,
+                  getCanNextPage: () =>
+                    (pagination.pageIndex + 1) * pagination.pageSize <
+                    players.length,
+                  getPageCount: () =>
+                    Math.ceil(players.length / pagination.pageSize),
+                }}
+              />
             </div>
           )}
         </CardContent>
