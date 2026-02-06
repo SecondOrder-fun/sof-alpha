@@ -22,8 +22,8 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
         // Cancel: primary border/text on black, muted hover, inverted active
         resolvedVariant === 'cancel' && 'border border-primary text-primary bg-black hover:bg-muted hover:text-white active:bg-primary active:text-black',
         // Secondary button: Cement background, Asphalt text, primary border,
-        // primary hover, darker active
-        resolvedVariant === 'secondary' && 'bg-muted-foreground text-muted border border-primary hover:bg-primary/80 active:bg-primary/60',
+        // primary hover with white text, darker active
+        resolvedVariant === 'secondary' && 'bg-muted-foreground text-muted border border-primary hover:bg-primary/80 hover:text-white active:bg-primary/60 active:text-white',
         resolvedVariant === 'ghost' && 'hover:bg-accent hover:text-accent-foreground',
         resolvedVariant === 'link' && 'underline-offset-4 hover:underline text-primary',
         (size === 'default' || !size) && 'h-10 py-2 px-4',
