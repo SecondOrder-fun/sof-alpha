@@ -14,7 +14,7 @@ import { useAccount } from "wagmi";
 import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { useSOFToken } from "@/hooks/useSOFToken";
 import { buildFriendlyContractError } from "@/lib/contractErrors";
-import SOFBondingCurveJson from "@/contracts/abis/SOFBondingCurve.json";
+import { SOFBondingCurveAbi } from "@/utils/abis";
 
 function useFormatSOF(decimals) {
   return useCallback(
@@ -74,10 +74,7 @@ const BuySellWidget = ({
 
   const netKey = getStoredNetworkKey();
   const net = getNetworkByKey(netKey);
-  const curveAbi = useMemo(
-    () => SOFBondingCurveJson?.abi ?? SOFBondingCurveJson,
-    [],
-  );
+  const curveAbi = SOFBondingCurveAbi;
   const client = useMemo(() => {
     if (!net?.rpcUrl) return null; // Guard: TESTNET not configured
     return buildPublicClient(netKey);

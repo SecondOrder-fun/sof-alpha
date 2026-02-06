@@ -1,5 +1,5 @@
 import { useReadContract } from 'wagmi';
-import InfoFiMarketFactoryAbi from '@/contracts/abis/InfoFiMarketFactory.json';
+import { InfoFiMarketFactoryAbi } from '@/utils/abis';
 
 /**
  * Hook to interact with InfoFiMarketFactory contract

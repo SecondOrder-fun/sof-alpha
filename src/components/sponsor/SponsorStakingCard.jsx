@@ -8,8 +8,7 @@ import { useSponsorStaking } from "@/hooks/useSponsorStaking";
 import { useSOFBalance } from "@/hooks/useSOFBalance";
 import { HATS_CONFIG } from "@/config/hats";
 import { CONTRACTS } from "@/config/contracts";
-import StakingEligibilityAbi from "@/contracts/abis/StakingEligibility.json";
-import HatsAbi from "@/contracts/abis/Hats.json";
+import { StakingEligibilityAbi, HatsAbi } from "@/utils/abis";
 import { Crown, Loader2, Check, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 
 // ERC20 ABI for approve

@@ -5,8 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits } from "viem";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
-import SOFFaucetAbi from "@/contracts/abis/SOFFaucet.json";
-import ERC20Abi from "@/contracts/abis/ERC20.json";
+import { SOFFaucetAbi, ERC20Abi } from "@/utils/abis";
 
 /**
  * Hook for interacting with the SOF Faucet contract

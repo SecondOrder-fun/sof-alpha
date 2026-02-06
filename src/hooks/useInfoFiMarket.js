@@ -5,9 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import InfoFiFactoryAbi from '@/contracts/abis/InfoFiMarketFactory.json';
-import InfoFiMarketAbi from '@/contracts/abis/InfoFiMarket.json';
-import ERC20Abi from '@/contracts/abis/ERC20.json';
+import { InfoFiMarketFactoryAbi as InfoFiFactoryAbi, InfoFiMarketAbi, ERC20Abi } from '@/utils/abis';
 
 /**
  * Hook for interacting with InfoFi prediction markets

@@ -23,7 +23,7 @@ import {
   isSeasonParticipant,
 } from "@/services/onchainRaffleDistributor";
 import { executeClaim } from "@/services/claimService";
-import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
+import { RafflePrizeDistributorAbi as PrizeDistributorAbi } from "@/utils/abis";
 import { useToast } from "@/hooks/useToast";
 // CSMM claims removed - FPMM claims will be implemented separately
 import { formatUnits } from "viem";

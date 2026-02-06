@@ -7,7 +7,7 @@ import { useSeasonWinnerSummaries } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
 import { useAccount, useChains } from "wagmi";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
-import SOFBondingCurveJson from "@/contracts/abis/SOFBondingCurve.json";
+import { SOFBondingCurveAbi } from "@/utils/abis";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -256,13 +256,13 @@ const RaffleList = () => {
           const [pt, cfg] = await Promise.all([
             positionClient.readContract({
               address: bondingCurveAddress,
-              abi: SOFBondingCurveJson,
+              abi: SOFBondingCurveAbi,
               functionName: "playerTickets",
               args: [address],
             }),
             positionClient.readContract({
               address: bondingCurveAddress,
-              abi: SOFBondingCurveJson,
+              abi: SOFBondingCurveAbi,
               functionName: "curveConfig",
               args: [],
             }),

@@ -42,7 +42,7 @@ import { languages } from "@/i18n/languages";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
-import ERC20Abi from "@/contracts/abis/ERC20.json";
+import { ERC20Abi } from "@/utils/abis";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import PropTypes from "prop-types";
 

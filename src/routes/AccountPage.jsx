@@ -8,9 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
-import PrizeDistributorAbi from "@/contracts/abis/RafflePrizeDistributor.json";
-import ERC20Abi from "@/contracts/abis/ERC20.json";
-import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
+import { RafflePrizeDistributorAbi as PrizeDistributorAbi, ERC20Abi, SOFBondingCurveAbi, RaffleAbi } from "@/utils/abis";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import ClaimCenter from "@/components/infofi/ClaimCenter";
 import { ClaimPrizeWidget } from "@/components/prizes/ClaimPrizeWidget";
@@ -24,7 +22,6 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel";
 import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
-import RaffleAbi from "@/contracts/abis/Raffle.json";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobilePortfolio from "@/components/mobile/MobilePortfolio";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";

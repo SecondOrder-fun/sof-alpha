@@ -15,8 +15,7 @@ import {
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
-import ERC20Abi from "@/contracts/abis/ERC20.json";
-import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
+import { ERC20Abi, SOFBondingCurveAbi } from "@/utils/abis";
 import PositionsPanel from "@/components/infofi/PositionsPanel";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useAccount } from "wagmi";

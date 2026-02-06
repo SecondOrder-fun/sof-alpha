@@ -5,7 +5,7 @@ import { readContract } from "@wagmi/core";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddress } from "@/config/contracts";
-import InfoFiSettlementAbi from "@/contracts/abis/InfoFiSettlement.json";
+import { InfoFiSettlementAbi } from "@/utils/abis";
 import { queryLogsInChunks } from "@/utils/blockRangeQuery";
 
 /**

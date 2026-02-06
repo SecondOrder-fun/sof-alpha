@@ -2,8 +2,7 @@
 import { useAccount, useReadContracts } from "wagmi";
 import { formatUnits } from "viem";
 import { HATS_CONFIG } from "@/config/hats";
-import StakingEligibilityAbi from "@/contracts/abis/StakingEligibility.json";
-import HatsAbi from "@/contracts/abis/Hats.json";
+import { StakingEligibilityAbi, HatsAbi } from "@/utils/abis";
 
 /**
  * Hook for reading sponsor staking status

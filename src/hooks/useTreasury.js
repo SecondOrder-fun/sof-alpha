@@ -2,8 +2,7 @@ import { useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import { useQueryClient } from '@tanstack/react-query';
-import SOFTokenAbi from '@/contracts/abis/SOFToken.json';
-import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
+import { SOFTokenAbi, SOFBondingCurveAbi } from '@/utils/abis';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 
