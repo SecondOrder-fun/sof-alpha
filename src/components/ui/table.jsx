@@ -128,7 +128,7 @@ const TableRow = React.forwardRef(({ className, ...props }, ref) => {
       className={cn(
         "border-b transition-colors data-[state=selected]:bg-muted",
         // Only apply hover effects for body rows, not header rows
-        isInBody && "hover:text-white",
+        isInBody && "hover:text-foreground",
         className,
       )}
       {...props}
