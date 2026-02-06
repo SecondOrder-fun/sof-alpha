@@ -2,11 +2,13 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
-import { FiEdit2, FiCopy } from "react-icons/fi";
+import { FiEdit2, FiCopy, FiExternalLink } from "react-icons/fi";
 import { Card, CardContent } from "@/components/ui/card";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import FaucetWidget from "@/components/faucet/FaucetWidget";
 import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
+import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getNetworkByKey } from "@/config/networks";
 
 /**
  * MobileAccountTab - Mobile-optimized account information display
@@ -16,11 +18,21 @@ const MobileAccountTab = ({ address, username }) => {
   const [copied, setCopied] = useState(false);
   const { t } = useTranslation(["account", "common"]);
 
+  // Network for explorer link
+  const netKey = getStoredNetworkKey();
+  const net = getNetworkByKey(netKey);
+
   const handleCopyAddress = async () => {
     if (address) {
       await navigator.clipboard.writeText(address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleOpenExplorer = () => {
+    if (net.explorer && address) {
+      window.open(`${net.explorer}/address/${address}`, "_blank");
     }
   };
 
@@ -73,15 +85,28 @@ const MobileAccountTab = ({ address, username }) => {
             <div className="text-xs text-muted-foreground">
               {t("account:address")}
             </div>
-            <button
-              type="button"
-              onClick={handleCopyAddress}
-              className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
-              aria-label={t("common:copyToClipboard")}
-              title={copied ? t("common:copied") : t("common:copyToClipboard")}
-            >
-              <FiCopy />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyAddress}
+                className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+                aria-label={t("common:copyToClipboard")}
+                title={copied ? t("common:copied") : t("common:copyToClipboard")}
+              >
+                <FiCopy />
+              </button>
+              {net.explorer && (
+                <button
+                  type="button"
+                  onClick={handleOpenExplorer}
+                  className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+                  aria-label={t("common:viewOnExplorer", "View on explorer")}
+                  title={t("common:viewOnExplorer", "View on explorer")}
+                >
+                  <FiExternalLink />
+                </button>
+              )}
+            </div>
           </div>
           <p className="font-mono text-xs break-all text-white">{address}</p>
           {copied && (

@@ -34,6 +34,7 @@ import { BackendWalletManager } from "@/features/admin/components/BackendWalletM
 import NotificationPanel from "@/components/admin/NotificationPanel";
 import AllowlistPanel from "@/components/admin/AllowlistPanel";
 import AccessManagementPanel from "@/components/admin/AccessManagementPanel";
+import LocalizationAdmin from "@/routes/LocalizationAdmin";
 
 /**
  * Inner panel that requires JWT authentication for admin write operations.
@@ -143,13 +144,14 @@ function AdminPanelInner() {
       </div>
 
       <Tabs defaultValue="seasons" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="seasons">Seasons</TabsTrigger>
           <TabsTrigger value="backend">Services</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="nft">NFT</TabsTrigger>
+          <TabsTrigger value="localization">Localization</TabsTrigger>
         </TabsList>
 
         <TabsContent value="seasons" className="space-y-4">
@@ -221,6 +223,10 @@ function AdminPanelInner() {
 
         <TabsContent value="nft" className="space-y-4">
           <NftDropsPanel />
+        </TabsContent>
+
+        <TabsContent value="localization" className="space-y-4">
+          <LocalizationAdmin />
         </TabsContent>
       </Tabs>
     </div>

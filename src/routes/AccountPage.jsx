@@ -14,9 +14,6 @@ import SOFBondingCurveAbi from "@/contracts/abis/SOFBondingCurve.json";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import ClaimCenter from "@/components/infofi/ClaimCenter";
 import { ClaimPrizeWidget } from "@/components/prizes/ClaimPrizeWidget";
-import { useUsername } from "@/hooks/useUsername";
-import SecondaryCard from "@/components/common/SecondaryCard";
-import { FiEdit2 } from "react-icons/fi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion } from "@/components/ui/accordion";
 import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
@@ -30,7 +27,6 @@ import { getPrizeDistributor } from "@/services/onchainRaffleDistributor";
 import RaffleAbi from "@/contracts/abis/Raffle.json";
 import useIsMobile from "@/hooks/useIsMobile";
 import MobilePortfolio from "@/components/mobile/MobilePortfolio";
-import UsernameEditor from "@/components/account/UsernameEditor";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
 import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
 import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
@@ -49,8 +45,6 @@ const AccountPage = () => {
 
 const DesktopAccountPage = () => {
   const { address, isConnected } = useAccount();
-  const { data: username } = useUsername(address);
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const { t } = useTranslation(["account", "common"]);
 
   // Build viem public client for current network
@@ -179,12 +173,6 @@ const DesktopAccountPage = () => {
     staleTime: 15_000,
   });
 
-  const sofBalance = useMemo(() => {
-    const raw = fmt(sofBalanceQuery.data, 18);
-    const num = parseFloat(raw);
-    return isNaN(num) ? "0" : num.toFixed(4);
-  }, [sofBalanceQuery.data]);
-
   // Winning seasons for Completed Season Prizes carousel
   const winningSeasonsQuery = useQuery({
     queryKey: [
@@ -289,70 +277,9 @@ const DesktopAccountPage = () => {
         </Card>
       )}
 
-      {/* When connected, lay out Account Information (30%) and Balances (70%) side by side */}
+      {/* When connected, show Balances card */}
       {isConnected && (
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-[3fr_7fr] gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("account:profile")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <SecondaryCard title={t("account:username")}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#a89e99]">
-                      {username || t("account:notSet")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingUsername(!isEditingUsername)}
-                      className="p-0 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
-                      aria-label={
-                        isEditingUsername
-                          ? t("account:cancelUsernameEdit")
-                          : t("account:editUsername")
-                      }
-                      title={
-                        isEditingUsername
-                          ? t("account:cancelUsernameEdit")
-                          : t("account:editUsername")
-                      }
-                    >
-                      <FiEdit2 />
-                    </button>
-                  </div>
-                  {isEditingUsername && (
-                    <div className="mt-3">
-                      <UsernameEditor
-                        address={address}
-                        currentUsername={username}
-                        onSuccess={() => setIsEditingUsername(false)}
-                      />
-                    </div>
-                  )}
-                </SecondaryCard>
-
-                <SecondaryCard title={t("account:sofBalanceTitle")}>
-                  {sofBalanceQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">
-                      {t("common:loading")}
-                    </p>
-                  ) : sofBalanceQuery.error ? (
-                    <p className="text-sm text-red-500">
-                      {t("account:errorLoadingSofBalance")}
-                    </p>
-                  ) : (
-                    <p className="font-mono text-sm">{sofBalance} SOF</p>
-                  )}
-                </SecondaryCard>
-
-                <SecondaryCard title={t("account:address")}>
-                  <p className="font-mono text-xs break-all">{address}</p>
-                </SecondaryCard>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="mb-4">
           <Card>
             <CardHeader>
               <CardTitle>{t("account:balance")}</CardTitle>

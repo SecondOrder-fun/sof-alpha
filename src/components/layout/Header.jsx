@@ -4,8 +4,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "@/components/common/LanguageToggle";
-import AccountMenu from "@/components/common/AccountMenu";
-import { Globe } from "lucide-react";
+import SettingsMenu from "@/components/common/SettingsMenu";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
@@ -64,17 +63,9 @@ const Header = () => {
               {t("leaderboard")}
             </NavLink>
             {isAdmin && (
-              <>
-                <NavLink to="/admin" className={navLinkClass}>
-                  {t("admin")}
-                </NavLink>
-                <NavLink to="/admin/localization" className={navLinkClass}>
-                  <span className="flex items-center gap-1">
-                    <Globe className="h-4 w-4" />
-                    Localization
-                  </span>
-                </NavLink>
-              </>
+              <NavLink to="/admin" className={navLinkClass}>
+                {t("admin")}
+              </NavLink>
             )}
             <NavLink to="/portfolio" className={navLinkClass}>
               {t("portfolio")}
@@ -85,12 +76,10 @@ const Header = () => {
           </nav>
         </div>
         <div className="flex items-center space-x-4">
-          <LanguageToggle />
           <ConnectButton.Custom>
             {({
               account,
               chain,
-              openAccountModal,
               openConnectModal,
               mounted,
             }) => {
@@ -113,24 +102,9 @@ const Header = () => {
                 }
               };
 
-              const handleOpenAccount = () => {
-                try {
-                  if (typeof openAccountModal !== "function") {
-                    // eslint-disable-next-line no-console
-                    console.error(
-                      "RainbowKit openAccountModal is not a function",
-                    );
-                    return;
-                  }
-                  openAccountModal();
-                } catch (e) {
-                  // eslint-disable-next-line no-console
-                  console.error("Failed to open account modal", e);
-                }
-              };
-
               return (
                 <div
+                  className="flex items-center space-x-4"
                   {...(!ready && {
                     "aria-hidden": true,
                     style: {
@@ -143,20 +117,23 @@ const Header = () => {
                   {(() => {
                     if (!connected) {
                       return (
-                        <button
-                          onClick={handleOpenConnect}
-                          type="button"
-                          className="px-4 py-2 rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/80 active:bg-muted"
-                        >
-                          {t("connectWallet")}
-                        </button>
+                        <>
+                          <LanguageToggle />
+                          <button
+                            onClick={handleOpenConnect}
+                            type="button"
+                            className="px-4 py-2 rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/80 active:bg-muted"
+                          >
+                            {t("connectWallet")}
+                          </button>
+                        </>
                       );
                     }
 
                     return (
-                      <AccountMenu
-                        displayName={username || account.displayName}
-                        onOpenAccountModal={handleOpenAccount}
+                      <SettingsMenu
+                        address={address}
+                        username={username}
                         onDisconnect={disconnect}
                       />
                     );
