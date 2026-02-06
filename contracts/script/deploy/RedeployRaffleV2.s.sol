@@ -15,7 +15,7 @@ contract RedeployRaffleV2 is Script {
     // BASE SEPOLIA ADDRESSES
     // ═══════════════════════════════════════════════════════════════════════
     address constant SOF_TOKEN = 0x5146Dd2a3Af7Bd4D247e34A3F7322daDF7ee5B0c;
-    address constant VRF_COORDINATOR = 0xd88C5567562d8aAc5F7e0B29D28a19bCc476F89A;
+    address constant VRF_COORDINATOR = 0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE;
     bytes32 constant VRF_KEY_HASH = 0x4e5acf960b4e5bb0fb6b4ba4ed1d3c5082bf7a77be61a38ee3f9b33b0ef55f78;
     uint256 constant VRF_SUBSCRIPTION_ID = 41855330402557609641075039705305501419707903893372860901739913879066150933426;
     
