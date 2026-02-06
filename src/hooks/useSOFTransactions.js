@@ -7,9 +7,11 @@ import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { queryLogsInChunks } from "@/utils/blockRangeQuery";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 /**
  * Hook to fetch all $SOF transaction history for an address
- * Includes: transfers, bonding curve buys/sells, prize claims, fees collected
+ * Includes: transfers, bonding curve buys/sells, InfoFi trades, prize claims
  * Uses chunked queries to handle RPC block range limits
  */
 export function useSOFTransactions(address, options = {}) {
@@ -35,6 +37,42 @@ export function useSOFTransactions(address, options = {}) {
       if (!address || !contracts.SOF || !publicClient) {
         return [];
       }
+
+      // Fetch all seasons to get bonding curve and FPMM addresses
+      let seasons = [];
+      let fpmmAddresses = [];
+      try {
+        const seasonsRes = await fetch(`${API_BASE}/seasons`);
+        if (seasonsRes.ok) {
+          const data = await seasonsRes.json();
+          seasons = data.seasons || [];
+        }
+        // Fetch FPMM market addresses
+        const marketsRes = await fetch(`${API_BASE}/infofi/markets`);
+        if (marketsRes.ok) {
+          const data = await marketsRes.json();
+          // Collect all FPMM contract addresses from all seasons
+          Object.values(data.markets || {}).forEach(seasonMarkets => {
+            seasonMarkets.forEach(m => {
+              if (m.contract_address) {
+                fpmmAddresses.push(m.contract_address.toLowerCase());
+              }
+            });
+          });
+        }
+      } catch (err) {
+        console.warn("[SOFTransactions] Failed to fetch seasons/markets:", err);
+      }
+
+      // Build map of bonding curve addresses to season info
+      const bondingCurveMap = {};
+      for (const s of seasons) {
+        const curveAddr = s?.config?.bondingCurve?.toLowerCase();
+        if (curveAddr) {
+          bondingCurveMap[curveAddr] = { seasonId: s.id, name: s.config?.name };
+        }
+      }
+      const bondingCurveAddresses = Object.keys(bondingCurveMap);
 
       // Get current block and calculate fromBlock
       const currentBlock = await publicClient.getBlockNumber();
@@ -312,23 +350,63 @@ export function useSOFTransactions(address, options = {}) {
       }
 
       // Categorize outgoing transfers based on recipient
-      const bondingCurveAddresses = [
-        contracts.SOFBondingCurve?.toLowerCase(),
-      ].filter(Boolean);
-
       for (const transfer of outgoingTransfers) {
         const recipientLower = transfer.to?.toLowerCase();
+        const senderLower = transfer.from?.toLowerCase();
 
-        // Check if this transfer was to a bonding curve (purchase)
+        // Check if this transfer was to a bonding curve (raffle ticket purchase)
         if (bondingCurveAddresses.includes(recipientLower)) {
+          const seasonInfo = bondingCurveMap[recipientLower];
           transactions.push({
             ...transfer,
-            type: "BONDING_CURVE_PURCHASE",
-            description: "Purchased raffle tickets",
+            type: "RAFFLE_BUY",
+            seasonId: seasonInfo?.seasonId,
+            description: seasonInfo
+              ? `Bought raffle tickets (Season #${seasonInfo.seasonId})`
+              : "Bought raffle tickets",
           });
-        } else {
-          // Regular transfer to another address
+        }
+        // Check if this transfer was to an FPMM (InfoFi bet)
+        else if (fpmmAddresses.includes(recipientLower)) {
+          transactions.push({
+            ...transfer,
+            type: "INFOFI_BUY",
+            description: "InfoFi prediction bet",
+          });
+        }
+        // Regular transfer to another address
+        else {
           transactions.push(transfer);
+        }
+      }
+
+      // Categorize incoming transfers based on sender
+      // Re-categorize TRANSFER_IN items based on source
+      for (let i = 0; i < transactions.length; i++) {
+        const tx = transactions[i];
+        if (tx.type === "TRANSFER_IN") {
+          const senderLower = tx.from?.toLowerCase();
+          
+          // From a bonding curve = raffle sell proceeds
+          if (bondingCurveAddresses.includes(senderLower)) {
+            const seasonInfo = bondingCurveMap[senderLower];
+            transactions[i] = {
+              ...tx,
+              type: "RAFFLE_SELL",
+              seasonId: seasonInfo?.seasonId,
+              description: seasonInfo
+                ? `Sold raffle tickets (Season #${seasonInfo.seasonId})`
+                : "Sold raffle tickets",
+            };
+          }
+          // From an FPMM = InfoFi winnings/sell
+          else if (fpmmAddresses.includes(senderLower)) {
+            transactions[i] = {
+              ...tx,
+              type: "INFOFI_SELL",
+              description: "InfoFi position sold/redeemed",
+            };
+          }
         }
       }
 

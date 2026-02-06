@@ -57,7 +57,12 @@ export function SOFTransactionHistory({ address }) {
     if (filter === "TRADES") {
       return transactions.filter(
         (tx) =>
-          tx.type === "BONDING_CURVE_BUY" || tx.type === "BONDING_CURVE_SELL"
+          tx.type === "BONDING_CURVE_BUY" ||
+          tx.type === "BONDING_CURVE_SELL" ||
+          tx.type === "RAFFLE_BUY" ||
+          tx.type === "RAFFLE_SELL" ||
+          tx.type === "INFOFI_BUY" ||
+          tx.type === "INFOFI_SELL"
       );
     }
     if (filter === "PRIZES") {
@@ -91,7 +96,12 @@ export function SOFTransactionHistory({ address }) {
 
     const tradeCount = transactions.filter(
       (tx) =>
-        tx.type === "BONDING_CURVE_BUY" || tx.type === "BONDING_CURVE_SELL"
+        tx.type === "BONDING_CURVE_BUY" ||
+        tx.type === "BONDING_CURVE_SELL" ||
+        tx.type === "RAFFLE_BUY" ||
+        tx.type === "RAFFLE_SELL" ||
+        tx.type === "INFOFI_BUY" ||
+        tx.type === "INFOFI_SELL"
     ).length;
 
     const prizeCount = transactions.filter(
@@ -321,12 +331,17 @@ function TransactionRow({ tx, network }) {
         return <ArrowDownIcon className="h-4 w-4 text-green-600" />;
       case "TRANSFER_OUT":
         return <ArrowUpIcon className="h-4 w-4 text-red-600" />;
+      case "RAFFLE_BUY":
       case "BONDING_CURVE_PURCHASE":
-        return <TrendingUpIcon className="h-4 w-4 text-blue-600" />;
       case "BONDING_CURVE_BUY":
         return <TrendingUpIcon className="h-4 w-4 text-blue-600" />;
+      case "RAFFLE_SELL":
       case "BONDING_CURVE_SELL":
         return <TrendingDownIcon className="h-4 w-4 text-orange-600" />;
+      case "INFOFI_BUY":
+        return <TrendingUpIcon className="h-4 w-4 text-purple-600" />;
+      case "INFOFI_SELL":
+        return <TrendingDownIcon className="h-4 w-4 text-purple-600" />;
       case "PRIZE_CLAIM_GRAND":
       case "PRIZE_CLAIM_CONSOLATION":
         return <TrophyIcon className="h-4 w-4 text-yellow-600" />;
@@ -341,9 +356,13 @@ function TransactionRow({ tx, network }) {
     const typeMap = {
       TRANSFER_IN: { label: t("received"), variant: "default" },
       TRANSFER_OUT: { label: t("sent"), variant: "secondary" },
-      BONDING_CURVE_PURCHASE: { label: t("purchase"), variant: "default" },
-      BONDING_CURVE_BUY: { label: t("buy"), variant: "default" },
-      BONDING_CURVE_SELL: { label: t("sell"), variant: "secondary" },
+      RAFFLE_BUY: { label: "Raffle Buy", variant: "default" },
+      RAFFLE_SELL: { label: "Raffle Sell", variant: "secondary" },
+      BONDING_CURVE_PURCHASE: { label: "Raffle Buy", variant: "default" },
+      BONDING_CURVE_BUY: { label: "Raffle Buy", variant: "default" },
+      BONDING_CURVE_SELL: { label: "Raffle Sell", variant: "secondary" },
+      INFOFI_BUY: { label: "InfoFi Buy", variant: "default" },
+      INFOFI_SELL: { label: "InfoFi Sell", variant: "secondary" },
       PRIZE_CLAIM_GRAND: { label: t("grandPrize"), variant: "default" },
       PRIZE_CLAIM_CONSOLATION: {
         label: t("consolation"),
