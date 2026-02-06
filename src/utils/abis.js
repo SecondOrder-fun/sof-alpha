@@ -32,3 +32,7 @@ export { default as SeasonFactoryAbi } from '@/contracts/abis/SeasonFactory.json
 // Standard Interfaces
 export { default as ERC20Abi } from '@/contracts/abis/ERC20.json';
 export { default as AccessControlAbi } from '@/contracts/abis/AccessControl.json';
+
+// Hats Protocol (Sponsor Staking)
+export { default as HatsAbi } from '@/contracts/abis/Hats.json';
+export { default as StakingEligibilityAbi } from '@/contracts/abis/StakingEligibility.json';
