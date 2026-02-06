@@ -6,6 +6,7 @@ import { FiEdit2, FiCopy } from "react-icons/fi";
 import { Card, CardContent } from "@/components/ui/card";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import FaucetWidget from "@/components/faucet/FaucetWidget";
+import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
 
 /**
  * MobileAccountTab - Mobile-optimized account information display
@@ -91,6 +92,9 @@ const MobileAccountTab = ({ address, username }) => {
 
       {/* SOF Faucet Widget - Temporary */}
       <FaucetWidget />
+
+      {/* Sponsor Staking */}
+      <SponsorStakingCard />
 
       {/* NFTs Section - Placeholder */}
       <Card>

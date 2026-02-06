@@ -33,6 +33,7 @@ import MobilePortfolio from "@/components/mobile/MobilePortfolio";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import InfoFiPositionsTab from "@/components/account/InfoFiPositionsTab";
 import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
+import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
 
 const AccountPage = () => {
   const isMobile = useIsMobile();
@@ -417,6 +418,13 @@ const DesktopAccountPage = () => {
               </Tabs>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Sponsor Staking */}
+      {isConnected && (
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SponsorStakingCard />
         </div>
       )}
 

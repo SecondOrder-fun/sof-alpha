@@ -1,5 +1,5 @@
 // src/hooks/useSponsorStaking.js
-import { useAccount, useReadContract, useReadContracts } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import { formatUnits } from "viem";
 import { HATS_CONFIG } from "@/config/hats";
 import StakingEligibilityAbi from "@/contracts/abis/StakingEligibility.json";
@@ -15,7 +15,7 @@ export function useSponsorStaking() {
   // Read multiple values in one call
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
-      // Current stake amount
+      // Current stake (returns struct: amount, slashed)
       {
         address: HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS,
         abi: StakingEligibilityAbi,
@@ -28,18 +28,11 @@ export function useSponsorStaking() {
         abi: StakingEligibilityAbi,
         functionName: "minStake",
       },
-      // Unstaking amount (if any)
+      // Cooldown info (returns struct: amount, endsAt)
       {
         address: HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS,
         abi: StakingEligibilityAbi,
-        functionName: "unstakingAmounts",
-        args: [address],
-      },
-      // Unstake deadline (if any)
-      {
-        address: HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS,
-        abi: StakingEligibilityAbi,
-        functionName: "unstakeDeadlines",
+        functionName: "cooldowns",
         args: [address],
       },
       // Is wearer of Sponsor hat
@@ -62,28 +55,35 @@ export function useSponsorStaking() {
     },
   });
 
-  // Parse results
-  const stakeAmount = data?.[0]?.result ?? BigInt(0);
+  // Parse results - stakes returns [amount, slashed], cooldowns returns [amount, endsAt]
+  const stakeResult = data?.[0]?.result;
+  const stakeAmount = stakeResult?.[0] ?? BigInt(0);
+  const isSlashed = stakeResult?.[1] ?? false;
+  
   const minStake = data?.[1]?.result ?? HATS_CONFIG.MIN_STAKE;
-  const unstakingAmount = data?.[2]?.result ?? BigInt(0);
-  const unstakeDeadline = data?.[3]?.result ?? BigInt(0);
-  const isWearingHat = data?.[4]?.result ?? false;
-  const isInGoodStanding = data?.[5]?.result ?? false;
+  
+  const cooldownResult = data?.[2]?.result;
+  const unstakingAmount = cooldownResult?.[0] ?? BigInt(0);
+  const unstakeEndsAt = cooldownResult?.[1] ?? BigInt(0);
+  
+  const isWearingHat = data?.[3]?.result ?? false;
+  const isInGoodStanding = data?.[4]?.result ?? false;
 
   // Derived state
   const hasMinStake = stakeAmount >= minStake;
   const isSponsor = isWearingHat && isInGoodStanding;
   const isUnstaking = unstakingAmount > BigInt(0);
-  const canCompleteUnstake = isUnstaking && BigInt(Math.floor(Date.now() / 1000)) >= unstakeDeadline;
+  const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+  const canCompleteUnstake = isUnstaking && nowSeconds >= unstakeEndsAt;
   
   // Format for display
   const stakeAmountFormatted = formatUnits(stakeAmount, 18);
   const minStakeFormatted = formatUnits(minStake, 18);
   const unstakingAmountFormatted = formatUnits(unstakingAmount, 18);
   
-  // Time until unstake completes
-  const unstakeTimeRemaining = unstakeDeadline > BigInt(0) 
-    ? Number(unstakeDeadline) - Math.floor(Date.now() / 1000)
+  // Time until unstake completes (in seconds)
+  const unstakeTimeRemaining = unstakeEndsAt > BigInt(0) 
+    ? Math.max(0, Number(unstakeEndsAt) - Math.floor(Date.now() / 1000))
     : 0;
 
   return {
@@ -91,7 +91,8 @@ export function useSponsorStaking() {
     stakeAmount,
     minStake,
     unstakingAmount,
-    unstakeDeadline,
+    unstakeEndsAt,
+    isSlashed,
     
     // Formatted values
     stakeAmountFormatted,

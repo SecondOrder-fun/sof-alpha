@@ -2,21 +2,21 @@
   {
     "type": "function",
     "name": "stake",
-    "inputs": [{ "name": "amount", "type": "uint256" }],
+    "inputs": [{ "name": "_amount", "type": "uint248" }],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "beginUnstake",
-    "inputs": [{ "name": "amount", "type": "uint256" }],
+    "inputs": [{ "name": "_amount", "type": "uint248" }],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "completeUnstake",
-    "inputs": [{ "name": "staker", "type": "address" }],
+    "inputs": [{ "name": "_staker", "type": "address" }],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -24,14 +24,27 @@
     "type": "function",
     "name": "stakes",
     "inputs": [{ "name": "staker", "type": "address" }],
-    "outputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [
+      { "name": "amount", "type": "uint248" },
+      { "name": "slashed", "type": "bool" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cooldowns",
+    "inputs": [{ "name": "staker", "type": "address" }],
+    "outputs": [
+      { "name": "amount", "type": "uint248" },
+      { "name": "endsAt", "type": "uint256" }
+    ],
     "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "minStake",
     "inputs": [],
-    "outputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "name": "", "type": "uint248" }],
     "stateMutability": "view"
   },
   {
@@ -43,30 +56,54 @@
   },
   {
     "type": "function",
-    "name": "unstakeDeadlines",
-    "inputs": [{ "name": "staker", "type": "address" }],
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "unstakingAmounts",
-    "inputs": [{ "name": "staker", "type": "address" }],
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "hatId",
     "inputs": [],
     "outputs": [{ "name": "", "type": "uint256" }],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
     "name": "TOKEN",
     "inputs": [],
     "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getWearerStatus",
+    "inputs": [
+      { "name": "_wearer", "type": "address" },
+      { "name": "", "type": "uint256" }
+    ],
+    "outputs": [
+      { "name": "eligible", "type": "bool" },
+      { "name": "standing", "type": "bool" }
+    ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "StakingEligibility_Staked",
+    "inputs": [
+      { "name": "staker", "type": "address", "indexed": false },
+      { "name": "amount", "type": "uint248", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "StakingEligibility_UnstakeBegun",
+    "inputs": [
+      { "name": "staker", "type": "address", "indexed": false },
+      { "name": "amount", "type": "uint248", "indexed": false },
+      { "name": "cooldownEnd", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "StakingEligibility_Slashed",
+    "inputs": [
+      { "name": "wearer", "type": "address", "indexed": false },
+      { "name": "amount", "type": "uint248", "indexed": false }
+    ]
   }
 ]

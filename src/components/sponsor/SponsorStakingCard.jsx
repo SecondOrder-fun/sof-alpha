@@ -58,6 +58,7 @@ export function SponsorStakingCard() {
     isSponsor,
     isWearingHat,
     isInGoodStanding,
+    isSlashed,
     isUnstaking,
     canCompleteUnstake,
     unstakeTimeRemaining,
@@ -210,10 +211,10 @@ export function SponsorStakingCard() {
         )}
 
         {/* Slashing Warning */}
-        {!isInGoodStanding && isWearingHat && (
+        {isSlashed && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-400" />
-            <span className="text-sm text-red-400">Account has been slashed</span>
+            <span className="text-sm text-red-400">Account has been slashed — stake forfeited</span>
           </div>
         )}
 
