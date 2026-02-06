@@ -130,26 +130,6 @@ export function useRaffleWrite() {
   const createSeason = useContractWriteWithFeedback({
     contractConfig: ({ config, bondSteps, buyFeeBps, sellFeeBps }) => {
       if (!hasAddress) throw new Error('Raffle contract address not configured');
-      console.log('[useRaffleWrite] createSeason args:', {
-        config: {
-          name: config.name,
-          startTime: config.startTime?.toString(),
-          endTime: config.endTime?.toString(),
-          winnerCount: config.winnerCount,
-          grandPrizeBps: config.grandPrizeBps,
-          treasuryAddress: config.treasuryAddress,
-          raffleToken: config.raffleToken,
-          bondingCurve: config.bondingCurve,
-          sponsor: config.sponsor,
-          isActive: config.isActive,
-          isCompleted: config.isCompleted,
-          gated: config.gated,
-        },
-        bondSteps: bondSteps?.map(s => ({ rangeTo: s.rangeTo?.toString(), price: s.price?.toString() })),
-        buyFeeBps,
-        sellFeeBps,
-        raffleAddress: raffleContractConfig.address,
-      });
       return {
         ...raffleContractConfig,
         functionName: 'createSeason',
