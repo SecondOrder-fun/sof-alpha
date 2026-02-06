@@ -29,11 +29,9 @@ export const NETWORKS = {
     id: Number(import.meta.env.VITE_TESTNET_CHAIN_ID || 84532),
     name: import.meta.env.VITE_TESTNET_NAME || "Base Sepolia",
     rpcUrl: import.meta.env.VITE_RPC_URL_TESTNET || "",
-    rpcFallbackUrls: [
-      "https://base-sepolia.drpc.org",
-      "https://base-sepolia-public.nodies.app",
-      "https://base-sepolia.gateway.tenderly.co",
-    ],
+    // Fallback RPCs disabled - most public RPCs don't support eth_newFilter
+    // which causes 400 errors when viem tries filter-based polling
+    rpcFallbackUrls: [],
     wsUrl: import.meta.env.VITE_WS_URL_TESTNET || "",
     explorer:
       import.meta.env.VITE_TESTNET_EXPLORER || "https://sepolia.basescan.org",
