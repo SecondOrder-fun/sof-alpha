@@ -622,17 +622,11 @@ const ClaimCenter = ({ address, title, description }) => {
         )}
         {address && (
           <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 p-1.5">
-              <TabsTrigger
-                value="raffles"
-                className="data-[state=active]:underline data-[state=active]:underline-offset-8 data-[state=active]:text-[#c82a54]"
-              >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="raffles">
                 Raffle Prizes
               </TabsTrigger>
-              <TabsTrigger
-                value="markets"
-                className="data-[state=active]:underline data-[state=active]:underline-offset-8 data-[state=active]:text-[#c82a54]"
-              >
+              <TabsTrigger value="markets">
                 Prediction Markets
               </TabsTrigger>
             </TabsList>
