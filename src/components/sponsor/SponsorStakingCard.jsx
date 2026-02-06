@@ -1,6 +1,6 @@
 // src/components/sponsor/SponsorStakingCard.jsx
 import { useState, useEffect } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent } from "wagmi";
 import { parseUnits } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,32 @@ export function SponsorStakingCard() {
   const { isLoading: isStakeConfirming, isSuccess: isStakeSuccess } = useWaitForTransactionReceipt({ hash: stakeHash });
   const { isLoading: isUnstakeConfirming, isSuccess: isUnstakeSuccess } = useWaitForTransactionReceipt({ hash: unstakeHash });
   const { isLoading: isCompleteConfirming, isSuccess: isCompleteSuccess } = useWaitForTransactionReceipt({ hash: completeHash });
+
+  // Watch for staking events to auto-refresh
+  useWatchContractEvent({
+    address: HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS,
+    abi: StakingEligibilityAbi,
+    eventName: "StakingEligibility_Staked",
+    onLogs: (logs) => {
+      // Refetch if any stake event involves the connected address
+      if (logs.some(log => log.args?.staker?.toLowerCase() === address?.toLowerCase())) {
+        refetch();
+      }
+    },
+    enabled: isConnected && !!address,
+  });
+
+  useWatchContractEvent({
+    address: HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS,
+    abi: StakingEligibilityAbi,
+    eventName: "StakingEligibility_UnstakeBegun",
+    onLogs: (logs) => {
+      if (logs.some(log => log.args?.staker?.toLowerCase() === address?.toLowerCase())) {
+        refetch();
+      }
+    },
+    enabled: isConnected && !!address,
+  });
 
   // Auto-proceed from approve to stake
   useEffect(() => {

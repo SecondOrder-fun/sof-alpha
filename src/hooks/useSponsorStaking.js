@@ -52,7 +52,6 @@ export function useSponsorStaking() {
     ],
     query: {
       enabled: isConnected && !!address,
-      refetchInterval: 10000, // Auto-refresh every 10 seconds
     },
   });
 
