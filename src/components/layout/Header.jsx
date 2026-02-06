@@ -1,24 +1,23 @@
 // React import not needed with Vite JSX transform
 import { Link, NavLink } from "react-router-dom";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "@/components/common/LanguageToggle";
-import { Globe, Sun, Moon, Monitor } from "lucide-react";
+import AccountMenu from "@/components/common/AccountMenu";
+import { Globe } from "lucide-react";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 import { useRouteAccess } from "@/hooks/useRouteAccess";
-import { useTheme } from "@/context/ThemeContext";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Header = () => {
   const { t } = useTranslation("navigation");
   const { address } = useAccount();
+  const { disconnect } = useDisconnect();
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
-  const { theme, setTheme } = useTheme();
 
   const predictionMarketsToggle = useRouteAccess(
     "__feature__/prediction_markets",
@@ -86,23 +85,6 @@ const Header = () => {
           </nav>
         </div>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center gap-2">
-            {/* Wallet toolbar lives here (RainbowKit) */}
-          </div>
-          {/* Theme toggle */}
-          <Tabs value={theme} onValueChange={setTheme} className="h-9">
-            <TabsList className="h-8 p-0.5">
-              <TabsTrigger value="light" className="h-7 px-2 text-xs no-underline">
-                <Sun className="h-3.5 w-3.5" />
-              </TabsTrigger>
-              <TabsTrigger value="dark" className="h-7 px-2 text-xs no-underline">
-                <Moon className="h-3.5 w-3.5" />
-              </TabsTrigger>
-              <TabsTrigger value="system" className="h-7 px-2 text-xs no-underline">
-                <Monitor className="h-3.5 w-3.5" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
           <LanguageToggle />
           <ConnectButton.Custom>
             {({
@@ -172,13 +154,11 @@ const Header = () => {
                     }
 
                     return (
-                      <button
-                        onClick={handleOpenAccount}
-                        type="button"
-                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors font-medium"
-                      >
-                        {username || account.displayName}
-                      </button>
+                      <AccountMenu
+                        displayName={username || account.displayName}
+                        onOpenAccountModal={handleOpenAccount}
+                        onDisconnect={disconnect}
+                      />
                     );
                   })()}
                 </div>
