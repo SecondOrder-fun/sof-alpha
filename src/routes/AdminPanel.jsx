@@ -65,11 +65,30 @@ function AdminPanelInner() {
   const { accessLevel, isLoading: isAdminLoading } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
 
-  // Check if user has creator role
+  // Check if user can create seasons (role OR Sponsor hat via Hats Protocol)
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
-    queryKey: ["hasSeasonCreatorRole", address],
-    queryFn: () => hasRole(SEASON_CREATOR_ROLE, address),
-    enabled: !!address,
+    queryKey: ["canCreateSeason", address, netCfg?.contracts?.RAFFLE],
+    queryFn: async () => {
+      if (!publicClient || !netCfg?.contracts?.RAFFLE) return false;
+      try {
+        return await publicClient.readContract({
+          address: netCfg.contracts.RAFFLE,
+          abi: [{
+            type: "function",
+            name: "canCreateSeason",
+            inputs: [{ name: "account", type: "address" }],
+            outputs: [{ name: "", type: "bool" }],
+            stateMutability: "view",
+          }],
+          functionName: "canCreateSeason",
+          args: [address],
+        });
+      } catch (e) {
+        // Fallback to old role check if contract doesn't have canCreateSeason
+        return hasRole(SEASON_CREATOR_ROLE, address);
+      }
+    },
+    enabled: !!address && !!publicClient,
   });
 
   // Check if user has emergency role
