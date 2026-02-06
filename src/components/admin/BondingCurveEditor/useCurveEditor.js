@@ -257,13 +257,22 @@ export function useCurveEditor(initialSteps = null, sofDecimals = 18) {
 
   // Update step position (X and Y axis) for graph dragging
   const updateStepPosition = useCallback((index, newRangeTo, newPrice) => {
+    // Guard against invalid inputs
+    if (index === undefined || index === null ||
+        newRangeTo === undefined || newPrice === undefined ||
+        Number.isNaN(newRangeTo) || Number.isNaN(newPrice)) {
+      return;
+    }
+
     setSteps((prev) => {
+      if (index < 0 || index >= prev.length) return prev;
+
       const newSteps = [...prev];
       const isLast = index === prev.length - 1;
 
       // Clamp rangeTo within valid bounds
       const minRangeTo = index === 0 ? 1 : prev[index - 1].rangeTo + 1;
-      const maxRangeToVal = isLast ? maxTickets : prev[index + 1].rangeTo - 1;
+      const maxRangeToVal = isLast ? maxTickets : prev[index + 1]?.rangeTo - 1 || maxTickets;
       const clampedRangeTo = isLast
         ? maxTickets // Last step must always equal maxTickets
         : Math.max(minRangeTo, Math.min(maxRangeToVal, Math.round(newRangeTo)));

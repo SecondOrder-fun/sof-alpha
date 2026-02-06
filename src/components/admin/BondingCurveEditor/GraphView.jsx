@@ -117,18 +117,21 @@ const GraphView = ({
     const point = localPoint(svgRef.current, event);
     if (!point) return;
 
-    const isLast = draggingIndex === steps.length - 1;
-
     // Convert screen coordinates to data values
     const newPrice = yScale.invert(point.y - MARGIN.top);
-    const clampedPrice = Math.max(0.01, Math.round(newPrice * 100) / 100);
-
-    // X-axis: convert and clamp rangeTo (last node is X-fixed)
     const newRangeTo = xScale.invert(point.x - MARGIN.left);
+
+    // Guard against undefined/NaN values
+    if (newPrice === undefined || newRangeTo === undefined ||
+        Number.isNaN(newPrice) || Number.isNaN(newRangeTo)) {
+      return;
+    }
+
+    const clampedPrice = Math.max(0.01, Math.round(newPrice * 100) / 100);
 
     // Use updateStepPosition for full X+Y movement
     updateStepPosition(draggingIndex, newRangeTo, clampedPrice);
-  }, [draggingIndex, yScale, xScale, steps.length, updateStepPosition]);
+  }, [draggingIndex, yScale, xScale, updateStepPosition]);
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
@@ -176,13 +179,25 @@ const GraphView = ({
   const buildSteppedPath = useCallback((stepsData) => {
     if (!stepsData || stepsData.length === 0) return "";
 
-    let d = `M 0 ${yScale(stepsData[0].price)}`;
+    const firstY = yScale(stepsData[0].price);
+    if (firstY === undefined || Number.isNaN(firstY)) return "";
 
-    for (const step of stepsData) {
+    let d = `M 0 ${firstY}`;
+
+    for (let i = 0; i < stepsData.length; i++) {
+      const step = stepsData[i];
       const x = xScale(step.rangeTo);
       const y = yScale(step.price);
+      const prevY = i > 0 ? yScale(stepsData[i - 1].price) : y;
+
+      // Skip if any value is undefined/NaN
+      if (x === undefined || y === undefined || prevY === undefined ||
+          Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(prevY)) {
+        continue;
+      }
+
       // Horizontal then vertical (stepped)
-      d += ` L ${x} ${yScale(stepsData[stepsData.indexOf(step) > 0 ? stepsData[stepsData.indexOf(step) - 1].price : step.price])}`;
+      d += ` L ${x} ${prevY}`;
       d += ` L ${x} ${y}`;
     }
 
@@ -194,21 +209,33 @@ const GraphView = ({
     if (!stepsData || stepsData.length === 0) return "";
 
     const baseline = innerHeight;
+    const firstY = yScale(stepsData[0].price);
+    if (firstY === undefined || Number.isNaN(firstY)) return "";
+
     let d = `M 0 ${baseline}`;
-    d += ` L 0 ${yScale(stepsData[0].price)}`;
+    d += ` L 0 ${firstY}`;
 
     for (let i = 0; i < stepsData.length; i++) {
       const step = stepsData[i];
       const x = xScale(step.rangeTo);
       const y = yScale(step.price);
-      const prevY = i > 0 ? yScale(stepsData[i - 1].price) : yScale(step.price);
+      const prevY = i > 0 ? yScale(stepsData[i - 1].price) : y;
+
+      // Skip if any value is undefined/NaN
+      if (x === undefined || y === undefined || prevY === undefined ||
+          Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(prevY)) {
+        continue;
+      }
 
       d += ` L ${x} ${prevY}`;
       d += ` L ${x} ${y}`;
     }
 
     // Close to baseline
-    d += ` L ${xScale(stepsData[stepsData.length - 1].rangeTo)} ${baseline}`;
+    const lastX = xScale(stepsData[stepsData.length - 1].rangeTo);
+    if (lastX !== undefined && !Number.isNaN(lastX)) {
+      d += ` L ${lastX} ${baseline}`;
+    }
     d += " Z";
 
     return d;
