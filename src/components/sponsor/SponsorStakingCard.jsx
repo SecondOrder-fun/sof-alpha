@@ -1,7 +1,6 @@
 // src/components/sponsor/SponsorStakingCard.jsx
 import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent } from "wagmi";
-import { parseUnits } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,7 @@ import { useSOFBalance } from "@/hooks/useSOFBalance";
 import { HATS_CONFIG } from "@/config/hats";
 import { CONTRACTS } from "@/config/contracts";
 import StakingEligibilityAbi from "@/contracts/abis/StakingEligibility.json";
+import HatsAbi from "@/contracts/abis/Hats.json";
 import { Crown, Loader2, Check, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 
 // ERC20 ABI for approve
@@ -24,15 +24,19 @@ const ERC20_APPROVE_ABI = [
     outputs: [{ name: "", type: "bool" }],
     stateMutability: "nonpayable",
   },
+];
+
+// Hats mintHat ABI
+const HATS_MINT_ABI = [
   {
     type: "function",
-    name: "allowance",
+    name: "mintHat",
     inputs: [
-      { name: "owner", type: "address" },
-      { name: "spender", type: "address" },
+      { name: "_hatId", type: "uint256" },
+      { name: "_wearer", type: "address" },
     ],
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
+    outputs: [{ name: "success", type: "bool" }],
+    stateMutability: "nonpayable",
   },
 ];
 
@@ -57,7 +61,7 @@ export function SponsorStakingCard() {
     stakeAmountFormatted,
     isSponsor,
     isWearingHat,
-    isInGoodStanding,
+    hasMinStake,
     isSlashed,
     isUnstaking,
     canCompleteUnstake,
@@ -69,17 +73,20 @@ export function SponsorStakingCard() {
 
   const { balance: sofBalance, isLoading: isBalanceLoading } = useSOFBalance();
   
-  const [step, setStep] = useState("idle"); // idle, approving, staking, unstaking, completing
+  // Steps: idle → approving → staking → minting → idle
+  const [step, setStep] = useState("idle");
   
   // Contract writes
   const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
   const { writeContract: stake, data: stakeHash, isPending: isStaking } = useWriteContract();
+  const { writeContract: mintHat, data: mintHash, isPending: isMinting } = useWriteContract();
   const { writeContract: beginUnstake, data: unstakeHash, isPending: isBeginningUnstake } = useWriteContract();
   const { writeContract: completeUnstake, data: completeHash, isPending: isCompleting } = useWriteContract();
 
   // Wait for transactions
   const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
   const { isLoading: isStakeConfirming, isSuccess: isStakeSuccess } = useWaitForTransactionReceipt({ hash: stakeHash });
+  const { isLoading: isMintConfirming, isSuccess: isMintSuccess } = useWaitForTransactionReceipt({ hash: mintHash });
   const { isLoading: isUnstakeConfirming, isSuccess: isUnstakeSuccess } = useWaitForTransactionReceipt({ hash: unstakeHash });
   const { isLoading: isCompleteConfirming, isSuccess: isCompleteSuccess } = useWaitForTransactionReceipt({ hash: completeHash });
 
@@ -89,7 +96,6 @@ export function SponsorStakingCard() {
     abi: StakingEligibilityAbi,
     eventName: "StakingEligibility_Staked",
     onLogs: (logs) => {
-      // Refetch if any stake event involves the connected address
       if (logs.some(log => log.args?.staker?.toLowerCase() === address?.toLowerCase())) {
         refetch();
       }
@@ -109,7 +115,7 @@ export function SponsorStakingCard() {
     enabled: isConnected && !!address,
   });
 
-  // Auto-proceed from approve to stake
+  // Step 1→2: After approve succeeds, call stake
   useEffect(() => {
     if (isApproveSuccess && step === "approving") {
       setStep("staking");
@@ -122,15 +128,36 @@ export function SponsorStakingCard() {
     }
   }, [isApproveSuccess, step, stake, minStake]);
 
-  // Refetch on success
+  // Step 2→3: After stake succeeds, call mintHat to claim Sponsor hat
   useEffect(() => {
-    if (isStakeSuccess || isUnstakeSuccess || isCompleteSuccess) {
+    if (isStakeSuccess && step === "staking" && address) {
+      setStep("minting");
+      mintHat({
+        address: HATS_CONFIG.HATS_ADDRESS,
+        abi: HATS_MINT_ABI,
+        functionName: "mintHat",
+        args: [HATS_CONFIG.SPONSOR_HAT_ID, address],
+      });
+    }
+  }, [isStakeSuccess, step, mintHat, address]);
+
+  // Step 3→idle: After mint succeeds, done!
+  useEffect(() => {
+    if (isMintSuccess && step === "minting") {
       setStep("idle");
       refetch();
     }
-  }, [isStakeSuccess, isUnstakeSuccess, isCompleteSuccess, refetch]);
+  }, [isMintSuccess, step, refetch]);
 
-  const handleStake = async () => {
+  // Handle unstake success
+  useEffect(() => {
+    if (isUnstakeSuccess || isCompleteSuccess) {
+      setStep("idle");
+      refetch();
+    }
+  }, [isUnstakeSuccess, isCompleteSuccess, refetch]);
+
+  const handleBecomeSponsor = async () => {
     if (!sofAddress) return;
     setStep("approving");
     approve({
@@ -138,6 +165,18 @@ export function SponsorStakingCard() {
       abi: ERC20_APPROVE_ABI,
       functionName: "approve",
       args: [HATS_CONFIG.STAKING_ELIGIBILITY_ADDRESS, minStake],
+    });
+  };
+
+  // For users who staked but don't have the hat yet
+  const handleClaimHat = async () => {
+    if (!address) return;
+    setStep("minting");
+    mintHat({
+      address: HATS_CONFIG.HATS_ADDRESS,
+      abi: HATS_MINT_ABI,
+      functionName: "mintHat",
+      args: [HATS_CONFIG.SPONSOR_HAT_ID, address],
     });
   };
 
@@ -162,9 +201,23 @@ export function SponsorStakingCard() {
   };
 
   const isProcessing = isApproving || isApproveConfirming || isStaking || isStakeConfirming || 
+                       isMinting || isMintConfirming ||
                        isBeginningUnstake || isUnstakeConfirming || isCompleting || isCompleteConfirming;
 
   const hasEnoughSOF = sofBalance >= minStake;
+  
+  // User has staked enough but hasn't claimed hat yet
+  const needsHatClaim = hasMinStake && !isWearingHat && !isUnstaking;
+
+  // Get step label for button
+  const getStepLabel = () => {
+    switch (step) {
+      case "approving": return "Approving...";
+      case "staking": return "Staking...";
+      case "minting": return "Claiming Sponsor Hat...";
+      default: return null;
+    }
+  };
 
   if (!isConnected) {
     return (
@@ -172,7 +225,7 @@ export function SponsorStakingCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-primary" />
-            Become a Sponsor
+            Become a Raffle Sponsor
           </CardTitle>
           <CardDescription>Connect wallet to stake and create raffles</CardDescription>
         </CardHeader>
@@ -197,6 +250,10 @@ export function SponsorStakingCard() {
             <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
               <Clock className="h-3 w-3 mr-1" />
               Unstaking
+            </Badge>
+          ) : needsHatClaim ? (
+            <Badge variant="outline" className="border-blue-500/30 text-blue-400">
+              Claim Hat
             </Badge>
           ) : (
             <Badge variant="outline" className="border-muted-foreground/30">
@@ -256,7 +313,8 @@ export function SponsorStakingCard() {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          {!isSponsor && !isUnstaking && (
+          {/* New user: needs to stake */}
+          {!isSponsor && !isUnstaking && !needsHatClaim && (
             <>
               {!hasEnoughSOF ? (
                 <div className="text-sm text-muted-foreground text-center py-2">
@@ -266,19 +324,19 @@ export function SponsorStakingCard() {
                 </div>
               ) : (
                 <Button 
-                  onClick={handleStake} 
+                  onClick={handleBecomeSponsor} 
                   disabled={isProcessing}
                   className="w-full"
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {step === "approving" ? "Approving..." : "Staking..."}
+                      {getStepLabel()}
                     </>
                   ) : (
                     <>
                       <Crown className="h-4 w-4 mr-2" />
-                      Stake {HATS_CONFIG.MIN_STAKE_DISPLAY} $SOF
+                      Become Raffle Sponsor
                     </>
                   )}
                 </Button>
@@ -286,6 +344,28 @@ export function SponsorStakingCard() {
             </>
           )}
 
+          {/* Staked but no hat: needs to claim */}
+          {needsHatClaim && (
+            <Button 
+              onClick={handleClaimHat} 
+              disabled={isProcessing}
+              className="w-full"
+            >
+              {isMinting || isMintConfirming ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Claiming Sponsor Hat...
+                </>
+              ) : (
+                <>
+                  <Crown className="h-4 w-4 mr-2" />
+                  Claim Sponsor Hat
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Has stake (sponsor or not): can unstake */}
           {stakeAmount > 0n && !isUnstaking && (
             <Button 
               variant="outline" 
@@ -304,6 +384,7 @@ export function SponsorStakingCard() {
             </Button>
           )}
 
+          {/* Unstaking complete: can withdraw */}
           {isUnstaking && canCompleteUnstake && (
             <Button 
               onClick={handleCompleteUnstake}

@@ -21,6 +21,16 @@
   },
   {
     "type": "function",
+    "name": "isEligible",
+    "inputs": [
+      { "name": "_wearer", "type": "address" },
+      { "name": "_hatId", "type": "uint256" }
+    ],
+    "outputs": [{ "name": "eligible", "type": "bool" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "balanceOf",
     "inputs": [
       { "name": "account", "type": "address" },
@@ -28,5 +38,15 @@
     ],
     "outputs": [{ "name": "", "type": "uint256" }],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mintHat",
+    "inputs": [
+      { "name": "_hatId", "type": "uint256" },
+      { "name": "_wearer", "type": "address" }
+    ],
+    "outputs": [{ "name": "success", "type": "bool" }],
+    "stateMutability": "nonpayable"
   }
 ]
