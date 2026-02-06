@@ -12,7 +12,7 @@ import HatsAbi from "@/contracts/abis/Hats.json";
 export function useSponsorStaking() {
   const { address, isConnected } = useAccount();
 
-  // Read multiple values in one call
+  // Read multiple values in one call - auto-refresh every 10s
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
       // Current stake (returns struct: amount, slashed)
@@ -52,6 +52,7 @@ export function useSponsorStaking() {
     ],
     query: {
       enabled: isConnected && !!address,
+      refetchInterval: 10000, // Auto-refresh every 10 seconds
     },
   });
 

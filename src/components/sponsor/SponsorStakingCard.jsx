@@ -10,7 +10,7 @@ import { useSOFBalance } from "@/hooks/useSOFBalance";
 import { HATS_CONFIG } from "@/config/hats";
 import { CONTRACTS } from "@/config/contracts";
 import StakingEligibilityAbi from "@/contracts/abis/StakingEligibility.json";
-import { Crown, Loader2, Check, Clock, AlertTriangle } from "lucide-react";
+import { Crown, Loader2, Check, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 
 // ERC20 ABI for approve
 const ERC20_APPROVE_ABI = [
@@ -187,9 +187,19 @@ export function SponsorStakingCard() {
         {/* Current Stake */}
         <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
           <span className="text-sm text-muted-foreground">Your Stake</span>
-          <span className="font-mono font-medium">
-            {isStatusLoading ? "..." : Number(stakeAmountFormatted).toLocaleString()} $SOF
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-medium">
+              {isStatusLoading ? "..." : Number(stakeAmountFormatted).toLocaleString()} $SOF
+            </span>
+            <button
+              onClick={() => refetch()}
+              disabled={isStatusLoading}
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`h-3 w-3 ${isStatusLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
         {/* Unstaking Status */}
@@ -250,7 +260,7 @@ export function SponsorStakingCard() {
             </>
           )}
 
-          {isSponsor && !isUnstaking && (
+          {stakeAmount > 0n && !isUnstaking && (
             <Button 
               variant="outline" 
               onClick={handleBeginUnstake}
