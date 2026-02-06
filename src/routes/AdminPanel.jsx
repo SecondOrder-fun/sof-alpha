@@ -7,6 +7,7 @@ import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
+import { getContractAddresses } from "@/config/contracts";
 import {
   Card,
   CardContent,
@@ -52,6 +53,7 @@ function AdminPanelInner() {
   // Network configuration
   const netKey = getStoredNetworkKey();
   const netCfg = getNetworkByKey(netKey);
+  const contracts = getContractAddresses(netKey);
 
   const SEASON_CREATOR_ROLE = keccak256(stringToHex("SEASON_CREATOR_ROLE"));
   const EMERGENCY_ROLE = keccak256(stringToHex("EMERGENCY_ROLE"));
@@ -67,12 +69,12 @@ function AdminPanelInner() {
 
   // Check if user can create seasons (role OR Sponsor hat via Hats Protocol)
   const { data: hasCreatorRole, isLoading: isCreatorLoading } = useQuery({
-    queryKey: ["canCreateSeason", address, netCfg?.contracts?.RAFFLE],
+    queryKey: ["canCreateSeason", address, contracts.RAFFLE],
     queryFn: async () => {
-      if (!publicClient || !netCfg?.contracts?.RAFFLE) return false;
+      if (!publicClient || !contracts.RAFFLE) return false;
       try {
         return await publicClient.readContract({
-          address: netCfg.contracts.RAFFLE,
+          address: contracts.RAFFLE,
           abi: [{
             type: "function",
             name: "canCreateSeason",
