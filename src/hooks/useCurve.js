@@ -5,8 +5,7 @@ import { useWriteContract } from 'wagmi';
 import { useMutation } from '@tanstack/react-query';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 import { getContractAddresses } from '@/config/contracts';
-import SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
-import ERC20Abi from '@/contracts/abis/ERC20.json'; // Assuming a standard ERC20 ABI is available
+import { SOFBondingCurveAbi, ERC20Abi } from '@/utils/abis';
 
 /**
  * @notice Hook for SOFBondingCurve contract interactions.
@@ -20,7 +19,6 @@ export function useCurve(bondingCurveAddress) {
 
   const curveContractConfig = {
     address: bondingCurveAddress,
-    // Note: SOFBondingCurve.json exports a raw ABI array, not an object with `.abi`
     abi: SOFBondingCurveAbi,
   };
 
@@ -30,8 +28,8 @@ export function useCurve(bondingCurveAddress) {
   const approveMutation = useMutation({
     mutationFn: async ({ amount }) => {
       return await writeContractAsync({
-        address: contracts.SOF, // Address of the main SOF token
-        abi: ERC20Abi.abi, // Generic ERC20 ABI
+        address: contracts.SOF,
+        abi: ERC20Abi,
         functionName: 'approve',
         args: [bondingCurveAddress, amount],
       });
