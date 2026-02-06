@@ -1,27 +1,11 @@
 // src/services/onchainRaffleDistributor.js
-import { createWalletClient, custom, getAddress } from "viem";
+import { getAddress } from "viem";
+import { getWalletClient } from "@wagmi/core";
 import { RaffleAbi, RafflePrizeDistributorAbi } from "@/utils/abis";
-import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { buildPublicClient } from "@/lib/viemClient";
-
-/**
- * Build a proper chain config object for viem
- * @param {Object} net - Network config from getNetworkByKey
- * @returns {Object} - Viem-compatible chain config
- */
-function buildChainConfig(net) {
-  return {
-    id: net.id,
-    name: net.name,
-    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-    rpcUrls: {
-      default: { http: [net.rpcUrl] },
-      public: { http: [net.rpcUrl] },
-    },
-  };
-}
+import { config as wagmiConfig } from "@/context/WagmiConfigProvider";
 
 function buildClient(networkKey) {
   const client = buildPublicClient(networkKey);
@@ -65,14 +49,12 @@ export async function claimGrand({
   seasonId,
   networkKey = getStoredNetworkKey(),
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
-  const net = getNetworkByKey(networkKey);
-  const wallet = createWalletClient({
-    chain: buildChainConfig(net),
-    transport: custom(window.ethereum),
-  });
-  const [account] = await wallet.getAddresses();
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const wallet = await getWalletClient(wagmiConfig);
+  if (!wallet) throw new Error("Connect wallet first");
+  const account = wallet.account?.address;
+  if (!account) throw new Error("Connect wallet first");
+  
   const distributor = await getPrizeDistributor({ networkKey });
   const hash = await wallet.writeContract({
     address: distributor,
@@ -88,14 +70,12 @@ export async function claimConsolation({
   seasonId,
   networkKey = getStoredNetworkKey(),
 }) {
-  if (typeof window === "undefined" || !window.ethereum)
-    throw new Error("No wallet available");
-  const net = getNetworkByKey(networkKey);
-  const wallet = createWalletClient({
-    chain: buildChainConfig(net),
-    transport: custom(window.ethereum),
-  });
-  const [account] = await wallet.getAddresses();
+  // Use wagmi's getWalletClient which works with WalletConnect on mobile
+  const wallet = await getWalletClient(wagmiConfig);
+  if (!wallet) throw new Error("Connect wallet first");
+  const account = wallet.account?.address;
+  if (!account) throw new Error("Connect wallet first");
+  
   const distributor = await getPrizeDistributor({ networkKey });
   const hash = await wallet.writeContract({
     address: distributor,
