@@ -31,6 +31,7 @@ import { useUsername } from "@/hooks/useUsername";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { Badge } from "@/components/ui/badge";
 import { SOFTransactionHistory } from "@/components/user/SOFTransactionHistory";
+import { Accordion } from "@/components/ui/accordion";
 import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
 
 const UserProfile = () => {
@@ -275,16 +276,20 @@ const UserProfile = () => {
               {(seasonBalancesQuery.data || []).length === 0 && (
                 <p className="text-muted-foreground">{t("noTicketBalances")}</p>
               )}
-              {(seasonBalancesQuery.data || [])
-                .slice()
-                .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
-                .map((row) => (
-                  <RaffleHoldingRow
-                    key={row.seasonId}
-                    row={row}
-                    address={address}
-                  />
-                ))}
+              {(seasonBalancesQuery.data || []).length > 0 && (
+                <Accordion type="multiple" className="space-y-2">
+                  {(seasonBalancesQuery.data || [])
+                    .slice()
+                    .sort((a, b) => Number(b.seasonId) - Number(a.seasonId))
+                    .map((row) => (
+                      <RaffleHoldingRow
+                        key={row.seasonId}
+                        row={row}
+                        address={address}
+                      />
+                    ))}
+                </Accordion>
+              )}
             </div>
           )}
         </CardContent>

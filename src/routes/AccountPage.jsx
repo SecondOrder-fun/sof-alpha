@@ -18,6 +18,7 @@ import { useUsername } from "@/hooks/useUsername";
 import SecondaryCard from "@/components/common/SecondaryCard";
 import { FiEdit2 } from "react-icons/fi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion } from "@/components/ui/accordion";
 import RaffleHoldingRow from "@/components/raffle/RaffleHoldingRow";
 import {
   Carousel,
@@ -383,7 +384,7 @@ const DesktopAccountPage = () => {
                           </p>
                         )}
                         {(seasonBalancesQuery.data || []).length > 0 && (
-                          <div className="space-y-2">
+                          <Accordion type="multiple" className="space-y-2">
                             {(seasonBalancesQuery.data || [])
                               .slice()
                               .sort(
@@ -398,7 +399,7 @@ const DesktopAccountPage = () => {
                                   showViewLink={false}
                                 />
                               ))}
-                          </div>
+                          </Accordion>
                         )}
                       </div>
                     )}
