@@ -212,7 +212,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
     }
 
-    function startSeason(uint256 seasonId) external onlyRole(SEASON_CREATOR_ROLE) {
+    function startSeason(uint256 seasonId) external {
+        // Check authorization: must have SEASON_CREATOR_ROLE or valid Sponsor hat
+        if (!canCreateSeason(msg.sender)) revert UnauthorizedCaller();
         if (seasonId == 0 || seasonId > currentSeasonId) revert SeasonNotFound(seasonId);
         if (seasons[seasonId].isActive) revert SeasonAlreadyStarted(seasonId);
         if (block.timestamp < seasons[seasonId].startTime) {
