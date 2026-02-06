@@ -217,6 +217,7 @@ const ClaimCenter = ({ address, title, description }) => {
             out.push({
               seasonId,
               player,
+              contractAddress, // Include FPMM address to avoid redundant lookup
               yesAmount: hasClaimableYes ? yesPosition.amount : 0n,
               noAmount: hasClaimableNo ? noPosition.amount : 0n,
               winningOutcome,
@@ -504,13 +505,13 @@ const ClaimCenter = ({ address, title, description }) => {
 
   // FPMM claim mutation - Redeems conditional tokens after market resolution
   const claimFPMMOne = useMutation({
-    mutationFn: async ({ seasonId, player }) => {
+    mutationFn: async ({ seasonId, player, fpmmAddress }) => {
       const claimKey = getClaimKey("fpmm", { seasonId, player });
       setPendingClaims((prev) => new Set(prev).add(claimKey));
 
       const result = await executeClaim({
         type: "fpmm-position",
-        params: { seasonId, player },
+        params: { seasonId, player, fpmmAddress },
         networkKey: netKey,
       });
       if (!result.success) throw new Error(result.error);
@@ -758,6 +759,7 @@ const ClaimCenter = ({ address, title, description }) => {
                                           claimFPMMOne.mutate({
                                             seasonId: r.seasonId,
                                             player: r.player,
+                                            fpmmAddress: r.contractAddress,
                                           })
                                         }
                                         disabled={isFpmmPending}

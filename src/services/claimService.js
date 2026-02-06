@@ -56,10 +56,11 @@ export async function claimInfoFiPayout({
 export async function claimFPMMPosition({
   seasonId,
   player,
+  fpmmAddress,
   networkKey = getStoredNetworkKey(),
 }) {
   try {
-    const hash = await redeemPositionTx({ seasonId, player, networkKey });
+    const hash = await redeemPositionTx({ seasonId, player, fpmmAddress, networkKey });
     return { success: true, hash, error: null };
   } catch (error) {
     return { success: false, hash: null, error: error.message };
@@ -94,6 +95,7 @@ export async function executeClaim({
       return claimFPMMPosition({
         seasonId: params.seasonId,
         player: params.player,
+        fpmmAddress: params.fpmmAddress,
         networkKey,
       });
 

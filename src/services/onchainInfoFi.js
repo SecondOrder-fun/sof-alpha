@@ -928,6 +928,7 @@ export async function claimPayoutTx({
 export async function redeemPositionTx({
   seasonId,
   player,
+  fpmmAddress: providedFpmmAddress,
   networkKey = getDefaultNetworkKey(),
 }) {
   if (typeof window === "undefined" || !window.ethereum)
@@ -948,28 +949,33 @@ export async function redeemPositionTx({
   if (!addrs.CONDITIONAL_TOKENS)
     throw new Error("CONDITIONAL_TOKENS address missing");
   if (!addrs.SOF) throw new Error("SOF address missing");
-  if (!addrs.INFOFI_FPMM) throw new Error("INFOFI_FPMM address missing");
 
-  // Get FPMM address for this player
-  const fpmmManagerAbi = [
-    {
-      type: "function",
-      name: "getMarket",
-      inputs: [
-        { name: "seasonId", type: "uint256" },
-        { name: "player", type: "address" },
-      ],
-      outputs: [{ name: "", type: "address" }],
-      stateMutability: "view",
-    },
-  ];
+  // Use provided FPMM address or look it up
+  let fpmmAddress = providedFpmmAddress;
+  
+  if (!fpmmAddress) {
+    if (!addrs.INFOFI_FPMM) throw new Error("INFOFI_FPMM address missing");
+    
+    const fpmmManagerAbi = [
+      {
+        type: "function",
+        name: "getMarket",
+        inputs: [
+          { name: "seasonId", type: "uint256" },
+          { name: "player", type: "address" },
+        ],
+        outputs: [{ name: "", type: "address" }],
+        stateMutability: "view",
+      },
+    ];
 
-  const fpmmAddress = await publicClient.readContract({
-    address: addrs.INFOFI_FPMM,
-    abi: fpmmManagerAbi,
-    functionName: "getMarket",
-    args: [BigInt(seasonId), getAddress(player)],
-  });
+    fpmmAddress = await publicClient.readContract({
+      address: addrs.INFOFI_FPMM,
+      abi: fpmmManagerAbi,
+      functionName: "getMarket",
+      args: [BigInt(seasonId), getAddress(player)],
+    });
+  }
 
   if (
     !fpmmAddress ||
