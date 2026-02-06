@@ -29,7 +29,6 @@ export const useRaffleHolders = (
     queryKey: ["raffleHolders", bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
-        console.log("[useRaffleHolders] Missing client or address:", {
           client: !!client,
           bondingCurveAddress,
         });
@@ -39,7 +38,6 @@ export const useRaffleHolders = (
       try {
         // Get current block
         const currentBlock = await client.getBlockNumber();
-        console.log("[useRaffleHolders] Current block:", currentBlock);
 
         // Use startBlock (exact) if available, otherwise estimate from startTime
         let fromBlock = 0n;
@@ -71,7 +69,6 @@ export const useRaffleHolders = (
           toBlock: "latest",
         });
 
-        console.log("[useRaffleHolders] Fetched logs:", {
           bondingCurveAddress,
           fromBlock: fromBlock.toString(),
           toBlock: "latest",
@@ -84,7 +81,6 @@ export const useRaffleHolders = (
           ? logs.filter((log) => Number(log.args.seasonId) === Number(seasonId))
           : logs;
 
-        console.log("[useRaffleHolders] Filtered logs:", filteredLogs.length);
 
         // Aggregate positions by player (keep only latest position per player)
         const playerPositions = new Map();

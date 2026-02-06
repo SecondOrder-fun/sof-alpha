@@ -28,7 +28,6 @@ export const useRaffleTransactions = (
     queryKey: ["raffleTransactions", bondingCurveAddress, seasonId],
     queryFn: async () => {
       if (!client || !bondingCurveAddress) {
-        console.log("[useRaffleTransactions] Missing client or address:", {
           client: !!client,
           bondingCurveAddress,
         });
@@ -38,7 +37,6 @@ export const useRaffleTransactions = (
       try {
         // Get current block
         const currentBlock = await client.getBlockNumber();
-        console.log("[useRaffleTransactions] Current block:", currentBlock);
 
         // Use startBlock (exact) if available, otherwise estimate from startTime
         let fromBlock = 0n;
@@ -70,7 +68,6 @@ export const useRaffleTransactions = (
           toBlock: "latest",
         });
 
-        console.log("[useRaffleTransactions] Fetched logs:", {
           bondingCurveAddress,
           fromBlock: fromBlock.toString(),
           toBlock: "latest",

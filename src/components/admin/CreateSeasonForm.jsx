@@ -184,7 +184,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
     console.log("[CreateSeasonForm] Season created with ID:", seasonId.toString());
 
     // If gated with gates configured, call configureGates
+    console.log("[CreateSeasonForm] Post-create check - gated:", gated, "gatingGates:", gatingGates.length, "SEASON_GATING:", addresses.SEASON_GATING);
     if (gated && gatingGates.length > 0 && addresses.SEASON_GATING) {
+      console.log("[CreateSeasonForm] Configuring gates for season", seasonId.toString());
       setGatingStatus("pending");
       
       // Format gates for contract: [{ gateType, enabled, configHash }]
