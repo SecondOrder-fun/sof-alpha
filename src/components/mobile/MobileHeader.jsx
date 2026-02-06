@@ -39,7 +39,7 @@ export const MobileHeader = ({ className = "" }) => {
               className="w-10 h-10"
             />
             <h1 className="text-lg font-bold">
-              <span className="text-white">Second</span>
+              <span className="text-foreground">Second</span>
               <span className="text-primary">Order</span>
               <span className="text-muted-foreground">.fun</span>
             </h1>

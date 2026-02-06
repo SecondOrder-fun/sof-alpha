@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
-import { Globe, Wallet, LogOut, User, ChevronDown, X } from "lucide-react";
+import { Globe, Wallet, LogOut, User, ChevronDown, X, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useTheme } from "@/context/ThemeContext";
 import PropTypes from "prop-types";
 
 /**
@@ -15,8 +16,16 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
+  const { theme, setTheme } = useTheme();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
   const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
+
+  // Theme options
+  const themeOptions = [
+    { value: "light", icon: Sun, label: t("account:themeLight", "Light") },
+    { value: "dark", icon: Moon, label: t("account:themeDark", "Dark") },
+    { value: "system", icon: Monitor, label: t("account:themeSystem", "System") },
+  ];
 
   // Connect wallet using the best available connector (Farcaster first, then injected)
   const handleConnect = useCallback(() => {
@@ -86,7 +95,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
       >
         {/* Menu Header */}
         <div className="px-4 py-3 border-b border-border/20">
-          <h2 className="text-white font-medium">{t("account:systemMenu")}</h2>
+          <h2 className="text-foreground font-medium">{t("account:systemMenu")}</h2>
         </div>
 
         {/* Menu Content */}
@@ -113,7 +122,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   </div>
                 )}
                 <div>
-                  <div className="text-white font-medium">
+                  <div className="text-foreground font-medium">
                     {profile?.displayName || t("account:notSet")}
                   </div>
                   <div className="text-sm text-muted-foreground/60">
@@ -130,7 +139,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   <Button
                     onClick={handleDisconnect}
                     variant="outline"
-                    className="w-full text-white border-border hover:bg-red-500/10 hover:border-red-500"
+                    className="w-full text-foreground border-border hover:bg-red-500/10 hover:border-red-500"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     {t("account:disconnectWallet")}
@@ -139,7 +148,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   <Button
                     onClick={handleConnect}
                     variant="outline"
-                    className="w-full text-white border-border hover:bg-white/10"
+                    className="w-full text-foreground border-border hover:bg-accent"
                   >
                     <Wallet className="w-4 h-4 mr-2" />
                     {t("account:connectWallet")}
@@ -149,12 +158,42 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
             </CardContent>
           </Card>
 
+          {/* Theme Settings Section */}
+          <Card className="border-border bg-card">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sun className="w-5 h-5 text-primary" />
+                <h3 className="text-foreground font-medium">
+                  {t("account:themeSettings", "Theme")}
+                </h3>
+              </div>
+              
+              {/* Theme Toggle Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                {themeOptions.map(({ value, icon: Icon, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setTheme(value)}
+                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg transition-colors ${
+                      theme === value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Language Settings Section */}
           <Card className="border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Globe className="w-5 h-5 text-primary" />
-                <h3 className="text-white font-medium">
+                <h3 className="text-foreground font-medium">
                   {t("account:languageSettings")}
                 </h3>
               </div>
@@ -162,7 +201,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
               {/* Language Selector Button */}
               <Button
                 variant="outline"
-                className="w-full justify-between text-white border-border hover:bg-white/10"
+                className="w-full justify-between text-foreground border-border hover:bg-accent"
                 onClick={() => setIsLanguagePickerOpen(true)}
               >
                 <span className="flex items-center gap-2">
@@ -193,13 +232,13 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Globe className="w-5 h-5 text-primary" />
-                    <h3 className="text-white font-medium">
+                    <h3 className="text-foreground font-medium">
                       {t("account:languageSettings")}
                     </h3>
                   </div>
                   <button
                     onClick={() => setIsLanguagePickerOpen(false)}
-                    className="p-1 rounded hover:bg-white/10 text-muted-foreground/60 hover:text-white transition-colors"
+                    className="p-1 rounded hover:bg-accent text-muted-foreground/60 hover:text-foreground transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -215,7 +254,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                       className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors ${
                         selectedLanguage === language.code
                           ? "bg-primary/20 border border-primary text-primary"
-                          : "bg-muted border border-transparent text-white hover:bg-white/10"
+                          : "bg-muted border border-transparent text-foreground hover:bg-accent"
                       }`}
                     >
                       <span className="text-lg">{language.flag}</span>

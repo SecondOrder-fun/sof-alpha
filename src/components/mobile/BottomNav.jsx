@@ -82,8 +82,8 @@ export const BottomNav = ({ className = "" }) => {
                 onClick={() => navigate(tab.path)}
                 className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all ${
                   isActive
-                    ? "bg-primary text-white shadow-lg shadow-primary/30 border border-white"
-                    : "text-white hover:bg-white/10"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 border border-primary-foreground/20"
+                    : "text-foreground hover:bg-accent"
                 }`}
               >
                 <Icon className="w-5 h-5" />
