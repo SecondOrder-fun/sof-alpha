@@ -53,7 +53,7 @@ const MobilePortfolio = () => {
     queryFn: async () => {
       const bal = await client.readContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi,
+        abi: ERC20Abi,
         functionName: "balanceOf",
         args: [address],
       });
@@ -87,13 +87,13 @@ const MobilePortfolio = () => {
           const [decimals, bal] = await Promise.all([
             client.readContract({
               address: raffleTokenAddr,
-              abi: ERC20Abi.abi,
+              abi: ERC20Abi,
               functionName: "decimals",
               args: [],
             }),
             client.readContract({
               address: raffleTokenAddr,
-              abi: ERC20Abi.abi,
+              abi: ERC20Abi,
               functionName: "balanceOf",
               args: [address],
             }),

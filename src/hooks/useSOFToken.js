@@ -33,7 +33,7 @@ export function useSOFToken() {
       try {
         const balance = await publicClient.readContract({
           address: contracts.SOF,
-          abi: ERC20Abi.abi || ERC20Abi,
+          abi: ERC20Abi,
           functionName: 'balanceOf',
           args: [address],
         });
@@ -61,22 +61,22 @@ export function useSOFToken() {
         const [name, symbol, totalSupply, decimals] = await Promise.all([
           publicClient.readContract({
             address: contracts.SOF,
-            abi: ERC20Abi.abi || ERC20Abi,
+            abi: ERC20Abi,
             functionName: 'name',
           }),
           publicClient.readContract({
             address: contracts.SOF,
-            abi: ERC20Abi.abi || ERC20Abi,
+            abi: ERC20Abi,
             functionName: 'symbol',
           }),
           publicClient.readContract({
             address: contracts.SOF,
-            abi: ERC20Abi.abi || ERC20Abi,
+            abi: ERC20Abi,
             functionName: 'totalSupply',
           }),
           publicClient.readContract({
             address: contracts.SOF,
-            abi: ERC20Abi.abi || ERC20Abi,
+            abi: ERC20Abi,
             functionName: 'decimals',
           })
         ]);
@@ -114,7 +114,7 @@ export function useSOFToken() {
       
       const hash = await walletClient.writeContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: 'transfer',
         args: [to, parsedAmount],
         account: address,
@@ -153,7 +153,7 @@ export function useSOFToken() {
       
       const hash = await walletClient.writeContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: 'approve',
         args: [spender, parsedAmount],
         account: address,
@@ -177,7 +177,7 @@ export function useSOFToken() {
     try {
       const allowance = await publicClient.readContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: 'allowance',
         args: [address, spender],
       });

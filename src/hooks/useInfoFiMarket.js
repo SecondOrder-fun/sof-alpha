@@ -182,7 +182,7 @@ export function useInfoFiMarket(marketId) {
       // First approve SOF token transfer to market
       const approveHash = await walletClient.writeContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: 'approve',
         args: [marketDetails.address, parseUnits(amount, 18)],
         account: address,

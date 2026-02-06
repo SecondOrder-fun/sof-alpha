@@ -40,12 +40,14 @@ export const useRaffleTransactions = (
         const currentBlock = await client.getBlockNumber();
         console.log("[useRaffleTransactions] Current block:", currentBlock);
 
-        // For Base (2s block time): 100k blocks = ~55 hours, 500k blocks = ~11.5 days
-        // Use a large lookback to capture full season history
-        // TODO: Store season creation block in contract for precise queries
-        const LOOKBACK_BLOCKS = 500000n; // ~11.5 days on Base
-        const fromBlock =
-          currentBlock > LOOKBACK_BLOCKS ? currentBlock - LOOKBACK_BLOCKS : 0n;
+        // Use startBlock from options if available, otherwise use lookback
+        // Passing startBlock significantly reduces RPC load
+        const LOOKBACK_BLOCKS = 200000n; // ~4.6 days on Base (reduced from 500k)
+        const fromBlock = options.startBlock
+          ? BigInt(options.startBlock)
+          : currentBlock > LOOKBACK_BLOCKS
+            ? currentBlock - LOOKBACK_BLOCKS
+            : 0n;
 
         const positionUpdateEvent = parseAbiItem(
           "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)",
@@ -144,8 +146,8 @@ export const useRaffleTransactions = (
       }
     },
     enabled: !!client && !!bondingCurveAddress,
-    staleTime: 15000, // 15 seconds
-    refetchInterval: options.enablePolling !== false ? 15000 : false,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: options.enablePolling !== false ? 30000 : false,
     ...options,
   });
 

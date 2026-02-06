@@ -195,7 +195,7 @@ export function useRaffle(seasonId) {
       // First approve SOF token transfer to curve
       const approveHash = await walletClient.writeContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: 'approve',
         args: [seasonDetails.curveAddress, maxCost],
         account: address,

@@ -82,7 +82,7 @@ const SettingsMenu = ({ address, username, onDisconnect }) => {
     queryFn: async () => {
       const bal = await client.readContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi,
+        abi: ERC20Abi,
         functionName: "balanceOf",
         args: [address],
       });

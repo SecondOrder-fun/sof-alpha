@@ -33,7 +33,7 @@ export function useFaucet() {
       try {
         const balance = await publicClient.readContract({
           address: contracts.SOF,
-          abi: ERC20Abi.abi || ERC20Abi,
+          abi: ERC20Abi,
           functionName: "balanceOf",
           args: [address],
         });
@@ -60,7 +60,7 @@ export function useFaucet() {
       try {
         const balance = await publicClient.readContract({
           address: contracts.SOF,
-          abi: ERC20Abi.abi || ERC20Abi,
+          abi: ERC20Abi,
           functionName: "balanceOf",
           args: [contracts.SOF_FAUCET],
         });
@@ -121,18 +121,18 @@ export function useFaucet() {
           await Promise.all([
             publicClient.readContract({
               address: contracts.SOF_FAUCET,
-              abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+              abi: SOFFaucetAbi,
               functionName: "lastClaimTime",
               args: [address],
             }),
             publicClient.readContract({
               address: contracts.SOF_FAUCET,
-              abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+              abi: SOFFaucetAbi,
               functionName: "cooldownPeriod",
             }),
             publicClient.readContract({
               address: contracts.SOF_FAUCET,
-              abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+              abi: SOFFaucetAbi,
               functionName: "amountPerRequest",
             }),
           ]);
@@ -171,7 +171,7 @@ export function useFaucet() {
 
       const hash = await walletClient.writeContract({
         address: contracts.SOF_FAUCET,
-        abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+        abi: SOFFaucetAbi,
         functionName: "claim",
         account: address,
       });
@@ -211,7 +211,7 @@ export function useFaucet() {
       // First approve the faucet to spend tokens
       const approveHash = await walletClient.writeContract({
         address: contracts.SOF,
-        abi: ERC20Abi.abi || ERC20Abi,
+        abi: ERC20Abi,
         functionName: "approve",
         args: [contracts.SOF_FAUCET, BigInt(parseFloat(amount) * 10 ** 18)],
         account: address,
@@ -223,7 +223,7 @@ export function useFaucet() {
       // Then contribute karma
       const karmaHash = await walletClient.writeContract({
         address: contracts.SOF_FAUCET,
-        abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+        abi: SOFFaucetAbi,
         functionName: "contributeKarma",
         args: [BigInt(parseFloat(amount) * 10 ** 18)],
         account: address,
@@ -253,7 +253,7 @@ export function useFaucet() {
     // Set up event listener for KarmaReceived events
     const unwatch = publicClient.watchContractEvent({
       address: contracts.SOF_FAUCET,
-      abi: SOFFaucetAbi.abi || SOFFaucetAbi,
+      abi: SOFFaucetAbi,
       eventName: "KarmaReceived",
       onLogs: () => {
         // Refetch both faucet balance and user balance when karma is received

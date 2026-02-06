@@ -849,7 +849,7 @@ export async function placeBetTx({
   // Check current allowance
   const allowance = await publicClient.readContract({
     address: addrs.SOF,
-    abi: ERC20Abi.abi,
+    abi: ERC20Abi,
     functionName: "allowance",
     args: [from, fpmmAddress],
   });
@@ -858,7 +858,7 @@ export async function placeBetTx({
   if ((allowance ?? 0n) < parsed) {
     const approveHash = await walletClient.writeContract({
       address: addrs.SOF,
-      abi: ERC20Abi.abi,
+      abi: ERC20Abi,
       functionName: "approve",
       args: [fpmmAddress, parsed],
       account: from,

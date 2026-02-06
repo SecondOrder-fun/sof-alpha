@@ -130,7 +130,7 @@ const InfoFiMarketCard = ({ market }) => {
         // Get the player's balance of raffle tickets
         const balance = await publicClient.readContract({
           address: raffleTokenAddr,
-          abi: ERC20Abi.abi,
+          abi: ERC20Abi,
           functionName: "balanceOf",
           args: [market.player],
         });
@@ -659,13 +659,13 @@ const DebugInfoFiPanel = ({
           try {
             balance = await client.readContract({
               address: sof,
-              abi: ERC20Abi.abi,
+              abi: ERC20Abi,
               functionName: "balanceOf",
               args: [walletAddr],
             });
             allowance = await client.readContract({
               address: sof,
-              abi: ERC20Abi.abi,
+              abi: ERC20Abi,
               functionName: "allowance",
               args: [walletAddr, marketAddr],
             });
