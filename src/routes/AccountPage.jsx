@@ -367,7 +367,7 @@ const DesktopAccountPage = () => {
                 </TabsList>
 
                 <TabsContent value="sof" className="mt-4">
-                  <SOFTransactionHistory address={address} />
+                  <SOFTransactionHistory address={address} embedded />
                 </TabsContent>
 
                 <TabsContent value="raffle" className="mt-4">
