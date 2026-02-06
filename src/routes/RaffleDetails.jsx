@@ -67,11 +67,17 @@ const RaffleDetails = () => {
 
   // ── Season gating ──
   const isSeasonGated = Boolean(seasonDetailsQuery?.data?.config?.gated);
+  console.log("[RaffleDetails] Gating check:", {
+    configGated: seasonDetailsQuery?.data?.config?.gated,
+    isSeasonGated,
+    seasonId: seasonIdNumber,
+  });
   const {
     isVerified: isGatingVerified,
     verifyPassword,
     refetch: refetchGating,
   } = useSeasonGating(seasonIdNumber, { isGated: isSeasonGated });
+  console.log("[RaffleDetails] Gating status:", { isGatingVerified });
   const [gateModalOpen, setGateModalOpen] = useState(false);
   // Track which action to resume after password verification
   const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
