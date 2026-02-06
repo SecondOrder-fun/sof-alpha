@@ -49,7 +49,7 @@ export const useRaffleHolders = (
           currentBlock > LOOKBACK_BLOCKS ? currentBlock - LOOKBACK_BLOCKS : 0n;
 
         const positionUpdateEvent = parseAbiItem(
-          "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets, uint256 probabilityBps)",
+          "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)",
         );
 
         // Use chunked query to handle RPC block range limits
@@ -96,7 +96,8 @@ export const useRaffleHolders = (
               player,
               ticketCount: BigInt(log.args.newTickets || 0n),
               totalTicketsAtTime: BigInt(log.args.totalTickets || 0n),
-              winProbabilityBps: Number(log.args.probabilityBps || 0),
+              // probabilityBps not in event - will be calculated from totals
+              winProbabilityBps: 0,
               blockNumber,
               logIndex,
               lastUpdate: null, // Will be filled with timestamp

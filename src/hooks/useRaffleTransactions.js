@@ -48,7 +48,7 @@ export const useRaffleTransactions = (
           currentBlock > LOOKBACK_BLOCKS ? currentBlock - LOOKBACK_BLOCKS : 0n;
 
         const positionUpdateEvent = parseAbiItem(
-          "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets, uint256 probabilityBps)",
+          "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)",
         );
 
         // Use chunked query to handle RPC block range limits
@@ -97,7 +97,8 @@ export const useRaffleTransactions = (
                 newTickets,
                 ticketsDelta,
                 totalTickets: BigInt(log.args.totalTickets || 0n),
-                probabilityBps: Number(log.args.probabilityBps || 0),
+                // Calculate probability from position/total (probabilityBps not in event)
+                probabilityBps: 0,
                 type: ticketsDelta > 0n ? "buy" : "sell",
                 logIndex: log.logIndex,
               };
@@ -117,7 +118,7 @@ export const useRaffleTransactions = (
                 newTickets,
                 ticketsDelta,
                 totalTickets: BigInt(log.args.totalTickets || 0n),
-                probabilityBps: Number(log.args.probabilityBps || 0),
+                probabilityBps: 0,
                 type: ticketsDelta > 0n ? "buy" : "sell",
                 logIndex: log.logIndex,
               };

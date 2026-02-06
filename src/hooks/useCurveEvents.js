@@ -26,7 +26,7 @@ export function useCurveEvents(bondingCurveAddress, { onPositionUpdate } = {}) {
         ).default;
         const SOFBondingCurveAbi =
           SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
-        // watch for PositionUpdate(seasonId, player, oldTickets, newTickets, totalTickets, probabilityBps)
+        // watch for PositionUpdate(seasonId, player, oldTickets, newTickets, totalTickets)
         unwatch = client.watchContractEvent({
           address: bondingCurveAddress,
           abi: SOFBondingCurveAbi,
