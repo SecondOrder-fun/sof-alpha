@@ -1,38 +1,69 @@
 // src/utils/abis.js
 // Centralized ABI exports with tree-shaking support
-// Individual named exports allow bundlers to only include ABIs that are actually imported
+// Handles both Foundry artifacts ({abi: [...]}) and plain arrays ([...])
+
+// Helper to extract abi array from Foundry JSON or return as-is
+const extractAbi = (json) => json.abi || json;
 
 // Core Raffle System
-export { default as RaffleAbi } from '@/contracts/abis/Raffle.json';
-export { default as RafflePositionTrackerAbi } from '@/contracts/abis/RafflePositionTracker.json';
-export { default as RafflePrizeDistributorAbi } from '@/contracts/abis/RafflePrizeDistributor.json';
-export { default as RaffleTokenAbi } from '@/contracts/abis/RaffleToken.json';
+import _RaffleAbi from '@/contracts/abis/Raffle.json';
+import _RafflePositionTrackerAbi from '@/contracts/abis/RafflePositionTracker.json';
+import _RafflePrizeDistributorAbi from '@/contracts/abis/RafflePrizeDistributor.json';
+import _RaffleTokenAbi from '@/contracts/abis/RaffleToken.json';
+
+export const RaffleAbi = extractAbi(_RaffleAbi);
+export const RafflePositionTrackerAbi = extractAbi(_RafflePositionTrackerAbi);
+export const RafflePrizeDistributorAbi = extractAbi(_RafflePrizeDistributorAbi);
+export const RaffleTokenAbi = extractAbi(_RaffleTokenAbi);
 
 // InfoFi Prediction Markets (Legacy)
-export { default as InfoFiMarketAbi } from '@/contracts/abis/InfoFiMarket.json';
-export { default as InfoFiMarketFactoryAbi } from '@/contracts/abis/InfoFiMarketFactory.json';
-export { default as InfoFiPriceOracleAbi } from '@/contracts/abis/InfoFiPriceOracle.json';
-export { default as InfoFiSettlementAbi } from '@/contracts/abis/InfoFiSettlement.json';
+import _InfoFiMarketAbi from '@/contracts/abis/InfoFiMarket.json';
+import _InfoFiMarketFactoryAbi from '@/contracts/abis/InfoFiMarketFactory.json';
+import _InfoFiPriceOracleAbi from '@/contracts/abis/InfoFiPriceOracle.json';
+import _InfoFiSettlementAbi from '@/contracts/abis/InfoFiSettlement.json';
+
+export const InfoFiMarketAbi = extractAbi(_InfoFiMarketAbi);
+export const InfoFiMarketFactoryAbi = extractAbi(_InfoFiMarketFactoryAbi);
+export const InfoFiPriceOracleAbi = extractAbi(_InfoFiPriceOracleAbi);
+export const InfoFiSettlementAbi = extractAbi(_InfoFiSettlementAbi);
 
 // InfoFi FPMM (V2)
-export { default as RaffleOracleAdapterAbi } from '@/contracts/abis/RaffleOracleAdapter.json';
-export { default as InfoFiFPMMV2Abi } from '@/contracts/abis/InfoFiFPMMV2.json';
-export { default as SimpleFPMMAbi } from '@/contracts/abis/SimpleFPMM.json';
-export { default as SOLPTokenAbi } from '@/contracts/abis/SOLPToken.json';
-export { default as ConditionalTokensMockAbi } from '@/contracts/abis/ConditionalTokensMock.json';
+import _RaffleOracleAdapterAbi from '@/contracts/abis/RaffleOracleAdapter.json';
+import _InfoFiFPMMV2Abi from '@/contracts/abis/InfoFiFPMMV2.json';
+import _SimpleFPMMAbi from '@/contracts/abis/SimpleFPMM.json';
+import _SOLPTokenAbi from '@/contracts/abis/SOLPToken.json';
+import _ConditionalTokensMockAbi from '@/contracts/abis/ConditionalTokensMock.json';
+
+export const RaffleOracleAdapterAbi = extractAbi(_RaffleOracleAdapterAbi);
+export const InfoFiFPMMV2Abi = extractAbi(_InfoFiFPMMV2Abi);
+export const SimpleFPMMAbi = extractAbi(_SimpleFPMMAbi);
+export const SOLPTokenAbi = extractAbi(_SOLPTokenAbi);
+export const ConditionalTokensMockAbi = extractAbi(_ConditionalTokensMockAbi);
 
 // Bonding Curve & Tokens
-export { default as SOFBondingCurveAbi } from '@/contracts/abis/SOFBondingCurve.json';
-export { default as SOFTokenAbi } from '@/contracts/abis/SOFToken.json';
-export { default as SOFFaucetAbi } from '@/contracts/abis/SOFFaucet.json';
+import _SOFBondingCurveAbi from '@/contracts/abis/SOFBondingCurve.json';
+import _SOFTokenAbi from '@/contracts/abis/SOFToken.json';
+import _SOFFaucetAbi from '@/contracts/abis/SOFFaucet.json';
+
+export const SOFBondingCurveAbi = extractAbi(_SOFBondingCurveAbi);
+export const SOFTokenAbi = extractAbi(_SOFTokenAbi);
+export const SOFFaucetAbi = extractAbi(_SOFFaucetAbi);
 
 // Season Management
-export { default as SeasonFactoryAbi } from '@/contracts/abis/SeasonFactory.json';
+import _SeasonFactoryAbi from '@/contracts/abis/SeasonFactory.json';
+
+export const SeasonFactoryAbi = extractAbi(_SeasonFactoryAbi);
 
 // Standard Interfaces
-export { default as ERC20Abi } from '@/contracts/abis/ERC20.json';
-export { default as AccessControlAbi } from '@/contracts/abis/AccessControl.json';
+import _ERC20Abi from '@/contracts/abis/ERC20.json';
+import _AccessControlAbi from '@/contracts/abis/AccessControl.json';
+
+export const ERC20Abi = extractAbi(_ERC20Abi);
+export const AccessControlAbi = extractAbi(_AccessControlAbi);
 
 // Hats Protocol (Sponsor Staking)
-export { default as HatsAbi } from '@/contracts/abis/Hats.json';
-export { default as StakingEligibilityAbi } from '@/contracts/abis/StakingEligibility.json';
+import _HatsAbi from '@/contracts/abis/Hats.json';
+import _StakingEligibilityAbi from '@/contracts/abis/StakingEligibility.json';
+
+export const HatsAbi = extractAbi(_HatsAbi);
+export const StakingEligibilityAbi = extractAbi(_StakingEligibilityAbi);

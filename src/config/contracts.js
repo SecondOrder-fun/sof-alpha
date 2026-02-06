@@ -21,8 +21,9 @@
 import RAFFLE_ABI_JSON from "../contracts/abis/Raffle.json";
 import SEASON_GATING_ABI_JSON from "../contracts/abis/SeasonGating.json";
 
-export const RAFFLE_ABI = RAFFLE_ABI_JSON;
-export const SEASON_GATING_ABI = SEASON_GATING_ABI_JSON;
+// Extract the abi array from Foundry's JSON output format (handle both formats)
+export const RAFFLE_ABI = RAFFLE_ABI_JSON.abi || RAFFLE_ABI_JSON;
+export const SEASON_GATING_ABI = SEASON_GATING_ABI_JSON.abi || SEASON_GATING_ABI_JSON;
 
 /** @type {Record<string, ContractAddresses>} */
 export const CONTRACTS = {
