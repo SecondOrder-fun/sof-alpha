@@ -112,6 +112,25 @@
   },
   {
     "type": "function",
+    "name": "canCreateSeason",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "completeSeasonManually",
     "inputs": [
       {
@@ -169,6 +188,11 @@
           },
           {
             "name": "bondingCurve",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "sponsor",
             "type": "address",
             "internalType": "address"
           },
@@ -559,6 +583,11 @@
             "internalType": "address"
           },
           {
+            "name": "sponsor",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "isActive",
             "type": "bool",
             "internalType": "bool"
@@ -712,6 +741,19 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hatsProtocol",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IHats"
       }
     ],
     "stateMutability": "view"
@@ -1017,6 +1059,11 @@
         "internalType": "address"
       },
       {
+        "name": "sponsor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "isActive",
         "type": "bool",
         "internalType": "bool"
@@ -1075,6 +1122,19 @@
   },
   {
     "type": "function",
+    "name": "setHatsProtocol",
+    "inputs": [
+      {
+        "name": "_hatsProtocol",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setPrizeDistributor",
     "inputs": [
       {
@@ -1094,6 +1154,19 @@
         "name": "_seasonFactoryAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSponsorHat",
+    "inputs": [
+      {
+        "name": "_hatId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1121,6 +1194,19 @@
         "name": "",
         "type": "address",
         "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "sponsorHatId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1333,6 +1419,25 @@
       },
       {
         "name": "newContract",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "HatsProtocolUpdated",
+    "inputs": [
+      {
+        "name": "oldAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newAddress",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -1709,6 +1814,25 @@
     "inputs": [
       {
         "name": "seasonId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SponsorHatUpdated",
+    "inputs": [
+      {
+        "name": "oldHatId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newHatId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
