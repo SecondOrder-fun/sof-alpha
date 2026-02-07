@@ -667,6 +667,13 @@ const RaffleDetails = () => {
                         <BuySellWidget
                           bondingCurveAddress={bc}
                           initialTab={initialTradeTab}
+                          isGated={isSeasonGated}
+                          isVerified={isGatingVerified}
+                          onGatingRequired={(mode) => {
+                            console.log("[Desktop BuySellWidget] Gating required for:", mode);
+                            setPendingAction(mode);
+                            setGateModalOpen(true);
+                          }}
                           onTxSuccess={() => {
                             setIsRefreshing(true);
                             debouncedRefresh(250);

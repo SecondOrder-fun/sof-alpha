@@ -34,6 +34,9 @@ const BuySellWidget = ({
   onTxSuccess,
   onNotify,
   initialTab,
+  isGated = false,
+  isVerified = null,
+  onGatingRequired,
 }) => {
   const { t } = useTranslation(["common", "transactions"]);
   const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
@@ -287,6 +290,15 @@ const BuySellWidget = ({
   const onBuy = async (e) => {
     e.preventDefault();
     if (!buyAmount || !bondingCurveAddress) return;
+    
+    // Check gating before allowing transaction
+    if (isGated && isVerified !== true) {
+      if (onGatingRequired) {
+        onGatingRequired("buy");
+      }
+      return;
+    }
+    
     if (tradingLocked) {
       onNotify &&
         onNotify({
@@ -415,6 +427,15 @@ const BuySellWidget = ({
   const onSell = async (e) => {
     e.preventDefault();
     if (!sellAmount || !bondingCurveAddress) return;
+    
+    // Check gating before allowing transaction
+    if (isGated && isVerified !== true) {
+      if (onGatingRequired) {
+        onGatingRequired("sell");
+      }
+      return;
+    }
+    
     if (tradingLocked) {
       onNotify &&
         onNotify({
@@ -771,6 +792,9 @@ BuySellWidget.propTypes = {
   onTxSuccess: PropTypes.func,
   onNotify: PropTypes.func,
   initialTab: PropTypes.oneOf(["buy", "sell"]),
+  isGated: PropTypes.bool,
+  isVerified: PropTypes.bool,
+  onGatingRequired: PropTypes.func,
 };
 
 export default BuySellWidget;
