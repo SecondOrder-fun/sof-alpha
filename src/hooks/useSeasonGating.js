@@ -1,15 +1,20 @@
 // src/hooks/useSeasonGating.js
 // Hook for reading season gating status and verifying passwords.
 //
-// Event-Driven Verification:
-// This hook uses an event-driven approach for password verification rather than
-// arbitrary delays. After submitting a verification transaction, it waits for
-// the transaction receipt and checks for the UserVerified event emission from
-// the SeasonGating contract. This ensures:
+// Secure Event-Driven Verification:
+// This hook uses a defense-in-depth approach for password verification:
 // 
-// - Faster response: No artificial 3-second delay; proceeds as soon as event is emitted
-// - More reliable: Waits for actual on-chain confirmation via contract events
-// - Cleaner architecture: Event-driven rather than polling or time-based
+// 1. Event Verification: Checks that the UserVerified event was emitted in the transaction receipt
+//    - SECURITY: Throws error if event not found (fails loudly, not silently)
+// 
+// 2. On-Chain Confirmation: Polls isUserVerified() until it returns true
+//    - SECURITY: Verifies the state change actually occurred on-chain
+//    - Includes 10-second timeout with explicit error if verification doesn't complete
+// 
+// 3. Cache Update: Only proceeds with cache invalidation after both checks pass
+//    - Faster than arbitrary delays: responds as soon as verification is confirmed
+//    - More reliable: dual verification (event + on-chain state)
+//    - Secure: fails loudly on any verification failure
 
 import { useMemo, useCallback } from "react";
 import { createPublicClient, http, keccak256, toHex } from "viem";
@@ -178,11 +183,52 @@ export function useSeasonGating(seasonId, options = {}) {
           return eventUser === connectedAddress.toLowerCase();
         });
 
+        // SECURITY: Fail loudly if verification event was not emitted
         if (!userVerifiedEvent) {
-          console.warn("UserVerified event not found in transaction receipt");
-          // Event-driven approach: if event wasn't emitted, verification may have failed
-          // or user was already verified. Either way, we should still update the cache.
+          throw new Error(
+            "Password verification failed: UserVerified event not found in transaction receipt. " +
+            "This indicates the verification was rejected by the contract."
+          );
         }
+
+        // SECURITY: Poll on-chain state until isUserVerified returns true
+        // Don't rely solely on event emission - verify the state change actually occurred
+        const POLL_INTERVAL_MS = 500;
+        const POLL_TIMEOUT_MS = 10000; // 10 seconds
+        const startTime = Date.now();
+        
+        let isVerified = false;
+        while (!isVerified) {
+          // Check if we've exceeded the timeout
+          if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+            throw new Error(
+              "Password verification timeout: UserVerified event was emitted but " +
+              "on-chain verification status did not update within 10 seconds. " +
+              "Please refresh and check your verification status."
+            );
+          }
+
+          // Poll the on-chain verification status
+          const verified = await client.readContract({
+            address: gatingAddress,
+            abi: SEASON_GATING_ABI,
+            functionName: "isUserVerified",
+            args: [sid, connectedAddress],
+          });
+
+          if (verified) {
+            isVerified = true;
+            break;
+          }
+
+          // Wait before next poll
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+
+        // At this point, we have confirmed:
+        // 1. UserVerified event was emitted
+        // 2. isUserVerified() on-chain returns true
+        // Safe to proceed with cache invalidation
       }
 
       // Invalidate and refetch verification query to ensure UI has latest state
