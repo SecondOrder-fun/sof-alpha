@@ -16,11 +16,9 @@ vi.mock("@/components/account/InfoFiPositionsTab", () => ({
   default: () => <div data-testid="infofi-positions" />,
 }));
 
-vi.mock("@/components/mobile/RaffleBalanceItem", () => ({
-  __esModule: true,
-  default: ({ seasonId }) => (
-    <div data-testid="raffle-balance-item">{String(seasonId)}</div>
-  ),
+// Mock Link from react-router-dom used inside the accordion content
+vi.mock("react-router-dom", () => ({
+  Link: ({ children, ...props }) => <a {...props}>{children}</a>,
 }));
 
 import MobileBalancesTab from "@/components/mobile/MobileBalancesTab";
@@ -48,7 +46,21 @@ describe("MobileBalancesTab", () => {
       />,
     );
 
-    const rows = screen.getAllByTestId("raffle-balance-item");
-    expect(rows.map((el) => el.textContent)).toEqual(["13", "11"]);
+    // The component renders season names with "#id - name" format inside AccordionTrigger
+    const season13 = screen.getByText(/^#13 - Season 13$/);
+    const season11 = screen.getByText(/^#11 - Season 11$/);
+
+    // Verify both render
+    expect(season13).toBeInTheDocument();
+    expect(season11).toBeInTheDocument();
+
+    // Season 13 should appear before Season 11 in the DOM (reverse order)
+    const allButtons = screen.getAllByRole("button");
+    const triggerButtons = allButtons.filter(
+      (btn) =>
+        btn.textContent.includes("#13") || btn.textContent.includes("#11"),
+    );
+    expect(triggerButtons[0].textContent).toContain("#13");
+    expect(triggerButtons[1].textContent).toContain("#11");
   });
 });

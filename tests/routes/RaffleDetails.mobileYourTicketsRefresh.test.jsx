@@ -24,6 +24,12 @@ vi.mock("wagmi", () => ({
   usePublicClient: () => ({
     watchContractEvent: () => () => {},
   }),
+  useWriteContract: () => ({
+    writeContractAsync: vi.fn(),
+    data: undefined,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 vi.mock("@/lib/wagmi", () => ({
@@ -92,6 +98,7 @@ vi.mock("@/lib/viemClient", () => ({
   }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RaffleDetails from "@/routes/RaffleDetails.jsx";
 
 describe("RaffleDetails (mobile) refreshPositionNow ABI normalization", () => {
@@ -109,12 +116,18 @@ describe("RaffleDetails (mobile) refreshPositionNow ABI normalization", () => {
       return 0n;
     });
 
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
     render(
-      <MemoryRouter initialEntries={["/raffles/1"]}>
-        <Routes>
-          <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/raffles/1"]}>
+          <Routes>
+            <Route path="/raffles/:seasonId" element={<RaffleDetails />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     // Initial load effect triggers refreshPositionNow.

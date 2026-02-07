@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/useToast';
 import { placeBetTx, readBet } from '@/services/onchainInfoFi';
 import { formatUnits } from 'viem';
+import { useFormatSOF } from '@/hooks/buysell';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 /**
@@ -99,21 +100,11 @@ const BuySellWidget = ({ marketId, market }) => {
   const potentialPayout = calculatePayout(amount, outcome === 'YES');
   const potentialProfit = potentialPayout - Number(amount || 0);
 
-  // Format SOF amounts
-  const formatSof = (value) => {
-    try {
-      const bn = typeof value === 'bigint' ? value : BigInt(value ?? 0);
-      const s = formatUnits(bn, 18);
-      const [a, b = ''] = s.split('.');
-      const dec = b.slice(0, 6).replace(/0+$/g, '');
-      return dec ? `${a}.${dec}` : a;
-    } catch { 
-      return '0'; 
-    }
-  };
+  // Format SOF amounts using shared hook
+  const formatSOF = useFormatSOF(18); // SOF uses 18 decimals
 
-  const yesAmount = formatSof(yesPosition.data?.amount ?? 0n);
-  const noAmount = formatSof(noPosition.data?.amount ?? 0n);
+  const yesAmount = formatSOF(yesPosition.data?.amount ?? 0n);
+  const noAmount = formatSOF(noPosition.data?.amount ?? 0n);
 
   return (
     <Card className="sticky top-6">

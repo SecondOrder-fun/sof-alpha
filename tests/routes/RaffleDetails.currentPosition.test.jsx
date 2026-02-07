@@ -79,6 +79,12 @@ vi.mock("wagmi", () => ({
   usePublicClient: () => ({
     watchContractEvent: () => () => {},
   }),
+  useWriteContract: () => ({
+    writeContractAsync: vi.fn(),
+    data: undefined,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 const readContractMock = vi.fn(async ({ functionName }) => {

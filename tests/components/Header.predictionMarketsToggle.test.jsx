@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -16,6 +17,9 @@ vi.mock("wagmi", () => ({
   useAccount: () => ({
     address: "0x1234567890123456789012345678901234567890",
     isConnected: true,
+  }),
+  useDisconnect: () => ({
+    disconnect: vi.fn(),
   }),
 }));
 
@@ -56,14 +60,28 @@ vi.mock("@/components/common/LanguageToggle", () => ({
   default: () => null,
 }));
 
+vi.mock("@/context/ThemeContext", () => ({
+  useTheme: () => ({
+    theme: "dark",
+    setTheme: vi.fn(),
+    toggleTheme: vi.fn(),
+  }),
+}));
+
 import Header from "@/components/layout/Header.jsx";
 
 describe("Header prediction markets toggle", () => {
   it("does not render Prediction Markets nav when feature is disabled", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
     render(
-      <MemoryRouter>
-        <Header />
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Header />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.queryByText("navigation.predictionMarkets")).toBeNull();
   });

@@ -290,11 +290,14 @@ const RaffleDetails = () => {
     
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery.data.config?.startTime || 0);
-      if (Number.isFinite(startTs) && chainNow < startTs) return;
+      if (Number.isFinite(startTs) && chainNow < startTs) {
+        return;
+      }
     }
     
     // Check gating from loaded season data (not derived state)
     const seasonGated = Boolean(seasonDetailsQuery.data.config?.gated);
+    
     if (seasonGated && isGatingVerified !== true) {
       setPendingAction("buy");
       setGateModalOpen(true);
@@ -342,7 +345,9 @@ const RaffleDetails = () => {
 
   // Called after successful password verification
   const handleGateVerified = async () => {
-    refetchGating();
+    // Wait for gating status to be refetched and cache updated
+    await refetchGating();
+    
     if (pendingAction === "buy") {
       setSheetMode("buy");
       setSheetOpen(true);
@@ -651,6 +656,12 @@ const RaffleDetails = () => {
                         <BuySellWidget
                           bondingCurveAddress={bc}
                           initialTab={initialTradeTab}
+                          isGated={isSeasonGated}
+                          isVerified={isGatingVerified}
+                          onGatingRequired={(mode) => {
+                            setPendingAction(mode);
+                            setGateModalOpen(true);
+                          }}
                           onTxSuccess={() => {
                             setIsRefreshing(true);
                             debouncedRefresh(250);

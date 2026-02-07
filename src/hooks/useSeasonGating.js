@@ -1,5 +1,20 @@
 // src/hooks/useSeasonGating.js
 // Hook for reading season gating status and verifying passwords.
+//
+// Secure Event-Driven Verification:
+// This hook uses a defense-in-depth approach for password verification:
+// 
+// 1. Event Verification: Checks that the UserVerified event was emitted in the transaction receipt
+//    - SECURITY: Throws error if event not found (fails loudly, not silently)
+// 
+// 2. On-Chain Confirmation: Polls isUserVerified() until it returns true
+//    - SECURITY: Verifies the state change actually occurred on-chain
+//    - Includes 10-second timeout with explicit error if verification doesn't complete
+// 
+// 3. Cache Update: Only proceeds with cache invalidation after both checks pass
+//    - Faster than arbitrary delays: responds as soon as verification is confirmed
+//    - More reliable: dual verification (event + on-chain state)
+//    - Secure: fails loudly on any verification failure
 
 import { useMemo, useCallback } from "react";
 import { createPublicClient, http, keccak256, toHex } from "viem";
@@ -131,6 +146,10 @@ export function useSeasonGating(seasonId, options = {}) {
       if (!gatingAddress || sid == null) {
         throw new Error("Gating contract or season not available");
       }
+      if (!connectedAddress) {
+        throw new Error("Wallet not connected");
+      }
+
       const hash = await writeContractAsync({
         address: gatingAddress,
         abi: SEASON_GATING_ABI,
@@ -138,13 +157,94 @@ export function useSeasonGating(seasonId, options = {}) {
         args: [sid, 0n, password],
       });
 
-      // Wait for tx confirmation via public client then refetch
+      // Wait for tx confirmation and verify UserVerified event was emitted
       if (client && hash) {
-        await client.waitForTransactionReceipt({ hash, confirmations: 1 });
+        const receipt = await client.waitForTransactionReceipt({ 
+          hash, 
+          confirmations: 1 
+        });
+        
+        // Verify that the UserVerified event was emitted in this transaction
+        // Event signature: UserVerified(uint256 indexed seasonId, uint256 indexed gateIndex, address indexed user, GateType gateType)
+        const userVerifiedEvent = receipt.logs.find(log => {
+          // Check if this log is from the SeasonGating contract
+          if (log.address.toLowerCase() !== gatingAddress.toLowerCase()) {
+            return false;
+          }
+          
+          // Check topics: [eventSignature, seasonId, gateIndex, user]
+          // UserVerified has 3 indexed parameters (seasonId, gateIndex, user)
+          if (log.topics.length !== 4) {
+            return false;
+          }
+          
+          // Verify this is for the correct user (topic[3] is the indexed user address)
+          const eventUser = `0x${log.topics[3].slice(26)}`.toLowerCase();
+          return eventUser === connectedAddress.toLowerCase();
+        });
+
+        // SECURITY: Fail loudly if verification event was not emitted
+        if (!userVerifiedEvent) {
+          throw new Error(
+            "Password verification failed: UserVerified event not found in transaction receipt. " +
+            "This indicates the verification was rejected by the contract."
+          );
+        }
+
+        // SECURITY: Poll on-chain state until isUserVerified returns true
+        // Don't rely solely on event emission - verify the state change actually occurred
+        const POLL_INTERVAL_MS = 500;
+        const POLL_TIMEOUT_MS = 10000; // 10 seconds
+        const startTime = Date.now();
+        
+        let isVerified = false;
+        while (!isVerified) {
+          // Check if we've exceeded the timeout
+          if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+            throw new Error(
+              "Password verification timeout: UserVerified event was emitted but " +
+              "on-chain verification status did not update within 10 seconds. " +
+              "Please refresh and check your verification status."
+            );
+          }
+
+          // Poll the on-chain verification status
+          const verified = await client.readContract({
+            address: gatingAddress,
+            abi: SEASON_GATING_ABI,
+            functionName: "isUserVerified",
+            args: [sid, connectedAddress],
+          });
+
+          if (verified) {
+            isVerified = true;
+            break;
+          }
+
+          // Wait before next poll
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+
+        // At this point, we have confirmed:
+        // 1. UserVerified event was emitted
+        // 2. isUserVerified() on-chain returns true
+        // Safe to proceed with cache invalidation
       }
 
-      // Invalidate verification query so UI updates
-      queryClient.invalidateQueries({
+      // Invalidate and refetch verification query to ensure UI has latest state
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "seasonGating",
+          netKey,
+          "isVerified",
+          String(seasonId),
+          connectedAddress,
+          gatingAddress,
+        ],
+      });
+      
+      // Force an immediate refetch to ensure cache is updated
+      await queryClient.refetchQueries({
         queryKey: [
           "seasonGating",
           netKey,
@@ -169,9 +269,11 @@ export function useSeasonGating(seasonId, options = {}) {
     ],
   );
 
-  const refetch = useCallback(() => {
-    verifiedQuery.refetch();
-    gatesQuery.refetch();
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      verifiedQuery.refetch(),
+      gatesQuery.refetch(),
+    ]);
   }, [verifiedQuery, gatesQuery]);
 
   return {

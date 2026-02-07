@@ -1,0 +1,89 @@
+/**
+ * BuyForm Component (Mobile)
+ * Handles ticket purchase UI and validation
+ */
+
+import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import QuantityStepper from "@/components/mobile/QuantityStepper";
+
+export const BuyForm = ({
+  quantityInput,
+  onQuantityChange,
+  maxBuyable,
+  estBuyWithFees,
+  buyFeeBps,
+  formatSOF,
+  onSubmit,
+  isLoading,
+  disabled,
+  disabledReason,
+}) => {
+  const { t } = useTranslation(["common", "transactions"]);
+
+  return (
+    <form onSubmit={onSubmit}>
+      <div>
+        <label className="text-sm font-medium mb-3 block text-muted-foreground">
+          {t("common:amount", { defaultValue: "Tickets to Buy" })}
+        </label>
+        <QuantityStepper
+          value={quantityInput}
+          onChange={onQuantityChange}
+          min={1}
+          max={maxBuyable ?? 0}
+          maxValidationMessage={
+            maxBuyable !== null
+              ? t("transactions:maxValueMessage", {
+                  defaultValue:
+                    "Value must be less than or equal to {{max}}",
+                  max: maxBuyable,
+                })
+              : undefined
+          }
+          step={1}
+        />
+      </div>
+
+      <div className="bg-black/40 border border-border rounded-lg p-4">
+        <div className="text-sm text-muted-foreground mb-1">
+          {t("common:estimatedCost", {
+            defaultValue: "Estimated cost",
+          })}
+        </div>
+        <div className="text-2xl font-bold">
+          {formatSOF(estBuyWithFees)} $SOF
+        </div>
+        {buyFeeBps > 0 && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Includes {buyFeeBps / 100}% fee
+          </div>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        disabled={disabled}
+        size="lg"
+        className="w-full"
+        title={disabledReason}
+      >
+        {isLoading ? t("transactions:buying") : "BUY NOW"}
+      </Button>
+    </form>
+  );
+};
+
+BuyForm.propTypes = {
+  quantityInput: PropTypes.string.isRequired,
+  onQuantityChange: PropTypes.func.isRequired,
+  maxBuyable: PropTypes.number,
+  estBuyWithFees: PropTypes.bigint.isRequired,
+  buyFeeBps: PropTypes.number.isRequired,
+  formatSOF: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired,
+  disabled: PropTypes.bool.isRequired,
+  disabledReason: PropTypes.string,
+};
