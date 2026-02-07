@@ -345,7 +345,9 @@ const RaffleDetails = () => {
 
   // Called after successful password verification
   const handleGateVerified = async () => {
-    refetchGating();
+    // Wait for gating status to be refetched and cache updated
+    await refetchGating();
+    
     if (pendingAction === "buy") {
       setSheetMode("buy");
       setSheetOpen(true);
