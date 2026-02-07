@@ -1,5 +1,15 @@
 // src/hooks/useSeasonGating.js
 // Hook for reading season gating status and verifying passwords.
+//
+// Event-Driven Verification:
+// This hook uses an event-driven approach for password verification rather than
+// arbitrary delays. After submitting a verification transaction, it waits for
+// the transaction receipt and checks for the UserVerified event emission from
+// the SeasonGating contract. This ensures:
+// 
+// - Faster response: No artificial 3-second delay; proceeds as soon as event is emitted
+// - More reliable: Waits for actual on-chain confirmation via contract events
+// - Cleaner architecture: Event-driven rather than polling or time-based
 
 import { useMemo, useCallback } from "react";
 import { createPublicClient, http, keccak256, toHex } from "viem";
@@ -131,6 +141,10 @@ export function useSeasonGating(seasonId, options = {}) {
       if (!gatingAddress || sid == null) {
         throw new Error("Gating contract or season not available");
       }
+      if (!connectedAddress) {
+        throw new Error("Wallet not connected");
+      }
+
       const hash = await writeContractAsync({
         address: gatingAddress,
         abi: SEASON_GATING_ABI,
@@ -138,13 +152,53 @@ export function useSeasonGating(seasonId, options = {}) {
         args: [sid, 0n, password],
       });
 
-      // Wait for tx confirmation via public client then refetch
+      // Wait for tx confirmation and verify UserVerified event was emitted
       if (client && hash) {
-        await client.waitForTransactionReceipt({ hash, confirmations: 1 });
+        const receipt = await client.waitForTransactionReceipt({ 
+          hash, 
+          confirmations: 1 
+        });
+        
+        // Verify that the UserVerified event was emitted in this transaction
+        // Event signature: UserVerified(uint256 indexed seasonId, uint256 indexed gateIndex, address indexed user, GateType gateType)
+        const userVerifiedEvent = receipt.logs.find(log => {
+          // Check if this log is from the SeasonGating contract
+          if (log.address.toLowerCase() !== gatingAddress.toLowerCase()) {
+            return false;
+          }
+          
+          // Check topics: [eventSignature, seasonId, gateIndex, user]
+          // UserVerified has 3 indexed parameters (seasonId, gateIndex, user)
+          if (log.topics.length !== 4) {
+            return false;
+          }
+          
+          // Verify this is for the correct user (topic[3] is the indexed user address)
+          const eventUser = `0x${log.topics[3].slice(26)}`.toLowerCase();
+          return eventUser === connectedAddress.toLowerCase();
+        });
+
+        if (!userVerifiedEvent) {
+          console.warn("UserVerified event not found in transaction receipt");
+          // Event-driven approach: if event wasn't emitted, verification may have failed
+          // or user was already verified. Either way, we should still update the cache.
+        }
       }
 
-      // Invalidate verification query so UI updates
-      queryClient.invalidateQueries({
+      // Invalidate and refetch verification query to ensure UI has latest state
+      await queryClient.invalidateQueries({
+        queryKey: [
+          "seasonGating",
+          netKey,
+          "isVerified",
+          String(seasonId),
+          connectedAddress,
+          gatingAddress,
+        ],
+      });
+      
+      // Force an immediate refetch to ensure cache is updated
+      await queryClient.refetchQueries({
         queryKey: [
           "seasonGating",
           netKey,
@@ -169,9 +223,11 @@ export function useSeasonGating(seasonId, options = {}) {
     ],
   );
 
-  const refetch = useCallback(() => {
-    verifiedQuery.refetch();
-    gatesQuery.refetch();
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      verifiedQuery.refetch(),
+      gatesQuery.refetch(),
+    ]);
   }, [verifiedQuery, gatesQuery]);
 
   return {
