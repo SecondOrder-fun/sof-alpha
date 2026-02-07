@@ -1,7 +1,7 @@
 // src/components/infofi/ClaimCenter.jsx
 import PropTypes from "prop-types";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAccount, useWatchContractEvent } from "wagmi";
 import {
@@ -11,7 +11,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
@@ -22,52 +21,15 @@ import {
   isConsolationClaimed,
   isSeasonParticipant,
 } from "@/services/onchainRaffleDistributor";
-import { executeClaim } from "@/services/claimService";
 import { RafflePrizeDistributorAbi as PrizeDistributorAbi } from "@/utils/abis";
 import { useToast } from "@/hooks/useToast";
-// CSMM claims removed - FPMM claims will be implemented separately
 import { formatUnits } from "viem";
+import { useClaims } from "@/hooks/useClaims";
+import ClaimCenterRaffles from "./claim/ClaimCenterRaffles";
+import ClaimCenterMarkets from "./claim/ClaimCenterMarkets";
 
 /**
- * Parse claim errors into user-friendly messages
- * @param {Error} error - The error from the claim transaction
- * @returns {string} - User-friendly error message
- */
-function parseClaimError(error) {
-  const msg = error?.message || error?.toString() || "Unknown error";
-
-  // Common contract revert reasons
-  if (msg.includes("already claimed") || msg.includes("AlreadyClaimed")) {
-    return "This prize has already been claimed.";
-  }
-  if (msg.includes("not eligible") || msg.includes("NotEligible")) {
-    return "You are not eligible to claim this prize.";
-  }
-  if (msg.includes("not finalized") || msg.includes("SeasonNotFinalized")) {
-    return "The season has not been finalized yet. Please wait for the raffle to complete.";
-  }
-  if (msg.includes("not funded") || msg.includes("NotFunded")) {
-    return "The prize pool has not been funded yet.";
-  }
-  if (msg.includes("User rejected") || msg.includes("user rejected")) {
-    return "Transaction was cancelled.";
-  }
-  if (msg.includes("insufficient funds")) {
-    return "Insufficient funds for gas fees.";
-  }
-
-  // Truncate long technical errors
-  if (msg.length > 150) {
-    return msg.substring(0, 150) + "...";
-  }
-
-  return msg;
-}
-
-/**
- * ClaimCenter
- * Unified interface for claiming both InfoFi market winnings and raffle prizes.
- * Organized into discrete sections for clarity.
+ * ClaimCenter - Unified interface for claiming both InfoFi market winnings and raffle prizes
  */
 const ClaimCenter = ({ address, title, description }) => {
   const { t } = useTranslation(["market", "raffle", "common"]);
@@ -78,39 +40,27 @@ const ClaimCenter = ({ address, title, description }) => {
   const { address: connectedAddress } = useAccount();
   const { toast } = useToast();
 
-  // Track pending and successful claims by unique key
-  // Key format: "raffle-grand-{seasonId}", "raffle-consolation-{seasonId}", "infofi-{marketId}-{prediction}", "fpmm-{seasonId}-{player}"
-  const [pendingClaims, setPendingClaims] = useState(new Set());
-  const [successfulClaims, setSuccessfulClaims] = useState(new Set());
+  // Use extracted claim hooks
+  const {
+    pendingClaims,
+    successfulClaims,
+    getClaimKey,
+    claimInfoFiOne,
+    claimFPMMOne,
+    claimRaffleConsolation,
+    claimRaffleGrand,
+  } = useClaims();
 
-  // Helper to generate claim keys
-  const getClaimKey = (type, params) => {
-    switch (type) {
-      case "raffle-grand":
-        return `raffle-grand-${params.seasonId}`;
-      case "raffle-consolation":
-        return `raffle-consolation-${params.seasonId}`;
-      case "infofi":
-        return `infofi-${params.marketId}-${params.prediction}`;
-      case "fpmm":
-        return `fpmm-${params.seasonId}-${params.player}`;
-      default:
-        return `unknown-${JSON.stringify(params)}`;
-    }
-  };
-
-  // InfoFi Market Claims - fetch from backend API which has correct data
+  // InfoFi Market Claims - fetch from backend API
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
   const discovery = useQuery({
     queryKey: ["claimcenter_discovery", netKey],
     queryFn: async () => {
-      // Fetch settled markets from backend API
       const response = await fetch(`${API_BASE}/infofi/markets?isActive=false`);
       if (!response.ok) {
         throw new Error(`Failed to fetch markets: ${response.status}`);
       }
       const data = await response.json();
-      // Flatten markets from all seasons into a single array with player info
       const allMarkets = [];
       for (const [seasonId, markets] of Object.entries(data.markets || {})) {
         for (const m of markets) {
@@ -135,7 +85,6 @@ const ClaimCenter = ({ address, title, description }) => {
     queryKey: ["claimcenter_claimables", address, netKey],
     enabled: !!address,
     queryFn: async () => {
-      // Fetch claimable winnings from backend API (infofi_winnings table)
       const response = await fetch(`${API_BASE}/infofi/winnings/${address}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch winnings: ${response.status}`);
@@ -143,20 +92,18 @@ const ClaimCenter = ({ address, title, description }) => {
       const data = await response.json();
       const winnings = data.winnings || [];
 
-      // Transform winnings to claim format
       const out = [];
       for (const winning of winnings) {
         if (!winning.market || !winning.market.contract_address) continue;
 
-        // Parse amount (stored as string in database)
         const amount = parseFloat(winning.amount);
         if (amount <= 0) continue;
 
         out.push({
           seasonId: Number(winning.market.season_id),
           marketId: String(winning.market_id),
-          prediction: winning.market.winning_outcome, // The outcome that won
-          payout: BigInt(Math.floor(amount * 1e18)), // Convert to wei
+          prediction: winning.market.winning_outcome,
+          payout: BigInt(Math.floor(amount * 1e18)),
           contractAddress: winning.market.contract_address,
           type: "infofi",
         });
@@ -167,7 +114,7 @@ const ClaimCenter = ({ address, title, description }) => {
     refetchInterval: 30_000,
   });
 
-  // FPMM Claims (FPMM-based prediction markets with CTF redemption)
+  // FPMM Claims
   const fpmmClaimsQuery = useQuery({
     queryKey: [
       "claimcenter_fpmm_claimables",
@@ -178,7 +125,6 @@ const ClaimCenter = ({ address, title, description }) => {
     enabled: !!address && Array.isArray(discovery.data),
     queryFn: async () => {
       const out = [];
-      // Only check settled markets from discovery data
       const settledMarkets = (discovery.data || []).filter(
         (m) => m.isSettled && m.player,
       );
@@ -186,8 +132,6 @@ const ClaimCenter = ({ address, title, description }) => {
       for (const market of settledMarkets) {
         const { seasonId, player, winningOutcome, contractAddress } = market;
         try {
-          // Check if user has YES or NO positions
-          // Pass contract address from database to avoid ENV lookup
           const yesPosition = await readFpmmPosition({
             seasonId,
             player,
@@ -206,8 +150,6 @@ const ClaimCenter = ({ address, title, description }) => {
             fpmmAddress: contractAddress,
           });
 
-          // Only add claimable positions (winning side has value)
-          // winningOutcome=true means YES wins, winningOutcome=false means NO wins
           const hasClaimableYes =
             winningOutcome === true && yesPosition.amount > 0n;
           const hasClaimableNo =
@@ -217,7 +159,7 @@ const ClaimCenter = ({ address, title, description }) => {
             out.push({
               seasonId,
               player,
-              contractAddress, // Include FPMM address to avoid redundant lookup
+              contractAddress,
               yesAmount: hasClaimableYes ? yesPosition.amount : 0n,
               noAmount: hasClaimableNo ? noPosition.amount : 0n,
               winningOutcome,
@@ -225,8 +167,7 @@ const ClaimCenter = ({ address, title, description }) => {
             });
           }
         } catch (err) {
-          // Skip markets that error (not created yet, etc)
-          // Reason: individual season issues should not prevent other claims from showing
+          // Skip markets that error
         }
       }
       return out;
@@ -243,9 +184,7 @@ const ClaimCenter = ({ address, title, description }) => {
     refetchInterval: 10000,
   });
 
-  // Keep raffle claims in sync with on-chain state by listening for
-  // ConsolationClaimed events. This ensures the UI updates even if the
-  // claim was triggered from another tab or direct contract call.
+  // Watch for ConsolationClaimed events
   useWatchContractEvent({
     address: distributorQuery.data,
     abi: PrizeDistributorAbi,
@@ -259,14 +198,11 @@ const ClaimCenter = ({ address, title, description }) => {
           address &&
           participant.toLowerCase() === address.toLowerCase()
         ) {
-          // Invalidate raffle claims and SOF balance
           qc.invalidateQueries({ queryKey: ["raffle_claims"] });
           qc.invalidateQueries({ queryKey: ["sofBalance"] });
           const amount = log?.args?.amount;
           toast({
             title: t("raffle:prizeClaimed"),
-            // Reason: reuse existing translation keys; if no dedicated
-            // consolation string exists, fall back to a generic message.
             description:
               typeof amount === "bigint"
                 ? `${t("raffle:consolationPrize")}: ${formatUnits(
@@ -281,7 +217,7 @@ const ClaimCenter = ({ address, title, description }) => {
     },
   });
 
-  // Watch for GrandClaimed events to update UI and SOF balance
+  // Watch for GrandClaimed events
   useWatchContractEvent({
     address: distributorQuery.data,
     abi: PrizeDistributorAbi,
@@ -295,7 +231,6 @@ const ClaimCenter = ({ address, title, description }) => {
           address &&
           winner.toLowerCase() === address.toLowerCase()
         ) {
-          // Invalidate raffle claims and SOF balance
           qc.invalidateQueries({ queryKey: ["raffle_claims"] });
           qc.invalidateQueries({ queryKey: ["sofBalance"] });
           const amount = log?.args?.amount;
@@ -351,7 +286,6 @@ const ClaimCenter = ({ address, title, description }) => {
             amount: payout.data.grandAmount,
             claimed: payout.data.grandClaimed,
           });
-          // Grand winners are not eligible for consolation
           continue;
         }
 
@@ -361,46 +295,39 @@ const ClaimCenter = ({ address, title, description }) => {
           const consolationAmount = BigInt(payout.data.consolationAmount ?? 0n);
 
           if (!address || totalParticipants <= 1n || consolationAmount === 0n) {
-            // No consolation pool or not enough participants
-            // Reason: consolation is only meaningful when there are losers
-            // and a non-zero consolationAmount configured.
-          } else {
-            // First check if user actually participated in this season
-            const wasParticipant = await isSeasonParticipant({
-              seasonId,
-              account: address,
-              networkKey: netKey,
-            });
+            continue;
+          }
 
-            // Only show consolation if user was a participant
-            if (!wasParticipant) {
-              // User never participated - skip showing consolation
-              continue;
-            }
+          const wasParticipant = await isSeasonParticipant({
+            seasonId,
+            account: address,
+            networkKey: netKey,
+          });
 
-            const alreadyClaimed = await isConsolationClaimed({
-              seasonId,
-              account: address,
-              networkKey: netKey,
-            });
-            if (!alreadyClaimed && !isGrandWinner) {
-              const loserCount = totalParticipants - 1n;
-              if (loserCount > 0n) {
-                const perLoser = consolationAmount / loserCount;
-                if (perLoser > 0n) {
-                  out.push({
-                    seasonId,
-                    type: "raffle-consolation",
-                    amount: perLoser,
-                    claimed: false,
-                  });
-                }
+          if (!wasParticipant) {
+            continue;
+          }
+
+          const alreadyClaimed = await isConsolationClaimed({
+            seasonId,
+            account: address,
+            networkKey: netKey,
+          });
+          if (!alreadyClaimed && !isGrandWinner) {
+            const loserCount = totalParticipants - 1n;
+            if (loserCount > 0n) {
+              const perLoser = consolationAmount / loserCount;
+              if (perLoser > 0n) {
+                out.push({
+                  seasonId,
+                  type: "raffle-consolation",
+                  amount: perLoser,
+                  claimed: false,
+                });
               }
             }
           }
         } catch (err) {
-          // Swallow errors for consolation checks so they don't break the entire claim view
-          // Reason: individual season issues should not prevent other claims from showing.
           // eslint-disable-next-line no-console
           console.warn(
             "Failed to evaluate consolation eligibility for season",
@@ -414,196 +341,6 @@ const ClaimCenter = ({ address, title, description }) => {
     staleTime: 10000,
     refetchInterval: 10000,
   });
-
-  // Mutations for claiming
-  const claimInfoFiOne = useMutation({
-    mutationFn: async ({ marketId, prediction, contractAddress }) => {
-      const claimKey = getClaimKey("infofi", { marketId, prediction });
-      setPendingClaims((prev) => new Set(prev).add(claimKey));
-
-      const result = await executeClaim({
-        type: "infofi-payout",
-        params: { marketId, prediction, contractAddress },
-        networkKey: netKey,
-      });
-      if (!result.success) throw new Error(result.error);
-      return { hash: result.hash, claimKey };
-    },
-    onSuccess: (data) => {
-      const { claimKey } = data;
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
-      qc.invalidateQueries({ queryKey: ["claimcenter_claimables"] });
-      qc.invalidateQueries({ queryKey: ["sofBalance"] });
-    },
-    onError: (error, variables) => {
-      const claimKey = getClaimKey("infofi", variables);
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      const message = parseClaimError(error);
-      toast({
-        title: t("common:error"),
-        description: message,
-        variant: "destructive",
-      });
-      // Refresh claims list in case the claim was already processed
-      qc.invalidateQueries({ queryKey: ["claimcenter_claimables"] });
-    },
-  });
-
-  const claimRaffleConsolation = useMutation({
-    mutationFn: async ({ seasonId }) => {
-      const claimKey = getClaimKey("raffle-consolation", { seasonId });
-      setPendingClaims((prev) => new Set(prev).add(claimKey));
-
-      if (!distributorQuery.data) {
-        throw new Error("Prize distributor not configured");
-      }
-      const result = await executeClaim({
-        type: "raffle-consolation",
-        params: { seasonId },
-        networkKey: netKey,
-      });
-      if (!result.success) throw new Error(result.error);
-      return { hash: result.hash, claimKey };
-    },
-    onSuccess: (data) => {
-      const { claimKey } = data;
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
-      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
-      qc.invalidateQueries({ queryKey: ["sofBalance"] });
-    },
-    onError: (error, variables) => {
-      const claimKey = getClaimKey("raffle-consolation", variables);
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      const message = parseClaimError(error);
-      toast({
-        title: t("common:error"),
-        description: message,
-        variant: "destructive",
-      });
-      // Refresh claims list in case the claim was already processed
-      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
-    },
-  });
-
-  // FPMM claim mutation - Redeems conditional tokens after market resolution
-  const claimFPMMOne = useMutation({
-    mutationFn: async ({ seasonId, player, fpmmAddress }) => {
-      const claimKey = getClaimKey("fpmm", { seasonId, player });
-      setPendingClaims((prev) => new Set(prev).add(claimKey));
-
-      const result = await executeClaim({
-        type: "fpmm-position",
-        params: { seasonId, player, fpmmAddress },
-        networkKey: netKey,
-      });
-      if (!result.success) throw new Error(result.error);
-      return { hash: result.hash, claimKey };
-    },
-    onSuccess: (data) => {
-      const { claimKey } = data;
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
-      qc.invalidateQueries({ queryKey: ["claimcenter_fpmm_claimables"] });
-      qc.invalidateQueries({ queryKey: ["infoFiPositions"] });
-      qc.invalidateQueries({ queryKey: ["sofBalance"] });
-    },
-    onError: (error, variables) => {
-      const claimKey = getClaimKey("fpmm", variables);
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      const message = parseClaimError(error);
-      toast({
-        title: t("common:error"),
-        description: message,
-        variant: "destructive",
-      });
-      // Refresh claims list in case the claim was already processed
-      qc.invalidateQueries({ queryKey: ["claimcenter_fpmm_claimables"] });
-    },
-  });
-
-  const claimRaffleGrand = useMutation({
-    mutationFn: async ({ seasonId }) => {
-      const claimKey = getClaimKey("raffle-grand", { seasonId });
-      setPendingClaims((prev) => new Set(prev).add(claimKey));
-
-      const result = await executeClaim({
-        type: "raffle-grand",
-        params: { seasonId },
-        networkKey: netKey,
-      });
-      if (!result.success) throw new Error(result.error);
-      return { hash: result.hash, claimKey };
-    },
-    onSuccess: (data) => {
-      const { claimKey } = data;
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      setSuccessfulClaims((prev) => new Set(prev).add(claimKey));
-      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
-      qc.invalidateQueries({ queryKey: ["sofBalance"] });
-    },
-    onError: (error, variables) => {
-      const claimKey = getClaimKey("raffle-grand", variables);
-      setPendingClaims((prev) => {
-        const next = new Set(prev);
-        next.delete(claimKey);
-        return next;
-      });
-      const message = parseClaimError(error);
-      toast({
-        title: t("common:error"),
-        description: message,
-        variant: "destructive",
-      });
-      // Refresh claims list in case the claim was already processed
-      qc.invalidateQueries({ queryKey: ["raffle_claims"] });
-    },
-  });
-
-  // Merge and group all InfoFi claims (legacy + FPMM) by season
-  const allInfoFiClaims = [
-    ...(claimsQuery.data || []),
-    ...(fpmmClaimsQuery.data || []),
-  ];
-
-  const infoFiGrouped = (() => {
-    const out = new Map();
-    for (const c of allInfoFiClaims) {
-      const key = String(c.seasonId ?? "—");
-      if (!out.has(key)) out.set(key, []);
-      out.get(key).push(c);
-    }
-    return out;
-  })();
 
   return (
     <Card className="mb-4">
@@ -623,312 +360,32 @@ const ClaimCenter = ({ address, title, description }) => {
         {address && (
           <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="raffles">
-                Raffle Prizes
-              </TabsTrigger>
-              <TabsTrigger value="markets">
-                Prediction Markets
-              </TabsTrigger>
+              <TabsTrigger value="raffles">Raffle Prizes</TabsTrigger>
+              <TabsTrigger value="markets">Prediction Markets</TabsTrigger>
             </TabsList>
 
-            {/* InfoFi Market Claims Tab */}
             <TabsContent value="markets" className="space-y-4">
-              {(discovery.isLoading ||
-                claimsQuery.isLoading ||
-                fpmmClaimsQuery.isLoading) && (
-                <p className="text-muted-foreground">{t("common:loading")}</p>
-              )}
-              {(claimsQuery.error || fpmmClaimsQuery.error) && (
-                <p className="text-red-500">
-                  {t("common:error")}:{" "}
-                  {String(
-                    claimsQuery.error?.message ||
-                      fpmmClaimsQuery.error?.message ||
-                      "Unknown error",
-                  )}
-                </p>
-              )}
-              {!claimsQuery.isLoading &&
-                !fpmmClaimsQuery.isLoading &&
-                !claimsQuery.error &&
-                !fpmmClaimsQuery.error &&
-                allInfoFiClaims.length === 0 && (
-                  <p className="text-muted-foreground">
-                    {t("errors:nothingToClaim")}
-                  </p>
-                )}
-              {!claimsQuery.isLoading &&
-                !fpmmClaimsQuery.isLoading &&
-                !claimsQuery.error &&
-                !fpmmClaimsQuery.error &&
-                allInfoFiClaims.length > 0 && (
-                  <div className="space-y-3">
-                    {Array.from(infoFiGrouped.entries()).map(
-                      ([season, rows]) => (
-                        <div key={season} className="border rounded">
-                          <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                            <div className="text-sm font-medium">
-                              {t("raffle:seasonNumber", { number: season })}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {t("common:subtotal", {
-                                defaultValue: "Subtotal",
-                              })}
-                              :{" "}
-                              <span className="font-mono">
-                                {(() => {
-                                  try {
-                                    return formatUnits(
-                                      rows.reduce((acc, r) => {
-                                        const amount =
-                                          r.type === "fpmm"
-                                            ? (r.netPayout ?? 0n)
-                                            : (r.payout ?? 0n);
-                                        return acc + amount;
-                                      }, 0n),
-                                      18,
-                                    );
-                                  } catch {
-                                    return "0";
-                                  }
-                                })()}
-                              </span>{" "}
-                              SOF
-                            </div>
-                          </div>
-                          <div className="p-2 space-y-2">
-                            {rows.map((r) => {
-                              if (r.type === "fpmm") {
-                                // FPMM claim (CTF redemption)
-                                const totalAmount =
-                                  (r.yesAmount ?? 0n) + (r.noAmount ?? 0n);
-                                const fpmmClaimKey = getClaimKey("fpmm", {
-                                  seasonId: r.seasonId,
-                                  player: r.player,
-                                });
-                                const isFpmmPending =
-                                  pendingClaims.has(fpmmClaimKey);
-                                const isFpmmSuccessful =
-                                  successfulClaims.has(fpmmClaimKey);
-
-                                return (
-                                  <div
-                                    key={`fpmm-${r.player}`}
-                                    className="flex items-center justify-between border rounded p-2 text-sm bg-blue-50/50"
-                                  >
-                                    <div className="text-xs text-muted-foreground">
-                                      <span className="font-semibold text-blue-600">
-                                        FPMM Market
-                                      </span>{" "}
-                                      • Player:{" "}
-                                      <span className="font-mono">
-                                        {String(r.player).slice(0, 6)}...
-                                        {String(r.player).slice(-4)}
-                                      </span>{" "}
-                                      • YES:{" "}
-                                      <span className="font-mono">
-                                        {formatUnits(r.yesAmount ?? 0n, 18)}
-                                      </span>{" "}
-                                      • NO:{" "}
-                                      <span className="font-mono">
-                                        {formatUnits(r.noAmount ?? 0n, 18)}
-                                      </span>{" "}
-                                      • Total:{" "}
-                                      <span className="font-mono">
-                                        {formatUnits(totalAmount, 18)}
-                                      </span>{" "}
-                                      SOF
-                                    </div>
-                                    {isFpmmSuccessful ? (
-                                      <span className="text-sm text-green-600 font-medium">
-                                        ✓{" "}
-                                        {t("transactions:confirmed", {
-                                          defaultValue: "Claimed",
-                                        })}
-                                      </span>
-                                    ) : (
-                                      <Button
-                                        variant="outline"
-                                        onClick={() =>
-                                          claimFPMMOne.mutate({
-                                            seasonId: r.seasonId,
-                                            player: r.player,
-                                            fpmmAddress: r.contractAddress,
-                                          })
-                                        }
-                                        disabled={isFpmmPending}
-                                      >
-                                        {isFpmmPending
-                                          ? t("transactions:claimInProgress", {
-                                              defaultValue: "Claiming...",
-                                            })
-                                          : t("common:redeem")}
-                                      </Button>
-                                    )}
-                                  </div>
-                                );
-                              } else {
-                                // Old InfoFi claim
-                                const infofiClaimKey = getClaimKey("infofi", {
-                                  marketId: r.marketId,
-                                  prediction: r.prediction,
-                                });
-                                const isInfofiPending =
-                                  pendingClaims.has(infofiClaimKey);
-                                const isInfofiSuccessful =
-                                  successfulClaims.has(infofiClaimKey);
-
-                                return (
-                                  <div
-                                    key={`${r.marketId}-${String(
-                                      r.prediction,
-                                    )}`}
-                                    className="flex items-center justify-between border rounded p-2 text-sm"
-                                  >
-                                    <div className="text-xs text-muted-foreground">
-                                      {t("market:market")}:{" "}
-                                      <span className="font-mono">
-                                        {String(r.marketId)}
-                                      </span>{" "}
-                                      •{" "}
-                                      {t("common:side", {
-                                        defaultValue: "Side",
-                                      })}
-                                      : {r.prediction ? "YES" : "NO"} •{" "}
-                                      {t("market:potentialPayout")}:{" "}
-                                      <span className="font-mono">
-                                        {formatUnits(r.payout ?? 0n, 18)}
-                                      </span>{" "}
-                                      SOF
-                                    </div>
-                                    {isInfofiSuccessful ? (
-                                      <span className="text-sm text-green-600 font-medium">
-                                        ✓{" "}
-                                        {t("transactions:confirmed", {
-                                          defaultValue: "Claimed",
-                                        })}
-                                      </span>
-                                    ) : (
-                                      <Button
-                                        variant="outline"
-                                        onClick={() =>
-                                          claimInfoFiOne.mutate({
-                                            marketId: r.marketId,
-                                            prediction: r.prediction,
-                                            contractAddress: r.contractAddress,
-                                          })
-                                        }
-                                        disabled={isInfofiPending}
-                                      >
-                                        {isInfofiPending
-                                          ? t("transactions:claimInProgress", {
-                                              defaultValue: "Claiming...",
-                                            })
-                                          : t("common:claim")}
-                                      </Button>
-                                    )}
-                                  </div>
-                                );
-                              }
-                            })}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                )}
+              <ClaimCenterMarkets
+                discovery={discovery}
+                claimsQuery={claimsQuery}
+                fpmmClaimsQuery={fpmmClaimsQuery}
+                pendingClaims={pendingClaims}
+                successfulClaims={successfulClaims}
+                getClaimKey={getClaimKey}
+                claimInfoFiOne={claimInfoFiOne}
+                claimFPMMOne={claimFPMMOne}
+              />
             </TabsContent>
 
-            {/* Raffle Prize Claims Tab */}
             <TabsContent value="raffles" className="space-y-4">
-              {raffleClaimsQuery.isLoading && (
-                <p className="text-muted-foreground">{t("common:loading")}</p>
-              )}
-              {raffleClaimsQuery.error && (
-                <p className="text-red-500">
-                  {t("common:error")}:{" "}
-                  {String(
-                    raffleClaimsQuery.error?.message || raffleClaimsQuery.error,
-                  )}
-                </p>
-              )}
-              {!raffleClaimsQuery.isLoading &&
-                !raffleClaimsQuery.error &&
-                (raffleClaimsQuery.data || []).length === 0 && (
-                  <p className="text-muted-foreground">
-                    {t("raffle:noActiveSeasons")}
-                  </p>
-                )}
-              {!raffleClaimsQuery.isLoading &&
-                !raffleClaimsQuery.error &&
-                (raffleClaimsQuery.data || []).length > 0 && (
-                  <div className="space-y-3">
-                    {(raffleClaimsQuery.data || []).map((row) => {
-                      const isGrand = row.type === "raffle-grand";
-                      const labelKey = isGrand
-                        ? "raffle:grandPrize"
-                        : "raffle:consolationPrize";
-                      const claimKey = getClaimKey(
-                        isGrand ? "raffle-grand" : "raffle-consolation",
-                        { seasonId: row.seasonId },
-                      );
-                      const isThisPending = pendingClaims.has(claimKey);
-                      const isThisSuccessful = successfulClaims.has(claimKey);
-
-                      return (
-                        <div
-                          key={`${String(row.seasonId)}-${row.type}`}
-                          className="border rounded p-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium">
-                              {t("raffle:season")} #{String(row.seasonId)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {t(labelKey)}:{" "}
-                              <span className="font-mono">
-                                {formatUnits(row.amount ?? 0n, 18)}
-                              </span>{" "}
-                              SOF
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            {isThisSuccessful ? (
-                              <p className="text-sm text-green-600 font-medium text-center py-2">
-                                ✓{" "}
-                                {t("transactions:confirmed", {
-                                  defaultValue: "Claim Successful",
-                                })}
-                              </p>
-                            ) : (
-                              <Button
-                                onClick={() => {
-                                  if (isGrand) {
-                                    claimRaffleGrand.mutate({
-                                      seasonId: row.seasonId,
-                                    });
-                                  } else {
-                                    claimRaffleConsolation.mutate({
-                                      seasonId: row.seasonId,
-                                    });
-                                  }
-                                }}
-                                disabled={isThisPending}
-                                className="w-full"
-                              >
-                                {isThisPending
-                                  ? t("transactions:claimInProgress", {
-                                      defaultValue: "Claim in Progress...",
-                                    })
-                                  : t("raffle:claimPrize")}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <ClaimCenterRaffles
+                raffleClaimsQuery={raffleClaimsQuery}
+                pendingClaims={pendingClaims}
+                successfulClaims={successfulClaims}
+                getClaimKey={getClaimKey}
+                claimRaffleGrand={claimRaffleGrand}
+                claimRaffleConsolation={claimRaffleConsolation}
+              />
             </TabsContent>
           </Tabs>
         )}

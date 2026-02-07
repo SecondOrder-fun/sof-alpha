@@ -11,13 +11,13 @@ import { buildPublicClient } from "@/lib/viemClient";
 import { useAccount } from "wagmi";
 import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { useSOFToken } from "@/hooks/useSOFToken";
-import { SOFBondingCurveAbi } from "@/utils/abis";
 import {
   useFormatSOF,
   usePriceEstimation,
   useTradingLockStatus,
   useBalanceValidation,
   useBuySellTransactions,
+  useTransactionHandlers,
 } from "@/hooks/buysell";
 import {
   SlippageSettings,
@@ -101,6 +101,25 @@ const BuySellWidget = ({
     onTxSuccess
   );
 
+  const { handleBuy, handleSell, fetchMaxSellable } = useTransactionHandlers({
+    client,
+    bondingCurveAddress,
+    connectedAddress,
+    tradingLocked,
+    hasZeroBalance,
+    hasInsufficientBalance,
+    formatSOF,
+    onNotify,
+    executeBuy,
+    executeSell,
+    estBuyWithFees,
+    estSellAfterFees,
+    slippagePct,
+    isGated,
+    isVerified,
+    onGatingRequired,
+  });
+
   // Persist active tab in localStorage
   useEffect(() => {
     if (initialTab === "buy" || initialTab === "sell") return;
@@ -122,58 +141,9 @@ const BuySellWidget = ({
 
   const onBuy = async (e) => {
     e.preventDefault();
-    if (!buyAmount || !bondingCurveAddress) return;
+    if (!buyAmount) return;
 
-    // Check gating before allowing transaction
-    if (isGated && isVerified !== true) {
-      if (onGatingRequired) {
-        onGatingRequired("buy");
-      }
-      return;
-    }
-
-    if (tradingLocked) {
-      onNotify?.({
-        type: "error",
-        message: "Trading is locked - Season has ended",
-        hash: "",
-      });
-      return;
-    }
-
-    if (hasZeroBalance) {
-      onNotify?.({
-        type: "error",
-        message: t("transactions:insufficientSOF", {
-          defaultValue:
-            "You need $SOF to buy tickets. Visit the faucet or acquire tokens first.",
-        }),
-        hash: "",
-      });
-      return;
-    }
-
-    if (hasInsufficientBalance) {
-      const needed = formatSOF(estBuyWithFees);
-      onNotify?.({
-        type: "error",
-        message: t("transactions:insufficientSOFWithAmount", {
-          defaultValue:
-            "You need at least {{amount}} $SOF to complete this purchase.",
-          amount: needed,
-        }),
-        hash: "",
-      });
-      return;
-    }
-
-    const result = await executeBuy({
-      tokenAmount: BigInt(buyAmount),
-      maxSofAmount: estBuyWithFees,
-      slippagePct,
-      onComplete: () => setBuyAmount(""),
-    });
-
+    const result = await handleBuy(BigInt(buyAmount), () => setBuyAmount(""));
     if (result.success) {
       setBuyAmount("");
     }
@@ -181,32 +151,9 @@ const BuySellWidget = ({
 
   const onSell = async (e) => {
     e.preventDefault();
-    if (!sellAmount || !bondingCurveAddress) return;
+    if (!sellAmount) return;
 
-    // Check gating before allowing transaction
-    if (isGated && isVerified !== true) {
-      if (onGatingRequired) {
-        onGatingRequired("sell");
-      }
-      return;
-    }
-
-    if (tradingLocked) {
-      onNotify?.({
-        type: "error",
-        message: "Trading is locked - Season has ended",
-        hash: "",
-      });
-      return;
-    }
-
-    const result = await executeSell({
-      tokenAmount: BigInt(sellAmount),
-      minSofAmount: estSellAfterFees,
-      slippagePct,
-      onComplete: () => setSellAmount(""),
-    });
-
+    const result = await handleSell(BigInt(sellAmount), () => setSellAmount(""));
     if (result.success) {
       setSellAmount("");
     }
@@ -214,21 +161,9 @@ const BuySellWidget = ({
 
   // MAX helper - reads user's position from bonding curve
   const onMaxSell = useCallback(async () => {
-    try {
-      if (!client || !connectedAddress) return;
-      const bal = await client.readContract({
-        address: bondingCurveAddress,
-        abi: SOFBondingCurveAbi,
-        functionName: "playerTickets",
-        args: [connectedAddress],
-      });
-      setSellAmount((bal ?? 0n).toString());
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to fetch ticket balance";
-      onNotify?.({ type: "error", message, hash: "" });
-    }
-  }, [client, connectedAddress, bondingCurveAddress, onNotify]);
+    const balance = await fetchMaxSellable();
+    setSellAmount(balance.toString());
+  }, [fetchMaxSellable]);
 
   const rpcMissing = !net?.rpcUrl;
   const disabledTip = rpcMissing
@@ -315,7 +250,11 @@ const BuySellWidget = ({
                       : disabledTip
               }
             >
-              {isPending ? t("transactions:buying") : t("common:buy")}
+              {isPending
+                ? t("transactions:buying")
+                : isGated && isVerified !== true
+                  ? t("raffle:verifyAccess", { defaultValue: "Verify Access" })
+                  : t("common:buy")}
             </Button>
           </form>
         </TabsContent>

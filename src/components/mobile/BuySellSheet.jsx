@@ -21,7 +21,6 @@ import { buildPublicClient } from "@/lib/viemClient";
 import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { useSOFToken } from "@/hooks/useSOFToken";
 import { useAccount } from "wagmi";
-import { SOFBondingCurveAbi } from "@/utils/abis";
 import {
   useFormatSOF,
   usePriceEstimation,
@@ -29,6 +28,7 @@ import {
   useBalanceValidation,
   useBuySellTransactions,
   useSeasonValidation,
+  useTransactionHandlers,
 } from "@/hooks/buysell";
 import {
   BuyForm,
@@ -127,75 +127,45 @@ export const BuySellSheet = ({
     isBalanceLoading
   );
 
+  const txSuccessCallback = useCallback(() => {
+    onSuccess?.({ mode: activeTab, quantity: parsedQuantity, seasonId });
+    onOpenChange(false);
+  }, [activeTab, parsedQuantity, seasonId, onSuccess, onOpenChange]);
+
   const { executeBuy, executeSell } = useBuySellTransactions(
     bondingCurveAddress,
     client,
     onNotify,
-    () => {
-      onSuccess?.({ mode: activeTab, quantity: parsedQuantity, seasonId });
-      onOpenChange(false);
-    }
+    txSuccessCallback
   );
+
+  const { handleBuy, handleSell, fetchMaxSellable } = useTransactionHandlers({
+    client,
+    bondingCurveAddress,
+    connectedAddress,
+    tradingLocked,
+    seasonTimeNotActive,
+    hasZeroBalance,
+    hasInsufficientBalance,
+    formatSOF,
+    onNotify,
+    executeBuy,
+    executeSell,
+    estBuyWithFees,
+    estSellAfterFees,
+    slippagePct,
+  });
 
   const exceedsRemainingSupply =
     maxBuyable !== null && isQuantityValid ? parsedQuantity > maxBuyable : false;
 
   const onBuy = async (e) => {
     e.preventDefault();
-    if (!isQuantityValid || !bondingCurveAddress) return;
-
-    if (seasonTimeNotActive) {
-      onNotify?.({
-        type: "error",
-        message: "Season is not active",
-        hash: "",
-      });
-      return;
-    }
-
-    if (tradingLocked) {
-      onNotify?.({
-        type: "error",
-        message: "Trading is locked - Season has ended",
-        hash: "",
-      });
-      return;
-    }
-
-    if (hasZeroBalance) {
-      onNotify?.({
-        type: "error",
-        message: t("transactions:insufficientSOF", {
-          defaultValue:
-            "You need $SOF to buy tickets. Visit the faucet or acquire tokens first.",
-        }),
-        hash: "",
-      });
-      return;
-    }
-
-    if (hasInsufficientBalance) {
-      const needed = formatSOF(estBuyWithFees);
-      onNotify?.({
-        type: "error",
-        message: t("transactions:insufficientSOFWithAmount", {
-          defaultValue:
-            "You need at least {{amount}} $SOF to complete this purchase.",
-          amount: needed,
-        }),
-        hash: "",
-      });
-      return;
-    }
+    if (!isQuantityValid) return;
 
     setIsLoading(true);
     try {
-      await executeBuy({
-        tokenAmount: BigInt(parsedQuantity),
-        maxSofAmount: estBuyWithFees,
-        slippagePct,
-        onComplete: () => setQuantityInput("1"),
-      });
+      await handleBuy(BigInt(parsedQuantity), () => setQuantityInput("1"));
     } finally {
       setIsLoading(false);
     }
@@ -203,34 +173,11 @@ export const BuySellSheet = ({
 
   const onSell = async (e) => {
     e.preventDefault();
-    if (!isQuantityValid || !bondingCurveAddress) return;
-
-    if (seasonTimeNotActive) {
-      onNotify?.({
-        type: "error",
-        message: "Season is not active",
-        hash: "",
-      });
-      return;
-    }
-
-    if (tradingLocked) {
-      onNotify?.({
-        type: "error",
-        message: "Trading is locked - Season has ended",
-        hash: "",
-      });
-      return;
-    }
+    if (!isQuantityValid) return;
 
     setIsLoading(true);
     try {
-      await executeSell({
-        tokenAmount: BigInt(parsedQuantity),
-        minSofAmount: estSellAfterFees,
-        slippagePct,
-        onComplete: () => setQuantityInput("1"),
-      });
+      await handleSell(BigInt(parsedQuantity), () => setQuantityInput("1"));
     } finally {
       setIsLoading(false);
     }
@@ -238,21 +185,9 @@ export const BuySellSheet = ({
 
   // MAX helper - reads user's position from bonding curve
   const onMaxSell = useCallback(async () => {
-    try {
-      if (!client || !connectedAddress) return;
-      const bal = await client.readContract({
-        address: bondingCurveAddress,
-        abi: SOFBondingCurveAbi,
-        functionName: "playerTickets",
-        args: [connectedAddress],
-      });
-      setQuantityInput(`${Number(bal ?? 0n)}`);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to fetch ticket balance";
-      onNotify?.({ type: "error", message, hash: "" });
-    }
-  }, [client, connectedAddress, bondingCurveAddress, onNotify]);
+    const balance = await fetchMaxSellable();
+    setQuantityInput(`${Number(balance)}`);
+  }, [fetchMaxSellable]);
 
   const rpcMissing = !net?.rpcUrl;
   const disabledTip = rpcMissing

@@ -228,7 +228,9 @@ export const MobileRaffleDetail = ({
                 {isGated && isVerified !== true && (
                   <Lock className="w-4 h-4 mr-1.5" />
                 )}
-                {t("common:buy").toUpperCase()}
+                {isGated && isVerified !== true
+                  ? t("raffle:verifyAccess", { defaultValue: "Verify Access" }).toUpperCase()
+                  : t("common:buy").toUpperCase()}
               </Button>
               <Button
                 onClick={onSell}

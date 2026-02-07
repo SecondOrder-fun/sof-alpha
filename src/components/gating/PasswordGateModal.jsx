@@ -53,13 +53,13 @@ export const PasswordGateModal = ({
         await onVerify(password.trim());
         setStatus("success");
 
-        // Auto-close after short delay so user sees the success state
+        // Auto-close after delay so user sees the success state
         setTimeout(() => {
           onOpenChange(false);
           setStatus("idle");
           setPassword("");
           onVerified?.();
-        }, 800);
+        }, 2000);
       } catch (err) {
         setStatus("error");
 
