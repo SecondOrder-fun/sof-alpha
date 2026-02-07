@@ -3,14 +3,14 @@
 //
 // Secure Event-Driven Verification:
 // This hook uses a defense-in-depth approach for password verification:
-// 
+//
 // 1. Event Verification: Checks that the UserVerified event was emitted in the transaction receipt
 //    - SECURITY: Throws error if event not found (fails loudly, not silently)
-// 
+//
 // 2. On-Chain Confirmation: Polls isUserVerified() until it returns true
 //    - SECURITY: Verifies the state change actually occurred on-chain
 //    - Includes 10-second timeout with explicit error if verification doesn't complete
-// 
+//
 // 3. Cache Update: Only proceeds with cache invalidation after both checks pass
 //    - Faster than arbitrary delays: responds as soon as verification is confirmed
 //    - More reliable: dual verification (event + on-chain state)
@@ -197,7 +197,7 @@ export function useSeasonGating(seasonId, options = {}) {
         const POLL_INTERVAL_MS = 500;
         const POLL_TIMEOUT_MS = 10000; // 10 seconds
         const startTime = Date.now();
-        
+
         let isVerified = false;
         while (!isVerified) {
           // Check if we've exceeded the timeout
