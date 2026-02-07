@@ -17,7 +17,7 @@
 //    - Secure: fails loudly on any verification failure
 
 import { useMemo, useCallback } from "react";
-import { createPublicClient, http, keccak256, toHex } from "viem";
+import { createPublicClient, http, keccak256, toHex, getAddress } from "viem";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useWriteContract } from "wagmi";
 import { getStoredNetworkKey } from "@/lib/wagmi";
@@ -82,7 +82,8 @@ export function useSeasonGating(seasonId, options = {}) {
     });
   }, [net?.id, net?.name, net?.rpcUrl]);
 
-  const gatingAddress = addr.SEASON_GATING;
+  // Ensure address is properly checksummed (viem requires strict EIP-55 validation)
+  const gatingAddress = addr.SEASON_GATING ? getAddress(addr.SEASON_GATING) : null;
   const sid = seasonId != null ? BigInt(seasonId) : null;
 
   // ── Read gate count + gates ──
