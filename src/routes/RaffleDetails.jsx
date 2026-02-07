@@ -283,27 +283,42 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
+    // Block if season data not loaded yet
+    if (!seasonDetailsQuery?.data || seasonDetailsQuery.isLoading) {
+      return;
+    }
+    
     if (chainNow != null) {
-      const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
+      const startTs = Number(seasonDetailsQuery.data.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
-    // If season is gated and user not verified (or still loading), show password modal
-    if (isSeasonGated && isGatingVerified !== true) {
+    
+    // Check gating from loaded season data (not derived state)
+    const seasonGated = Boolean(seasonDetailsQuery.data.config?.gated);
+    if (seasonGated && isGatingVerified !== true) {
       setPendingAction("buy");
       setGateModalOpen(true);
       return;
     }
+    
     setSheetMode("buy");
     setSheetOpen(true);
   };
 
   const handleSell = async () => {
+    // Block if season data not loaded yet
+    if (!seasonDetailsQuery?.data || seasonDetailsQuery.isLoading) {
+      return;
+    }
+    
     if (chainNow != null) {
-      const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
+      const startTs = Number(seasonDetailsQuery.data.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
-    // If season is gated and user not verified (or still loading), show password modal
-    if (isSeasonGated && isGatingVerified !== true) {
+    
+    // Check gating from loaded season data (not derived state)
+    const seasonGated = Boolean(seasonDetailsQuery.data.config?.gated);
+    if (seasonGated && isGatingVerified !== true) {
       setPendingAction("sell");
       setGateModalOpen(true);
       return;
