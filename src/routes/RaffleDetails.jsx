@@ -67,17 +67,11 @@ const RaffleDetails = () => {
 
   // ── Season gating ──
   const isSeasonGated = Boolean(seasonDetailsQuery?.data?.config?.gated);
-  console.log("[RaffleDetails] Gating check:", {
-    configGated: seasonDetailsQuery?.data?.config?.gated,
-    isSeasonGated,
-    seasonId: seasonIdNumber,
-  });
   const {
     isVerified: isGatingVerified,
     verifyPassword,
     refetch: refetchGating,
   } = useSeasonGating(seasonIdNumber, { isGated: isSeasonGated });
-  console.log("[RaffleDetails] Gating status:", { isGatingVerified });
   const [gateModalOpen, setGateModalOpen] = useState(false);
   // Track which action to resume after password verification
   const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
@@ -289,21 +283,16 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
-    alert(`handleBuy called! isSeasonGated=${isSeasonGated}, isGatingVerified=${isGatingVerified}`);
-    console.log("[handleBuy] CHECK:", { isSeasonGated, isGatingVerified, configGated: seasonDetailsQuery?.data?.config?.gated });
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery?.data?.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) return;
     }
     // If season is gated and user not verified (or still loading), show password modal
     if (isSeasonGated && isGatingVerified !== true) {
-      alert("SHOULD SHOW PASSWORD MODAL NOW");
-      console.log("[handleBuy] BLOCKED - showing password modal");
       setPendingAction("buy");
       setGateModalOpen(true);
       return;
     }
-    console.log("[handleBuy] ALLOWED - opening buy sheet");
     setSheetMode("buy");
     setSheetOpen(true);
   };
