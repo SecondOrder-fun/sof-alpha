@@ -13,6 +13,8 @@
     "test:ui": "vitest --ui",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "lint:length": "node scripts/lint-file-length.js",
+    "lint:length:staged": "node scripts/lint-file-length.js --staged",
     "copy-abis": "node scripts/copy-abis.js",
     "update-env": "node scripts/update-env-addresses.js"
   },

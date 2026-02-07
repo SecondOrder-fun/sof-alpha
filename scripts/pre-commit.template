@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# pre-commit hook to enforce file length limits
+# Install: cp scripts/pre-commit.template .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#
+
+echo "Running file length checks..."
+node scripts/lint-file-length.js --staged --max-lines 500
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Commit blocked: files exceed 500-line limit"
+  echo "   Split large files before committing."
+  echo "   To bypass (NOT recommended): git commit --no-verify"
+  exit 1
+fi
+
+exit 0
