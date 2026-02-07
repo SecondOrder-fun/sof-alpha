@@ -283,40 +283,27 @@ const RaffleDetails = () => {
 
   // Mobile view handlers
   const handleBuy = () => {
-    console.log("[handleBuy] ENTRY", {
-      hasData: !!seasonDetailsQuery?.data,
-      isLoading: seasonDetailsQuery?.isLoading,
-      configGated: seasonDetailsQuery?.data?.config?.gated,
-      isGatingVerified,
-      gateModalOpen,
-    });
-    
     // Block if season data not loaded yet
     if (!seasonDetailsQuery?.data || seasonDetailsQuery.isLoading) {
-      console.log("[handleBuy] BLOCKED: data not ready");
       return;
     }
     
     if (chainNow != null) {
       const startTs = Number(seasonDetailsQuery.data.config?.startTime || 0);
       if (Number.isFinite(startTs) && chainNow < startTs) {
-        console.log("[handleBuy] BLOCKED: season not started");
         return;
       }
     }
     
     // Check gating from loaded season data (not derived state)
     const seasonGated = Boolean(seasonDetailsQuery.data.config?.gated);
-    console.log("[handleBuy] Gating check:", { seasonGated, isGatingVerified });
     
     if (seasonGated && isGatingVerified !== true) {
-      console.log("[handleBuy] SHOWING PASSWORD MODAL");
       setPendingAction("buy");
       setGateModalOpen(true);
       return;
     }
     
-    console.log("[handleBuy] OPENING BUY SHEET");
     setSheetMode("buy");
     setSheetOpen(true);
   };
@@ -670,7 +657,6 @@ const RaffleDetails = () => {
                           isGated={isSeasonGated}
                           isVerified={isGatingVerified}
                           onGatingRequired={(mode) => {
-                            console.log("[Desktop BuySellWidget] Gating required for:", mode);
                             setPendingAction(mode);
                             setGateModalOpen(true);
                           }}
