@@ -21,6 +21,16 @@ vi.mock('wagmi', () => ({
     getBlock: vi.fn().mockResolvedValue({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
   }),
   useAccount: () => ({ address: '0x123' }),
+  useWriteContract: () => ({
+    writeContractAsync: vi.fn(),
+    data: undefined,
+    isPending: false,
+    error: null,
+  }),
+  useWaitForTransactionReceipt: () => ({
+    isLoading: false,
+    isSuccess: false,
+  }),
 }));
 
 vi.mock('@/config/contracts', () => ({

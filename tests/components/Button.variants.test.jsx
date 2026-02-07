@@ -10,7 +10,7 @@ describe("Button template variants", () => {
     render(<Button variant="primary">Primary</Button>);
 
     const btn = screen.getByRole("button", { name: "Primary" });
-    expect(btn.className).toContain("bg-[#c82a54]");
+    expect(btn.className).toContain("bg-primary");
   });
 
   it("maps variant=danger to destructive", () => {

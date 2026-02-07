@@ -20,6 +20,12 @@ vi.mock("@/hooks/usePlatform", () => ({
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: "0xabc", isConnected: true }),
+  useWriteContract: () => ({
+    writeContractAsync: vi.fn(),
+    data: undefined,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 vi.mock("@/hooks/useRaffleState", () => ({

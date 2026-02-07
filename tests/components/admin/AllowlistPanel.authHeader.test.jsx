@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+vi.mock("@/hooks/useAdminAuth", () => ({
+  useAdminAuth: () => ({
+    getAuthHeaders: () => ({
+      Authorization: `Bearer ${import.meta.env.VITE_ADMIN_BEARER_TOKEN}`,
+    }),
+  }),
+}));
+
 import AllowlistPanel from "@/components/admin/AllowlistPanel";
 
 const originalEnv = import.meta.env;

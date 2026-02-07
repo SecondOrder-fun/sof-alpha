@@ -18,6 +18,10 @@ vi.mock('@/lib/wagmi', () => ({
   getStoredNetworkKey: vi.fn(),
 }));
 
+vi.mock('@/config/networks', () => ({
+  getNetworkByKey: vi.fn(),
+}));
+
 // Mock queryLogsInChunks utility
 vi.mock('@/utils/blockRangeQuery', () => ({
   queryLogsInChunks: vi.fn(),
@@ -37,6 +41,7 @@ describe('useSOFTransactions', () => {
     mockPublicClient = {
       getBlockNumber: vi.fn().mockResolvedValue(1000n),
       getBlock: vi.fn(),
+      readContract: vi.fn().mockResolvedValue(0n),
     };
 
     const { usePublicClient } = await import('wagmi');
@@ -51,6 +56,15 @@ describe('useSOFTransactions', () => {
 
     const { getStoredNetworkKey } = await import('@/lib/wagmi');
     getStoredNetworkKey.mockReturnValue('anvil');
+
+    const { getNetworkByKey } = await import('@/config/networks');
+    getNetworkByKey.mockReturnValue({
+      id: 31337,
+      name: 'Local Anvil',
+      rpcUrl: 'http://127.0.0.1:8545',
+      explorer: '',
+      lookbackBlocks: 1000n,
+    });
   });
 
   it('should fetch and categorize transactions correctly', async () => {
