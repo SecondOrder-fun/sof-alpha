@@ -4,8 +4,7 @@ import { useAccount } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { createPublicClient, http, formatUnits } from "viem";
 import { useTranslation } from "react-i18next";
-import { TabsContent, TabsList } from "@/components/ui/tabs";
-import { SmartTabs, SmartTabsTrigger } from "./SmartTabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BottomNav from "./BottomNav";
 import MobileAccountTab from "./MobileAccountTab";
 import MobileBalancesTab from "./MobileBalancesTab";
@@ -107,6 +106,7 @@ const MobilePortfolio = () => {
               seasonId: s.id,
               name: s?.config?.name || `Season ${s.id}`,
               token: raffleTokenAddr,
+              bondingCurve: curveAddr,
               balance: bal,
               decimals,
               ticketCount: tickets.toString(),
@@ -153,60 +153,41 @@ const MobilePortfolio = () => {
           {t("account:myAccount")}
         </h1>
 
-        <SmartTabs
+        <Tabs
           defaultValue="account"
           className="flex-1 flex flex-col overflow-hidden"
         >
-          {(activeTab) => (
-            <>
-              <TabsList className="grid w-full grid-cols-3 bg-primary/20 p-1.5">
-                <SmartTabsTrigger
-                  value="account"
-                  activeTab={activeTab}
-                  position={0}
-                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
-                >
-                  {t("account:profile")}
-                </SmartTabsTrigger>
-                <SmartTabsTrigger
-                  value="balances"
-                  activeTab={activeTab}
-                  position={1}
-                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
-                >
-                  {t("account:balance")}
-                </SmartTabsTrigger>
-                <SmartTabsTrigger
-                  value="claims"
-                  activeTab={activeTab}
-                  position={2}
-                  className="data-[state=active]:underline data-[state=active]:underline-offset-8"
-                >
-                  {t("account:claims")}
-                </SmartTabsTrigger>
-              </TabsList>
+          <TabsList className="w-full">
+            <TabsTrigger value="account" className="flex-1">
+              {t("account:profile")}
+            </TabsTrigger>
+            <TabsTrigger value="balances" className="flex-1">
+              {t("account:holdings")}
+            </TabsTrigger>
+            <TabsTrigger value="claims" className="flex-1">
+              {t("account:claims")}
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="flex-1 overflow-y-auto">
-                <TabsContent value="account" className="mt-0">
-                  <MobileAccountTab address={address} username={username} />
-                </TabsContent>
+          <div className="flex-1 overflow-y-auto">
+            <TabsContent value="account" className="mt-0">
+              <MobileAccountTab address={address} username={username} />
+            </TabsContent>
 
-                <TabsContent value="balances" className="mt-0">
-                  <MobileBalancesTab
-                    address={address}
-                    sofBalance={sofBalance}
-                    rafflePositions={rafflePositions}
-                    isLoadingRafflePositions={seasonBalancesQuery.isLoading}
-                  />
-                </TabsContent>
+            <TabsContent value="balances" className="mt-0">
+              <MobileBalancesTab
+                address={address}
+                sofBalance={sofBalance}
+                rafflePositions={rafflePositions}
+                isLoadingRafflePositions={seasonBalancesQuery.isLoading}
+              />
+            </TabsContent>
 
-                <TabsContent value="claims" className="mt-0">
-                  <MobileClaimsTab address={address} />
-                </TabsContent>
-              </div>
-            </>
-          )}
-        </SmartTabs>
+            <TabsContent value="claims" className="mt-0">
+              <MobileClaimsTab address={address} />
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
 
       <BottomNav activeTab="portfolio" />

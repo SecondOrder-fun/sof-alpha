@@ -32,12 +32,15 @@
   "connectWalletToViewAccount": "Please connect your wallet to view your account.",
   "sofBalanceTitle": "$SOF残高",
   "sofBalanceDescription": "ウォレットの現在の$SOF保有量。",
+  "holdings": "保有資産",
   "raffleHoldings": "ラッフル保有量",
+  "raffleTickets": "抽選チケット",
+  "infoFi": "InfoFi",
   "raffleHoldingsDescription": "このユーザーがシーズン全体で保有しているチケット。",
   "total": "合計",
   "token": "トークン",
   "tickets": "チケット",
-  "viewTickets": "表示",
+
   "noTicketBalances": "チケット残高が見つかりません。",
   "errorLoadingSofBalance": "SOF残高の読み込みエラー",
   "errorLoadingTicketBalances": "チケット残高の読み込みエラー",
@@ -75,5 +78,8 @@
   "connectWallet": "ウォレットを接続",
   "wrongNetwork": "間違ったネットワーク",
   "username": "ユーザー名",
-  "notSet": "未設定"
+  "notSet": "未設定",
+  "raffleContract": "抽選",
+  "marketContract": "市場",
+  "conditionalToken": "条件トークン"
 }

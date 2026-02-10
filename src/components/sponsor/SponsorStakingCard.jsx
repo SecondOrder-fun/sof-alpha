@@ -273,14 +273,16 @@ export function SponsorStakingCard() {
             <span className="font-mono font-medium">
               {isStatusLoading ? "..." : Number(stakeAmountFormatted).toLocaleString()} $SOF
             </span>
-            <button
+            <Button
+              variant="default"
+              size="icon"
               onClick={() => refetch()}
               disabled={isStatusLoading}
-              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              className="h-6 w-6"
               title="Refresh"
             >
               <RefreshCw className={`h-3 w-3 ${isStatusLoading ? "animate-spin" : ""}`} />
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -30,7 +30,7 @@ const StickyFooter = () => {
   const showConnectionLamp = isInFarcaster && isConnected;
 
   return (
-    <footer className="fixed z-10 bottom-0 left-0 right-0 py-4 text-center bg-background/80 backdrop-blur-sm border-t border-border/50">
+    <footer className="fixed z-40 bottom-0 left-0 right-0 py-4 text-center bg-background/80 backdrop-blur-sm border-t border-border/50">
       <div className="flex items-center justify-center gap-6 mb-2">
         <a
           href="mailto:secondorder.fun@patrion.xyz"

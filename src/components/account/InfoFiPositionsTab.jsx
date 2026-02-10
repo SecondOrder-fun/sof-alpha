@@ -3,8 +3,13 @@ import { useMemo } from "react";
 import PropTypes from "prop-types";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
+import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { getStoredNetworkKey } from "@/lib/wagmi";
+import { getContractAddresses } from "@/config/contracts";
 import { readBet } from "@/services/onchainInfoFi";
 import {
   Accordion,
@@ -14,7 +19,9 @@ import {
 } from "@/components/ui/accordion";
 
 const InfoFiPositionsTab = ({ address }) => {
+  const { t } = useTranslation(["account"]);
   const netKey = getStoredNetworkKey();
+  const contracts = getContractAddresses(netKey);
   const seasonsQry = useAllSeasons();
   const seasons = seasonsQry.data || [];
 
@@ -119,8 +126,9 @@ const InfoFiPositionsTab = ({ address }) => {
           if (yesAmt > 0n || noAmt > 0n) {
             positions.push({
               marketId: m.id,
-              marketType: m.market_type || "Winner Prediction",
+              marketName: m.question || m.market_type || "Market",
               player: m.player_address,
+              fpmmAddress,
               yesAmount: yesAmt,
               noAmount: noAmt,
             });
@@ -207,85 +215,72 @@ const InfoFiPositionsTab = ({ address }) => {
                           (p) => p.marketId === parseInt(marketId)
                         );
 
+                        // Calculate Yes/No totals from trades when no on-chain position
+                        const yesTotal = pos ? null : marketTrades.filter(t => t.outcome === "YES").reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+                        const noTotal = pos ? null : marketTrades.filter(t => t.outcome === "NO").reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
                         return (
                           <AccordionItem
                             key={`market-${marketId}`}
                             value={`market-${marketId}`}
                           >
                             <AccordionTrigger className="px-3 py-2 text-left">
-                              <div className="flex flex-col w-full">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">
-                                    {pos?.marketType || "Winner Prediction"}
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-medium text-foreground">
+                                  #{marketId} - {pos?.marketName || "Market"}
+                                </span>
+                                <div className="text-right shrink-0 flex items-center gap-2">
+                                  <span className="font-bold text-green-600">
+                                    {pos ? Number(formatUnits(pos.yesAmount ?? 0n, 18)).toFixed(0) : (yesTotal ?? 0).toFixed(0)}
                                   </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    Market #{marketId}
+                                  <span className="text-muted-foreground">/</span>
+                                  <span className="font-bold text-red-600">
+                                    {pos ? Number(formatUnits(pos.noAmount ?? 0n, 18)).toFixed(0) : (noTotal ?? 0).toFixed(0)}
                                   </span>
-                                </div>
-                                {pos?.player && (
-                                  <p className="text-xs text-muted-foreground font-mono">
-                                    Player: {pos.player.slice(0, 6)}...
-                                    {pos.player.slice(-4)}
-                                  </p>
-                                )}
-                                <div className="flex gap-4 mt-1">
-                                  {pos?.yesAmount > 0n && (
-                                    <span className="text-xs text-green-600">
-                                      YES: {formatUnits(pos.yesAmount, 18)} SOF
-                                    </span>
-                                  )}
-                                  {pos?.noAmount > 0n && (
-                                    <span className="text-xs text-red-600">
-                                      NO: {formatUnits(pos.noAmount, 18)} SOF
-                                    </span>
-                                  )}
-                                  {!pos && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {marketTrades.length} trade
-                                      {marketTrades.length !== 1 ? "s" : ""}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </AccordionTrigger>
                             <AccordionContent>
-                              <div className="mt-2 border-t pt-2 max-h-48 overflow-y-auto overflow-x-hidden pr-1">
-                                <p className="font-semibold mb-2">
-                                  Trade History
-                                </p>
-                                <div className="space-y-1">
-                                  {marketTrades
-                                    .sort(
-                                      (a, b) =>
-                                        new Date(b.created_at) -
-                                        new Date(a.created_at)
-                                    )
-                                    .map((trade, idx) => (
-                                      <div
-                                        key={`${trade.id}-${idx}`}
-                                        className="text-sm flex justify-between items-center gap-2 py-1"
-                                      >
-                                        <span
-                                          className={
-                                            trade.outcome === "YES"
-                                              ? "text-green-600"
-                                              : "text-red-600"
-                                          }
-                                        >
-                                          {trade.outcome === "YES" ? "+" : "-"}
-                                          {parseFloat(trade.amount).toFixed(
-                                            4
-                                          )}{" "}
-                                          SOF ({trade.outcome})
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {new Date(
-                                            trade.created_at
-                                          ).toLocaleString()}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
+                              <div className="mt-2 pt-1 space-y-3">
+                                {pos?.fpmmAddress && (
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="text-muted-foreground font-mono truncate">
+                                      {t("account:marketContract")}: {pos.fpmmAddress.slice(0, 6)}...{pos.fpmmAddress.slice(-4)}
+                                    </span>
+                                    <a
+                                      href={`https://sepolia.basescan.org/address/${pos.fpmmAddress}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:text-primary/80 flex items-center shrink-0 ml-2"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </div>
+                                )}
+                                {contracts.CONDITIONAL_TOKENS && (
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="text-muted-foreground font-mono truncate">
+                                      {t("account:conditionalToken")}: {contracts.CONDITIONAL_TOKENS.slice(0, 6)}...{contracts.CONDITIONAL_TOKENS.slice(-4)}
+                                    </span>
+                                    <a
+                                      href={`https://sepolia.basescan.org/address/${contracts.CONDITIONAL_TOKENS}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:text-primary/80 flex items-center shrink-0 ml-2"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </div>
+                                )}
+                                <Link
+                                  to={`/markets/${marketId}`}
+                                  className="flex items-center justify-between p-3 bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                                >
+                                  <span className="text-foreground font-medium">
+                                    Go to Market
+                                  </span>
+                                  <ChevronRight className="h-4 w-4 text-primary" />
+                                </Link>
                               </div>
                             </AccordionContent>
                           </AccordionItem>

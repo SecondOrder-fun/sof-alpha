@@ -8,6 +8,7 @@ import PropTypes from "prop-types";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Ticket, TrendingUp, Wallet, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useSafeArea } from "@/hooks/useSafeArea";
 
 export const BottomNav = ({ className = "" }) => {
@@ -77,20 +78,17 @@ export const BottomNav = ({ className = "" }) => {
             const isActive = activeTab === tab.id;
 
             return (
-              <button
+              <Button
                 key={tab.id}
+                variant={isActive ? "default" : "secondary"}
                 onClick={() => navigate(tab.path)}
-                className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg transition-all ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 border border-primary-foreground/20"
-                    : "text-foreground hover:bg-accent"
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 h-auto py-2 px-1 rounded-lg ${isActive ? "shadow-lg shadow-primary/30" : ""}`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium leading-tight">
                   {tab.label}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>

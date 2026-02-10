@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { FiEdit2, FiCopy, FiExternalLink } from "react-icons/fi";
 import { Card, CardContent } from "@/components/ui/card";
 import UsernameEditor from "@/components/account/UsernameEditor";
-import FaucetWidget from "@/components/faucet/FaucetWidget";
+import MobileFaucetWidget from "@/components/mobile/MobileFaucetWidget";
 import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
@@ -38,101 +38,95 @@ const MobileAccountTab = ({ address, username }) => {
 
   return (
     <div className="space-y-3 mt-3">
-      {/* Username Section */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-xs text-muted-foreground mb-2">
-            {t("account:username")}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-base text-foreground">
-              {username || t("account:notSet")}
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsEditingUsername(!isEditingUsername)}
-              className="p-0 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
-              aria-label={
-                isEditingUsername
-                  ? t("account:cancelUsernameEdit")
-                  : t("account:editUsername")
-              }
-              title={
-                isEditingUsername
-                  ? t("account:cancelUsernameEdit")
-                  : t("account:editUsername")
-              }
-            >
-              <FiEdit2 />
-            </button>
-          </div>
-          {isEditingUsername && (
-            <div className="mt-3">
-              <UsernameEditor
-                address={address}
-                currentUsername={username}
-                onSuccess={() => setIsEditingUsername(false)}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Beta Phase Airdrop (simplified faucet for Farcaster) */}
+      <MobileFaucetWidget />
 
-      {/* Address Section */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs text-muted-foreground">
-              {t("account:address")}
-            </div>
-            <div className="flex items-center gap-2">
+      {/* Username + Address Row */}
+      <div className="flex gap-3">
+        <Card className="w-1/2 shrink-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-muted-foreground">
+                {t("account:username")}
+              </div>
               <button
                 type="button"
-                onClick={handleCopyAddress}
+                onClick={() => setIsEditingUsername(!isEditingUsername)}
                 className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
-                aria-label={t("common:copyToClipboard")}
-                title={copied ? t("common:copied") : t("common:copyToClipboard")}
+                aria-label={
+                  isEditingUsername
+                    ? t("account:cancelUsernameEdit")
+                    : t("account:editUsername")
+                }
+                title={
+                  isEditingUsername
+                    ? t("account:cancelUsernameEdit")
+                    : t("account:editUsername")
+                }
               >
-                <FiCopy />
+                <FiEdit2 />
               </button>
-              {net.explorer && (
+            </div>
+            <span className="font-mono text-base text-foreground truncate block">
+              {username || t("account:notSet")}
+            </span>
+          </CardContent>
+        </Card>
+
+        <Card className="w-1/2 min-w-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-muted-foreground">
+                {t("account:address")}
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleOpenExplorer}
+                  onClick={handleCopyAddress}
                   className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
-                  aria-label={t("common:viewOnExplorer", "View on explorer")}
-                  title={t("common:viewOnExplorer", "View on explorer")}
+                  aria-label={t("common:copyToClipboard")}
+                  title={copied ? t("common:copied") : t("common:copyToClipboard")}
                 >
-                  <FiExternalLink />
+                  <FiCopy />
                 </button>
-              )}
+                {net.explorer && (
+                  <button
+                    type="button"
+                    onClick={handleOpenExplorer}
+                    className="p-1 text-primary hover:text-primary/80 active:text-primary/60 bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+                    aria-label={t("common:viewOnExplorer", "View on explorer")}
+                    title={t("common:viewOnExplorer", "View on explorer")}
+                  >
+                    <FiExternalLink />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-          <p className="font-mono text-xs break-all text-foreground">{address}</p>
-          {copied && (
-            <p className="text-xs text-green-600 mt-1">{t("common:copied")}</p>
-          )}
-        </CardContent>
-      </Card>
+            <p className="font-mono text-base text-foreground">
+              {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ""}
+            </p>
+            {copied && (
+              <p className="text-xs text-green-600 mt-1">{t("common:copied")}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* SOF Faucet Widget - Temporary */}
-      <FaucetWidget />
+      {/* Username Editor (full width below row) */}
+      {isEditingUsername && (
+        <Card>
+          <CardContent className="p-4">
+            <UsernameEditor
+              address={address}
+              currentUsername={username}
+              onSuccess={() => setIsEditingUsername(false)}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sponsor Staking */}
       <SponsorStakingCard />
-
-      {/* NFTs Section - Placeholder */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-xs text-muted-foreground mb-2">NFTs</div>
-          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-background/20">
-            <p className="text-sm text-muted-foreground">NFT Gallery</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              {t("account:nftGalleryComingSoon")}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
