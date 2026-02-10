@@ -32,12 +32,15 @@
   "connectWalletToViewAccount": "Please connect your wallet to view your account.",
   "sofBalanceTitle": "$SOF Balance",
   "sofBalanceDescription": "Wallet's current $SOF holdings.",
+  "holdings": "Bestände",
   "raffleHoldings": "Raffle Holdings",
+  "raffleTickets": "Verlosungstickets",
+  "infoFi": "InfoFi",
   "raffleHoldingsDescription": "Tickets held by this user across seasons.",
   "total": "Total",
   "token": "Token",
   "tickets": "Tickets",
-  "viewTickets": "View",
+
   "noTicketBalances": "No ticket balances found.",
   "errorLoadingSofBalance": "Error loading SOF balance",
   "errorLoadingTicketBalances": "Error loading ticket balances",
@@ -75,5 +78,8 @@
   "connectWallet": "Wallet verbinden",
   "wrongNetwork": "Falsches Netzwerk",
   "username": "Benutzername",
-  "notSet": "Nicht festgelegt"
+  "notSet": "Nicht festgelegt",
+  "raffleContract": "Verlosung",
+  "marketContract": "Markt",
+  "conditionalToken": "Bed. Token"
 }

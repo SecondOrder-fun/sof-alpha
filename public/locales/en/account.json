@@ -7,6 +7,7 @@
   "balance": "Balance",
   "sofBalance": "SOF Balance",
   "ticketBalance": "Ticket Balance",
+  "address": "Address",
   "notSet": "Not set",
   "username": "Username",
   "cancelUsernameEdit": "Cancel username edit",
@@ -35,12 +36,15 @@
   },
   "sofBalanceTitle": "$SOF Balance",
   "sofBalanceDescription": "Wallet's current $SOF holdings.",
+  "holdings": "Holdings",
   "raffleHoldings": "Raffle Holdings",
+  "raffleTickets": "Raffle Tickets",
+  "infoFi": "InfoFi",
   "raffleHoldingsDescription": "Tickets held by this user across seasons.",
   "total": "Total",
   "token": "Token",
   "tickets": "Tickets",
-  "viewTickets": "View",
+
   "noTicketBalances": "No ticket balances found.",
   "errorLoadingSofBalance": "Error loading SOF balance",
   "errorLoadingTicketBalances": "Error loading ticket balances",
@@ -101,5 +105,8 @@
   "grandPrize": "Grand Prize",
   "consolation": "Consolation",
   "fees": "Fees",
-  "viewTx": "View Tx"
+  "viewTx": "View Tx",
+  "raffleContract": "Raffle",
+  "marketContract": "Market",
+  "conditionalToken": "Cond. Token"
 }

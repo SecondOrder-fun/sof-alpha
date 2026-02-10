@@ -83,7 +83,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
         else if (ref) ref.current = el;
       }}
       className={cn(
-        "group relative inline-flex items-center rounded-full border border-primary",
+        "group relative isolate inline-flex items-center rounded-full border border-primary",
         className,
       )}
       {...props}
@@ -144,7 +144,7 @@ const TabsContent = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "mt-2 border-0 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       className,
     )}
     {...props}
