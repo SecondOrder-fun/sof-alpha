@@ -67,7 +67,7 @@ const OddsChart = ({ marketId }) => {
     const data = payload[0].payload;
 
     return (
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg">
+      <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
         <p className="text-xs text-muted-foreground mb-2">
           {format(parseISO(data.timestamp), "MMM d, yyyy HH:mm")}
         </p>

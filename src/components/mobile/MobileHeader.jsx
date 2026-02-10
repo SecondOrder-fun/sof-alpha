@@ -48,8 +48,7 @@ export const MobileHeader = ({ className = "" }) => {
           {/* User Profile */}
           <button
             onClick={handleAvatarClick}
-            className="relative p-0 bg-transparent border-0 hover:bg-transparent active:bg-transparent"
-            style={{ borderRadius: "9999px" }}
+            className="relative p-0 bg-transparent border-0 hover:bg-transparent active:bg-transparent rounded-full"
           >
             <Avatar className="w-10 h-10 border-2 border-primary">
               {profile.pfpUrl ? (

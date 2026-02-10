@@ -21,12 +21,12 @@ const CopyToClipboardButton = ({ value, labelText }) => {
     <button
       type="button"
       onClick={handleClick}
-      className="p-0 text-[#c82a54] hover:text-[#e25167] active:text-[#f9d6de] bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
+      className="p-0 text-primary hover:text-primary/80 active:text-muted bg-transparent hover:bg-transparent active:bg-transparent border-none outline-none flex items-center justify-center"
       aria-label={label}
       title={label}
     >
       {labelText && (
-        <span className="mr-1 text-xs text-[#c82a54] whitespace-nowrap">
+        <span className="mr-1 text-xs text-primary whitespace-nowrap">
           {labelText}
         </span>
       )}

@@ -423,21 +423,72 @@ const calculateTimeRemaining = (endTime) => {
   - Cochineal Red + Black + Pastel Rose
   - Cement + Black + Fabric Red
 
+### Canonical UI Components & Semantic Tokens
+
+**All components MUST use semantic Tailwind classes** that reference CSS variables defined in `src/styles/tailwind.css`. Never hardcode hex colors or use `dark:` prefix scattering.
+
+#### Semantic Color Mapping
+
+| Hex Value | Token Name | Tailwind Class |
+|-----------|-----------|----------------|
+| `#c82a54` (Cochineal Red) | `--primary` | `bg-primary`, `text-primary`, `border-primary` |
+| `#e25167` (Fabric Red) | — | `bg-primary/80`, `hover:bg-primary/80` |
+| `#a89e99` (Cement) | `--muted-foreground` | `text-muted-foreground` |
+| `#130013` (Black) | `--background` | `bg-background` |
+| `#f9d6de` (Pastel Rose) | `--muted` | `bg-muted`, `text-muted` |
+| `#353e34` (Asphalt) | `--foreground` | `text-foreground` |
+| `#6b6b6b` | `--border` | `border-border` |
+| `#1a1a1a` | `--card` | `bg-card` |
+| white on primary bg | `--primary-foreground` | `text-primary-foreground` |
+
+#### Rules
+
+1. **No inline `style={{}}` overrides** on UI components. If a component needs a visual variant, add it as a proper variant in the base component (e.g., Button).
+2. **No hardcoded hex in Tailwind brackets** — use `bg-primary` not `bg-[#c82a54]`.
+3. **No `text-white` / `bg-black`** — use `text-foreground` / `bg-background` (or `text-primary-foreground` when text sits on a colored background like `bg-primary`).
+4. **No `dark:` prefix scattering** — theme switching is handled by CSS variables in `:root` / `.dark`, not by component-level `dark:` overrides.
+5. **External brand colors** (Farcaster `#7c3aed`, Base `#0052ff`) are acceptable as dedicated Button variants (`variant="farcaster"`, `variant="base"`) since they are fixed third-party values.
+6. **Recharts/SVG** — inline `style` props for SVG attributes (e.g., fontSize on axis ticks, stroke colors) are acceptable since Recharts uses SVG rendering, not DOM.
+
+#### Button Variants
+
+The canonical `Button` component (`src/components/ui/button.jsx`) supports:
+
+| Variant | Use Case |
+|---------|----------|
+| `default` / `primary` | Main CTA, brand primary |
+| `secondary` | Secondary actions |
+| `outline` | Bordered, transparent bg |
+| `cancel` | Cancel/dismiss actions |
+| `ghost` | Minimal, no background |
+| `link` | Inline text links |
+| `destructive` / `danger` | Delete/error actions |
+| `farcaster` | Farcaster brand purple buttons |
+| `base` | Base/Coinbase brand blue buttons |
+
+Use `asChild` prop to render a `<Button>` as an anchor or other element while keeping button styling.
+
 ### Tailwind CSS Best Practices
 
 #### 1. Use Utility Classes
 
 ```jsx
-// ✅ Good - Utility classes
-<div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
-  <h2 className="text-xl font-semibold text-gray-800">Title</h2>
-  <Button className="px-4 py-2 bg-blue-500 hover:bg-blue-600">Action</Button>
+// ✅ Good - Semantic utility classes
+<div className="flex items-center justify-between p-4 bg-card rounded-lg shadow-md">
+  <h2 className="text-xl font-semibold text-foreground">Title</h2>
+  <Button variant="default">Action</Button>
 </div>
 
 // ❌ Avoid inline styles
 <div style={{ display: 'flex', padding: '16px', backgroundColor: 'white' }}>
   <h2 style={{ fontSize: '20px', fontWeight: '600' }}>Title</h2>
 </div>
+
+// ❌ Avoid hardcoded hex colors
+<div className="bg-[#c82a54] text-[#a89e99]">Bad</div>
+
+// ✅ Use semantic tokens
+<div className="bg-primary text-muted-foreground">Good</div>
 ```
 
 #### 2. Component Variants with CVA

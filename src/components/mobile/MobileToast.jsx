@@ -51,7 +51,7 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
               <div className="flex items-center mb-2">
                 <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center mr-2">
                   <svg
-                    className="w-4 h-4 text-white"
+                    className="w-4 h-4 text-primary-foreground"
                     fill="none"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -62,7 +62,7 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
                     <path d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>
-                <div className="text-white font-bold">
+                <div className="text-foreground font-bold">
                   Transaction Completed
                 </div>
               </div>
@@ -73,7 +73,7 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
               <div className="flex items-center mb-2">
                 <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center mr-2">
                   <svg
-                    className="w-4 h-4 text-white"
+                    className="w-4 h-4 text-primary-foreground"
                     fill="none"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -84,12 +84,12 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
                     <path d="M6 18L18 6M6 6l12 12"></path>
                   </svg>
                 </div>
-                <div className="text-white font-bold">Transaction Failed</div>
+                <div className="text-foreground font-bold">Transaction Failed</div>
               </div>
             )}
 
             {/* Message Content */}
-            <div className="text-white">
+            <div className="text-foreground">
               {subtitle ? (
                 <>
                   <div className="font-semibold text-lg">{title}</div>
@@ -118,7 +118,7 @@ export const MobileToast = ({ toast, onClose, isVisible }) => {
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10 -mr-1 p-1"
+            className="h-6 w-6 text-foreground/60 hover:text-foreground hover:bg-foreground/10 -mr-1 p-1"
           >
             <X className="w-4 h-4" />
           </Button>

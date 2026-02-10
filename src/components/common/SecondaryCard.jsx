@@ -9,7 +9,7 @@ const SecondaryCard = ({ title, right, children }) => {
   return (
     <div className="mt-3 p-3 border rounded-md">
       <div className="flex items-center justify-between">
-        <div className="font-medium text-[#c82a54]">{title}</div>
+        <div className="font-medium text-primary">{title}</div>
         {right}
       </div>
       <div className="mt-2 text-sm">{children}</div>

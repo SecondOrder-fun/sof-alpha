@@ -150,7 +150,7 @@ const BettingInterface = ({
             variant="outline"
             size="sm"
             onClick={handleDecrement}
-            className="h-10 w-10 shrink-0 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
+            className="h-10 w-10 shrink-0 bg-primary hover:bg-primary/80 text-primary-foreground p-2"
           >
             <Minus className="h-5 w-5" />
           </Button>
@@ -165,7 +165,7 @@ const BettingInterface = ({
             variant="outline"
             size="sm"
             onClick={handleIncrement}
-            className="h-10 w-10 shrink-0 bg-[#c82a54] hover:bg-[#e25167] text-white p-2"
+            className="h-10 w-10 shrink-0 bg-primary hover:bg-primary/80 text-primary-foreground p-2"
           >
             <Plus className="h-5 w-5" />
           </Button>
@@ -176,7 +176,7 @@ const BettingInterface = ({
       <Button
         onClick={handleBet}
         disabled={!isConnected || isLoading || betAmount <= 0}
-        className="w-full h-12 text-lg font-bold bg-[#c82a54] hover:bg-[#e25167] text-white"
+        className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/80 text-primary-foreground"
       >
         {isLoading ? "PLACING BET..." : "BET NOW"}
       </Button>
