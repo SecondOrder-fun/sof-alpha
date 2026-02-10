@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits, createPublicClient, http } from "viem";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
@@ -61,12 +61,15 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
     <Card className="flex flex-col h-full">
       <CardHeader className="py-1 pb-0">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <Link
+            to={`/raffles/${season.id}`}
+            className="flex items-center gap-2 min-w-0 hover:text-primary transition-colors"
+          >
             <span className="font-mono text-sm text-primary">
               #{season.id}
             </span>
             <span className="font-medium truncate">{season.config?.name}</span>
-          </div>
+          </Link>
           {renderBadge(season.status)}
         </div>
         {/* Countdown timer */}
@@ -156,7 +159,6 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
               </Button>
               <Button
                 size="sm"
-                variant="outline"
                 onClick={() => navigate(`/raffles/${season.id}?mode=sell`)}
               >
                 {t("common:sell")}

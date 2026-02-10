@@ -17,15 +17,14 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
         // Primary button: white text on Cochineal Red, Fabric Red on hover, darker red on active
         resolvedVariant === 'default' && 'bg-primary text-white hover:bg-primary/80 active:bg-primary/60',
         resolvedVariant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        // Outline: White border, transparent background
-        resolvedVariant === 'outline' && 'border border-white text-white hover:bg-white/10',
-        // Cancel: primary border/text on black, muted hover, inverted active
-        resolvedVariant === 'cancel' && 'border border-primary text-primary bg-black hover:bg-muted hover:text-white active:bg-primary active:text-black',
-        // Secondary button: Cement background, Asphalt text, primary border,
-        // primary hover with white text, darker active
-        resolvedVariant === 'secondary' && 'bg-muted-foreground text-muted border border-primary hover:bg-primary/80 hover:text-white active:bg-primary/60 active:text-white',
-        resolvedVariant === 'ghost' && 'hover:bg-muted hover:text-foreground',
-        resolvedVariant === 'link' && 'underline-offset-4 hover:underline text-primary',
+        // Outline: Cochineal Red text, white bg, Fabric Red border
+        resolvedVariant === 'outline' && 'border border-primary/80 text-primary bg-background hover:bg-primary/10 active:bg-primary/20',
+        // Cancel: Cochineal Red border, white text on Cement bg
+        resolvedVariant === 'cancel' && 'border border-primary text-white bg-muted-foreground hover:bg-muted-foreground/80 active:bg-primary active:text-black',
+        // Secondary button: White text on Fabric Red bg
+        resolvedVariant === 'secondary' && 'bg-primary/80 text-white border border-primary hover:bg-primary/70 active:bg-primary/60',
+        resolvedVariant === 'ghost' && 'border border-primary text-muted bg-primary/80 hover:bg-primary/70 active:bg-primary/60 dark:text-fabric-red dark:bg-pastel-rose',
+        resolvedVariant === 'link' && 'bg-transparent text-muted-foreground underline underline-offset-4 hover:text-primary hover:bg-transparent',
         // External brand variants — colors are fixed third-party brand values
         resolvedVariant === 'farcaster' && 'bg-[#7c3aed] text-white hover:bg-[#6d28d9] hover:scale-105 transition-transform',
         resolvedVariant === 'base' && 'bg-[#0052ff] text-white hover:bg-[#003ecb] hover:scale-105 transition-transform',

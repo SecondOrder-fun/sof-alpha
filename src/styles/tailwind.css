@@ -46,6 +46,9 @@
     /* Card inner background - solid in light mode */
     --card-inner-bg: hsl(var(--card));
 
+    --pastel-rose: 346 66% 91%; /* Pastel Rose #f9d6de */
+    --fabric-red: 351 70% 60%; /* Fabric Red #e25167 */
+
     --radius: 0.5rem;
   }
 
@@ -76,7 +79,7 @@
     --accent: 100 10% 22%; /* Asphalt */
     --accent-foreground: 20 9% 63%; /* Cement */
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 100% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --ring: 343 66% 47%; /* Cochineal Red */
@@ -89,6 +92,9 @@
 
     /* Card inner background - 75% opacity in dark mode */
     --card-inner-bg: hsl(var(--card) / 0.75);
+
+    --pastel-rose: 346 66% 91%; /* Pastel Rose #f9d6de — same across themes */
+    --fabric-red: 351 70% 60%; /* Fabric Red #e25167 — same across themes */
 
     --radius: 0.5rem;
   }
