@@ -202,6 +202,11 @@ const UIGym = () => {
                 <Button size="lg">Large</Button>
               </Subsection>
 
+              <Subsection title="Icon Only">
+                <Button size="icon"><Search className="h-4 w-4" /></Button>
+                <Button size="icon" variant="outline"><Search className="h-4 w-4" /></Button>
+              </Subsection>
+
               <Subsection title="States">
                 <Button disabled>Disabled</Button>
                 <Button>

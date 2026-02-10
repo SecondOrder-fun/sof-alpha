@@ -40,7 +40,7 @@ export const BottomNav = ({ className = "" }) => {
       id: "ranking",
       label: t("navigation:leaderboard"),
       icon: Trophy,
-      path: "/users",
+      path: "/leaderboard",
     },
   ];
 
@@ -51,7 +51,8 @@ export const BottomNav = ({ className = "" }) => {
     if (path.startsWith("/markets") || path.startsWith("/market/"))
       return "infofi";
     if (path.startsWith("/portfolio")) return "portfolio";
-    if (path.startsWith("/users")) return "ranking";
+    if (path.startsWith("/leaderboard") || path.startsWith("/users"))
+      return "ranking";
     return "raffles";
   };
 

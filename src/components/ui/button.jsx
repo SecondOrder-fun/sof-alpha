@@ -31,6 +31,7 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
         (size === 'default' || !size) && 'h-10 py-2 px-4',
         size === 'sm' && 'h-9 px-3 rounded-md',
         size === 'lg' && 'h-11 px-8 rounded-md',
+        size === 'icon' && 'h-9 w-9 p-0',
         className
       )}
       ref={ref}
@@ -56,7 +57,7 @@ Button.propTypes = {
     'farcaster',
     'base',
   ]),
-  size: PropTypes.oneOf(['default', 'sm', 'lg']),
+  size: PropTypes.oneOf(['default', 'sm', 'lg', 'icon']),
   asChild: PropTypes.bool
 };
 

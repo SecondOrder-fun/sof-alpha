@@ -11,10 +11,22 @@ import {
   DataTablePagination,
   DataTableToolbar,
 } from "@/components/common/DataTable";
+import { usePlatform } from "@/hooks/usePlatform";
+import MobileLeaderboard from "@/components/mobile/MobileLeaderboard";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const UsersIndex = () => {
+  const { isMobile } = usePlatform();
+
+  if (isMobile) {
+    return <MobileLeaderboard />;
+  }
+
+  return <DesktopUsersIndex />;
+};
+
+const DesktopUsersIndex = () => {
   const { t } = useTranslation("common");
   const { address: myAddress } = useAccount();
   const [loading, setLoading] = useState(true);
@@ -126,7 +138,7 @@ const UsersIndex = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{t("leaderboard")}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-4">{t("leaderboard")}</h1>
       <Card>
         <CardHeader>
           <CardTitle>{t("allUserProfiles")}</CardTitle>

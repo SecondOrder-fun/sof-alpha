@@ -180,7 +180,7 @@ const UserProfile = () => {
   if (isMyAccount && !isConnected) {
     return (
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">{t("myAccount")}</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-4">{t("myAccount")}</h1>
         <Card>
           <CardContent className="pt-6">
             <p className="text-center text-muted-foreground">
@@ -196,7 +196,7 @@ const UserProfile = () => {
     <div className="container mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             {username ? (
               <>
                 {username}

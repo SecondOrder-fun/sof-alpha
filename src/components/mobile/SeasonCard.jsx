@@ -22,8 +22,6 @@ export const SeasonCard = ({
   curveStep,
   allBondSteps,
   curveSupply,
-  cardIndex,
-  totalCards,
   onBuy,
   onSell,
   onClick,
@@ -69,21 +67,16 @@ export const SeasonCard = ({
   return (
     <Card
       onClick={onClick}
-      className="cursor-pointer hover:border-[#c82a54]/50 transition-colors max-w-sm mx-auto border-[#353e34] bg-[#130013]"
+      className="cursor-pointer hover:border-primary/50 transition-colors max-w-sm mx-auto border-0 bg-transparent shadow-none"
     >
       <CardHeader className="py-3 pb-2">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-mono text-sm text-[#f9d6de]">
+            <div className="font-mono text-sm text-primary">
               Season #{seasonId}
             </div>
-            <div className="font-medium text-white">{seasonConfig?.name}</div>
+            <div className="font-medium text-foreground">{seasonConfig?.name}</div>
           </div>
-          {typeof cardIndex === "number" && totalCards ? (
-            <span className="text-xs text-muted-foreground">
-              {cardIndex + 1} of {totalCards}
-            </span>
-          ) : null}
         </div>
       </CardHeader>
 
@@ -91,7 +84,7 @@ export const SeasonCard = ({
         {!isSeasonEnded && !isPreStart && (
           <>
             {/* Mini Curve Graph */}
-            <div className="bg-black/40 rounded-md overflow-hidden h-32">
+            <div className="bg-muted/40 rounded-md overflow-hidden h-32">
               <CurveGraph
                 curveSupply={displayCurveSupply}
                 allBondSteps={displayBondSteps}
@@ -114,7 +107,7 @@ export const SeasonCard = ({
 
         {/* Countdown Timer */}
         {isPreStart && startTimeSec !== null ? (
-          <div className="bg-[#c82a54] rounded-lg p-4">
+          <div className="bg-primary rounded-lg p-4">
             <div className="text-xs text-white/80 mb-1">
               {t("startsIn", { defaultValue: "Raffle starts in" })}
             </div>
@@ -125,7 +118,7 @@ export const SeasonCard = ({
             />
           </div>
         ) : !isSeasonEnded && seasonConfig?.endTime ? (
-          <div className="bg-[#c82a54] rounded-lg p-4">
+          <div className="bg-primary rounded-lg p-4">
             <div className="text-xs text-white/80 mb-1">
               {t("raffle:endsIn")}
             </div>
@@ -138,7 +131,7 @@ export const SeasonCard = ({
         ) : null}
 
         {isSeasonEnded && !isCompleted && (
-          <div className="bg-[#c82a54] rounded-lg p-4 text-center">
+          <div className="bg-primary rounded-lg p-4 text-center">
             <div className="text-white font-bold text-lg">
               {t("common:tradingLocked", { defaultValue: "Trading is Locked" })}
             </div>
@@ -149,11 +142,11 @@ export const SeasonCard = ({
         )}
 
         {isCompleted && winnerSummaryQuery.data && (
-          <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-            <div className="text-sm uppercase tracking-wide text-[#c82a54]">
+          <div className="bg-muted/40 rounded-lg p-4 border border-border">
+            <div className="text-sm uppercase tracking-wide text-primary">
               {t("raffle:winner")}
             </div>
-            <div className="text-lg font-semibold text-white mt-1">
+            <div className="text-lg font-semibold text-foreground mt-1">
               <UsernameDisplay
                 address={winnerSummaryQuery.data.winnerAddress}
                 className="text-lg"
@@ -175,8 +168,8 @@ export const SeasonCard = ({
         {isCompleted &&
           !winnerSummaryQuery.data &&
           BigInt(displayCurveSupply ?? 0n) === 0n && (
-            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-              <div className="text-sm font-semibold text-white">
+            <div className="bg-muted/40 rounded-lg p-4 border border-border">
+              <div className="text-sm font-semibold text-foreground">
                 {t("raffle:noWinner")}
               </div>
               <div className="text-sm text-muted-foreground mt-2">
@@ -223,8 +216,6 @@ SeasonCard.propTypes = {
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
   curveSupply: PropTypes.bigint,
-  cardIndex: PropTypes.number,
-  totalCards: PropTypes.number,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,
