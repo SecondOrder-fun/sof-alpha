@@ -17,12 +17,12 @@ export const ProgressBar = ({ current, max, className = "" }) => {
           <div
             key={index}
             className={`flex-1 h-2 rounded-full transition-colors ${
-              index < filledSegments ? "bg-[#c82a54]" : "bg-[#6b6b6b]/30"
+              index < filledSegments ? "bg-primary" : "bg-border/30"
             }`}
           />
         ))}
       </div>
-      <div className="flex justify-between text-xs text-[#a89e99]">
+      <div className="flex justify-between text-xs text-muted-foreground">
         <span>{current.toString()} sold</span>
         <span>{max.toString()} max</span>
       </div>

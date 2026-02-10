@@ -45,7 +45,7 @@ const MobileAccountTab = ({ address, username }) => {
             {t("account:username")}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base text-white">
+            <span className="text-base text-foreground">
               {username || t("account:notSet")}
             </span>
             <button
@@ -108,7 +108,7 @@ const MobileAccountTab = ({ address, username }) => {
               )}
             </div>
           </div>
-          <p className="font-mono text-xs break-all text-white">{address}</p>
+          <p className="font-mono text-xs break-all text-foreground">{address}</p>
           {copied && (
             <p className="text-xs text-green-600 mt-1">{t("common:copied")}</p>
           )}
@@ -125,7 +125,7 @@ const MobileAccountTab = ({ address, username }) => {
       <Card>
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground mb-2">NFTs</div>
-          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-black/20">
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-background/20">
             <p className="text-sm text-muted-foreground">NFT Gallery</p>
             <p className="text-xs text-muted-foreground mt-2">
               {t("account:nftGalleryComingSoon")}

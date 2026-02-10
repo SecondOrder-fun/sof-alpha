@@ -41,31 +41,31 @@ export const AccessLevelSelector = ({
   };
 
   return (
-    <Card className="bg-[#1a1a1a] border-[#c82a54]/30">
+    <Card className="bg-card border-primary/30">
       <CardHeader>
-        <CardTitle className="text-white">{title}</CardTitle>
-        <CardDescription className="text-[#a89e99]">
+        <CardTitle className="text-foreground">{title}</CardTitle>
+        <CardDescription className="text-muted-foreground">
           {description}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <Select value={selectedLevel} onValueChange={handleChange}>
-            <SelectTrigger className="w-full bg-[#130013] border-[#6b6b6b] text-white">
+            <SelectTrigger className="w-full bg-background border-border text-foreground">
               <SelectValue placeholder="Select access level" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1a1a1a] border-[#6b6b6b]">
+            <SelectContent className="bg-card border-border">
               {Object.entries(ACCESS_LEVELS).map(([key, value]) => (
                 <SelectItem
                   key={value}
                   value={value.toString()}
-                  className="text-white hover:bg-[#c82a54]/20 focus:bg-[#c82a54]/20"
+                  className="text-foreground hover:bg-primary/20 focus:bg-primary/20"
                 >
                   <div className="flex flex-col">
                     <span className="font-semibold">
                       {ACCESS_LEVEL_DISPLAY_NAMES[value]}
                     </span>
-                    <span className="text-xs text-[#a89e99]">
+                    <span className="text-xs text-muted-foreground">
                       {ACCESS_LEVEL_DESCRIPTIONS[value]}
                     </span>
                   </div>
@@ -74,19 +74,19 @@ export const AccessLevelSelector = ({
             </SelectContent>
           </Select>
 
-          <div className="p-3 bg-[#130013] rounded-md border border-[#6b6b6b]/30">
-            <p className="text-sm text-[#a89e99]">
-              <span className="font-semibold text-white">Current Level: </span>
+          <div className="p-3 bg-background rounded-md border border-border/30">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Current Level: </span>
               {ACCESS_LEVEL_DISPLAY_NAMES[parseInt(selectedLevel)]}
             </p>
-            <p className="text-xs text-[#a89e99] mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {ACCESS_LEVEL_DESCRIPTIONS[parseInt(selectedLevel)]}
             </p>
           </div>
 
-          <div className="text-xs text-[#a89e99] space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>
-              <span className="font-semibold text-white">Note:</span> Changes
+              <span className="font-semibold text-foreground">Note:</span> Changes
               take effect immediately.
             </p>
             <p>

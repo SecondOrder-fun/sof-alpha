@@ -258,7 +258,7 @@ export const BuySellSheet = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowSettings(!showSettings)}
-                  className="hover:bg-white/10 p-2 h-8 w-8"
+                  className="hover:bg-foreground/10 p-2 h-8 w-8"
                   title="Slippage settings"
                 >
                   <Settings className="w-4 h-4" />
@@ -267,13 +267,13 @@ export const BuySellSheet = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onOpenChange(false)}
-                  className="hover:bg-white/10 p-2 h-8 w-8"
+                  className="hover:bg-foreground/10 p-2 h-8 w-8"
                 >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-            <SheetDescription className="text-xs text-gray-400">
+            <SheetDescription className="text-xs text-muted-foreground">
               {activeTab === "buy"
                 ? "Purchase raffle tickets using SOF tokens"
                 : "Sell your raffle tickets for SOF tokens"}
@@ -300,13 +300,13 @@ export const BuySellSheet = ({
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-primary/20 p-1.5">
             <TabsTrigger
               value="buy"
-              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
+              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-foreground/60 font-semibold"
             >
               BUY
             </TabsTrigger>
             <TabsTrigger
               value="sell"
-              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-white/60 font-semibold"
+              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-foreground/60 font-semibold"
             >
               SELL
             </TabsTrigger>

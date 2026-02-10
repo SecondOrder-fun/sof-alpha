@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
+import { Button } from "@/components/ui/button";
 
 const AddMiniAppButton = ({
   className = "",
@@ -194,7 +195,7 @@ const AddMiniAppButton = ({
     if (addedText) {
       return (
         <div className={className}>
-          <p className="text-sm text-center" style={{ color: "#a89e99" }}>
+          <p className="text-sm text-center text-muted-foreground">
             {addedText}
           </p>
         </div>
@@ -203,7 +204,7 @@ const AddMiniAppButton = ({
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <span className="text-green-500">✓</span>
-        <span className="text-sm" style={{ color: "#a89e99" }}>
+        <span className="text-sm text-muted-foreground">
           App Added
           {showNotificationStatus && hasNotifications && " • Notifications On"}
         </span>
@@ -214,26 +215,16 @@ const AddMiniAppButton = ({
   return (
     <div className={className}>
       {promptText && (
-        <p className="text-sm text-center mb-4" style={{ color: "#a89e99" }}>
+        <p className="text-sm text-center mb-4 text-muted-foreground">
           {promptText}
         </p>
       )}
       <div className="flex justify-center">
-        <button
+        <Button
           onClick={handleAddApp}
           disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all"
-          style={{
-            backgroundColor: isLoading ? "#666" : "#c82a54",
-            color: "#ffffff",
-            cursor: isLoading ? "wait" : "pointer",
-          }}
-          onMouseOver={(e) =>
-            !isLoading && (e.currentTarget.style.backgroundColor = "#e25167")
-          }
-          onMouseOut={(e) =>
-            !isLoading && (e.currentTarget.style.backgroundColor = "#c82a54")
-          }
+          variant="default"
+          className="flex items-center gap-2"
         >
           {/* Farcaster icon - only show for Warpcast, not Base App */}
           {!isBaseApp && (
@@ -255,7 +246,7 @@ const AddMiniAppButton = ({
               : "Add to Farcaster"}
           </span>
           {error && <span className="text-red-400 text-xs ml-2">{error}</span>}
-        </button>
+        </Button>
       </div>
     </div>
   );

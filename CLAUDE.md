@@ -111,6 +111,14 @@ className="text-muted-foreground hover:text-primary"
 
 **No `dark:` prefix scattering.** Theme switching happens via CSS variables, not scattered dark mode overrides in components.
 
+**No inline `style={{}}` overrides** on UI components. If a visual variant is needed, add it to the base component (e.g., `variant="farcaster"` on Button).
+
+**No `text-white` / `bg-black`** in components — use `text-foreground` / `bg-background` instead. Use `text-primary-foreground` for text on colored backgrounds (e.g., text inside `bg-primary`).
+
+**Canonical Button variants:** `default`, `secondary`, `outline`, `cancel`, `ghost`, `link`, `destructive`, `farcaster` (brand purple), `base` (brand blue). External brand colors are centralized in Button variants, not scattered as inline styles.
+
+**Full canonical UI guide:** See `instructions/frontend-guidelines.md` > "Canonical UI Components & Semantic Tokens".
+
 ### Research Resources
 - Use web search for best practices
 - Reference OpenZeppelin documentation for contract patterns

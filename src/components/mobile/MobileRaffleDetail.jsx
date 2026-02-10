@@ -81,11 +81,11 @@ export const MobileRaffleDetail = ({
       <div className="flex items-center gap-2">
         <button
           onClick={() => navigate("/raffles")}
-          className="text-white hover:text-white/80"
+          className="text-foreground hover:text-foreground/80"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold text-white">
+        <h1 className="text-lg font-semibold text-foreground">
           {t("raffle:raffles")} - {t("raffle:season")} #{seasonId}
         </h1>
       </div>
@@ -100,7 +100,7 @@ export const MobileRaffleDetail = ({
             </h2>
             {isPreStart && startTimeSec !== null && (
               <div className="bg-primary px-4 py-2 rounded-lg">
-                <span className="text-white font-bold">
+                <span className="text-primary-foreground font-bold">
                   {t("raffle:startsIn", {
                     defaultValue: "Raffle starts in",
                   })}{" "}
@@ -108,19 +108,19 @@ export const MobileRaffleDetail = ({
                 <CountdownTimer
                   targetTimestamp={startTimeSec}
                   compact
-                  className="text-white font-bold"
+                  className="text-primary-foreground font-bold"
                 />
               </div>
             )}
             {!isPreStart && seasonConfig?.endTime && (
               <div className="bg-primary px-4 py-2 rounded-lg">
-                <span className="text-white font-bold">
+                <span className="text-primary-foreground font-bold">
                   {t("raffle:endsIn")}{" "}
                 </span>
                 <CountdownTimer
                   targetTimestamp={Number(seasonConfig.endTime)}
                   compact
-                  className="text-white font-bold"
+                  className="text-primary-foreground font-bold"
                 />
               </div>
             )}
@@ -137,7 +137,7 @@ export const MobileRaffleDetail = ({
           {/* Stat Cards */}
           <div className="grid grid-cols-2 gap-4">
             {isPreStart ? null : (
-              <div className="bg-black/40 rounded-lg p-4 border border-border">
+              <div className="bg-background/40 rounded-lg p-4 border border-border">
                 <div className="text-xs text-muted-foreground mb-1">
                   {t("raffle:ticketPrice")}
                 </div>
@@ -146,7 +146,7 @@ export const MobileRaffleDetail = ({
                 </div>
               </div>
             )}
-            <div className="bg-black/40 rounded-lg p-4 border border-border">
+            <div className="bg-background/40 rounded-lg p-4 border border-border">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:yourTickets")}
               </div>
@@ -174,7 +174,7 @@ export const MobileRaffleDetail = ({
           </div>
 
           {isCompleted && winnerSummaryQuery.data && (
-            <div className="bg-black/40 rounded-lg p-4 border border-border">
+            <div className="bg-background/40 rounded-lg p-4 border border-border">
               <div className="text-xs text-muted-foreground mb-1">
                 {t("raffle:winner")}
               </div>
@@ -189,8 +189,8 @@ export const MobileRaffleDetail = ({
           {isCompleted &&
             !winnerSummaryQuery.data &&
             BigInt(curveSupply ?? 0n) === 0n && (
-              <div className="bg-black/40 rounded-lg p-4 border border-border">
-                <div className="text-sm font-semibold text-white">
+              <div className="bg-background/40 rounded-lg p-4 border border-border">
+                <div className="text-sm font-semibold text-foreground">
                   {t("raffle:noWinner")}
                 </div>
                 <div className="text-sm text-muted-foreground mt-2">
@@ -265,8 +265,8 @@ export const MobileRaffleDetail = ({
                 </Button>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-black/90 border border-primary rounded-lg px-4 py-2">
-                  <p className="text-sm font-semibold text-white">
+                <div className="bg-background/90 border border-primary rounded-lg px-4 py-2">
+                  <p className="text-sm font-semibold text-foreground">
                     {t("raffle:raffleEnded")}
                   </p>
                 </div>

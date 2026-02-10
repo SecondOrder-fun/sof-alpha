@@ -39,7 +39,7 @@ const MobileBalancesTab = ({
           <div className="text-xs text-muted-foreground mb-1">
             {t("account:sofBalance")}
           </div>
-          <div className="text-2xl font-bold text-white">{sofBalance}</div>
+          <div className="text-2xl font-bold text-foreground">{sofBalance}</div>
         </CardContent>
       </Card>
 
@@ -88,11 +88,11 @@ const MobileBalancesTab = ({
                     <AccordionTrigger className="px-3 py-2 text-left">
                       <div className="flex flex-col w-full">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-white">
+                          <span className="font-medium text-foreground">
                             #{position.seasonId} - {position.name}
                           </span>
                           <div className="text-right shrink-0">
-                            <span className="font-bold text-white">
+                            <span className="font-bold text-foreground">
                               {position.ticketCount}
                             </span>
                             <span className="text-xs text-muted-foreground ml-1">
@@ -125,7 +125,7 @@ const MobileBalancesTab = ({
                           to={`/raffles/${position.seasonId}`}
                           className="flex items-center justify-between p-3 bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
                         >
-                          <span className="text-white font-medium">
+                          <span className="text-foreground font-medium">
                             Go to Raffle
                           </span>
                           <ChevronRight className="h-4 w-4 text-primary" />

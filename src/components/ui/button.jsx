@@ -26,6 +26,9 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
         resolvedVariant === 'secondary' && 'bg-muted-foreground text-muted border border-primary hover:bg-primary/80 hover:text-white active:bg-primary/60 active:text-white',
         resolvedVariant === 'ghost' && 'hover:bg-muted hover:text-foreground',
         resolvedVariant === 'link' && 'underline-offset-4 hover:underline text-primary',
+        // External brand variants — colors are fixed third-party brand values
+        resolvedVariant === 'farcaster' && 'bg-[#7c3aed] text-white hover:bg-[#6d28d9] hover:scale-105 transition-transform',
+        resolvedVariant === 'base' && 'bg-[#0052ff] text-white hover:bg-[#003ecb] hover:scale-105 transition-transform',
         (size === 'default' || !size) && 'h-10 py-2 px-4',
         size === 'sm' && 'h-9 px-3 rounded-md',
         size === 'lg' && 'h-11 px-8 rounded-md',
@@ -51,6 +54,8 @@ Button.propTypes = {
     'link',
     'destructive',
     'danger',
+    'farcaster',
+    'base',
   ]),
   size: PropTypes.oneOf(['default', 'sm', 'lg']),
   asChild: PropTypes.bool

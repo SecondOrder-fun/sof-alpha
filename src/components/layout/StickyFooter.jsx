@@ -34,7 +34,7 @@ const StickyFooter = () => {
       <div className="flex items-center justify-center gap-6 mb-2">
         <a
           href="mailto:secondorder.fun@patrion.xyz"
-          className="transition-colors text-muted-foreground hover:text-[#c82a54]"
+          className="transition-colors text-muted-foreground hover:text-primary"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
@@ -44,7 +44,7 @@ const StickyFooter = () => {
           href="https://x.com/SecondOrderfun"
           target="_blank"
           rel="noopener noreferrer"
-          className="transition-colors text-muted-foreground hover:text-[#c82a54]"
+          className="transition-colors text-muted-foreground hover:text-primary"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -54,7 +54,7 @@ const StickyFooter = () => {
           href="https://farcaster.xyz/secondorderfun"
           target="_blank"
           rel="noopener noreferrer"
-          className="transition-colors text-muted-foreground hover:text-[#c82a54]"
+          className="transition-colors text-muted-foreground hover:text-primary"
         >
           <svg viewBox="0 0 1000 1000" className="w-5 h-5" fill="currentColor">
             <path d="M257.778 155.556H742.222V844.444H671.111V528.889H670.414C662.554 441.677 589.258 373.333 500 373.333C410.742 373.333 337.446 441.677 329.586 528.889H328.889V844.444H257.778V155.556Z" />

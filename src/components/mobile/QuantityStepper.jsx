@@ -92,7 +92,7 @@ export const QuantityStepper = ({
         size="sm"
         onClick={handleDecrement}
         disabled={parsedCurrent <= min}
-        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
+        className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary disabled:opacity-30 disabled:bg-primary/50 p-2"
         type="button"
       >
         <Minus className="w-5 h-5" />
@@ -105,14 +105,14 @@ export const QuantityStepper = ({
         onInvalid={handleInvalid}
         min={min}
         max={max}
-        className="flex-1 h-12 text-center text-white text-lg font-semibold bg-[#130013]/30 border-[#6b6b6b]"
+        className="flex-1 h-12 text-center text-foreground text-lg font-semibold bg-background/30 border-border"
       />
 
       <Button
         size="sm"
         onClick={handleIncrement}
         disabled={parsedCurrent >= max}
-        className="h-12 w-12 bg-[#c82a54] hover:bg-[#c82a54]/90 text-white border-2 border-[#c82a54] disabled:opacity-30 disabled:bg-[#c82a54]/50 p-2"
+        className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary disabled:opacity-30 disabled:bg-primary/50 p-2"
         type="button"
       >
         <Plus className="w-5 h-5" />

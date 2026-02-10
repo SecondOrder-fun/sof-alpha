@@ -48,7 +48,7 @@ const UsernameEditor = ({ address, currentUsername, onSuccess }) => {
   return (
     <div className="border rounded p-3 bg-muted/50 space-y-3">
       <div>
-        <label className="text-sm font-medium text-white">New Username</label>
+        <label className="text-sm font-medium text-foreground">New Username</label>
         <Input
           value={newUsername}
           onChange={(e) => setNewUsername(e.target.value)}

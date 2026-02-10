@@ -70,7 +70,7 @@ export function ClaimPrizeWidget({ seasonId }) {
                     value={claimTxHash}
                     type="tx"
                     text="View transaction on Explorer"
-                    className="text-sm text-[#a89e99] underline"
+                    className="text-sm text-muted-foreground underline"
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">
