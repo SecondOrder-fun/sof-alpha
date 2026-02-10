@@ -95,10 +95,10 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
           !displayStyle.ready && !hoverStyle && "opacity-0"
         )}
         style={{
-          transform: `translateX(${displayStyle.x}px)`,
-          width: displayStyle.width,
-          height: `calc(100% - 2px)`,
-          top: 1,
+          transform: `translateX(${(displayStyle.x || 0) - 1}px)`,
+          width: (displayStyle.width || 0) + 2,
+          height: 'calc(100% + 2px)',
+          top: -1,
           transition: 'transform 300ms ease-out, width 300ms ease-out',
         }}
       />
@@ -117,8 +117,8 @@ const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      // Base styles - z-10 to be above indicator
-      "relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      // Base styles - z-10 to be above indicator, 300ms transition to match indicator slide
+      "relative z-10 inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
       // Inactive: transparent bg, primary text, underlined
       "bg-transparent hover:bg-transparent text-primary hover:text-white underline underline-offset-4",
       // Active: white text when indicator is behind it, no underline

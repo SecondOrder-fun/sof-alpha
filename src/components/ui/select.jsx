@@ -9,7 +9,7 @@ export const SelectValue = SelectPrimitive.Value;
 export const SelectTrigger = ({ className, children, ...props }) => (
   <SelectPrimitive.Trigger
     className={cn(
-      "flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm",
+      "flex h-10 w-full items-center justify-between rounded-md border bg-background text-foreground hover:text-white px-3 py-2 text-sm transition-colors duration-500",
       "ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
       "disabled:cursor-not-allowed disabled:opacity-50",
       className
