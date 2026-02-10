@@ -79,13 +79,14 @@ export const MobileRaffleDetail = ({
     <div className="px-3 pt-1 pb-20 space-y-3 max-w-screen-sm mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => navigate("/raffles")}
-          className="text-foreground hover:text-foreground/80"
         >
           <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-lg font-semibold text-foreground">
+        </Button>
+        <h1 className="text-2xl font-bold text-foreground">
           {t("raffle:raffles")} - {t("raffle:season")} #{seasonId}
         </h1>
       </div>

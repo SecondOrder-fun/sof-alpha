@@ -134,6 +134,10 @@ const router = createBrowserRouter([
         element: <UsersIndex />,
       },
       {
+        path: "users",
+        element: <UsersIndex />,
+      },
+      {
         path: "users/:address",
         element: <UserProfile />,
       },

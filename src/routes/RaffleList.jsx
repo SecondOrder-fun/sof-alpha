@@ -328,7 +328,7 @@ const RaffleList = () => {
   // Desktop view
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{t("title")}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-4">{t("title")}</h1>
       <div className="space-y-4">
         <div>
           <h2 className="text-xl font-semibold">{t("allSeasons")}</h2>
