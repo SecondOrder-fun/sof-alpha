@@ -245,7 +245,7 @@ const DesktopAccountPage = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{t("account:myAccount")}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-4">{t("account:myAccount")}</h1>
 
       {/* Completed Season Prizes – carousel of winning seasons only */}
       {Array.isArray(allSeasonsQuery.data) && winningSeasons.length > 0 && (

@@ -102,10 +102,13 @@ const MobileFaucetWidget = () => {
         ) : null}
 
         <p className="text-center text-muted-foreground">
-          {t("claimEvery6Hours", {
+          {t("claimEveryNCooldown", {
             amount: faucetData
               ? parseFloat(faucetData.amountPerRequest).toLocaleString()
               : "0",
+            cooldown: faucetData
+              ? Math.round(faucetData.cooldownPeriod / 3600)
+              : "6",
           })}
         </p>
         <Button

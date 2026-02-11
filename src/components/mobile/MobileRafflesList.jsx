@@ -86,7 +86,7 @@ export const MobileRafflesList = ({
   return (
     <div className="px-3 pt-2 pb-4 max-w-screen-sm mx-auto">
       {/* Page Title */}
-      <h1 className="text-white text-2xl font-bold mb-4">{t("raffles")}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-4">{t("raffles")}</h1>
 
       {/* All Seasons */}
       <Card className="mb-6">

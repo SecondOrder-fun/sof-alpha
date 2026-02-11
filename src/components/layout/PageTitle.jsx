@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * Structure (no background, inside page container):
  * <div class="flex flex-col space-y-1.5 p-6">
  *   <div class="flex items-baseline justify-between gap-3 flex-wrap">
- *     <h2 class="text-2xl font-semibold leading-none tracking-tight">Title</h2>
+ *     <h2 class="text-2xl font-bold text-foreground leading-none tracking-tight">Title</h2>
  *     <div class="text-xs text-muted-foreground">Right content</div>
  *   </div>
  * </div>
@@ -29,7 +29,7 @@ const PageTitle = ({
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <h2
           className={cn(
-            "text-2xl font-semibold leading-none tracking-tight",
+            "text-2xl font-bold text-foreground leading-none tracking-tight",
             titleClassName
           )}
         >

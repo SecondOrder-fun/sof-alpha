@@ -176,7 +176,7 @@ const FaucetWidget = () => {
                   {isLoading ? t('raffle:processing') : t('claimSofTokens')}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-2">
-                  {t('claimEvery6Hours', { amount: faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0' })}
+                  {t('claimEveryNCooldown', { amount: faucetData ? parseFloat(faucetData.amountPerRequest).toLocaleString() : '0', cooldown: faucetData ? Math.round(faucetData.cooldownPeriod / 3600) : '6' })}
                 </p>
               </TabsContent>
               
