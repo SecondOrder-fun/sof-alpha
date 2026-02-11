@@ -27,6 +27,7 @@ import {
 
 // Import all UI components
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -88,6 +89,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ContentBox, ImportantBox } from '@/components/ui/content-box';
+import { Progress } from '@/components/ui/progress';
 import {
   Accordion,
   AccordionContent,
@@ -215,6 +218,18 @@ const UIGym = () => {
                 </Button>
               </Subsection>
 
+              <Subsection title="Button Group">
+                <ButtonGroup>
+                  <Button variant="outline" size="icon"><ChevronDown className="h-4 w-4 -rotate-90" /></Button>
+                  <Button variant="outline" size="icon"><ChevronDown className="h-4 w-4 rotate-90" /></Button>
+                </ButtonGroup>
+                <ButtonGroup>
+                  <Button variant="outline">Left</Button>
+                  <Button variant="outline">Center</Button>
+                  <Button variant="outline">Right</Button>
+                </ButtonGroup>
+              </Subsection>
+
               <Subsection title="With Icons">
                 <Button>
                   <Mail className="mr-2 h-4 w-4" />
@@ -340,6 +355,84 @@ const UIGym = () => {
                     <Button size="sm">Action</Button>
                   </CardFooter>
                 </Card>
+              </Subsection>
+
+              <Subsection title="Content Boxes">
+                <div className="w-full max-w-md space-y-3">
+                  <div className="flex gap-2">
+                    <ContentBox className="flex-1">
+                      <div className="text-xs text-muted-foreground mb-1">Current Price</div>
+                      <div className="font-mono text-base">0.0042 SOF</div>
+                    </ContentBox>
+                    <ImportantBox className="flex-1">
+                      <div className="text-xs text-primary-foreground/80 mb-1">Ends In</div>
+                      <div className="font-bold text-base text-primary-foreground">2d 14h 32m</div>
+                    </ImportantBox>
+                  </div>
+                  <ContentBox>
+                    <div className="text-sm uppercase tracking-wide text-primary">Winner</div>
+                    <div className="text-lg font-semibold text-foreground mt-1">vitalik.eth</div>
+                    <div className="text-sm text-muted-foreground mt-1">Grand Prize: 12.50 SOF</div>
+                  </ContentBox>
+                  <ImportantBox>
+                    <div className="text-primary-foreground font-bold text-lg text-center">Trading is Locked</div>
+                    <div className="text-primary-foreground/80 text-sm mt-1 text-center">Raffle has ended</div>
+                  </ImportantBox>
+                </div>
+              </Subsection>
+
+              <Subsection title="Progress">
+                <div className="w-full max-w-md space-y-5">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Default (h-4)</div>
+                    <Progress value={65} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Compact (h-2)</div>
+                    <Progress value={42} className="h-2" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">With labels</div>
+                    <Progress value={80} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>800 sold</span>
+                      <span>1000 max</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">With step markers (bonding curve)</div>
+                    <div className="flex justify-between text-sm text-primary mb-1">
+                      <span>Bonding Curve Progress</span>
+                      <span>35.00%</span>
+                    </div>
+                    <Progress
+                      value={35}
+                      className="h-3"
+                      steps={[
+                        { position: 10, label: "0.0010 SOF", sublabel: "Step #1" },
+                        { position: 20, label: "0.0020 SOF", sublabel: "Step #2" },
+                        { position: 30, label: "0.0030 SOF", sublabel: "Step #3" },
+                        { position: 40, label: "0.0040 SOF", sublabel: "Step #4" },
+                        { position: 50, label: "0.0050 SOF", sublabel: "Step #5" },
+                        { position: 60, label: "0.0060 SOF", sublabel: "Step #6" },
+                        { position: 70, label: "0.0070 SOF", sublabel: "Step #7" },
+                        { position: 80, label: "0.0080 SOF", sublabel: "Step #8" },
+                        { position: 90, label: "0.0090 SOF", sublabel: "Step #9" },
+                      ]}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>Supply: 35,000</span>
+                      <span>100,000 max</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Empty / Full</div>
+                    <div className="space-y-2">
+                      <Progress value={0} className="h-2" />
+                      <Progress value={100} className="h-2" />
+                    </div>
+                  </div>
+                </div>
               </Subsection>
 
               <Subsection title="Alert Variants">

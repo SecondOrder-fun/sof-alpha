@@ -7,12 +7,14 @@ import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits } from "viem";
-import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Clock, Lock, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import ProgressBar from "@/components/mobile/ProgressBar";
+import { Progress } from "@/components/ui/progress";
+import { ImportantBox } from "@/components/ui/content-box";
+import { Separator } from "@/components/ui/separator";
 import CountdownTimer from "@/components/common/CountdownTimer";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 
@@ -23,6 +25,7 @@ export const MobileRaffleDetail = ({
   curveSupply,
   maxSupply,
   curveStep,
+  allBondSteps,
   localPosition,
   totalPrizePool,
   onBuy,
@@ -38,8 +41,28 @@ export const MobileRaffleDetail = ({
   const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
 
   const formatSOF = (weiAmount) => {
-    return Number(formatUnits(weiAmount ?? 0n, 18)).toFixed(2);
+    const num = Number(formatUnits(weiAmount ?? 0n, 18));
+    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
   };
+
+  // Build step markers for Progress
+  const progressSteps = useMemo(() => {
+    const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+    if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
+    const count = steps.length;
+    const stride = count > 20 ? Math.ceil(count / 20) : 1;
+    return steps
+      .filter((_, idx) => idx % stride === 0 || idx === count - 1)
+      .map((s, idx) => {
+        const pos = Math.min(
+          100,
+          Math.max(0, Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100),
+        );
+        const price = Number(formatUnits(s.price ?? 0n, 18)).toFixed(4);
+        const stepNum = s?.step ?? idx + 1;
+        return { position: pos, label: `${price} SOF`, sublabel: `Step #${stepNum}` };
+      });
+  }, [allBondSteps, maxSupply]);
 
   const grandPrize = useMemo(() => {
     if (winnerSummaryQuery.data?.grandPrizeWei != null) {
@@ -53,6 +76,19 @@ export const MobileRaffleDetail = ({
       return 0n;
     }
   }, [totalPrizePool, winnerSummaryQuery.data]);
+
+  const consolationPerPlayer = useMemo(() => {
+    try {
+      const supply = Number(curveSupply ?? 0n);
+      if (supply <= 1) return 0n;
+      const reserves = totalPrizePool ?? 0n;
+      const grand = (reserves * 6500n) / 10000n;
+      const consolationPool = reserves - grand;
+      return consolationPool / BigInt(supply - 1);
+    } catch {
+      return 0n;
+    }
+  }, [totalPrizePool, curveSupply]);
 
   const now = Math.floor(Date.now() / 1000);
   const startTimeSec = seasonConfig?.startTime
@@ -75,8 +111,30 @@ export const MobileRaffleDetail = ({
       ? now >= startTimeSec && now < endTimeSec
       : false;
 
+  // Adaptive card height — fill space between breadcrumb and BottomNav
+  const [cardHeight, setCardHeight] = useState(null);
+  const cardRef = useRef(null);
+
+  const updateHeight = useCallback(() => {
+    if (!cardRef.current) return;
+    const cardTop = cardRef.current.getBoundingClientRect().top;
+    const navEl = document.querySelector("nav.fixed.bottom-0");
+    const navHeight = navEl ? navEl.getBoundingClientRect().height : 120;
+    const h = window.innerHeight - cardTop - navHeight - 12;
+    setCardHeight(h);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(updateHeight, 100);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [updateHeight]);
+
   return (
-    <div className="px-3 pt-1 pb-20 space-y-3 max-w-screen-sm mx-auto">
+    <div className="px-3 pt-1 space-y-3 max-w-screen-sm mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
         <Button
@@ -86,91 +144,139 @@ export const MobileRaffleDetail = ({
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-2xl font-bold text-foreground flex-1 min-w-0 truncate">
           {t("raffle:raffles")} - {t("raffle:season")} #{seasonId}
         </h1>
+        {isGated && (
+          isVerified === true ? (
+            <div className="shrink-0 flex items-center gap-1.5 text-green-500 text-sm font-medium bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
+              <ShieldCheck className="w-4 h-4" />
+              {t("raffle:verified", { defaultValue: "Verified" })}
+            </div>
+          ) : (
+            <div className="shrink-0 flex items-center gap-1.5 text-primary text-sm font-medium bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+              <Lock className="w-4 h-4" />
+              {t("raffle:passwordRequired", { defaultValue: "Password Required" })}
+            </div>
+          )
+        )}
       </div>
 
       {/* Main Detail Card */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          {/* Header */}
-          <div>
-            <h2 className="text-2xl font-bold mb-2">
+      <Card
+        ref={cardRef}
+        className="flex flex-col overflow-hidden"
+        style={cardHeight ? { height: cardHeight } : undefined}
+      >
+        <CardContent className="p-0 flex flex-col h-full">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Header — name + countdown on same row */}
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold flex-1 min-w-0 truncate">
               {seasonConfig?.name || "Loading..."}
             </h2>
             {isPreStart && startTimeSec !== null && (
-              <div className="bg-primary px-4 py-2 rounded-lg">
-                <span className="text-primary-foreground font-bold">
-                  {t("raffle:startsIn", {
-                    defaultValue: "Raffle starts in",
-                  })}{" "}
-                </span>
+              <ImportantBox className="shrink-0 flex items-center gap-1.5 px-3 py-1.5">
+                <Clock className="w-3.5 h-3.5" />
                 <CountdownTimer
                   targetTimestamp={startTimeSec}
-                  compact
-                  className="text-primary-foreground font-bold"
+                  compact="clock"
+                  className="text-primary-foreground font-bold text-sm"
                 />
-              </div>
+              </ImportantBox>
             )}
             {!isPreStart && seasonConfig?.endTime && (
-              <div className="bg-primary px-4 py-2 rounded-lg">
-                <span className="text-primary-foreground font-bold">
-                  {t("raffle:endsIn")}{" "}
-                </span>
+              <ImportantBox className="shrink-0 flex items-center gap-1.5 px-3 py-1.5">
+                <Clock className="w-3.5 h-3.5" />
                 <CountdownTimer
                   targetTimestamp={Number(seasonConfig.endTime)}
-                  compact
-                  className="text-primary-foreground font-bold"
+                  compact="clock"
+                  className="text-primary-foreground font-bold text-sm"
                 />
-              </div>
+              </ImportantBox>
             )}
           </div>
 
           {/* Progress Section */}
           <div>
-            <div className="text-sm text-muted-foreground mb-3">
-              {t("raffle:ticketsSold")}
+            <Progress
+              value={maxSupply > 0n ? Number((curveSupply ?? 0n) * 100n / maxSupply) : 0}
+              steps={progressSteps}
+              className="h-3"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <span>{(curveSupply ?? 0n).toString()} {t("raffle:sold", { defaultValue: "sold" })}</span>
+              <span>{(maxSupply ?? 0n).toString()} {t("raffle:max", { defaultValue: "max" })}</span>
             </div>
-            <ProgressBar current={curveSupply ?? 0n} max={maxSupply ?? 0n} />
           </div>
 
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            {isPreStart ? null : (
-              <div className="bg-background/40 rounded-lg p-4 border border-border">
-                <div className="text-xs text-muted-foreground mb-1">
-                  {t("raffle:ticketPrice")}
-                </div>
-                <div className="font-bold text-lg">
-                  {formatSOF(curveStep?.price)} $SOF
-                </div>
-              </div>
-            )}
-            <div className="bg-background/40 rounded-lg p-4 border border-border">
-              <div className="text-xs text-muted-foreground mb-1">
-                {t("raffle:yourTickets")}
-              </div>
-              <div className="font-bold text-lg text-center">
-                {localPosition?.tickets
-                  ? localPosition.tickets.toString()
-                  : "0"}
-              </div>
-              {localPosition && (
-                <div className="text-xs text-muted-foreground text-center mt-1">
-                  {((localPosition.probBps || 0) / 100).toFixed(2)}% chance
+          {/* Stats + Grand Prize */}
+          <div className="flex gap-3">
+            {/* Left stack: Price, Tickets, Win % */}
+            <div className="flex flex-col gap-3" style={{ flex: "40" }}>
+              {!isPreStart && (
+                <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    {t("raffle:ticketPrice")}
+                  </div>
+                  <div className="font-bold text-sm">
+                    {formatSOF(curveStep?.price)} $SOF
+                  </div>
                 </div>
               )}
+              <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
+                <div className="text-xs text-muted-foreground mb-1">
+                  {t("raffle:yourTickets")}
+                </div>
+                <div className="font-bold text-sm">
+                  {localPosition?.tickets
+                    ? localPosition.tickets.toString()
+                    : "0"}
+                </div>
+              </div>
+              <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
+                <div className="text-xs text-muted-foreground mb-1">
+                  {t("raffle:winChance", { defaultValue: "Win Chance" })}
+                </div>
+                <div className="font-bold text-sm">
+                  {((localPosition?.probBps || 0) / 100).toFixed(2)}%
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Grand Prize */}
-          <div className="bg-primary/10 border-2 border-primary rounded-lg p-4 text-center">
-            <div className="text-primary text-sm font-semibold mb-1">
-              {t("raffle:grandPrize").toUpperCase()}
-            </div>
-            <div className="text-2xl font-bold">
-              {formatSOF(grandPrize)} $SOF
+            {/* Right: Grand Prize */}
+            <div
+              className="bg-primary/10 border-2 border-primary rounded-lg p-4 flex flex-col items-center justify-center"
+              style={{ flex: "60" }}
+            >
+              <div className="text-primary text-lg font-semibold mb-1">
+                {t("raffle:grandPrize").toUpperCase()}
+              </div>
+              {(() => {
+                const val = formatSOF(grandPrize);
+                const long = val.length >= 6;
+                return long ? (
+                  <div className="text-2xl font-bold leading-tight">
+                    <div>{val}</div>
+                    <div>$SOF</div>
+                  </div>
+                ) : (
+                  <div className="text-2xl font-bold">
+                    {val} $SOF
+                  </div>
+                );
+              })()}
+              {consolationPerPlayer > 0n && (
+                <>
+                  <Separator className="my-2 bg-primary/30" />
+                  <div className="text-xs text-muted-foreground text-center">
+                    <div>{t("raffle:consolationPrize", { defaultValue: "Consolation Prize" }).toUpperCase()}</div>
+                    <div className="font-semibold text-foreground">
+                      {formatSOF(consolationPerPlayer)} $SOF / {t("raffle:player", { defaultValue: "player" })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -200,24 +306,10 @@ export const MobileRaffleDetail = ({
               </div>
             )}
 
-          {/* Gated badge */}
-          {isGated && isActive && (
-            <div className="flex items-center justify-center">
-              {isVerified === true ? (
-                <div className="flex items-center gap-1.5 text-green-500 text-sm font-medium bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
-                  <ShieldCheck className="w-4 h-4" />
-                  {t("raffle:verified", { defaultValue: "Verified" })}
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-primary text-sm font-medium bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                  <Lock className="w-4 h-4" />
-                  {t("raffle:passwordRequired", { defaultValue: "Password Required" })}
-                </div>
-              )}
-            </div>
-          )}
+          </div>{/* end scrollable area */}
 
-          {/* Action Buttons */}
+          {/* Action Buttons — pinned at bottom */}
+          <div className="shrink-0 px-6 pb-6 pt-3">
           {isPreStart ? null : isActive ? (
             <div className="flex gap-3">
               <Button
@@ -274,6 +366,7 @@ export const MobileRaffleDetail = ({
               </div>
             </div>
           )}
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -287,6 +380,7 @@ MobileRaffleDetail.propTypes = {
   curveSupply: PropTypes.bigint,
   maxSupply: PropTypes.bigint,
   curveStep: PropTypes.object,
+  allBondSteps: PropTypes.array,
   localPosition: PropTypes.object,
   totalPrizePool: PropTypes.bigint,
   onBuy: PropTypes.func,

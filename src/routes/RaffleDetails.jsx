@@ -389,6 +389,7 @@ const RaffleDetails = () => {
           curveSupply={curveSupply}
           maxSupply={maxSupply}
           curveStep={curveStep}
+          allBondSteps={allBondSteps}
           localPosition={localPosition}
           totalPrizePool={totalPrizePool}
           onBuy={handleBuy}

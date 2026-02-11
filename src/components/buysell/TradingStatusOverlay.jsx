@@ -18,14 +18,14 @@ export const TradingStatusOverlay = ({
   }
 
   const baseClasses =
-    "absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm";
+    "absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm";
   const roundedClasses = variant === "mobile" ? "rounded-t-2xl" : "rounded-lg";
 
   if (tradingLocked) {
     return (
       <div className={`${baseClasses} ${roundedClasses}`}>
-        <div className="text-center p-6 bg-card border rounded-lg shadow-lg">
-          <p className="text-lg font-semibold mb-2">
+        <div className="text-center p-6 bg-card border border-border rounded-lg shadow-lg">
+          <p className="text-lg font-semibold mb-2 text-foreground">
             {t("common:tradingLocked", { defaultValue: "Trading is Locked" })}
           </p>
           <p className="text-sm text-muted-foreground">
@@ -39,7 +39,7 @@ export const TradingStatusOverlay = ({
   if (walletNotConnected) {
     return (
       <div className={`${baseClasses} ${roundedClasses}`}>
-        <div className="text-center p-6 rounded-lg bg-black/75 text-muted-foreground shadow-lg max-w-sm">
+        <div className="text-center p-6 rounded-lg bg-card border border-border text-muted-foreground shadow-lg max-w-sm">
           <p className="text-lg font-semibold">
             {t("common:connectWalletToTrade", {
               defaultValue: "Connect your wallet to trade",

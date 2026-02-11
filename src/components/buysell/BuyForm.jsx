@@ -6,6 +6,7 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { ContentBox } from "@/components/ui/content-box";
 import QuantityStepper from "@/components/mobile/QuantityStepper";
 
 export const BuyForm = ({
@@ -19,6 +20,9 @@ export const BuyForm = ({
   isLoading,
   disabled,
   disabledReason,
+  settingsButton,
+  settingsPanel,
+  ticketPosition,
 }) => {
   const { t } = useTranslation(["common", "transactions"]);
 
@@ -43,22 +47,40 @@ export const BuyForm = ({
               : undefined
           }
           step={1}
+          trailing={settingsButton}
         />
+        {settingsPanel}
       </div>
 
-      <div className="bg-black/40 border border-border rounded-lg p-4">
-        <div className="text-sm text-muted-foreground mb-1">
-          {t("common:estimatedCost", {
-            defaultValue: "Estimated cost",
-          })}
-        </div>
-        <div className="text-2xl font-bold">
-          {formatSOF(estBuyWithFees)} $SOF
-        </div>
-        {buyFeeBps > 0 && (
-          <div className="text-xs text-muted-foreground mt-1">
-            Includes {buyFeeBps / 100}% fee
+      <div className="flex gap-2">
+        <ContentBox className="flex-1">
+          <div className="text-sm text-muted-foreground mb-1">
+            {t("common:estimatedCost", {
+              defaultValue: "Estimated cost",
+            })}
           </div>
+          <div className="text-2xl font-bold">
+            {formatSOF(estBuyWithFees)} $SOF
+          </div>
+          {buyFeeBps > 0 && (
+            <div className="text-xs text-muted-foreground mt-1">
+              Includes {buyFeeBps / 100}% fee
+            </div>
+          )}
+        </ContentBox>
+        {ticketPosition && (
+          <ContentBox className="flex-1">
+            <div className="text-sm text-muted-foreground mb-1">
+              {t("common:yourTickets", { defaultValue: "Your Tickets" })}
+            </div>
+            <div className="text-2xl font-bold">
+              {Number(ticketPosition.tickets)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {t("common:winChance", { defaultValue: "Win chance" })}:{" "}
+              {(ticketPosition.probBps / 100).toFixed(2)}%
+            </div>
+          </ContentBox>
         )}
       </div>
 
@@ -86,4 +108,11 @@ BuyForm.propTypes = {
   isLoading: PropTypes.bool.isRequired,
   disabled: PropTypes.bool.isRequired,
   disabledReason: PropTypes.string,
+  settingsButton: PropTypes.node,
+  settingsPanel: PropTypes.node,
+  ticketPosition: PropTypes.shape({
+    tickets: PropTypes.bigint,
+    total: PropTypes.bigint,
+    probBps: PropTypes.number,
+  }),
 };

@@ -6,8 +6,11 @@
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ShieldCheck } from "lucide-react";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ContentBox, ImportantBox } from "@/components/ui/content-box";
 import CurveGraph from "@/components/curve/CurveGraph";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
@@ -22,8 +25,6 @@ export const SeasonCard = ({
   curveStep,
   allBondSteps,
   curveSupply,
-  cardIndex,
-  totalCards,
   onBuy,
   onSell,
   onClick,
@@ -63,27 +64,33 @@ export const SeasonCard = ({
 
   const formatSOF = (value) => {
     if (!value) return "0";
-    return formatUnits(BigInt(value || 0), 18);
+    const num = Number(formatUnits(BigInt(value || 0), 18));
+    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
   };
 
+  const grandPrize = useMemo(() => {
+    try {
+      const reserves = curveState.curveReserves ?? 0n;
+      return (reserves * 6500n) / 10000n;
+    } catch {
+      return 0n;
+    }
+  }, [curveState.curveReserves]);
+
   return (
-    <Card
+    <div
       onClick={onClick}
-      className="cursor-pointer hover:border-[#c82a54]/50 transition-colors max-w-sm mx-auto border-[#353e34] bg-[#130013]"
+      className="cursor-pointer max-w-sm mx-auto h-full"
     >
       <CardHeader className="py-3 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-mono text-sm text-[#f9d6de]">
-              Season #{seasonId}
-            </div>
-            <div className="font-medium text-white">{seasonConfig?.name}</div>
-          </div>
-          {typeof cardIndex === "number" && totalCards ? (
-            <span className="text-xs text-muted-foreground">
-              {cardIndex + 1} of {totalCards}
-            </span>
-          ) : null}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm text-primary shrink-0">
+            Season #{seasonId}
+          </span>
+          <span className="font-medium text-foreground truncate">{seasonConfig?.name}</span>
+          {seasonConfig?.gated && (
+            <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 ml-auto" />
+          )}
         </div>
       </CardHeader>
 
@@ -91,7 +98,7 @@ export const SeasonCard = ({
         {!isSeasonEnded && !isPreStart && (
           <>
             {/* Mini Curve Graph */}
-            <div className="bg-black/40 rounded-md overflow-hidden h-32">
+            <div className="bg-muted/40 overflow-hidden h-28 border border-primary pt-2">
               <CurveGraph
                 curveSupply={displayCurveSupply}
                 allBondSteps={displayBondSteps}
@@ -100,60 +107,75 @@ export const SeasonCard = ({
               />
             </div>
 
-            {/* Current Price */}
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">
-                Current Price
-              </div>
-              <div className="font-mono text-base">
-                {formatSOF(displayCurveStep?.price)} SOF
-              </div>
+            {/* Grand Prize */}
+            <ImportantBox className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs text-primary-foreground/80 uppercase tracking-wide">
+                {t("raffle:grandPrize")}
+              </span>
+              <span className="font-bold text-primary-foreground">
+                {formatSOF(grandPrize)} $SOF
+              </span>
+            </ImportantBox>
+
+            {/* Current Price + Countdown — same row */}
+            <div className="flex gap-2">
+              <ContentBox style={{ flex: "35" }}>
+                <div className="text-xs text-muted-foreground mb-1">
+                  Current Price
+                </div>
+                <div className="font-mono text-base">
+                  {formatSOF(displayCurveStep?.price)} SOF
+                </div>
+              </ContentBox>
+
+              {seasonConfig?.endTime && (
+                <ImportantBox style={{ flex: "65" }}>
+                  <div className="text-xs text-primary-foreground/80 mb-1">
+                    {t("raffle:endsIn")}
+                  </div>
+                  <CountdownTimer
+                    targetTimestamp={Number(seasonConfig.endTime)}
+                    compact
+                    className="text-primary-foreground font-bold text-base"
+                  />
+                </ImportantBox>
+              )}
             </div>
+            <Separator />
           </>
         )}
 
-        {/* Countdown Timer */}
-        {isPreStart && startTimeSec !== null ? (
-          <div className="bg-[#c82a54] rounded-lg p-4">
-            <div className="text-xs text-white/80 mb-1">
+        {/* Pre-start countdown — full width */}
+        {isPreStart && startTimeSec !== null && (
+          <ImportantBox className="p-4">
+            <div className="text-xs text-primary-foreground/80 mb-1">
               {t("startsIn", { defaultValue: "Raffle starts in" })}
             </div>
             <CountdownTimer
               targetTimestamp={startTimeSec}
               compact
-              className="text-white font-bold text-lg"
+              className="text-primary-foreground font-bold text-lg"
             />
-          </div>
-        ) : !isSeasonEnded && seasonConfig?.endTime ? (
-          <div className="bg-[#c82a54] rounded-lg p-4">
-            <div className="text-xs text-white/80 mb-1">
-              {t("raffle:endsIn")}
-            </div>
-            <CountdownTimer
-              targetTimestamp={Number(seasonConfig.endTime)}
-              compact
-              className="text-white font-bold text-lg"
-            />
-          </div>
-        ) : null}
+          </ImportantBox>
+        )}
 
         {isSeasonEnded && !isCompleted && (
-          <div className="bg-[#c82a54] rounded-lg p-4 text-center">
-            <div className="text-white font-bold text-lg">
+          <ImportantBox className="p-4 text-center">
+            <div className="text-primary-foreground font-bold text-lg">
               {t("common:tradingLocked", { defaultValue: "Trading is Locked" })}
             </div>
-            <div className="text-white/80 text-sm mt-1">
+            <div className="text-primary-foreground/80 text-sm mt-1">
               {t("raffle:raffleEnded")}
             </div>
-          </div>
+          </ImportantBox>
         )}
 
         {isCompleted && winnerSummaryQuery.data && (
-          <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-            <div className="text-sm uppercase tracking-wide text-[#c82a54]">
+          <ContentBox className="p-4">
+            <div className="text-sm uppercase tracking-wide text-primary">
               {t("raffle:winner")}
             </div>
-            <div className="text-lg font-semibold text-white mt-1">
+            <div className="text-lg font-semibold text-foreground mt-1">
               <UsernameDisplay
                 address={winnerSummaryQuery.data.winnerAddress}
                 className="text-lg"
@@ -169,20 +191,20 @@ export const SeasonCard = ({
                 }
               })()}
             </div>
-          </div>
+          </ContentBox>
         )}
 
         {isCompleted &&
           !winnerSummaryQuery.data &&
           BigInt(displayCurveSupply ?? 0n) === 0n && (
-            <div className="bg-black/40 rounded-lg p-4 border border-[#353e34]">
-              <div className="text-sm font-semibold text-white">
+            <ContentBox className="p-4">
+              <div className="text-sm font-semibold text-foreground">
                 {t("raffle:noWinner")}
               </div>
               <div className="text-sm text-muted-foreground mt-2">
                 {t("raffle:noParticipants")}
               </div>
-            </div>
+            </ContentBox>
           )}
 
         {/* Action Buttons */}
@@ -193,6 +215,7 @@ export const SeasonCard = ({
                 e.stopPropagation();
                 onBuy?.();
               }}
+              variant="outline"
               size="sm"
               className="flex-1"
             >
@@ -212,7 +235,7 @@ export const SeasonCard = ({
           </div>
         )}
       </CardContent>
-    </Card>
+    </div>
   );
 };
 
@@ -223,8 +246,6 @@ SeasonCard.propTypes = {
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
   curveSupply: PropTypes.bigint,
-  cardIndex: PropTypes.number,
-  totalCards: PropTypes.number,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,

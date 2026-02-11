@@ -1,6 +1,8 @@
 // src/components/common/Carousel.jsx
 import PropTypes from "prop-types";
+import { useRef } from "react";
 import { useSwipeable } from "react-swipeable";
+import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,8 +26,11 @@ const Carousel = ({
   showArrows = true,
   loop = true,
 }) => {
+  const directionRef = useRef(1);
+
   const handlePrevious = () => {
     if (items.length === 0) return;
+    directionRef.current = -1;
 
     if (currentIndex > 0) {
       onIndexChange(currentIndex - 1);
@@ -36,6 +41,7 @@ const Carousel = ({
 
   const handleNext = () => {
     if (items.length === 0) return;
+    directionRef.current = 1;
 
     if (currentIndex < items.length - 1) {
       onIndexChange(currentIndex + 1);
@@ -79,11 +85,20 @@ const Carousel = ({
       role="region"
       aria-label="Carousel"
     >
-      <div {...swipeHandlers} className="relative overflow-hidden">
-        {/* Content */}
-        <div className="transition-opacity duration-300">
-          {renderItem(currentItem, currentIndex)}
-        </div>
+      <div {...swipeHandlers} className="relative overflow-hidden h-full">
+        <AnimatePresence mode="wait" initial={false} custom={directionRef.current}>
+          <motion.div
+            key={currentIndex}
+            custom={directionRef.current}
+            initial={(dir) => ({ x: dir * 80, opacity: 0 })}
+            animate={{ x: 0, opacity: 1 }}
+            exit={(dir) => ({ x: dir * -80, opacity: 0 })}
+            transition={{ type: "spring", stiffness: 300, damping: 28, mass: 0.8 }}
+            className="h-full"
+          >
+            {renderItem(currentItem, currentIndex)}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Navigation Arrows */}

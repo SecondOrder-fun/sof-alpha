@@ -6,7 +6,9 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
+import { ContentBox } from "@/components/ui/content-box";
 
 export const SlippageSettings = ({
   slippagePct,
@@ -16,7 +18,11 @@ export const SlippageSettings = ({
 }) => {
   const { t } = useTranslation(["common"]);
 
-  const presets = ["0", "1", "2"];
+  const presets = [
+    { value: "0.5", label: "\u00BD" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+  ];
 
   // Desktop variant: dropdown/popover style
   if (variant === "desktop") {
@@ -34,13 +40,13 @@ export const SlippageSettings = ({
         <div className="flex gap-2 mb-2">
           {presets.map((preset) => (
             <Button
-              key={preset}
+              key={preset.value}
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onSlippageChange(preset)}
+              onClick={() => onSlippageChange(preset.value)}
             >
-              {preset}.0%
+              {preset.label}%
             </Button>
           ))}
         </div>
@@ -59,50 +65,44 @@ export const SlippageSettings = ({
     );
   }
 
-  // Mobile variant: inline panel style
+  // Mobile variant: single-row with ButtonGroup presets + input + save
   return (
-    <div className="mb-6 bg-black/40 border border-border rounded-lg p-4">
-      <div className="text-sm font-medium mb-2 text-white">
+    <ContentBox className="mt-3">
+      <div className="text-xs text-muted-foreground mb-2">
         {t("common:slippage", { defaultValue: "Slippage tolerance" })}
       </div>
-      <div className="text-xs text-muted-foreground mb-3">
-        {t("common:slippageDescription", {
-          defaultValue:
-            "Maximum percentage you are willing to lose due to unfavorable price changes.",
-        })}
-      </div>
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {presets.map((preset) => (
-          <Button
-            key={preset}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onSlippageChange(preset)}
-            className="border-primary text-white hover:bg-primary"
-          >
-            {preset}.0%
-          </Button>
-        ))}
-      </div>
       <div className="flex items-center gap-2">
+        <ButtonGroup className="flex-[3]">
+          {presets.map((preset) => (
+            <Button
+              key={preset.value}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onSlippageChange(preset.value)}
+              className="flex-1"
+            >
+              {preset.label}%
+            </Button>
+          ))}
+        </ButtonGroup>
         <Input
           type="number"
           value={slippagePct}
           onChange={(e) => onSlippageChange(e.target.value)}
-          className="bg-black/60 border-border text-white"
           placeholder="1.0"
+          className="flex-1 text-center"
         />
         <Button
           type="button"
           size="sm"
           onClick={onClose}
-          className="bg-primary hover:bg-primary/80 text-white"
+          className="flex-1"
         >
           {t("common:save", { defaultValue: "Save" })}
         </Button>
       </div>
-    </div>
+    </ContentBox>
   );
 };
 
