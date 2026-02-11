@@ -11,7 +11,7 @@ import { CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ContentBox, ImportantBox } from "@/components/ui/content-box";
-import CurveGraph from "@/components/curve/CurveGraph";
+import MiniCurveChart from "@/components/curve/MiniCurveChart";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
@@ -80,7 +80,7 @@ export const SeasonCard = ({
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer max-w-sm mx-auto h-full"
+      className="cursor-pointer max-w-sm mx-auto h-full flex flex-col"
     >
       <CardHeader className="py-3 pb-2">
         <div className="flex items-center gap-2">
@@ -94,16 +94,15 @@ export const SeasonCard = ({
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-3 pt-0">
+      <CardContent className="flex flex-col gap-3 pt-0 flex-1 min-h-0">
         {!isSeasonEnded && !isPreStart && (
           <>
             {/* Mini Curve Graph */}
-            <div className="bg-muted/40 overflow-hidden h-28 border border-primary pt-2">
-              <CurveGraph
+            <div className="bg-muted/40 overflow-hidden flex-1 min-h-0 border border-primary rounded-lg">
+              <MiniCurveChart
                 curveSupply={displayCurveSupply}
                 allBondSteps={displayBondSteps}
                 currentStep={displayCurveStep}
-                mini
               />
             </div>
 

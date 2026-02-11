@@ -126,9 +126,9 @@ const BondingCurvePanel = ({
     }
   }, [allBondSteps, sofDecimals]);
 
-  // SVG dimensions and scales
+  // SVG dimensions and scales — mini uses a short viewBox; CSS stretches to fill container
   const width = 640; // will scale via viewBox
-  const height = mini ? 160 : compact ? 200 : 320;
+  const height = mini ? 100 : compact ? 200 : 320;
   const margin = mini
     ? { top: 0, right: 0, bottom: 0, left: 0 }
     : { top: 10, right: 16, bottom: 24, left: 48 };
