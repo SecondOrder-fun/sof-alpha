@@ -6,6 +6,7 @@ import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useSeasonWinnerSummaries } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
 import { useAccount, useChains } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
 import { SOFBondingCurveAbi } from "@/utils/abis";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -14,9 +15,11 @@ import { Button } from "@/components/ui/button";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileRafflesList from "@/components/mobile/MobileRafflesList";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { useSeasonGating } from "@/hooks/useSeasonGating";
+import PasswordGateModal from "@/components/gating/PasswordGateModal";
 
 const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const navigate = useNavigate();
@@ -193,11 +196,12 @@ ActiveSeasonCard.propTypes = {
 
 const RaffleList = () => {
   const { t } = useTranslation("raffle");
-  const { isMobile } = usePlatform();
+  const { isMobile, isFarcaster } = usePlatform();
   const navigate = useNavigate();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const { chainId } = useAccount();
   const chains = useChains();
+  const { openConnectModal } = useConnectModal();
   const allSeasonsQuery = useAllSeasons();
   const winnerSummariesQuery = useSeasonWinnerSummaries(allSeasonsQuery.data);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -208,6 +212,23 @@ const RaffleList = () => {
     probBps: 0,
     total: 0n,
   });
+  const [activeSeason, setActiveSeason] = useState(null);
+  const [gateModalOpen, setGateModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
+
+  // Gating hook — tracks the carousel-visible season
+  const isActiveGated = Boolean(activeSeason?.config?.gated);
+  const { isVerified, verifyPassword, refetch: refetchGating } = useSeasonGating(
+    activeSeason?.id, { isGated: isActiveGated }
+  );
+
+  const handleActiveSeasonChange = useCallback((season) => {
+    setActiveSeason(season);
+  }, []);
+
+  const handleConnect = useCallback(() => {
+    openConnectModal?.();
+  }, [openConnectModal]);
 
   const renderBadge = (st) => {
     const statusNum = Number(st);
@@ -225,6 +246,14 @@ const RaffleList = () => {
   const handleBuy = (seasonId) => {
     const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
     setSelectedSeason(season);
+
+    // Gating check: if gated and not verified, show password modal
+    if (season?.config?.gated && isVerified !== true) {
+      setPendingAction("buy");
+      setGateModalOpen(true);
+      return;
+    }
+
     setSheetMode("buy");
     setSheetOpen(true);
   };
@@ -233,60 +262,80 @@ const RaffleList = () => {
     const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
     setSelectedSeason(season);
 
-    // Get the bonding curve address for position refresh
+    // Gating check: if gated and not verified, show password modal
+    if (season?.config?.gated && isVerified !== true) {
+      setPendingAction("sell");
+      setGateModalOpen(true);
+      return;
+    }
+
+    await openSellSheet(season);
+  };
+
+  // Called from SeasonCard's Verify button (no pending buy/sell action)
+  const handleVerify = (seasonId) => {
+    const season = allSeasonsQuery.data?.find((s) => s.id === seasonId);
+    setSelectedSeason(season);
+    setPendingAction(null);
+    setGateModalOpen(true);
+  };
+
+  // Fetch position and open sell sheet (bypasses gating check)
+  const openSellSheet = async (season) => {
     const bondingCurveAddress =
       season?.config?.bondingCurve || season?.bondingCurveAddress;
 
     if (bondingCurveAddress && chainId) {
-      // Find the current chain configuration
       const currentChain = chains.find((chain) => chain.id === chainId);
-
       if (currentChain?.rpcUrls?.default) {
         const rpcUrl = currentChain.rpcUrls.default.http?.[0];
-        if (!rpcUrl) {
-          setSheetMode("sell");
-          setSheetOpen(true);
-          return;
-        }
-        const positionClient = createPublicClient({
-          chain: currentChain,
-          transport: http(rpcUrl),
-          blockTag: "latest",
-        });
-
-        try {
-          const [pt, cfg] = await Promise.all([
-            positionClient.readContract({
-              address: bondingCurveAddress,
-              abi: SOFBondingCurveAbi,
-              functionName: "playerTickets",
-              args: [address],
-            }),
-            positionClient.readContract({
-              address: bondingCurveAddress,
-              abi: SOFBondingCurveAbi,
-              functionName: "curveConfig",
-              args: [],
-            }),
-          ]);
-
-          const tickets = BigInt(pt ?? 0n);
-          const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
-          const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
-
-          // Update local position state
-          setLocalPosition({ tickets, probBps, total });
-        } catch (error) {
-          // ignore
+        if (rpcUrl) {
+          const positionClient = createPublicClient({
+            chain: currentChain,
+            transport: http(rpcUrl),
+            blockTag: "latest",
+          });
+          try {
+            const [pt, cfg] = await Promise.all([
+              positionClient.readContract({
+                address: bondingCurveAddress,
+                abi: SOFBondingCurveAbi,
+                functionName: "playerTickets",
+                args: [address],
+              }),
+              positionClient.readContract({
+                address: bondingCurveAddress,
+                abi: SOFBondingCurveAbi,
+                functionName: "curveConfig",
+                args: [],
+              }),
+            ]);
+            const tickets = BigInt(pt ?? 0n);
+            const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
+            const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
+            setLocalPosition({ tickets, probBps, total });
+          } catch {
+            // ignore
+          }
         }
       }
     }
-
-    // Small delay to ensure state update completes
     await new Promise((resolve) => setTimeout(resolve, 200));
-
     setSheetMode("sell");
     setSheetOpen(true);
+  };
+
+  // Called after successful password verification
+  const handleGateVerified = async () => {
+    await refetchGating();
+    if (pendingAction === "buy" && selectedSeason) {
+      setSheetMode("buy");
+      setSheetOpen(true);
+    } else if (pendingAction === "sell" && selectedSeason) {
+      await openSellSheet(selectedSeason);
+    }
+    // If pendingAction is null (standalone verify), just close — badge updates reactively
+    setPendingAction(null);
   };
 
   // Mobile view for Farcaster Mini App and Base App
@@ -304,6 +353,13 @@ const RaffleList = () => {
           isLoading={allSeasonsQuery.isLoading}
           onBuy={handleBuy}
           onSell={handleSell}
+          onActiveSeasonChange={handleActiveSeasonChange}
+          isVerified={isVerified}
+          isGated={isActiveGated}
+          onVerify={() => activeSeason && handleVerify(activeSeason.id)}
+          isConnected={isConnected}
+          onConnect={handleConnect}
+          isFarcaster={isFarcaster}
         />
         {selectedSeason && (
           <BuySellSheet
@@ -321,6 +377,13 @@ const RaffleList = () => {
             }}
           />
         )}
+        <PasswordGateModal
+          open={gateModalOpen}
+          onOpenChange={setGateModalOpen}
+          seasonName={selectedSeason?.config?.name || activeSeason?.config?.name}
+          onVerify={verifyPassword}
+          onVerified={handleGateVerified}
+        />
       </>
     );
   }

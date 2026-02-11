@@ -39,7 +39,7 @@ const Progress = React.forwardRef(
         {bar}
         {/* Step markers — sit on top of the bar, vertically centered */}
         {steps.map((step, idx) => {
-          if (step.position >= 100) return null
+          if (step.position > 100) return null
           return (
             <div
               key={idx}

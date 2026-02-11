@@ -223,7 +223,7 @@ const BondingCurvePanel = ({
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
     const count = steps.length;
     const stride = count > 40 ? Math.ceil(count / 40) : 1;
-    return steps
+    const mapped = steps
       .filter((_, idx) => idx % stride === 0 || idx === count - 1)
       .map((s, idx) => {
         const pos = Math.min(
@@ -233,7 +233,8 @@ const BondingCurvePanel = ({
             Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100,
           ),
         );
-        const price = Number(formatUnits(s.price ?? 0n, sofDecimals)).toFixed(4);
+        const rawPrice = Number(formatUnits(s.price ?? 0n, sofDecimals));
+        const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
         const stepNum = s?.step ?? idx + 1;
         return {
           position: pos,
@@ -241,6 +242,14 @@ const BondingCurvePanel = ({
           sublabel: `${t("step")} #${stepNum}`,
         };
       });
+    // Add Step #0 at the start (initial price) and pin last dot to the end
+    if (mapped.length > 0) {
+      const rawStartPrice = Number(formatUnits(steps[0].price ?? 0n, sofDecimals));
+      const startPrice = (Math.ceil(rawStartPrice * 10) / 10).toFixed(1);
+      mapped.unshift({ position: 0, label: `${startPrice} SOF`, sublabel: `${t("step")} #0` });
+    }
+    if (mapped.length > 1) mapped[mapped.length - 1].position = 100;
+    return mapped;
   }, [allBondSteps, maxSupply, sofDecimals, t]);
 
   const containerClassName = mini ? "h-full" : "space-y-4";

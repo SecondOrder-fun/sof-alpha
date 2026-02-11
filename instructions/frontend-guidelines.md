@@ -1566,6 +1566,60 @@ Configured in `backend/fastify/routes/pricingRoutes.js`.
 - Prefer real timers; avoid fake timers unless necessary.
 - Wrap state-changing triggers in `act()`.
 
+## Real-time On-Chain Value Updates
+
+Any UI value derived from on-chain state (ticket counts, win probabilities, bonding curve supply/price, position data) **must** update in real-time when contract events are received or after a user transaction succeeds.
+
+### Canonical Pattern
+
+There are two complementary mechanisms:
+
+1. **Event-driven refresh** — `useCurveEvents` subscribes to `PositionUpdate` events on the bonding curve and calls `debouncedRefresh(0)` + `refreshPositionNow()` on each event.
+
+2. **Post-transaction staggered refresh** — `useStaggeredRefresh` runs refresh functions at three intervals after a tx succeeds: **immediate**, **1.5 s**, and **4 s**. This compensates for RPC/indexer lag.
+
+### Usage
+
+```jsx
+import { useStaggeredRefresh } from "@/hooks/useStaggeredRefresh";
+
+// Pass an array of refresh functions + optional lifecycle callbacks
+const triggerStaggeredRefresh = useStaggeredRefresh(
+  [() => debouncedRefresh(0), refreshPositionNow],
+  {
+    onStart: () => setIsRefreshing(true),
+    onEnd: () => setIsRefreshing(false),
+  },
+);
+
+// After a successful transaction:
+onTxSuccess={() => triggerStaggeredRefresh()}
+
+// After a notification (same pattern, with toast):
+onNotify={(evt) => {
+  addToast(evt);
+  triggerStaggeredRefresh();
+}}
+```
+
+### Values That Require Real-time Updates
+
+| Value | Source | Refresh Trigger |
+|---|---|---|
+| Player ticket count | `playerTickets(address)` | PositionUpdate event, tx success |
+| Win probability (%) | Derived from tickets / totalSupply | PositionUpdate event, tx success |
+| Bonding curve supply | `curveConfig()` → totalSupply | PositionUpdate event, tx success |
+| Current step / price | `getCurrentStep()` | PositionUpdate event, tx success |
+| Bond steps chart | `getBondSteps()` | PositionUpdate event, tx success |
+| Accumulated fees | `accumulatedFees()` | PositionUpdate event, tx success |
+
+### Rules
+
+- **Never** display stale position data after a buy/sell. Always use `useStaggeredRefresh` in tx-success callbacks.
+- **Never** duplicate the staggered setTimeout pattern inline — use the hook.
+- `useCurveState` provides background polling (`pollMs`, default 12 s) as a baseline; event-driven and post-tx refreshes supplement it.
+- If unsure whether a value needs real-time updates, ask — false negatives (stale values after a tx) are worse than an extra RPC read.
+
 ## Conclusion
 
 These guidelines ensure consistent, maintainable, and performant frontend development for SecondOrder.fun. Regular code reviews and adherence to these standards will help maintain code quality as the project scales.

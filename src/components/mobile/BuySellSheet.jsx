@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SOFBondingCurveAbi } from "@/utils/abis";
 import { useToast } from "@/hooks/useToast";
+import { useStaggeredRefresh } from "@/hooks/useStaggeredRefresh";
 
 export const BuySellSheet = ({
   open,
@@ -128,6 +129,9 @@ export const BuySellSheet = ({
     }
   }, [client, connectedAddress, bondingCurveAddress]);
 
+  // Staggered refresh for post-tx position updates
+  const triggerStaggeredRefresh = useStaggeredRefresh([refreshPosition]);
+
   // Load position when sheet opens
   useEffect(() => {
     if (open) refreshPosition();
@@ -204,8 +208,7 @@ export const BuySellSheet = ({
     try {
       const result = await handleBuy(BigInt(parsedQuantity), () => setQuantityInput("1"));
       if (result?.success) {
-        // Delay briefly for chain indexing, then refresh
-        setTimeout(refreshPosition, 1500);
+        triggerStaggeredRefresh();
       }
     } finally {
       setIsLoading(false);
@@ -220,7 +223,7 @@ export const BuySellSheet = ({
     try {
       const result = await handleSell(BigInt(parsedQuantity), () => setQuantityInput("1"));
       if (result?.success) {
-        setTimeout(refreshPosition, 1500);
+        triggerStaggeredRefresh();
       } else if (result && !result.success) {
         toast({
           variant: "destructive",
@@ -312,10 +315,8 @@ export const BuySellSheet = ({
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <SheetDescription className="text-xs text-muted-foreground">
-              {activeTab === "buy"
-                ? "Purchase raffle tickets using SOF tokens"
-                : "Sell your raffle tickets for SOF tokens"}
+            <SheetDescription className="sr-only">
+              {activeTab === "buy" ? "Buy tickets" : "Sell tickets"}
             </SheetDescription>
           </div>
         </SheetHeader>
@@ -327,7 +328,7 @@ export const BuySellSheet = ({
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full mb-6">
+          <TabsList className="w-full mb-2">
             <TabsTrigger value="buy" className="flex-1">
               BUY
             </TabsTrigger>
