@@ -52,6 +52,60 @@ export default defineConfig(() => {
     build: {
       outDir: "dist",
       sourcemap: true,
+      chunkSizeWarningLimit: 1600,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Web3 stack — wagmi, viem, connectors
+            web3: ["wagmi", "viem", "@wagmi/core", "@wagmi/connectors"],
+            // React core + router
+            react: ["react", "react-dom", "react-router-dom"],
+            // UI framework — Radix primitives
+            radix: [
+              "@radix-ui/react-dialog",
+              "@radix-ui/react-dropdown-menu",
+              "@radix-ui/react-popover",
+              "@radix-ui/react-select",
+              "@radix-ui/react-tabs",
+              "@radix-ui/react-tooltip",
+              "@radix-ui/react-accordion",
+              "@radix-ui/react-switch",
+              "@radix-ui/react-separator",
+              "@radix-ui/react-progress",
+              "@radix-ui/react-label",
+            ],
+            // Charts — recharts + dependencies
+            charts: ["recharts", "d3-scale", "d3-shape", "d3-interpolate"],
+            // Animation
+            motion: ["motion"],
+            // i18n
+            i18n: ["i18next", "react-i18next", "i18next-browser-languagedetector"],
+            // Farcaster + Coinbase
+            farcaster: [
+              "@farcaster/auth-kit",
+              "@farcaster/miniapp-sdk",
+              "@farcaster/miniapp-node",
+              "@farcaster/miniapp-wagmi-connector",
+              "@base-org/account",
+            ],
+            // Data layer — react-query + react-table
+            data: [
+              "@tanstack/react-query",
+              "@tanstack/react-query-devtools",
+              "@tanstack/react-table",
+            ],
+            // Visx charting (BondingCurveEditor)
+            visx: [
+              "@visx/xychart",
+              "@visx/shape",
+              "@visx/scale",
+              "@visx/group",
+              "@visx/drag",
+              "@visx/event",
+            ],
+          },
+        },
+      },
     },
     server: {
       port: 5174,
