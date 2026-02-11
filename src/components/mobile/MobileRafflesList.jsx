@@ -16,7 +16,7 @@ import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
 
-const MobileActiveSeasonCard = ({ season, onBuy, onSell }) => {
+const MobileActiveSeasonCard = ({ season, onBuy, onSell, isVerified, isGated, onVerify, isConnected, onConnect, isFarcaster }) => {
   const navigate = useNavigate();
   const bondingCurveAddress = season?.config?.bondingCurve;
   const { curveSupply, curveStep, allBondSteps } = useCurveState(
@@ -38,6 +38,12 @@ const MobileActiveSeasonCard = ({ season, onBuy, onSell }) => {
       onBuy={() => onBuy(season.id)}
       onSell={() => onSell(season.id)}
       onClick={() => navigate(`/raffles/${season.id}`)}
+      isVerified={isVerified}
+      isGated={isGated}
+      onVerify={onVerify}
+      isConnected={isConnected}
+      onConnect={onConnect}
+      isFarcaster={isFarcaster}
     />
   );
 };
@@ -46,6 +52,12 @@ MobileActiveSeasonCard.propTypes = {
   season: PropTypes.object.isRequired,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
+  isVerified: PropTypes.bool,
+  isGated: PropTypes.bool,
+  onVerify: PropTypes.func,
+  isConnected: PropTypes.bool,
+  onConnect: PropTypes.func,
+  isFarcaster: PropTypes.bool,
 };
 
 export const MobileRafflesList = ({
@@ -53,6 +65,13 @@ export const MobileRafflesList = ({
   isLoading,
   onBuy,
   onSell,
+  onActiveSeasonChange,
+  isVerified,
+  isGated,
+  onVerify,
+  isConnected,
+  onConnect,
+  isFarcaster,
 }) => {
   const { t } = useTranslation(["raffle"]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -64,6 +83,13 @@ export const MobileRafflesList = ({
       setCurrentIndex(0);
     }
   }, [currentIndex, seasons.length]);
+
+  // Notify parent of active season for gating hook
+  useEffect(() => {
+    if (seasons.length > 0 && currentIndex < seasons.length) {
+      onActiveSeasonChange?.(seasons[currentIndex]);
+    }
+  }, [currentIndex, seasons, onActiveSeasonChange]);
 
   // Calculate and lock card height to fill space between header and footer
   // Depends on `isLoading` so it re-runs when the card first appears in the DOM
@@ -179,6 +205,12 @@ export const MobileRafflesList = ({
                     season={season}
                     onBuy={onBuy}
                     onSell={onSell}
+                    isVerified={isVerified}
+                    isGated={isGated}
+                    onVerify={onVerify}
+                    isConnected={isConnected}
+                    onConnect={onConnect}
+                    isFarcaster={isFarcaster}
                   />
                 )}
               />
@@ -195,6 +227,13 @@ MobileRafflesList.propTypes = {
   isLoading: PropTypes.bool,
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
+  onActiveSeasonChange: PropTypes.func,
+  isVerified: PropTypes.bool,
+  isGated: PropTypes.bool,
+  onVerify: PropTypes.func,
+  isConnected: PropTypes.bool,
+  onConnect: PropTypes.func,
+  isFarcaster: PropTypes.bool,
 };
 
 export default MobileRafflesList;

@@ -51,17 +51,26 @@ export const MobileRaffleDetail = ({
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
     const count = steps.length;
     const stride = count > 20 ? Math.ceil(count / 20) : 1;
-    return steps
+    const mapped = steps
       .filter((_, idx) => idx % stride === 0 || idx === count - 1)
       .map((s, idx) => {
         const pos = Math.min(
           100,
           Math.max(0, Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100),
         );
-        const price = Number(formatUnits(s.price ?? 0n, 18)).toFixed(4);
+        const rawPrice = Number(formatUnits(s.price ?? 0n, 18));
+        const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
         const stepNum = s?.step ?? idx + 1;
         return { position: pos, label: `${price} SOF`, sublabel: `Step #${stepNum}` };
       });
+    // Add Step #0 at the start (initial price) and pin last dot to the end
+    if (mapped.length > 0) {
+      const rawStartPrice = Number(formatUnits(steps[0].price ?? 0n, 18));
+      const startPrice = (Math.ceil(rawStartPrice * 10) / 10).toFixed(1);
+      mapped.unshift({ position: 0, label: `${startPrice} SOF`, sublabel: `Step #0` });
+    }
+    if (mapped.length > 1) mapped[mapped.length - 1].position = 100;
+    return mapped;
   }, [allBondSteps, maxSupply]);
 
   const grandPrize = useMemo(() => {
@@ -145,7 +154,7 @@ export const MobileRaffleDetail = ({
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-2xl font-bold text-foreground flex-1 min-w-0 truncate">
-          {t("raffle:raffles")} - {t("raffle:season")} #{seasonId}
+          {t("raffle:season")} #{seasonId}
         </h1>
         {isGated && (
           isVerified === true ? (
@@ -208,6 +217,19 @@ export const MobileRaffleDetail = ({
               <span>{(curveSupply ?? 0n).toString()} {t("raffle:sold", { defaultValue: "sold" })}</span>
               <span>{(maxSupply ?? 0n).toString()} {t("raffle:max", { defaultValue: "max" })}</span>
             </div>
+            {curveStep?.rangeTo != null && curveSupply != null && (() => {
+              const remaining = BigInt(curveStep.rangeTo) - BigInt(curveSupply);
+              if (remaining <= 0n) return null;
+              return (
+                <div className="flex justify-center mt-2">
+                  <div className="w-3/5 text-center rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
+                    <span className="font-mono font-semibold text-foreground">{remaining.toString()}</span>{" "}
+                    {t("raffle:ticketsRemainUntilNextPriceIncrease", { defaultValue: "tickets remain until next price increase" })}
+                  </div>
+                </div>
+              );
+            })()}
+            <Separator className="mt-3" />
           </div>
 
           {/* Stats + Grand Prize */}

@@ -6,7 +6,7 @@
 import PropTypes from "prop-types";
 import { formatUnits } from "viem";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Lock } from "lucide-react";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +18,27 @@ import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
 import { useMemo } from "react";
 
+const FarcasterIcon = ({ className }) => (
+  <svg viewBox="0 0 1000 1000" className={className} fill="currentColor">
+    <path d="M257.778 155.556H742.222V844.444H671.111V528.889H670.414C662.554 441.677 589.258 373.333 500 373.333C410.742 373.333 337.446 441.677 329.586 528.889H328.889V844.444H257.778V155.556Z" />
+    <path d="M128.889 253.333L157.778 351.111H182.222V746.667C169.949 746.667 160 756.616 160 768.889V795.556H155.556C143.283 795.556 133.333 805.505 133.333 817.778V844.444H382.222V817.778C382.222 805.505 372.273 795.556 360 795.556H355.556V768.889C355.556 756.616 345.606 746.667 333.333 746.667H306.667V253.333H128.889Z" />
+    <path d="M675.556 746.667C663.283 746.667 653.333 756.616 653.333 768.889V795.556H648.889C636.616 795.556 626.667 805.505 626.667 817.778V844.444H875.556V817.778C875.556 805.505 865.606 795.556 853.333 795.556H848.889V768.889C848.889 756.616 838.94 746.667 826.667 746.667V351.111H851.111L880 253.333H702.222V746.667H675.556Z" />
+  </svg>
+);
+
+FarcasterIcon.propTypes = { className: PropTypes.string };
+
+const EthereumIcon = ({ className }) => (
+  <svg viewBox="0 0 256 417" className={className} fill="currentColor">
+    <path d="M127.961 0l-2.795 9.5v275.668l2.795 2.79 127.962-75.638z" opacity=".6" />
+    <path d="M127.962 0L0 212.32l127.962 75.639V154.158z" />
+    <path d="M127.961 312.187l-1.575 1.92V414.45l1.575 4.6L256 236.587z" opacity=".6" />
+    <path d="M127.962 419.05V312.187L0 236.587z" />
+  </svg>
+);
+
+EthereumIcon.propTypes = { className: PropTypes.string };
+
 export const SeasonCard = ({
   seasonId,
   seasonConfig,
@@ -28,6 +49,12 @@ export const SeasonCard = ({
   onBuy,
   onSell,
   onClick,
+  isVerified,
+  isGated,
+  onVerify,
+  isConnected,
+  onConnect,
+  isFarcaster,
 }) => {
   const { t } = useTranslation(["raffle", "common"]);
   const statusNum = Number(status);
@@ -88,8 +115,11 @@ export const SeasonCard = ({
             Season #{seasonId}
           </span>
           <span className="font-medium text-foreground truncate">{seasonConfig?.name}</span>
-          {seasonConfig?.gated && (
+          {isGated && isVerified === true && (
             <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 ml-auto" />
+          )}
+          {isGated && isVerified !== true && (
+            <Lock className="w-4 h-4 text-primary shrink-0 ml-auto" />
           )}
         </div>
       </CardHeader>
@@ -98,7 +128,12 @@ export const SeasonCard = ({
         {!isSeasonEnded && !isPreStart && (
           <>
             {/* Mini Curve Graph */}
-            <div className="bg-muted/40 overflow-hidden flex-1 min-h-0 border border-primary rounded-lg">
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */}
+            <div
+              className="bg-muted/40 overflow-hidden flex-1 min-h-0 border border-primary rounded-lg outline-none [&_*]:outline-none"
+              style={{ WebkitTapHighlightColor: "transparent" }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <MiniCurveChart
                 curveSupply={displayCurveSupply}
                 allBondSteps={displayBondSteps}
@@ -207,7 +242,39 @@ export const SeasonCard = ({
           )}
 
         {/* Action Buttons */}
-        {!isSeasonEnded && !isPreStart && (
+        {!isSeasonEnded && !isPreStart && !isConnected && (
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onConnect?.();
+            }}
+            variant={isFarcaster ? "farcaster" : "default"}
+            size="sm"
+            className="w-full"
+          >
+            {isFarcaster ? (
+              <FarcasterIcon className="w-4 h-4 mr-1.5" />
+            ) : (
+              <EthereumIcon className="w-4 h-4 mr-1.5" />
+            )}
+            {t("common:connect", { defaultValue: "CONNECT" })}
+          </Button>
+        )}
+        {!isSeasonEnded && !isPreStart && isConnected && isGated && isVerified !== true && (
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              onVerify?.();
+            }}
+            variant="outline"
+            size="sm"
+            className="w-full"
+          >
+            <Lock className="w-3.5 h-3.5 mr-1.5" />
+            {t("common:verify", { defaultValue: "VERIFY" })}
+          </Button>
+        )}
+        {!isSeasonEnded && !isPreStart && isConnected && (!isGated || isVerified === true) && (
           <div className="flex gap-2">
             <Button
               onClick={(e) => {
@@ -248,6 +315,12 @@ SeasonCard.propTypes = {
   onBuy: PropTypes.func,
   onSell: PropTypes.func,
   onClick: PropTypes.func,
+  isVerified: PropTypes.bool,
+  isGated: PropTypes.bool,
+  onVerify: PropTypes.func,
+  isConnected: PropTypes.bool,
+  onConnect: PropTypes.func,
+  isFarcaster: PropTypes.bool,
 };
 
 export default SeasonCard;

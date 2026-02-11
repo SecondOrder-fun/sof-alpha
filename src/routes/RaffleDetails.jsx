@@ -26,6 +26,7 @@ import TokenInfoTab from "@/components/curve/TokenInfoTab";
 import HoldersTab from "@/components/curve/HoldersTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurveEvents } from "@/hooks/useCurveEvents";
+import { useStaggeredRefresh } from "@/hooks/useStaggeredRefresh";
 import { useAccount } from "wagmi";
 import { RaffleAdminControls } from "@/components/admin/RaffleAdminControls";
 import { TreasuryControls } from "@/components/admin/TreasuryControls";
@@ -214,6 +215,15 @@ const RaffleDetails = () => {
       // ignore
     }
   };
+
+  // Staggered refresh: immediate + 1.5 s + 4 s to handle indexer lag
+  const triggerStaggeredRefresh = useStaggeredRefresh(
+    [() => debouncedRefresh(0), refreshPositionNow],
+    {
+      onStart: () => setIsRefreshing(true),
+      onEnd: () => setIsRefreshing(false),
+    },
+  );
 
   // Toasts state for tx updates (component scope)
   const [toasts, setToasts] = useState([]);
@@ -630,6 +640,18 @@ const RaffleDetails = () => {
                           curveStep={curveStep}
                           allBondSteps={allBondSteps}
                         />
+                        {curveStep?.rangeTo != null && curveSupply != null && (() => {
+                          const remaining = BigInt(curveStep.rangeTo) - BigInt(curveSupply);
+                          if (remaining <= 0n) return null;
+                          return (
+                            <div className="flex justify-center mt-3">
+                              <div className="w-3/5 text-center rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                <span className="font-mono font-semibold text-foreground">{remaining.toString()}</span>{" "}
+                                {t("ticketsRemainUntilNextPriceIncrease", { defaultValue: "tickets remain until next price increase" })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   );
@@ -663,35 +685,10 @@ const RaffleDetails = () => {
                             setPendingAction(mode);
                             setGateModalOpen(true);
                           }}
-                          onTxSuccess={() => {
-                            setIsRefreshing(true);
-                            debouncedRefresh(250);
-                            refreshPositionNow();
-                            // schedule a couple of follow-ups in case indexers are lagging
-                            setTimeout(() => {
-                              debouncedRefresh(0);
-                              refreshPositionNow();
-                            }, 1500);
-                            setTimeout(() => {
-                              debouncedRefresh(0);
-                              refreshPositionNow();
-                              setIsRefreshing(false);
-                            }, 4000);
-                          }}
+                          onTxSuccess={() => triggerStaggeredRefresh()}
                           onNotify={(evt) => {
                             addToast(evt);
-                            setIsRefreshing(true);
-                            debouncedRefresh(0);
-                            refreshPositionNow();
-                            setTimeout(() => {
-                              debouncedRefresh(0);
-                              refreshPositionNow();
-                            }, 1500);
-                            setTimeout(() => {
-                              debouncedRefresh(0);
-                              refreshPositionNow();
-                              setIsRefreshing(false);
-                            }, 4000);
+                            triggerStaggeredRefresh();
                           }}
                         />
                       );

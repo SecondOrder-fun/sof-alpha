@@ -7,6 +7,7 @@ import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ContentBox } from "@/components/ui/content-box";
+import { Separator } from "@/components/ui/separator";
 import QuantityStepper from "@/components/mobile/QuantityStepper";
 
 export const BuyForm = ({
@@ -52,6 +53,8 @@ export const BuyForm = ({
         {settingsPanel}
       </div>
 
+      <Separator className="my-4" />
+
       <div className="flex gap-2">
         <ContentBox className="flex-1">
           <div className="text-sm text-muted-foreground mb-1">
@@ -83,6 +86,8 @@ export const BuyForm = ({
           </ContentBox>
         )}
       </div>
+
+      <Separator className="my-4" />
 
       <Button
         type="submit"

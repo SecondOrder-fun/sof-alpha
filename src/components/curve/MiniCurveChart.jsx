@@ -1,6 +1,6 @@
 // src/components/curve/MiniCurveChart.jsx
 import PropTypes from "prop-types";
-import { useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import {
   AreaChart,
@@ -12,12 +12,54 @@ import {
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** SVG tooltip rendered above the active step dot */
+const StepTooltipLabel = ({ viewBox, value }) => {
+  if (!viewBox) return null;
+  const cx = viewBox.cx ?? viewBox.x ?? 0;
+  const cy = viewBox.cy ?? viewBox.y ?? 0;
+  const textLen = value.length * 5.5 + 12;
+  const rh = 16;
+  return (
+    <g>
+      <rect
+        x={cx - textLen / 2}
+        y={cy - rh - 6}
+        width={textLen}
+        height={rh}
+        rx={4}
+        fill="hsl(var(--popover))"
+        stroke="hsl(var(--border))"
+        strokeWidth={1}
+      />
+      <text
+        x={cx}
+        y={cy - 12}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="hsl(var(--popover-foreground))"
+        fontSize={10}
+        fontFamily="ui-monospace, monospace"
+      >
+        {value}
+      </text>
+    </g>
+  );
+};
+
+StepTooltipLabel.propTypes = {
+  viewBox: PropTypes.object,
+  value: PropTypes.string,
+};
+
 /**
  * MiniCurveChart
  * Responsive mini bonding curve visualization using Recharts.
  * Renders a stepped area chart that fills its container.
  */
 const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep }) => {
+  const gradientId = useId();
+  const [activeDot, setActiveDot] = useState(null);
+
   const chartData = useMemo(() => {
     const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
     if (steps.length === 0) return [];
@@ -34,6 +76,27 @@ const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep }) => {
       prevX = x2;
     }
     return pts;
+  }, [allBondSteps]);
+
+  // Dots placed at the midpoint of each horizontal step segment
+  const stepDots = useMemo(() => {
+    const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+    if (steps.length === 0) return [];
+    const dots = [];
+    let prevRangeTo = 0n;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const rangeTo = BigInt(s?.rangeTo ?? 0);
+      const price = Number(formatUnits(s?.price ?? 0n, 18));
+      const mid = (Number(prevRangeTo) + Number(rangeTo)) / 2;
+      dots.push({ supply: mid, price, step: Number(s?.step ?? i + 1) });
+      prevRangeTo = rangeTo;
+    }
+    // Thin out if too many dots
+    const count = dots.length;
+    if (count <= 15) return dots;
+    const stride = Math.ceil(count / 15);
+    return dots.filter((_, idx) => idx % stride === 0 || idx === count - 1);
   }, [allBondSteps]);
 
   const currentSupply = Number(curveSupply ?? 0n);
@@ -56,14 +119,17 @@ const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep }) => {
     return <Skeleton className="w-full h-full rounded-none" />;
   }
 
+  const safeGradientId = gradientId.replace(/:/g, "_");
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart
         data={chartData}
-        margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
+        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+        style={{ outline: "none" }}
       >
         <defs>
-          <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={safeGradientId} x1="0" y1="0" x2="0" y2="1">
             <stop
               offset="5%"
               stopColor="hsl(var(--primary))"
@@ -82,9 +148,33 @@ const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep }) => {
           dataKey="price"
           stroke="hsl(var(--primary))"
           strokeWidth={2}
-          fill="url(#curveGradient)"
+          fill={`url(#${safeGradientId})`}
           isAnimationActive={false}
+          activeDot={false}
         />
+        {/* Step boundary dots */}
+        {stepDots.map((dot, idx) => (
+          <ReferenceDot
+            key={`step-${dot.step}`}
+            x={dot.supply}
+            y={dot.price}
+            r={3}
+            fill="hsl(var(--primary))"
+            stroke="hsl(var(--background))"
+            strokeWidth={1.5}
+            style={{ cursor: "pointer" }}
+            onClick={(e) => {
+              e?.stopPropagation?.();
+              setActiveDot(activeDot === idx ? null : idx);
+            }}
+            label={
+              activeDot === idx
+                ? <StepTooltipLabel value={`${(Math.ceil(dot.price * 10) / 10).toFixed(1)} SOF`} />
+                : undefined
+            }
+          />
+        ))}
+        {/* Current supply marker */}
         {currentSupply > 0 && (
           <ReferenceLine
             x={currentSupply}
