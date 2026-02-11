@@ -30,16 +30,19 @@ const initialNetworkKey = (() => {
 const activeChainConfig = getChainConfig(initialNetworkKey);
 
 // RainbowKit wallets — provide mobile deep linking via WalletConnect
+// Only create connectors when project ID is available (required by walletConnectWallet)
 const walletProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
-const rainbowWalletConnectors = connectorsForWallets(
-  [
-    {
-      groupName: "Recommended",
-      wallets: [coinbaseWallet, metaMaskWallet, walletConnectWallet],
-    },
-  ],
-  { appName: "SecondOrder.fun", projectId: walletProjectId },
-);
+const rainbowWalletConnectors = walletProjectId
+  ? connectorsForWallets(
+      [
+        {
+          groupName: "Recommended",
+          wallets: [coinbaseWallet, metaMaskWallet, walletConnectWallet],
+        },
+      ],
+      { appName: "SecondOrder.fun", projectId: walletProjectId },
+    )
+  : [];
 
 // Create config with Farcaster auto-connect + RainbowKit wallets (with deep linking)
 // Exported so imperative @wagmi/core actions (e.g. signMessage) can reference it.
