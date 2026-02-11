@@ -7,6 +7,7 @@ import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X, Settings } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Sheet,
   SheetContent,
@@ -37,6 +38,8 @@ import {
   TradingStatusOverlay,
 } from "@/components/buysell";
 import { Button } from "@/components/ui/button";
+import { SOFBondingCurveAbi } from "@/utils/abis";
+import { useToast } from "@/hooks/useToast";
 
 export const BuySellSheet = ({
   open,
@@ -73,6 +76,8 @@ export const BuySellSheet = ({
   const [isLoading, setIsLoading] = useState(false);
   const [slippagePct, setSlippagePct] = useState("1");
   const [showSettings, setShowSettings] = useState(false);
+  const [ticketPosition, setTicketPosition] = useState(null);
+  const { toast } = useToast();
 
   // Sync activeTab with mode prop when modal opens
   useEffect(() => {
@@ -95,6 +100,38 @@ export const BuySellSheet = ({
     if (!net?.rpcUrl) return null;
     return buildPublicClient(net.rpcUrl, net.chainId ?? net.id);
   }, [net]);
+
+  // Fetch user's ticket position (balance + win probability)
+  const refreshPosition = useCallback(async () => {
+    if (!client || !connectedAddress || !bondingCurveAddress) return;
+    try {
+      const [tickets, cfg] = await Promise.all([
+        client.readContract({
+          address: bondingCurveAddress,
+          abi: SOFBondingCurveAbi,
+          functionName: "playerTickets",
+          args: [connectedAddress],
+        }),
+        client.readContract({
+          address: bondingCurveAddress,
+          abi: SOFBondingCurveAbi,
+          functionName: "curveConfig",
+          args: [],
+        }),
+      ]);
+      const t = BigInt(tickets ?? 0n);
+      const total = BigInt(cfg?.[0] ?? 0n);
+      const probBps = total > 0n ? Number((t * 10000n) / total) : 0;
+      setTicketPosition({ tickets: t, total, probBps });
+    } catch {
+      // Silently fail — position display is informational
+    }
+  }, [client, connectedAddress, bondingCurveAddress]);
+
+  // Load position when sheet opens
+  useEffect(() => {
+    if (open) refreshPosition();
+  }, [open, refreshPosition]);
 
   // Shared hooks
   const { tradingLocked, buyFeeBps, sellFeeBps } = useTradingLockStatus(
@@ -165,7 +202,11 @@ export const BuySellSheet = ({
 
     setIsLoading(true);
     try {
-      await handleBuy(BigInt(parsedQuantity), () => setQuantityInput("1"));
+      const result = await handleBuy(BigInt(parsedQuantity), () => setQuantityInput("1"));
+      if (result?.success) {
+        // Delay briefly for chain indexing, then refresh
+        setTimeout(refreshPosition, 1500);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +218,16 @@ export const BuySellSheet = ({
 
     setIsLoading(true);
     try {
-      await handleSell(BigInt(parsedQuantity), () => setQuantityInput("1"));
+      const result = await handleSell(BigInt(parsedQuantity), () => setQuantityInput("1"));
+      if (result?.success) {
+        setTimeout(refreshPosition, 1500);
+      } else if (result && !result.success) {
+        toast({
+          variant: "destructive",
+          title: t("transactions:sellFailed", { defaultValue: "Sale failed" }),
+          description: result.error || t("common:tryAgain", { defaultValue: "Please try again." }),
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -253,25 +303,14 @@ export const BuySellSheet = ({
               <SheetTitle className="text-xl font-bold">
                 {activeTab === "buy" ? "Buy Tickets" : "Sell Tickets"}
               </SheetTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="hover:bg-foreground/10 p-2 h-8 w-8"
-                  title="Slippage settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                  className="hover:bg-foreground/10 p-2 h-8 w-8"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                className="h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
             <SheetDescription className="text-xs text-muted-foreground">
               {activeTab === "buy"
@@ -281,15 +320,6 @@ export const BuySellSheet = ({
           </div>
         </SheetHeader>
 
-        {showSettings && (
-          <SlippageSettings
-            slippagePct={slippagePct}
-            onSlippageChange={setSlippagePct}
-            onClose={() => setShowSettings(false)}
-            variant="mobile"
-          />
-        )}
-
         <TradingStatusOverlay
           tradingLocked={tradingLocked}
           walletNotConnected={walletNotConnected}
@@ -297,17 +327,11 @@ export const BuySellSheet = ({
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-primary/20 p-1.5">
-            <TabsTrigger
-              value="buy"
-              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-foreground/60 font-semibold"
-            >
+          <TabsList className="w-full mb-6">
+            <TabsTrigger value="buy" className="flex-1">
               BUY
             </TabsTrigger>
-            <TabsTrigger
-              value="sell"
-              className="data-[state=active]:text-primary data-[state=active]:underline data-[state=active]:underline-offset-8 text-foreground/60 font-semibold"
-            >
+            <TabsTrigger value="sell" className="flex-1">
               SELL
             </TabsTrigger>
           </TabsList>
@@ -324,6 +348,40 @@ export const BuySellSheet = ({
               isLoading={isLoading}
               disabled={buyDisabled}
               disabledReason={buyDisabledReason}
+              ticketPosition={ticketPosition}
+              settingsButton={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="h-12 w-12 shrink-0"
+                  title="Slippage settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              }
+              settingsPanel={
+                <AnimatePresence initial={false}>
+                  {showSettings && (
+                    <motion.div
+                      key="slippage"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <SlippageSettings
+                        slippagePct={slippagePct}
+                        onSlippageChange={setSlippagePct}
+                        onClose={() => setShowSettings(false)}
+                        variant="mobile"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              }
             />
           </TabsContent>
 
@@ -341,6 +399,40 @@ export const BuySellSheet = ({
               disabled={sellDisabled}
               disabledReason={sellDisabledReason}
               connectedAddress={connectedAddress}
+              ticketPosition={ticketPosition}
+              settingsButton={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="h-12 w-12 shrink-0"
+                  title="Slippage settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              }
+              settingsPanel={
+                <AnimatePresence initial={false}>
+                  {showSettings && (
+                    <motion.div
+                      key="slippage"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <SlippageSettings
+                        slippagePct={slippagePct}
+                        onSlippageChange={setSlippagePct}
+                        onClose={() => setShowSettings(false)}
+                        variant="mobile"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              }
             />
           </TabsContent>
         </Tabs>

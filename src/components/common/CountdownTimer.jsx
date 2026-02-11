@@ -51,6 +51,22 @@ const CountdownTimer = ({
 
   const { days, hours, minutes, seconds } = countdown;
 
+  // Clock format: 3d 12:34:56 or 12:34:56
+  if (compact === "clock") {
+    return (
+      <span className={`font-mono ${className}`}>
+        {days > 0 && (
+          <>
+            <NumberFlow value={days} />d{" "}
+          </>
+        )}
+        <NumberFlow value={hours} format={{ minimumIntegerDigits: 2 }} />:
+        <NumberFlow value={minutes} format={{ minimumIntegerDigits: 2 }} />:
+        <NumberFlow value={seconds} format={{ minimumIntegerDigits: 2 }} />
+      </span>
+    );
+  }
+
   // Compact format: 2d, 5h, 30m or 5h, 30m, 15s or 30m, 15s
   if (compact) {
     if (days > 0) {
@@ -121,7 +137,7 @@ CountdownTimer.propTypes = {
     .isRequired,
   className: PropTypes.string,
   showSeconds: PropTypes.bool,
-  compact: PropTypes.bool,
+  compact: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(["clock"])]),
   endedText: PropTypes.string,
   onEnd: PropTypes.func,
 };

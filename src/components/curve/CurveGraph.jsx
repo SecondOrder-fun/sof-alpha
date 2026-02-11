@@ -7,6 +7,8 @@ import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 import { getContractAddresses } from "@/config/contracts";
 import { ERC20Abi } from "@/utils/abis";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * BondingCurvePanel
@@ -128,7 +130,7 @@ const BondingCurvePanel = ({
   const width = 640; // will scale via viewBox
   const height = mini ? 160 : compact ? 200 : 320;
   const margin = mini
-    ? { top: 0, right: 8, bottom: 0, left: 8 }
+    ? { top: 0, right: 0, bottom: 0, left: 0 }
     : { top: 10, right: 16, bottom: 24, left: 48 };
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
@@ -215,11 +217,31 @@ const BondingCurvePanel = ({
 
   const onMouseLeave = () => setHover(null);
 
-  // Progress bar tooltip (when hovering a step dot)
-  const [progressTip, setProgressTip] = useState(null); // {leftPct, price, step}
-  const onStepEnter = (leftPct, price, step) =>
-    setProgressTip({ leftPct, price, step });
-  const onProgressLeave = () => setProgressTip(null);
+  // Build steps array for Progress component
+  const progressSteps = useMemo(() => {
+    const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+    if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
+    const count = steps.length;
+    const stride = count > 40 ? Math.ceil(count / 40) : 1;
+    return steps
+      .filter((_, idx) => idx % stride === 0 || idx === count - 1)
+      .map((s, idx) => {
+        const pos = Math.min(
+          100,
+          Math.max(
+            0,
+            Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100,
+          ),
+        );
+        const price = Number(formatUnits(s.price ?? 0n, sofDecimals)).toFixed(4);
+        const stepNum = s?.step ?? idx + 1;
+        return {
+          position: pos,
+          label: `${price} SOF`,
+          sublabel: `${t("step")} #${stepNum}`,
+        };
+      });
+  }, [allBondSteps, maxSupply, sofDecimals, t]);
 
   const containerClassName = mini ? "h-full" : "space-y-4";
   const graphWrapperClassName = mini
@@ -231,9 +253,13 @@ const BondingCurvePanel = ({
       {/* SVG Stepped Curve Visualization */}
       <div className={graphWrapperClassName}>
         {chartData.points.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            {t("noBondingCurveData")}
-          </div>
+          mini ? (
+            <Skeleton className="w-full h-full rounded-none" />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              {t("noBondingCurveData")}
+            </div>
+          )
         ) : (
           <svg
             ref={svgRef}
@@ -449,106 +475,33 @@ const BondingCurvePanel = ({
         <>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="p-2 border rounded">
-              <div className="text-[#c82a54]">{t("currentStep")}</div>
+              <div className="text-primary">{t("currentStep")}</div>
               <div className="font-mono text-lg">
                 {curveStep?.step?.toString?.() ?? "0"}
               </div>
             </div>
             <div className="p-2 border rounded">
-              <div className="text-[#c82a54]">{t("currentPrice")}</div>
+              <div className="text-primary">{t("currentPrice")}</div>
               <div className="font-mono text-lg">{formatSOF(currentPrice)}</div>
             </div>
           </div>
 
           {/* Progress bar moved below the graph */}
           <div>
-            <div className="flex justify-between text-sm text-[#c82a54] mb-1">
+            <div className="flex justify-between text-sm text-primary mb-1">
               <span>{t("bondingCurveProgress")}</span>
               <span>{progressPct.toFixed(2)}%</span>
             </div>
-            <div className="w-full" onMouseLeave={onProgressLeave}>
-              <div className="relative h-3 bg-[#130013] border border-[#c82a54] rounded">
-                <div
-                  className="h-3 bg-[#c82a54] rounded"
-                  style={{ width: `${progressPct}%` }}
-                />
-                {/* Step dots with custom tooltip */}
-                {(() => {
-                  const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
-                  if (steps.length === 0 || !maxSupply || maxSupply === 0n)
-                    return null;
-                  const count = steps.length;
-                  const stride = count > 40 ? Math.ceil(count / 40) : 1;
-                  return (
-                    <>
-                      {steps.map((s, idx) => {
-                        if (idx % stride !== 0 && idx !== count - 1)
-                          return null;
-                        const leftPct = Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            Number(
-                              (BigInt(s.rangeTo ?? 0) * 10000n) /
-                                (maxSupply || 1n),
-                            ) / 100,
-                          ),
-                        );
-                        // Skip rendering a dot at the extreme right edge (100%) to remove the right-most circle
-                        if (leftPct >= 100) return null;
-                        const price = Number(
-                          formatUnits(s.price ?? 0n, sofDecimals),
-                        ).toFixed(4);
-                        const stepNum = s?.step ?? idx + 1;
-                        return (
-                          <div
-                            key={`dot-${idx}`}
-                            className="absolute -top-1 translate-x-[-50%] w-2 h-2 rounded-full bg-primary border border-[#c82a54] shadow cursor-help"
-                            style={{ left: `${leftPct}%` }}
-                            onMouseEnter={() =>
-                              onStepEnter(leftPct, price, String(stepNum))
-                            }
-                            aria-label={`${t("step")} ${String(stepNum)} ${t(
-                              "common:price",
-                            )} ${price} SOF`}
-                          />
-                        );
-                      })}
-                      {progressTip && (
-                        <div
-                          className="absolute -top-10 translate-x-[-50%] px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs border shadow"
-                          style={{ left: `${progressTip.leftPct}%` }}
-                          role="tooltip"
-                          aria-label={`${t("step")} ${progressTip.step} ${t(
-                            "common:price",
-                          )} ${progressTip.price} SOF`}
-                          // Prevent tooltip from capturing the mouse and causing flicker
-                          onMouseEnter={(e) => e.stopPropagation()}
-                          onMouseMove={(e) => e.stopPropagation()}
-                          onMouseLeave={(e) => e.stopPropagation()}
-                        >
-                          <div className="font-mono">
-                            {progressTip.price} SOF
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {t("step")} #{progressTip.step}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-            <div className="mt-1 text-xs text-[#f9d6de]">
-              {t("supply")}:{" "}
-              <span className="font-mono">
-                {curveSupply?.toString?.() ?? "0"}
-              </span>{" "}
-              /{" "}
-              <span className="font-mono">
-                {maxSupply?.toString?.() ?? "0"}
+            <Progress
+              value={progressPct}
+              steps={progressSteps}
+              className="h-3"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>
+                {t("supply")}: {curveSupply?.toString?.() ?? "0"}
               </span>
+              <span>{maxSupply?.toString?.() ?? "0"} max</span>
             </div>
           </div>
         </>

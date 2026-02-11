@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
@@ -109,27 +110,29 @@ export const MobileRafflesList = ({
           <h1 className="text-2xl font-bold text-foreground">{t("raffles")}</h1>
           {!isLoading && seasons.length > 1 && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handlePrevious}
-                className="h-8 w-8"
-                aria-label="Previous raffle"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
+              <ButtonGroup>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePrevious}
+                  className="h-8 w-8"
+                  aria-label="Previous raffle"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNext}
+                  className="h-8 w-8"
+                  aria-label="Next raffle"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </ButtonGroup>
+              <span className="text-sm text-muted-foreground font-mono">
                 {currentIndex + 1} / {seasons.length}
               </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleNext}
-                className="h-8 w-8"
-                aria-label="Next raffle"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
           )}
         </div>

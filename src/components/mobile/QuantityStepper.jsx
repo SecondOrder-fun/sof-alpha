@@ -7,6 +7,7 @@ import PropTypes from "prop-types";
 import { Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
 
 export const QuantityStepper = ({
@@ -17,6 +18,7 @@ export const QuantityStepper = ({
   step = 1,
   maxValidationMessage,
   minValidationMessage,
+  trailing,
   className = "",
 }) => {
   const [inputValue, setInputValue] = useState(() => `${value}`);
@@ -88,16 +90,6 @@ export const QuantityStepper = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <Button
-        size="sm"
-        onClick={handleDecrement}
-        disabled={parsedCurrent <= min}
-        className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary disabled:opacity-30 disabled:bg-primary/50 p-2"
-        type="button"
-      >
-        <Minus className="w-5 h-5" />
-      </Button>
-
       <Input
         type="number"
         value={inputValue}
@@ -105,18 +97,32 @@ export const QuantityStepper = ({
         onInvalid={handleInvalid}
         min={min}
         max={max}
-        className="flex-1 h-12 text-center text-foreground text-lg font-semibold bg-background/30 border-border"
+        className="flex-1 h-12 text-center text-lg font-semibold"
       />
 
-      <Button
-        size="sm"
-        onClick={handleIncrement}
-        disabled={parsedCurrent >= max}
-        className="h-12 w-12 bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-primary disabled:opacity-30 disabled:bg-primary/50 p-2"
-        type="button"
-      >
-        <Plus className="w-5 h-5" />
-      </Button>
+      <ButtonGroup>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={handleDecrement}
+          disabled={parsedCurrent <= min}
+          className="h-12 w-12 shrink-0"
+          type="button"
+        >
+          <Minus className="w-5 h-5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={handleIncrement}
+          disabled={parsedCurrent >= max}
+          className="h-12 w-12 shrink-0"
+          type="button"
+        >
+          <Plus className="w-5 h-5" />
+        </Button>
+        {trailing}
+      </ButtonGroup>
     </div>
   );
 };
@@ -129,6 +135,7 @@ QuantityStepper.propTypes = {
   step: PropTypes.number,
   maxValidationMessage: PropTypes.string,
   minValidationMessage: PropTypes.string,
+  trailing: PropTypes.node,
   className: PropTypes.string,
 };
 
