@@ -746,8 +746,35 @@ export const useAuth = () => {
 
 ### Wallet Connection
 
+**Architecture:** `WagmiConfigProvider` (`src/context/WagmiConfigProvider.jsx`) creates the Wagmi config at module level with two connector sources:
+
+1. **Farcaster Mini App connector** — always present, auto-connects inside Farcaster frames
+2. **RainbowKit wallet connectors** — `coinbaseWallet`, `metaMaskWallet`, `walletConnectWallet` via `connectorsForWallets`
+
+**Environment requirement:** `VITE_WALLETCONNECT_PROJECT_ID` must be set for RainbowKit connectors to load. Without it, only the Farcaster connector is available. **This env var must be added to Vercel** (production + preview) whenever a new project is set up.
+
+**Guard pattern:** Because `connectorsForWallets` runs at module evaluation time, it **must** be guarded — an empty `projectId` will throw and crash the entire app before React mounts:
+
+```js
+// CORRECT — guard at module level
+const walletProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
+const rainbowWalletConnectors = walletProjectId
+  ? connectorsForWallets([...wallets], { appName: "SecondOrder.fun", projectId: walletProjectId })
+  : [];
+
+export const config = createConfig({
+  connectors: [farcasterMiniApp(), ...rainbowWalletConnectors],
+  // ...
+});
+```
+
+**Rules:**
+- Never call `connectorsForWallets` without checking that `projectId` is non-empty
+- Always add new `VITE_*` env vars to both Vercel environments and `.env.example`
+- Module-level code that depends on env vars must have fallback behavior (not throw)
+
 ```jsx
-// File: src/components/wallet/WalletConnection.jsx
+// Basic wallet connection pattern in components
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 

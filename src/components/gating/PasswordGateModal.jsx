@@ -118,7 +118,7 @@ export const PasswordGateModal = ({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="bottom"
-        className="bg-background border-t-2 border-primary rounded-t-2xl px-4 pb-8 max-w-screen-sm mx-auto"
+        className="bg-background border-t-2 border-primary rounded-t-2xl px-4 pb-8 max-w-[100vw] box-border"
       >
         <SheetHeader className="mb-6">
           <div className="flex items-center gap-2">
