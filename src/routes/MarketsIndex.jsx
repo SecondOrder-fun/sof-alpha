@@ -10,11 +10,11 @@ import InfoFiMarketCard from "@/components/infofi/InfoFiMarketCard";
 // import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
-import useIsMobile from "@/hooks/useIsMobile";
+import { usePlatform } from "@/hooks/usePlatform";
 import MobileMarkets from "@/components/mobile/MobileMarkets";
 
 const MarketsIndex = () => {
-  const isMobile = useIsMobile();
+  const { isMobile } = usePlatform();
 
   // Mobile view - render mobile component
   if (isMobile) {

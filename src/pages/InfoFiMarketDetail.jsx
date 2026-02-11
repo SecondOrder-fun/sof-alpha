@@ -13,6 +13,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRaffleRead } from "@/hooks/useRaffleRead";
 import { formatDistanceToNow, format } from "date-fns";
 import { useState } from "react";
+import { usePlatform } from "@/hooks/usePlatform";
+import MobileMarketDetail from "@/components/mobile/MobileMarketDetail";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -23,6 +25,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const InfoFiMarketDetail = () => {
   const { marketId } = useParams();
   const { t } = useTranslation("market");
+  const { isMobile } = usePlatform();
 
   // Fetch market data from backend API
   const { data: marketData, isLoading } = useQuery({
@@ -75,6 +78,11 @@ const InfoFiMarketDetail = () => {
         </Card>
       </div>
     );
+  }
+
+  // Mobile detail view
+  if (isMobile) {
+    return <MobileMarketDetail market={market} marketId={marketId} />;
   }
 
   const isWinnerPrediction = market.market_type === "WINNER_PREDICTION";
