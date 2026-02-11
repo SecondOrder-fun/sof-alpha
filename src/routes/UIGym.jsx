@@ -91,6 +91,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContentBox, ImportantBox } from '@/components/ui/content-box';
 import { Progress } from '@/components/ui/progress';
+import MiniCurveChart from '@/components/curve/MiniCurveChart';
 import {
   Accordion,
   AccordionContent,
@@ -432,6 +433,47 @@ const UIGym = () => {
                       <Progress value={100} className="h-2" />
                     </div>
                   </div>
+                </div>
+              </Subsection>
+
+              <Subsection title="Mini Curve Chart">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Recharts-based mini bonding curve. Fills container height responsively.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border border-primary rounded-lg overflow-hidden h-40">
+                    <MiniCurveChart
+                      curveSupply={500n}
+                      allBondSteps={[
+                        { rangeTo: 100n, price: 1000000000000000000n, step: 1n },
+                        { rangeTo: 300n, price: 2000000000000000000n, step: 2n },
+                        { rangeTo: 600n, price: 3000000000000000000n, step: 3n },
+                        { rangeTo: 1000n, price: 5000000000000000000n, step: 4n },
+                      ]}
+                    />
+                  </div>
+                  <div className="border border-primary rounded-lg overflow-hidden h-40">
+                    <MiniCurveChart
+                      curveSupply={0n}
+                      allBondSteps={[
+                        { rangeTo: 50n, price: 500000000000000000n, step: 1n },
+                        { rangeTo: 150n, price: 1000000000000000000n, step: 2n },
+                        { rangeTo: 300n, price: 1500000000000000000n, step: 3n },
+                        { rangeTo: 500n, price: 2000000000000000000n, step: 4n },
+                        { rangeTo: 750n, price: 3000000000000000000n, step: 5n },
+                        { rangeTo: 1000n, price: 5000000000000000000n, step: 6n },
+                      ]}
+                    />
+                  </div>
+                </div>
+                <div className="border border-primary rounded-lg overflow-hidden h-24 mt-4">
+                  <MiniCurveChart
+                    curveSupply={200n}
+                    allBondSteps={[
+                      { rangeTo: 250n, price: 1000000000000000000n, step: 1n },
+                      { rangeTo: 500n, price: 4000000000000000000n, step: 2n },
+                    ]}
+                  />
                 </div>
               </Subsection>
 

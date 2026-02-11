@@ -11,7 +11,7 @@ const Card = React.forwardRef(({ className, children, ...props }, ref) => (
     )}
     {...props}
   >
-    <div className="rounded-md h-full overflow-hidden bg-[var(--card-inner-bg)] border border-border text-card-foreground">
+    <div className="rounded-md h-full overflow-hidden bg-[var(--card-inner-bg)] border border-border text-card-foreground flex flex-col">
       {children}
     </div>
   </div>
