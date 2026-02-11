@@ -468,6 +468,28 @@ The canonical `Button` component (`src/components/ui/button.jsx`) supports:
 
 Use `asChild` prop to render a `<Button>` as an anchor or other element while keeping button styling.
 
+#### Farcaster / Mobile Touch UX — Pointer-Event Pressed State
+
+**Policy:** The CSS `:active` pseudo-class MUST NOT be used on buttons. On mobile browsers and embedded Farcaster frames, `:active` states can become "stuck" after a touch ends, leaving buttons visually pressed. Instead, the `Button` component uses pointer events to manage a `data-pressed` DOM attribute.
+
+**How it works:**
+
+1. `onPointerDown` sets `data-pressed` on the element
+2. `onPointerUp`, `onPointerCancel`, and `onPointerLeave` remove it
+3. Tailwind's `data-[pressed]:` selector replaces all `active:` prefixes
+
+```jsx
+// ❌ WRONG — CSS :active gets stuck on touch UIs
+className="bg-primary active:bg-primary/60"
+
+// ✅ CORRECT — pointer-event driven, clears when touch ends
+className="bg-primary data-[pressed]:bg-primary/60"
+```
+
+This is implemented in the core `Button` component (`src/components/ui/button.jsx`). The pointer event handlers forward to any consumer-supplied `onPointerDown` / `onPointerUp` / `onPointerLeave` props, so existing usage is unaffected. No React state is involved — the `dataset` API is used directly for zero re-renders.
+
+**Rule:** Never add `active:` Tailwind prefixes to any `Button` variant. Always use `data-[pressed]:` instead.
+
 ### Tailwind CSS Best Practices
 
 #### 1. Use Utility Classes
