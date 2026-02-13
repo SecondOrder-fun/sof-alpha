@@ -68,7 +68,9 @@ import RaffleList from "./routes/RaffleList";
 import RaffleDetails from "./routes/RaffleDetails";
 import AdminPanel from "./routes/AdminPanel";
 import AccountPage from "./routes/AccountPage";
-import MarketsIndex from "./routes/MarketsIndex";
+import MarketsIndex, {
+  MarketsLoadingSkeleton,
+} from "./routes/MarketsIndex";
 import UsersIndex from "./routes/UsersIndex";
 import UserProfile from "./routes/UserProfile";
 import FaucetPage from "./routes/FaucetPage";
@@ -106,8 +108,12 @@ const router = createBrowserRouter([
           <ProtectedRoute
             route="__feature__/prediction_markets"
             redirectTo="/raffles"
+            loadingComponent={<MarketsLoadingSkeleton />}
           >
-            <ProtectedRoute route="/markets">
+            <ProtectedRoute
+              route="/markets"
+              loadingComponent={<MarketsLoadingSkeleton />}
+            >
               <MarketsIndex />
             </ProtectedRoute>
           </ProtectedRoute>
