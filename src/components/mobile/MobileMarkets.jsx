@@ -2,19 +2,23 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
-import SeasonCarousel from "@/components/infofi/SeasonCarousel";
-import MarketTypeCarousel from "@/components/infofi/MarketTypeCarousel";
-import MarketCarousel from "@/components/infofi/MarketCarousel";
-import InfoFiMarketCardMobile from "@/components/infofi/InfoFiMarketCardMobile";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MobileMarketsList from "@/components/mobile/MobileMarketsList";
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 
 /**
- * MobileMarkets - Farcaster/Base App mobile-first InfoFi Markets page
- * Separate from the main MarketsIndex page for desktop users
+ * MobileMarkets - Mobile-first InfoFi Markets page
+ * Select dropdown for season + Tabs for market type + MobileMarketsList carousel
  */
 const MobileMarkets = () => {
-  const [currentMarketIndex, setCurrentMarketIndex] = useState(0);
   const { t } = useTranslation(["market", "common"]);
 
   // Get all seasons
@@ -41,10 +45,11 @@ const MobileMarkets = () => {
     }
   }, [activeSeasonId, selectedSeasonId]);
 
-  // Fetch markets only for the selected season (to avoid over-fetching)
+  // Fetch markets only for the selected season
   const selectedSeasonArray = useMemo(() => {
     if (!selectedSeasonId || selectedSeasonId === "0") return [];
-    const season = seasons.find(
+    const arr = Array.isArray(seasons) ? seasons : [];
+    const season = arr.find(
       (s) => String(s.id ?? s.seasonId) === selectedSeasonId
     );
     return season ? [season] : [];
@@ -87,38 +92,29 @@ const MobileMarkets = () => {
     return marketsByType[selectedMarketType] || [];
   }, [marketsByType, selectedMarketType]);
 
-  // Market types with counts
-  const marketTypes = useMemo(() => {
-    return [
-      {
-        type: "WINNER_PREDICTION",
-        name: t("market:winnerPrediction"),
-        count: marketsByType.WINNER_PREDICTION.length,
-      },
-      {
-        type: "POSITION_SIZE",
-        name: t("market:positionSize"),
-        count: marketsByType.POSITION_SIZE.length,
-      },
-      {
-        type: "BEHAVIORAL",
-        name: t("market:behavioral"),
-        count: marketsByType.BEHAVIORAL.length,
-      },
-    ].filter((mt) => mt.count > 0); // Only show types with markets
-  }, [marketsByType, t]);
-
-  // Reset market index when season or type changes
-  useEffect(() => {
-    setCurrentMarketIndex(0);
-  }, [selectedSeasonId, selectedMarketType]);
+  // Only show types that have markets
+  const availableTypes = useMemo(() => {
+    const labels = {
+      WINNER_PREDICTION: "Win?",
+      POSITION_SIZE: "Tix #",
+      BEHAVIORAL: "Hodl/Dump?",
+    };
+    return Object.entries(marketsByType)
+      .filter(([, arr]) => arr.length > 0)
+      .map(([type, arr]) => ({
+        type,
+        label: labels[type] || type,
+        count: arr.length,
+      }));
+  }, [marketsByType]);
 
   const isLoading = seasonsLoading || marketsLoading;
+  const seasonsArr = Array.isArray(seasons) ? seasons : [];
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Page Title */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground text-left">
           {t("market:infoFiMarkets")}
         </h1>
@@ -142,44 +138,66 @@ const MobileMarkets = () => {
         </Card>
       )}
 
-      {/* Carousel Navigation */}
-      {!isLoading && !error && seasons.length > 0 && (
+      {/* Main content */}
+      {!isLoading && !error && seasonsArr.length > 0 && (
         <div className="space-y-4">
-          {/* Season Selector */}
-          <SeasonCarousel
-            seasons={seasons}
-            selectedSeasonId={selectedSeasonId}
-            onSeasonChange={setSelectedSeasonId}
+          {/* Season Select dropdown */}
+          <Select
+            value={selectedSeasonId}
+            onValueChange={setSelectedSeasonId}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select season" />
+            </SelectTrigger>
+            <SelectContent>
+              {seasonsArr.map((s) => {
+                const id = String(s.id ?? s.seasonId);
+                const isActive = Number(s.status) === 1;
+                return (
+                  <SelectItem key={id} value={id}>
+                    Season #{id}
+                    {s.config?.name ? ` - ${s.config.name}` : ""}
+                    {isActive ? " (Active)" : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {/* Market Type Tabs */}
+          {availableTypes.length > 0 && (
+            <Tabs
+              value={selectedMarketType}
+              onValueChange={setSelectedMarketType}
+            >
+              <TabsList className="w-full">
+                {availableTypes.map((mt) => (
+                  <TabsTrigger
+                    key={mt.type}
+                    value={mt.type}
+                    className="flex-1 text-xs"
+                  >
+                    {mt.label} ({mt.count})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+
+          {/* Markets Carousel */}
+          <MobileMarketsList
+            markets={filteredMarkets}
+            isLoading={marketsLoading}
           />
-
-          {/* Market Type Selector */}
-          {marketTypes.length > 0 && (
-            <MarketTypeCarousel
-              marketTypes={marketTypes}
-              selectedType={selectedMarketType}
-              onTypeChange={setSelectedMarketType}
-            />
-          )}
-
-          {/* Market Cards Carousel - Only render when there are markets */}
-          {filteredMarkets.length > 0 && (
-            <MarketCarousel
-              markets={filteredMarkets}
-              currentIndex={currentMarketIndex}
-              onIndexChange={setCurrentMarketIndex}
-              renderMarket={(market) => (
-                <InfoFiMarketCardMobile key={market.id} market={market} />
-              )}
-            />
-          )}
         </div>
       )}
 
       {/* No Markets State */}
       {!isLoading &&
         !error &&
-        seasons.length > 0 &&
-        filteredMarkets.length === 0 && (
+        seasonsArr.length > 0 &&
+        filteredMarkets.length === 0 &&
+        !marketsLoading && (
           <Card className="text-center py-12">
             <CardContent className="space-y-4">
               <div className="text-6xl mb-4">📊</div>
@@ -198,7 +216,7 @@ const MobileMarkets = () => {
         )}
 
       {/* No Seasons State */}
-      {!isLoading && !error && seasons.length === 0 && (
+      {!isLoading && !error && seasonsArr.length === 0 && (
         <Card className="text-center py-12">
           <CardContent className="space-y-4">
             <div className="text-6xl mb-4">🎲</div>

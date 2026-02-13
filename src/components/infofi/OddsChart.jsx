@@ -20,14 +20,23 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 /**
  * OddsChart Component
  * Displays odds over time for a prediction market
- * X-axis: Time (from market start to raffle season end)
- * Y-axis: Probability (0-100%)
- * Green line: YES odds
- * Red line: NO odds
+ *
+ * Modes:
+ * - default: Full chart with YES/NO lines, all time tabs, legend
+ * - compact: Shorter chart, YES line only, fewer tabs (6H,1D,1W,All), smaller text
+ * - mini: Bare chart line only (no tabs, no legend, no grid), for card thumbnails
+ *
+ * @param {Object} props
+ * @param {string|number} props.marketId
+ * @param {boolean} props.compact - Compact mode for detail views
+ * @param {boolean} props.mini - Minimal mode for card thumbnails (overrides compact)
  */
-const OddsChart = ({ marketId }) => {
+const OddsChart = ({ marketId, compact = false, mini = false }) => {
   const { t } = useTranslation("market");
   const [timeRange, setTimeRange] = React.useState("ALL");
+
+  // In mini mode, always use ALL
+  const effectiveRange = mini ? "ALL" : timeRange;
 
   // Fetch historical odds data
   const {
@@ -35,34 +44,34 @@ const OddsChart = ({ marketId }) => {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["oddsHistory", marketId, timeRange],
+    queryKey: ["oddsHistory", marketId, effectiveRange],
     queryFn: async () => {
       const response = await fetch(
-        `${API_BASE}/infofi/markets/${marketId}/history?range=${timeRange}`
+        `${API_BASE}/infofi/markets/${marketId}/history?range=${effectiveRange}`
       );
       if (!response.ok) throw new Error("Failed to fetch odds history");
       return response.json();
     },
     enabled: !!marketId,
-    retry: 1, // Only retry once
+    retry: 1,
   });
 
-  // Transform data for Recharts - NO MOCK DATA
+  // Transform data for Recharts
   const chartData = React.useMemo(() => {
     if (!oddsHistory?.dataPoints || oddsHistory.dataPoints.length === 0) {
-      return null; // Return null if no data available
+      return null;
     }
 
     return oddsHistory.dataPoints.map((point) => ({
       timestamp: new Date(point.timestamp).toISOString(),
-      yes: point.yes_bps / 100, // Convert basis points to percentage
+      yes: point.yes_bps / 100,
       no: point.no_bps / 100,
     }));
   }, [oddsHistory]);
 
-  // Custom tooltip
+  // Custom tooltip (hidden in mini mode)
   const CustomTooltip = ({ active, payload }) => {
-    if (!active || !payload?.length) return null;
+    if (mini || !active || !payload?.length) return null;
 
     const data = payload[0].payload;
 
@@ -80,12 +89,16 @@ const OddsChart = ({ marketId }) => {
               {data.yes.toFixed(1)}%
             </span>
           </div>
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium text-rose-600">{t("no")}</span>
-            <span className="text-sm font-bold text-rose-600">
-              {data.no.toFixed(1)}%
-            </span>
-          </div>
+          {!compact && !mini && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm font-medium text-rose-600">
+                {t("no")}
+              </span>
+              <span className="text-sm font-bold text-rose-600">
+                {data.no.toFixed(1)}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -101,7 +114,7 @@ const OddsChart = ({ marketId }) => {
     try {
       const date = parseISO(timestamp);
 
-      switch (timeRange) {
+      switch (effectiveRange) {
         case "1H":
         case "6H":
           return format(date, "HH:mm");
@@ -120,53 +133,107 @@ const OddsChart = ({ marketId }) => {
     }
   };
 
+  // Derive height class
+  const heightClass = mini ? "h-24" : compact ? "h-40" : "h-96";
+
   // Show loading state
   if (isLoading) {
     return (
-      <div className="h-96 flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
+      <div className={`${heightClass} flex items-center justify-center`}>
+        <div className="animate-pulse text-muted-foreground text-sm">
           {t("loadingChart")}
         </div>
       </div>
     );
   }
 
-  // Show error message if data cannot be retrieved
+  // Show error/empty
   if (error || !chartData || chartData.length === 0) {
     return (
-      <div className="h-96 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">
+      <div className={`${heightClass} flex items-center justify-center`}>
+        <div className="text-center space-y-1">
+          <p className="text-muted-foreground text-xs">
             {t("cannotRetrieveChartData")}
           </p>
-          {error && <p className="text-xs text-red-500">{error.message}</p>}
         </div>
       </div>
     );
   }
 
+  // ── Mini mode: chart with grid + axes + legend, no tabs ──
+  if (mini) {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1 text-xs">
+          <div className="w-3 h-0.5 bg-emerald-500"></div>
+          <span className="text-muted-foreground">{t("yes")}</span>
+        </div>
+        <div className={heightClass}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            margin={{ top: 2, right: 2, left: -25, bottom: 2 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={formatXAxis}
+              stroke="#9ca3af"
+              style={{ fontSize: "9px" }}
+              tickLine={false}
+            />
+            <YAxis
+              domain={[0, 100]}
+              ticks={[0, 50, 100]}
+              tickFormatter={(value) => `${value}%`}
+              stroke="#9ca3af"
+              style={{ fontSize: "9px" }}
+              tickLine={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="yes"
+              stroke="#10b981"
+              strokeWidth={2}
+              dot={false}
+              activeDot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Compact / Full mode ──
   return (
-    <div className="space-y-4">
-      {/* Time range selector */}
+    <div className={compact ? "space-y-2" : "space-y-4"}>
+      {/* Time range selector + legend */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm">
+          <div
+            className={`flex items-center gap-2 ${compact ? "text-xs" : "text-sm"}`}
+          >
             <div className="flex items-center gap-1">
               <div className="w-3 h-0.5 bg-emerald-500"></div>
               <span className="text-muted-foreground">{t("yes")}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-rose-500"></div>
-              <span className="text-muted-foreground">{t("no")}</span>
-            </div>
+            {!compact && (
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-0.5 bg-rose-500"></div>
+                <span className="text-muted-foreground">{t("no")}</span>
+              </div>
+            )}
           </div>
         </div>
 
         <Tabs value={timeRange} onValueChange={setTimeRange}>
-          <TabsList className="h-8">
-            <TabsTrigger value="1H" className="text-xs px-2">
-              1H
-            </TabsTrigger>
+          <TabsList className={compact ? "h-7" : "h-8"}>
+            {!compact && (
+              <TabsTrigger value="1H" className="text-xs px-2">
+                1H
+              </TabsTrigger>
+            )}
             <TabsTrigger value="6H" className="text-xs px-2">
               6H
             </TabsTrigger>
@@ -176,9 +243,11 @@ const OddsChart = ({ marketId }) => {
             <TabsTrigger value="1W" className="text-xs px-2">
               1W
             </TabsTrigger>
-            <TabsTrigger value="1M" className="text-xs px-2">
-              1M
-            </TabsTrigger>
+            {!compact && (
+              <TabsTrigger value="1M" className="text-xs px-2">
+                1M
+              </TabsTrigger>
+            )}
             <TabsTrigger value="ALL" className="text-xs px-2">
               {t("all")}
             </TabsTrigger>
@@ -187,26 +256,30 @@ const OddsChart = ({ marketId }) => {
       </div>
 
       {/* Chart */}
-      <div className="h-96">
+      <div className={heightClass}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+            margin={
+              compact
+                ? { top: 2, right: 2, left: -25, bottom: 2 }
+                : { top: 5, right: 5, left: -20, bottom: 5 }
+            }
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatXAxis}
               stroke="#9ca3af"
-              style={{ fontSize: "12px" }}
+              style={{ fontSize: compact ? "10px" : "12px" }}
               tickLine={false}
             />
             <YAxis
               domain={[0, 100]}
-              ticks={[0, 20, 40, 60, 80, 100]}
+              ticks={compact ? [0, 50, 100] : [0, 20, 40, 60, 80, 100]}
               tickFormatter={(value) => `${value}%`}
               stroke="#9ca3af"
-              style={{ fontSize: "12px" }}
+              style={{ fontSize: compact ? "10px" : "12px" }}
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -216,16 +289,18 @@ const OddsChart = ({ marketId }) => {
               stroke="#10b981"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4 }}
+              activeDot={{ r: compact ? 3 : 4 }}
             />
-            <Line
-              type="monotone"
-              dataKey="no"
-              stroke="#ef4444"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
+            {!compact && (
+              <Line
+                type="monotone"
+                dataKey="no"
+                stroke="#ef4444"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -236,6 +311,8 @@ const OddsChart = ({ marketId }) => {
 OddsChart.propTypes = {
   marketId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     .isRequired,
+  compact: PropTypes.bool,
+  mini: PropTypes.bool,
 };
 
 export default OddsChart;
