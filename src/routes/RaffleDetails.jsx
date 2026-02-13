@@ -80,6 +80,15 @@ const RaffleDetails = () => {
   // ── Created block for efficient event queries ──
   const { createdBlock } = useSeasonBlock(seasonIdNumber);
 
+  const nowSec = Math.floor(Date.now() / 1000);
+  const startTimeSec = seasonDetailsQuery?.data?.config?.startTime
+    ? Number(seasonDetailsQuery.data.config.startTime)
+    : null;
+  const isPreStartSeason =
+    startTimeSec !== null && Number.isFinite(startTimeSec)
+      ? nowSec < startTimeSec
+      : false;
+
   const {
     curveSupply,
     curveReserves,
@@ -89,7 +98,7 @@ const RaffleDetails = () => {
   } = useCurveState(bondingCurveAddress, {
     isActive: isActiveSeason,
     pollMs: 12000,
-    enabled: isActiveSeason,
+    enabled: isActiveSeason || isPreStartSeason,
     includeSteps: !isCompletedSeason,
     includeFees: !isCompletedSeason,
   });
@@ -623,11 +632,6 @@ const RaffleDetails = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
                 {(() => {
                   if (!chainNow) return null;
-                  const startTs = Number(cfg.startTime);
-                  const preStart = Number.isFinite(startTs)
-                    ? chainNow < startTs
-                    : false;
-                  if (preStart) return null;
 
                   return (
                     <Card className="lg:col-span-2">

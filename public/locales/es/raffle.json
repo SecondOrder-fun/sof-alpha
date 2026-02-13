@@ -206,5 +206,8 @@
   "updating": "Actualizando...",
   "raffles": "Sorteos",
   "ticketsSold": "Tickets vendidos",
-  "yourTickets": "Tus tickets"
+  "yourTickets": "Tus tickets",
+  "startingPrice": "Precio inicial (SOF)",
+  "startsIn": "Empieza en",
+  "raffleNotStarted": "Esta rifa aún no ha comenzado"
 }

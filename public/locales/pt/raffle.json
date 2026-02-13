@@ -206,5 +206,8 @@
   "raffles": "Sorteios",
   "ticketsSold": "Tickets vendidos",
   "yourTickets": "Seus tickets",
-  "raffleEnded": "Este sorteio terminou."
+  "raffleEnded": "Este sorteio terminou.",
+  "startingPrice": "Preço inicial (SOF)",
+  "startsIn": "Começa em",
+  "raffleNotStarted": "Esta rifa ainda não começou"
 }

@@ -206,5 +206,8 @@
   "updating": "Aktualisierung...",
   "raffles": "Verlosungen",
   "ticketsSold": "Verkaufte Tickets",
-  "yourTickets": "Ihre Tickets"
+  "yourTickets": "Ihre Tickets",
+  "startingPrice": "Startpreis (SOF)",
+  "startsIn": "Startet in",
+  "raffleNotStarted": "Diese Verlosung hat noch nicht begonnen"
 }

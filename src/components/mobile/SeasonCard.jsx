@@ -78,7 +78,7 @@ export const SeasonCard = ({
   const winnerSummaryQuery = useSeasonWinnerSummary(seasonId, status);
   const curveState = useCurveState(seasonConfig?.bondingCurve, {
     isActive: isActiveSeason,
-    enabled: isActiveSeason,
+    enabled: isActiveSeason || isPreStart,
     pollMs: 15000,
     includeFees: false,
   });
@@ -125,9 +125,9 @@ export const SeasonCard = ({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 pt-0 flex-1 min-h-0">
-        {!isSeasonEnded && !isPreStart && (
+        {/* Mini Curve Graph — shown for active AND pre-start */}
+        {!isSeasonEnded && (
           <>
-            {/* Mini Curve Graph */}
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */}
             <div
               className="bg-muted/40 overflow-hidden flex-1 min-h-0 border border-primary rounded-lg outline-none [&_*]:outline-none"
@@ -141,28 +141,54 @@ export const SeasonCard = ({
               />
             </div>
 
-            {/* Grand Prize */}
-            <ImportantBox className="flex items-center justify-between px-3 py-2">
-              <span className="text-xs text-primary-foreground/80 uppercase tracking-wide">
-                {t("raffle:grandPrize")}
-              </span>
-              <span className="font-bold text-primary-foreground">
-                {formatSOF(grandPrize)} $SOF
-              </span>
-            </ImportantBox>
+            {/* Grand Prize — only for active seasons */}
+            {!isPreStart && (
+              <ImportantBox className="flex items-center justify-between px-3 py-2">
+                <span className="text-xs text-primary-foreground/80 uppercase tracking-wide">
+                  {t("raffle:grandPrize")}
+                </span>
+                <span className="font-bold text-primary-foreground">
+                  {formatSOF(grandPrize)} $SOF
+                </span>
+              </ImportantBox>
+            )}
 
-            {/* Current Price + Countdown — same row */}
+            {/* Pre-start: "This raffle hasn't started yet" */}
+            {isPreStart && (
+              <ImportantBox className="flex items-center justify-center px-3 py-2">
+                <span className="text-sm text-primary-foreground font-semibold">
+                  {t("raffle:raffleNotStarted", { defaultValue: "This raffle hasn't started yet" })}
+                </span>
+              </ImportantBox>
+            )}
+
+            {/* Price + Countdown — same row */}
             <div className="flex gap-2">
               <ContentBox style={{ flex: "35" }}>
                 <div className="text-xs text-muted-foreground mb-1">
-                  Current Price
+                  {isPreStart
+                    ? t("raffle:startingPrice", { defaultValue: "Starting Price (SOF)" })
+                    : t("raffle:currentPrice")}
                 </div>
                 <div className="font-mono text-base">
                   {formatSOF(displayCurveStep?.price)} SOF
                 </div>
               </ContentBox>
 
-              {seasonConfig?.endTime && (
+              {isPreStart && startTimeSec !== null && (
+                <ImportantBox style={{ flex: "65" }}>
+                  <div className="text-xs text-primary-foreground/80 mb-1">
+                    {t("raffle:startsIn", { defaultValue: "Starts in" })}
+                  </div>
+                  <CountdownTimer
+                    targetTimestamp={startTimeSec}
+                    compact
+                    className="text-primary-foreground font-bold text-base"
+                  />
+                </ImportantBox>
+              )}
+
+              {!isPreStart && seasonConfig?.endTime && (
                 <ImportantBox style={{ flex: "65" }}>
                   <div className="text-xs text-primary-foreground/80 mb-1">
                     {t("raffle:endsIn")}
@@ -177,20 +203,6 @@ export const SeasonCard = ({
             </div>
             <Separator />
           </>
-        )}
-
-        {/* Pre-start countdown — full width */}
-        {isPreStart && startTimeSec !== null && (
-          <ImportantBox className="p-4">
-            <div className="text-xs text-primary-foreground/80 mb-1">
-              {t("startsIn", { defaultValue: "Raffle starts in" })}
-            </div>
-            <CountdownTimer
-              targetTimestamp={startTimeSec}
-              compact
-              className="text-primary-foreground font-bold text-lg"
-            />
-          </ImportantBox>
         )}
 
         {isSeasonEnded && !isCompleted && (

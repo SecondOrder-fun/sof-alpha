@@ -206,5 +206,8 @@
   "sectionPrizeSettings": "Prizes",
   "sectionBondingCurve": "Pricing",
   "sponsoredPrizeLabel": "Sponsored Prize",
-  "sponsoredPrizeHelp": "Add additional ERC-20 or ERC-721 tokens to the grand prize. Coming soon."
+  "sponsoredPrizeHelp": "Add additional ERC-20 or ERC-721 tokens to the grand prize. Coming soon.",
+  "startingPrice": "Starting Price (SOF)",
+  "startsIn": "Starts in",
+  "raffleNotStarted": "This raffle hasn't started yet"
 }

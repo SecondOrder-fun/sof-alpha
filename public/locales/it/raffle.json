@@ -206,5 +206,8 @@
   "raffles": "Lotterie",
   "ticketsSold": "Ticket venduti",
   "yourTickets": "I tuoi ticket",
-  "raffleEnded": "Questa lotteria è terminata."
+  "raffleEnded": "Questa lotteria è terminata.",
+  "startingPrice": "Prezzo iniziale (SOF)",
+  "startsIn": "Inizia tra",
+  "raffleNotStarted": "Questa lotteria non è ancora iniziata"
 }

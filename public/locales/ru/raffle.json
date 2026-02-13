@@ -206,5 +206,8 @@
   "updating": "Обновление...",
   "raffles": "Розыгрыши",
   "ticketsSold": "Продано билетов",
-  "yourTickets": "Ваши билеты"
+  "yourTickets": "Ваши билеты",
+  "startingPrice": "Начальная цена (SOF)",
+  "startsIn": "Начало через",
+  "raffleNotStarted": "Этот розыгрыш ещё не начался"
 }

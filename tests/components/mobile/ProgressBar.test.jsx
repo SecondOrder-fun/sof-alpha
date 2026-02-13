@@ -21,7 +21,7 @@ describe("ProgressBar", () => {
     expect(segments.length).toBe(10);
 
     const filled = Array.from(segments).filter((el) =>
-      el.className.includes("bg-[#c82a54]"),
+      el.className.includes("bg-primary"),
     );
     expect(filled.length).toBeGreaterThan(0);
   });
@@ -31,7 +31,7 @@ describe("ProgressBar", () => {
 
     const segments = container.querySelectorAll(".flex-1.h-2.rounded-full");
     const filled = Array.from(segments).filter((el) =>
-      el.className.includes("bg-[#c82a54]"),
+      el.className.includes("bg-primary"),
     );
 
     expect(filled.length).toBe(0);

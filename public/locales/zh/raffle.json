@@ -206,5 +206,8 @@
   "updating": "更新中...",
   "raffles": "抽奖",
   "ticketsSold": "已售票数",
-  "yourTickets": "你的票"
+  "yourTickets": "你的票",
+  "startingPrice": "起始价格 (SOF)",
+  "startsIn": "开始于",
+  "raffleNotStarted": "此抽奖尚未开始"
 }

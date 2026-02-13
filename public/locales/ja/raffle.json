@@ -206,5 +206,8 @@
   "raffles": "ラッフル",
   "ticketsSold": "販売済みチケット",
   "yourTickets": "あなたのチケット",
-  "raffleEnded": "このラッフルは終了しました。"
+  "raffleEnded": "このラッフルは終了しました。",
+  "startingPrice": "開始価格 (SOF)",
+  "startsIn": "開始まで",
+  "raffleNotStarted": "この抽選はまだ始まっていません"
 }

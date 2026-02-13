@@ -31,7 +31,7 @@ describe("MobileRaffleDetail pre-start state", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows 'Raffle starts in' and removes BUY/SELL actions before startTime", () => {
+  it("shows countdown and 'Starting Price' before startTime, hides BUY/SELL", () => {
     const now = Math.floor(Date.now() / 1000);
 
     render(
@@ -53,14 +53,15 @@ describe("MobileRaffleDetail pre-start state", () => {
       />,
     );
 
-    expect(screen.getByText("Raffle starts in")).toBeInTheDocument();
+    // Countdown timer is shown in the header area
     expect(screen.getByText("COUNTDOWN")).toBeInTheDocument();
 
     // Action buttons are removed entirely before start.
     expect(screen.queryByText("BUY")).not.toBeInTheDocument();
     expect(screen.queryByText("SELL")).not.toBeInTheDocument();
 
-    // Bonding-curve derived fields should also be hidden pre-start.
+    // Price box now shows "Starting Price" instead of "Ticket Price" for pre-start
+    expect(screen.getByText("Starting Price (SOF)")).toBeInTheDocument();
     expect(screen.queryByText("raffle:ticketPrice")).not.toBeInTheDocument();
 
     // Ends-in should not show before start.

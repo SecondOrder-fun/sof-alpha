@@ -21,10 +21,16 @@ vi.mock("@/hooks/usePlatform", () => ({
 
 // Wagmi hooks
 vi.mock("wagmi", () => ({
-  useAccount: () => ({ address: "0xabc", chainId: 1 }),
+  useAccount: () => ({ address: "0xabc", chainId: 1, isConnected: true }),
   useChains: () => [
     { id: 1, rpcUrls: { default: { http: ["http://localhost"] } } },
   ],
+  useWriteContract: () => ({
+    writeContractAsync: vi.fn(),
+    data: undefined,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 // Seasons
@@ -87,6 +93,34 @@ vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
       },
     },
   }),
+}));
+
+// RainbowKit
+vi.mock("@rainbow-me/rainbowkit", () => ({
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}));
+
+// Gating hook
+vi.mock("@/hooks/useSeasonGating", () => ({
+  useSeasonGating: () => ({
+    isVerified: null,
+    verifyPassword: vi.fn(),
+    refetch: vi.fn(),
+  }),
+}));
+
+// Contract config
+vi.mock("@/config/contracts", () => ({
+  getContractAddresses: () => ({}),
+  SEASON_GATING_ABI: [],
+}));
+
+vi.mock("@/config/networks", () => ({
+  getNetworkByKey: () => null,
+}));
+
+vi.mock("@/lib/wagmi", () => ({
+  getStoredNetworkKey: () => "LOCAL",
 }));
 
 // Prevent curve hook from doing work
