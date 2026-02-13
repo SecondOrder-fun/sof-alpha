@@ -69,11 +69,14 @@ export default function UserAccessPanel({ getAuthHeaders }) {
   });
 
   const setAccessMutation = useMutation({
-    mutationFn: async ({ fid, accessLevel }) => {
+    mutationFn: async ({ fid, wallet, accessLevel }) => {
+      const body = { accessLevel };
+      if (fid) body.fid = fid;
+      if (wallet) body.wallet = wallet;
       const res = await fetch(`${API_BASE}/set-access-level`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ fid, accessLevel }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -101,13 +104,17 @@ export default function UserAccessPanel({ getAuthHeaders }) {
 
   const handleSave = () => {
     const entry = lookupQuery.data?.entry;
-    if (!entry?.fid && !lookupParams?.fid) {
-      alert("Cannot update: no FID found for this user");
+    const fid = entry?.fid || (lookupParams?.fid ? parseInt(lookupParams.fid, 10) : null);
+    const wallet = entry?.wallet_address || lookupParams?.wallet || null;
+
+    if (!fid && !wallet) {
+      alert("Cannot update: no FID or wallet found for this user");
       return;
     }
-    const fid = entry?.fid || parseInt(lookupParams.fid, 10);
+
     setAccessMutation.mutate({
-      fid,
+      fid: fid || undefined,
+      wallet: wallet || undefined,
       accessLevel: parseInt(newAccessLevel, 10),
     });
   };
