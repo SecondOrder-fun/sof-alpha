@@ -1,12 +1,14 @@
 // src/components/sponsor/CreateSeasonWorkflow.jsx
 // Shared 3-step create-season workflow: Stake → Create → Confirmation
 // Used by both desktop /create-season route and mobile Portfolio tab.
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { decodeEventLog } from "viem";
-import { Crown, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crown, ExternalLink, Loader2 } from "lucide-react";
+import PropTypes from "prop-types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +31,7 @@ import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
  * Inner workflow content — requires AdminAuthProvider above it.
  */
 function WorkflowInner() {
+  const { t } = useTranslation("raffle");
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
   const publicClient = usePublicClient();
@@ -76,14 +79,16 @@ function WorkflowInner() {
   });
 
   // Workflow state
-  const initialStep = isSponsor ? "create" : "stake";
+  const initialStep = isSponsor ? "details" : "stake";
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [createdSeasonId, setCreatedSeasonId] = useState(null);
+  const hasAutoAdvanced = useRef(false);
 
-  // If sponsor status loads and they're already a sponsor, jump to create
+  // If sponsor status loads and they're already a sponsor, jump to details (once)
   useEffect(() => {
-    if (!isSponsorLoading && isSponsor && currentStep === "stake") {
-      setCurrentStep("create");
+    if (!isSponsorLoading && isSponsor && currentStep === "stake" && !hasAutoAdvanced.current) {
+      hasAutoAdvanced.current = true;
+      setCurrentStep("details");
     }
   }, [isSponsor, isSponsorLoading, currentStep]);
 
@@ -125,9 +130,9 @@ function WorkflowInner() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-primary" />
-            Create a Raffle
+            {t("createRaffleTitle")}
           </CardTitle>
-          <CardDescription>Connect your wallet to create a raffle season.</CardDescription>
+          <CardDescription>{t("connectToCreate")}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -138,18 +143,27 @@ function WorkflowInner() {
       <Card>
         <CardContent className="pt-6 flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-muted-foreground">Checking permissions...</span>
+          <span className="text-muted-foreground">{t("checkingPermissions")}</span>
         </CardContent>
       </Card>
     );
   }
 
+  // Dynamic Step 1 label: "Manage Stake" if already a sponsor, else "Become Sponsor"
+  const step1Label = isSponsor ? t("manageStake") : t("stepBecomeSponsor");
+
+  // Map workflow step to form section
+  const formSection = { details: "details", prizes: "prizes", curve: "curve" }[currentStep] || null;
+  const isFormStep = !!formSection;
+
   return (
     <Workflow value={currentStep} onValueChange={handleStepChange}>
-      <WorkflowSteps>
-        <WorkflowStep value="stake" label="Become Sponsor" stepNumber={1} />
-        <WorkflowStep value="create" label="Configure Season" stepNumber={2} />
-        <WorkflowStep value="confirm" label="Done" stepNumber={3} />
+      <WorkflowSteps className="max-w-sm mx-auto">
+        <WorkflowStep value="stake" label={step1Label} stepNumber={1} />
+        <WorkflowStep value="details" label={t("sectionMainDetails")} stepNumber={2} />
+        <WorkflowStep value="prizes" label={t("sectionPrizeSettings")} stepNumber={3} />
+        <WorkflowStep value="curve" label={t("sectionBondingCurve")} stepNumber={4} />
+        <WorkflowStep value="confirm" label={t("stepDone")} stepNumber={5} />
       </WorkflowSteps>
 
       {/* Step 1: Sponsor Staking */}
@@ -158,55 +172,63 @@ function WorkflowInner() {
         <StakeNav />
       </WorkflowContent>
 
-      {/* Step 2: Create Season Form */}
-      <WorkflowContent value="create">
-        {!isAuthenticated ? (
-          <Card>
-            <CardContent className="pt-6 flex flex-col items-center gap-4">
-              <p className="text-muted-foreground text-center">
-                Sign a message with your wallet to authenticate for season creation.
-              </p>
-              <Button onClick={login} disabled={isAuthLoading} size="lg">
-                {isAuthLoading ? "Signing..." : "Sign in to create seasons"}
-              </Button>
-              {authError && (
-                <p className="text-sm text-destructive">{authError}</p>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Configure Season</CardTitle>
-              <CardDescription>Set up your raffle season parameters.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CreateSeasonForm
-                createSeason={createSeason}
-                chainTimeQuery={chainTimeQuery}
-              />
-            </CardContent>
-          </Card>
-        )}
-      </WorkflowContent>
+      {/* Steps 2-4: Form sections — auth gate or section content */}
+      {["details", "prizes", "curve"].map((step) => (
+        <WorkflowContent key={step} value={step}>
+          {!isAuthenticated ? (
+            <Card>
+              <CardContent className="pt-6 flex flex-col items-center gap-4">
+                <p className="text-muted-foreground text-center">
+                  {t("signToCreate")}
+                </p>
+                <Button onClick={login} disabled={isAuthLoading} size="lg">
+                  {isAuthLoading ? t("signing") : t("signInToCreate")}
+                </Button>
+                {authError && (
+                  <p className="text-sm text-destructive">{authError}</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </WorkflowContent>
+      ))}
 
-      {/* Step 3: Confirmation */}
+      {/* Persistent form — rendered once, always mounted while on a form step.
+          activeSection controls which fields are visible. */}
+      {isFormStep && isAuthenticated && (
+        <Card>
+          <CardContent className="pt-6">
+            <CreateSeasonForm
+              createSeason={createSeason}
+              chainTimeQuery={chainTimeQuery}
+              activeSection={formSection}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Back / Next nav for form steps (details, prizes only — curve has submit) */}
+      {isFormStep && (
+        <FormStepNav step={currentStep} isAuthenticated={isAuthenticated} showNext={currentStep !== "curve"} />
+      )}
+
+      {/* Step 5: Confirmation */}
       <WorkflowContent value="confirm">
         <Card>
           <CardContent className="pt-6 flex flex-col items-center gap-4 text-center">
             <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
               <Crown className="h-6 w-6 text-green-400" />
             </div>
-            <h3 className="text-lg font-semibold">Season Created!</h3>
+            <h3 className="text-lg font-semibold">{t("seasonCreated")}</h3>
             <p className="text-muted-foreground">
-              Your raffle season #{createdSeasonId} has been created successfully.
+              {t("seasonCreatedMessage", { seasonId: createdSeasonId })}
             </p>
             <Button
               onClick={() => navigate(`/raffles/${createdSeasonId}`)}
               className="mt-2"
             >
               <ExternalLink className="h-4 w-4 mr-2" />
-              View Season
+              {t("viewSeason")}
             </Button>
           </CardContent>
         </Card>
@@ -219,8 +241,14 @@ function WorkflowInner() {
  * Navigation for the Stake step — uses workflow context.
  */
 function StakeNav() {
+  const { t } = useTranslation("raffle");
   const { isSponsor } = useSponsorStaking();
   const { goNext, markCompleted } = useWorkflow();
+
+  // Mark stake as completed when user is already a sponsor
+  useEffect(() => {
+    if (isSponsor) markCompleted("stake");
+  }, [isSponsor, markCompleted]);
 
   const handleNext = useCallback(() => {
     markCompleted("stake");
@@ -230,11 +258,43 @@ function StakeNav() {
   return (
     <div className="flex justify-end mt-4">
       <Button onClick={handleNext} disabled={!isSponsor} type="button">
-        {isSponsor ? "Next: Configure Season" : "Complete staking to continue"}
+        {isSponsor ? t("nextConfigureSeason") : t("completeStakingToContinue")}
       </Button>
     </div>
   );
 }
+
+/**
+ * Navigation for form steps — Back / Next buttons.
+ * Uses workflow context to mark step completed and advance.
+ */
+function FormStepNav({ step, isAuthenticated, showNext = true }) {
+  const { goBack, goNext, markCompleted } = useWorkflow();
+
+  const handleNext = useCallback(() => {
+    markCompleted(step);
+    goNext();
+  }, [markCompleted, goNext, step]);
+
+  return (
+    <div className="flex justify-between mt-4">
+      <Button variant="outline" onClick={goBack} type="button">
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      {showNext && (
+        <Button onClick={handleNext} disabled={!isAuthenticated} type="button">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+FormStepNav.propTypes = {
+  step: PropTypes.string.isRequired,
+  isAuthenticated: PropTypes.bool,
+  showNext: PropTypes.bool,
+};
 
 /**
  * Public component — wraps with AdminAuthProvider.

@@ -6,6 +6,7 @@ import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { motion } from "motion/react";
 import PropTypes from "prop-types";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -115,10 +116,11 @@ Workflow.propTypes = {
 };
 
 // ── Steps (header with circles + connectors) ─────────────────────────
+// Bottom margin accounts for the absolutely-positioned labels below icons.
 const WorkflowSteps = ({ children, className }) => {
   return (
     <TabsPrimitive.List
-      className={cn("flex items-center w-full mb-6", className)}
+      className={cn("flex items-center w-full mb-12", className)}
     >
       {children}
     </TabsPrimitive.List>
@@ -131,6 +133,9 @@ WorkflowSteps.propTypes = {
 };
 
 // ── Single Step (circle + label + connector) ─────────────────────────
+// The trigger is sized to the icon only (w-8). The label is absolutely
+// positioned below, so it never affects horizontal distribution or
+// connector alignment.
 const WorkflowStep = ({ value, label, stepNumber }) => {
   const { activeValue, completedSteps, registerStep, stepOrder } = useWorkflow();
 
@@ -151,11 +156,11 @@ const WorkflowStep = ({ value, label, stepNumber }) => {
 
   return (
     <>
-      {/* Connector line */}
+      {/* Connector line — flex-1 fills space between fixed-width icon triggers */}
       {showConnector && (
-        <div className="flex-1 h-0.5 mx-2 bg-border relative overflow-hidden">
+        <div className="flex-1 mx-2 h-1.5 rounded-full bg-border relative overflow-hidden">
           <motion.div
-            className="absolute inset-0 bg-primary origin-left"
+            className="absolute inset-0 rounded-full bg-primary origin-left"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: connectorFilled ? 1 : 0 }}
             transition={SPRING}
@@ -163,17 +168,23 @@ const WorkflowStep = ({ value, label, stepNumber }) => {
         </div>
       )}
 
-      {/* Step circle + label */}
-      <TabsPrimitive.Trigger
-        value={value}
-        disabled={!isClickable}
-        className="flex flex-col items-center gap-1.5 bg-transparent border-none outline-none cursor-pointer disabled:cursor-default group"
-      >
+      {/* Step icon (fixed w-9) + absolutely-positioned label.
+          asChild avoids the global button styles in tailwind.css */}
+      <TabsPrimitive.Trigger value={value} disabled={!isClickable} asChild>
+        <span
+          role="button"
+          tabIndex={isClickable ? 0 : -1}
+          className="relative inline-flex items-center justify-center w-9 shrink-0 cursor-pointer [&[data-disabled]]:cursor-default"
+        >
+        {/* Highlight ring — circular glow behind icon on active step */}
+        {isActive && !isCompleted && (
+          <div className="absolute w-11 h-11 rounded-full bg-primary/20" />
+        )}
         <div
           className={cn(
-            "relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200",
+            "relative w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200",
             isCompleted && "bg-primary text-primary-foreground",
-            isActive && !isCompleted && "bg-primary text-primary-foreground ring-4 ring-primary/20",
+            isActive && !isCompleted && "bg-primary text-primary-foreground",
             !isActive && !isCompleted && "bg-muted text-muted-foreground border border-border",
           )}
         >
@@ -183,13 +194,15 @@ const WorkflowStep = ({ value, label, stepNumber }) => {
             stepNumber
           )}
         </div>
+        {/* Label positioned below icon, outside flex flow */}
         <span
           className={cn(
-            "text-xs whitespace-nowrap transition-colors",
+            "absolute top-full mt-1.5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap transition-colors",
             isActive ? "text-primary font-medium" : "text-muted-foreground",
           )}
         >
           {label}
+        </span>
         </span>
       </TabsPrimitive.Trigger>
     </>
@@ -237,18 +250,19 @@ WorkflowContent.propTypes = {
 const WorkflowNav = ({
   canProceed = true,
   nextLabel,
-  finishLabel = "Finish",
+  finishLabel,
   onFinish,
   className,
 }) => {
   const { isFirstStep, isLastStep, goBack, goNext } = useWorkflow();
+  const { t } = useTranslation("common");
 
   return (
     <div className={cn("flex justify-between mt-6", className)}>
       {!isFirstStep ? (
         <Button variant="outline" onClick={goBack} type="button">
           <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
+          {t("back")}
         </Button>
       ) : (
         <div />
@@ -260,7 +274,7 @@ const WorkflowNav = ({
           disabled={!canProceed}
           type="button"
         >
-          {finishLabel}
+          {finishLabel || t("finish")}
         </Button>
       ) : (
         <Button
@@ -268,7 +282,7 @@ const WorkflowNav = ({
           disabled={!canProceed}
           type="button"
         >
-          {nextLabel || "Next"}
+          {nextLabel || t("next")}
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       )}

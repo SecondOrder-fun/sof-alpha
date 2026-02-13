@@ -92,5 +92,13 @@
   "funded": "Funded",
   "grand": "Grand",
   "consolation": "Consolation",
-  "vrfReqId": "VRF reqId"
+  "vrfReqId": "VRF reqId",
+  "participationRequirements": "Требования к участию",
+  "gatingEnabledDesc": "Пользователи должны ввести пароль(и) перед покупкой билетов.",
+  "gatingDisabledDesc": "Любой может участвовать в этом сезоне без ограничений.",
+  "passwordGates": "Парольные ворота",
+  "password": "Пароль",
+  "addPasswordGate": "Добавить ещё один пароль",
+  "gatingHelpText": "Пользователи должны ввести ВСЕ активированные пароли для участия (логика И). Оставьте пароль пустым, чтобы пропустить эти ворота.",
+  "gatingValidationError": "Необходимо настроить и активировать хотя бы одни парольные ворота."
 }

@@ -100,15 +100,19 @@ const Header = () => {
           <nav className="hidden md:flex space-x-6 items-center">
             {/* Raffles Dropdown */}
             <DropdownMenu>
-              <DropdownMenuTrigger
-                className={`transition-colors inline-flex items-center gap-1 outline-none ${
-                  isRafflesActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-              >
-                {t("raffles")}
-                <ChevronDown className="h-3 w-3" />
+              <DropdownMenuTrigger asChild>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className={`transition-colors inline-flex items-center gap-1 cursor-pointer outline-none ${
+                    isRafflesActive
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  {t("raffles")}
+                  <ChevronDown className="h-3 w-3" />
+                </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem
@@ -116,14 +120,14 @@ const Header = () => {
                   className="cursor-pointer"
                 >
                   <Ticket className="mr-2 h-4 w-4" />
-                  Browse Raffles
+                  {t("browseRaffles")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => navigate("/raffles?filter=mine")}
                   className="cursor-pointer"
                 >
                   <User className="mr-2 h-4 w-4" />
-                  My Raffles
+                  {t("myRaffles")}
                 </DropdownMenuItem>
                 {canCreateSeason && (
                   <>
@@ -133,7 +137,7 @@ const Header = () => {
                       className="cursor-pointer"
                     >
                       <Crown className="mr-2 h-4 w-4" />
-                      Create Raffle
+                      {t("createRaffle")}
                     </DropdownMenuItem>
                   </>
                 )}

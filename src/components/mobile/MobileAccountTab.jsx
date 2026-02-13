@@ -4,6 +4,7 @@ import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { FiEdit2, FiCopy, FiExternalLink } from "react-icons/fi";
 import { Card, CardContent } from "@/components/ui/card";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import MobileFaucetWidget from "@/components/mobile/MobileFaucetWidget";
 import { CreateSeasonWorkflow } from "@/components/sponsor/CreateSeasonWorkflow";
@@ -125,8 +126,15 @@ const MobileAccountTab = ({ address, username }) => {
         </Card>
       )}
 
-      {/* Sponsor / Create Season Workflow */}
-      <CreateSeasonWorkflow />
+      {/* Sponsor / Create Season Workflow — collapsible on mobile */}
+      <Accordion type="single" collapsible>
+        <AccordionItem value="create-season">
+          <AccordionTrigger>{t("raffle:createSeasonAccordionTitle")}</AccordionTrigger>
+          <AccordionContent>
+            <CreateSeasonWorkflow />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 };

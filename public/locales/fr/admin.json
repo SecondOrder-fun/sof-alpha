@@ -92,5 +92,13 @@
   "funded": "Funded",
   "grand": "Grand",
   "consolation": "Consolation",
-  "vrfReqId": "VRF reqId"
+  "vrfReqId": "VRF reqId",
+  "participationRequirements": "Conditions de participation",
+  "gatingEnabledDesc": "Les utilisateurs doivent entrer le(s) mot(s) de passe avant de pouvoir acheter des tickets.",
+  "gatingDisabledDesc": "Tout le monde peut participer à cette saison sans restrictions.",
+  "passwordGates": "Portes de mot de passe",
+  "password": "Mot de passe",
+  "addPasswordGate": "Ajouter un autre mot de passe",
+  "gatingHelpText": "Les utilisateurs doivent entrer TOUS les mots de passe activés pour participer (logique ET). Laissez le mot de passe vide pour ignorer cette porte.",
+  "gatingValidationError": "Au moins une porte de mot de passe doit être configurée et activée."
 }

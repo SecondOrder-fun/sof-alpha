@@ -92,5 +92,13 @@
   "funded": "Funded",
   "grand": "Grand",
   "consolation": "Consolation",
-  "vrfReqId": "VRF reqId"
+  "vrfReqId": "VRF reqId",
+  "participationRequirements": "Requisitos de participação",
+  "gatingEnabledDesc": "Os usuários devem inserir a(s) senha(s) antes de comprar tickets.",
+  "gatingDisabledDesc": "Qualquer pessoa pode participar desta temporada sem restrições.",
+  "passwordGates": "Portões de senha",
+  "password": "Senha",
+  "addPasswordGate": "Adicionar outra senha",
+  "gatingHelpText": "Os usuários devem inserir TODAS as senhas ativadas para participar (lógica E). Deixe a senha vazia para pular esse portão.",
+  "gatingValidationError": "Pelo menos um portão de senha deve ser configurado e ativado."
 }

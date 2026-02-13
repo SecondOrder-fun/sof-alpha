@@ -105,7 +105,7 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-muted-foreground" />
           <Label htmlFor="gating-toggle" className="text-sm font-medium">
-            {t('participationRequirements') || 'Participation Requirements'}
+            {t('participationRequirements')}
           </Label>
         </div>
         <div className="flex items-center gap-2">
@@ -125,8 +125,8 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
       {/* Description */}
       <p className="text-xs text-muted-foreground">
         {gated
-          ? t('gatingEnabledDesc') || 'Users must enter the password(s) before they can buy tickets.'
-          : t('gatingDisabledDesc') || 'Anyone can participate in this season without restrictions.'}
+          ? t('gatingEnabledDesc')
+          : t('gatingDisabledDesc')}
       </p>
 
       {/* Password Gates Configuration */}
@@ -135,7 +135,7 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium flex items-center gap-2">
               <Lock className="h-4 w-4" />
-              {t('passwordGates') || 'Password Gates'}
+              {t('passwordGates')}
             </Label>
             <Badge variant={isValid ? 'default' : 'destructive'} className="text-xs">
               {isValid ? 'Valid' : 'Invalid'}
@@ -149,7 +149,7 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
                 <div className="flex-1 relative">
                   <Input
                     type={gate.showPassword ? 'text' : 'password'}
-                    placeholder={`${t('password') || 'Password'} ${index + 1}`}
+                    placeholder={`${t('password')} ${index + 1}`}
                     value={gate.password}
                     onChange={(e) => handlePasswordChange(index, e.target.value)}
                     className="pr-10"
@@ -199,18 +199,18 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {t('addPasswordGate') || 'Add Another Password'}
+            {t('addPasswordGate')}
           </Button>
 
           {/* Help Text */}
           <p className="text-xs text-muted-foreground">
-            {t('gatingHelpText') || 'Users must enter ALL enabled passwords to participate (AND logic). Leave password empty to skip that gate.'}
+            {t('gatingHelpText')}
           </p>
 
           {/* Validation Warning */}
           {gated && !isValid && (
             <p className="text-xs text-destructive">
-              {t('gatingValidationError') || 'At least one password gate must be configured and enabled.'}
+              {t('gatingValidationError')}
             </p>
           )}
         </div>

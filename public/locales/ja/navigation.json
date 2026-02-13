@@ -25,5 +25,8 @@
   "disclaimer": "免責事項",
   "copyright": "© {{year}} SecondOrder.fun. All rights reserved.",
   "tagline": "InfoFiを活用したラッフルプラットフォームで、暗号資産の投機を構造化されたゲームに変革します。",
-  "connectWallet": "ウォレット接続"
+  "connectWallet": "ウォレット接続",
+  "browseRaffles": "ラッフル一覧",
+  "myRaffles": "マイラッフル",
+  "createRaffle": "ラッフル作成"
 }

@@ -9,6 +9,7 @@ import { useSOFBalance } from "@/hooks/useSOFBalance";
 import { HATS_CONFIG } from "@/config/hats";
 import { CONTRACTS } from "@/config/contracts";
 import { StakingEligibilityAbi, HatsAbi } from "@/utils/abis";
+import { useTranslation } from "react-i18next";
 import { Crown, Loader2, Check, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 
 // ERC20 ABI for approve
@@ -39,8 +40,8 @@ const HATS_MINT_ABI = [
   },
 ];
 
-function formatTimeRemaining(seconds) {
-  if (seconds <= 0) return "Ready";
+function formatTimeRemaining(seconds, readyLabel) {
+  if (seconds <= 0) return readyLabel || "Ready";
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
@@ -50,6 +51,7 @@ function formatTimeRemaining(seconds) {
 }
 
 export function SponsorStakingCard() {
+  const { t } = useTranslation("raffle");
   const { address, isConnected } = useAccount();
   const network = (import.meta.env.VITE_DEFAULT_NETWORK || "TESTNET").toUpperCase();
   const sofAddress = CONTRACTS[network]?.SOF;
@@ -211,9 +213,9 @@ export function SponsorStakingCard() {
   // Get step label for button
   const getStepLabel = () => {
     switch (step) {
-      case "approving": return "Approving...";
-      case "staking": return "Staking...";
-      case "minting": return "Claiming Sponsor Hat...";
+      case "approving": return t("approving");
+      case "staking": return t("stakingProgress");
+      case "minting": return t("claimingSponsorHat");
       default: return null;
     }
   };
@@ -224,9 +226,9 @@ export function SponsorStakingCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-primary" />
-            Become a Raffle Sponsor
+            {t("becomeSponsorTitle")}
           </CardTitle>
-          <CardDescription>Connect wallet to stake and create raffles</CardDescription>
+          <CardDescription>{t("connectToStake")}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -238,37 +240,37 @@ export function SponsorStakingCard() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5 text-primary" />
-            Sponsor Status
+            {t("sponsorStatus")}
           </CardTitle>
           {isSponsor ? (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
               <Check className="h-3 w-3 mr-1" />
-              Active Sponsor
+              {t("activeSponsor")}
             </Badge>
           ) : isUnstaking ? (
             <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
               <Clock className="h-3 w-3 mr-1" />
-              Unstaking
+              {t("unstakingStatus")}
             </Badge>
           ) : needsHatClaim ? (
             <Badge variant="outline" className="border-blue-500/30 text-blue-400">
-              Claim Hat
+              {t("claimHat")}
             </Badge>
           ) : (
             <Badge variant="outline" className="border-muted-foreground/30">
-              Not a Sponsor
+              {t("notASponsor")}
             </Badge>
           )}
         </div>
         <CardDescription>
-          Stake {HATS_CONFIG.MIN_STAKE_DISPLAY} $SOF to create raffles permissionlessly
+          {t("stakeToCreate", { amount: HATS_CONFIG.MIN_STAKE_DISPLAY })}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {/* Current Stake */}
         <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-          <span className="text-sm text-muted-foreground">Your Stake</span>
+          <span className="text-sm text-muted-foreground">{t("yourStake")}</span>
           <div className="flex items-center gap-2">
             <span className="font-mono font-medium">
               {isStatusLoading ? "..." : Number(stakeAmountFormatted).toLocaleString()} $SOF
@@ -290,15 +292,15 @@ export function SponsorStakingCard() {
         {isUnstaking && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-yellow-400">Unstaking Amount</span>
+              <span className="text-sm text-yellow-400">{t("unstakingAmount")}</span>
               <span className="font-mono text-yellow-400">
                 {Number(unstakingAmountFormatted).toLocaleString()} $SOF
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-yellow-400">Time Remaining</span>
+              <span className="text-sm text-yellow-400">{t("timeRemaining")}</span>
               <span className="font-mono text-yellow-400">
-                {formatTimeRemaining(unstakeTimeRemaining)}
+                {formatTimeRemaining(unstakeTimeRemaining, t("ready"))}
               </span>
             </div>
           </div>
@@ -308,7 +310,7 @@ export function SponsorStakingCard() {
         {isSlashed && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-400" />
-            <span className="text-sm text-red-400">Account has been slashed — stake forfeited</span>
+            <span className="text-sm text-red-400">{t("accountSlashed")}</span>
           </div>
         )}
 
@@ -319,9 +321,9 @@ export function SponsorStakingCard() {
             <>
               {!hasEnoughSOF ? (
                 <div className="text-sm text-muted-foreground text-center py-2">
-                  You need {HATS_CONFIG.MIN_STAKE_DISPLAY} $SOF to become a sponsor.
+                  {t("needSofToSponsor", { amount: HATS_CONFIG.MIN_STAKE_DISPLAY })}
                   <br />
-                  Current balance: {isBalanceLoading ? "..." : Number(sofBalance / BigInt(10**18)).toLocaleString()} $SOF
+                  {t("currentBalanceLabel", { balance: isBalanceLoading ? "..." : Number(sofBalance / BigInt(10**18)).toLocaleString() })}
                 </div>
               ) : (
                 <Button 
@@ -337,7 +339,7 @@ export function SponsorStakingCard() {
                   ) : (
                     <>
                       <Crown className="h-4 w-4 mr-2" />
-                      Become Raffle Sponsor
+                      {t("becomeRaffleSponsor")}
                     </>
                   )}
                 </Button>
@@ -347,20 +349,20 @@ export function SponsorStakingCard() {
 
           {/* Staked but no hat: needs to claim */}
           {needsHatClaim && (
-            <Button 
-              onClick={handleClaimHat} 
+            <Button
+              onClick={handleClaimHat}
               disabled={isProcessing}
               className="w-full"
             >
               {isMinting || isMintConfirming ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Claiming Sponsor Hat...
+                  {t("claimingSponsorHat")}
                 </>
               ) : (
                 <>
                   <Crown className="h-4 w-4 mr-2" />
-                  Claim Sponsor Hat
+                  {t("claimSponsorHat")}
                 </>
               )}
             </Button>
@@ -377,10 +379,10 @@ export function SponsorStakingCard() {
               {isBeginningUnstake || isUnstakeConfirming ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  {t("processing")}
                 </>
               ) : (
-                "Begin Unstake (7 day cooldown)"
+                t("beginUnstake")
               )}
             </Button>
           )}
@@ -395,10 +397,10 @@ export function SponsorStakingCard() {
               {isCompleting || isCompleteConfirming ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  {t("processing")}
                 </>
               ) : (
-                "Complete Unstake"
+                t("completeUnstake")
               )}
             </Button>
           )}
@@ -406,8 +408,7 @@ export function SponsorStakingCard() {
 
         {/* Info */}
         <p className="text-xs text-muted-foreground text-center">
-          Sponsors can create raffles without admin approval. 
-          Stake can be slashed for misconduct.
+          {t("sponsorInfoText")}
         </p>
       </CardContent>
     </Card>

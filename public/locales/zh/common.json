@@ -126,6 +126,8 @@
     "INTERNAL_ERROR": "发生错误。请重试。",
     "UNKNOWN_ERROR": "发生未知错误"
   },
+  "finish": "完成",
+  "processing": "处理中...",
   "home": {
     "welcome": "欢迎来到 SecondOrder.fun",
     "blurb": "SecondOrder.fun 是一个透明的区块链驱动的彩票平台，您的位置价值会随着每个新玩家的加入而增加。当您购买彩票时，bonding curve 定价机制会创建动态估值，让玩家可以选择持有直到开奖或随时出售以获利——提供高度游戏化的彩票体验。"

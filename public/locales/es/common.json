@@ -126,6 +126,8 @@
     "INTERNAL_ERROR": "Ocurrió un error. Por favor, inténtalo de nuevo.",
     "UNKNOWN_ERROR": "Ocurrió un error desconocido"
   },
+  "finish": "Finalizar",
+  "processing": "Procesando...",
   "home": {
     "welcome": "Welcome to SecondOrder.fun",
     "blurb": "SecondOrder.fun is a transparent blockchain-powered raffle platform where your position can increase in value with every new player that joins. When you purchase tickets, bonding curve pricing creates dynamic valuations, giving players the choice to hold until the draw or sell anytime for profit—delivering a highly game-like raffle experience."
