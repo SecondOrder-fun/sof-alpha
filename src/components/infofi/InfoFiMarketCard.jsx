@@ -22,7 +22,7 @@ import MarketTradeForm from "./market/MarketTradeForm";
  * InfoFiMarketCard - Displays a single InfoFi market with live hybrid pricing
  * Refactored to delegate to focused sub-components (following mobile pattern)
  */
-const InfoFiMarketCard = ({ market }) => {
+const InfoFiMarketCard = ({ market, marketInfo: batchMarketInfo, userPosition: batchUserPosition }) => {
   const { t } = useTranslation("market");
   const { currentSeasonQuery } = useRaffleRead();
   const fallbackSeasonId = currentSeasonQuery?.data ?? null;
@@ -51,23 +51,29 @@ const InfoFiMarketCard = ({ market }) => {
     return market?.id != null ? String(market.id) : null;
   }, [market?.id]);
 
-  // Fetch user positions and market info from backend API
-  const userPosition = useUserMarketPosition(effectiveMarketId);
+  // Fetch user positions and market info — use batch data from parent if available,
+  // otherwise fall back to individual hooks (for standalone / detail page usage)
+  const individualPosition = useUserMarketPosition(
+    batchUserPosition ? null : effectiveMarketId
+  );
+  const positionData = batchUserPosition || individualPosition.data;
   const yesPos = {
-    data: userPosition.data ? { amount: userPosition.data.yesAmount } : null,
-    isLoading: userPosition.isLoading,
-    error: userPosition.error,
+    data: positionData ? { amount: positionData.yesAmount } : null,
+    isLoading: !batchUserPosition && individualPosition.isLoading,
+    error: !batchUserPosition ? individualPosition.error : null,
   };
   const noPos = {
-    data: userPosition.data ? { amount: userPosition.data.noAmount } : null,
-    isLoading: userPosition.isLoading,
-    error: userPosition.error,
+    data: positionData ? { amount: positionData.noAmount } : null,
+    isLoading: !batchUserPosition && individualPosition.isLoading,
+    error: !batchUserPosition ? individualPosition.error : null,
   };
 
-  const marketInfoQuery = useMarketInfo(effectiveMarketId);
+  const individualMarketInfo = useMarketInfo(
+    batchMarketInfo ? null : effectiveMarketId
+  );
   const marketInfo = {
-    data: marketInfoQuery.data || { totalYesPool: 0n, totalNoPool: 0n },
-    isLoading: marketInfoQuery.isLoading,
+    data: batchMarketInfo || individualMarketInfo.data || { totalYesPool: 0n, totalNoPool: 0n },
+    isLoading: !batchMarketInfo && individualMarketInfo.isLoading,
   };
 
   // Trading form state
@@ -255,6 +261,10 @@ InfoFiMarketCard.propTypes = {
     is_settled: PropTypes.bool,
     is_active: PropTypes.bool,
   }).isRequired,
+  /** Batch-provided market info (pool reserves + volume). Skips individual fetch when provided. */
+  marketInfo: PropTypes.object,
+  /** Batch-provided user position data. Skips individual fetch when provided. */
+  userPosition: PropTypes.object,
 };
 
 export default InfoFiMarketCard;

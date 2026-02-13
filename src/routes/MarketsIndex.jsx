@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, TrendingUp, Activity } from "lucide-react";
 import InfoFiMarketCard from "@/components/infofi/InfoFiMarketCard";
-// import ArbitrageOpportunityDisplay from '@/components/infofi/ArbitrageOpportunityDisplay';
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { usePlatform } from "@/hooks/usePlatform";
+import { useMarketsBatchInfo } from "@/hooks/useMarketsBatchInfo";
+import { useUserPositionsBatch } from "@/hooks/useUserPositionsBatch";
 import MobileMarkets from "@/components/mobile/MobileMarkets";
+import MarketCardSkeleton from "@/components/common/skeletons/MarketCardSkeleton";
 
 const MarketsIndex = () => {
   const { isMobile } = usePlatform();
@@ -64,6 +66,19 @@ const DesktopMarketsIndex = () => {
     error,
     refetch,
   } = useInfoFiMarkets(seasonsArray, filters);
+
+  // Collect all market IDs for batch fetching
+  const allMarketIds = useMemo(() => {
+    if (!markets || typeof markets !== "object") return [];
+    return Object.values(markets)
+      .flat()
+      .map((m) => String(m.id))
+      .filter(Boolean);
+  }, [markets]);
+
+  // Batch fetch market info and user positions at page level
+  const { data: batchMarketInfo } = useMarketsBatchInfo(allMarketIds);
+  const { data: batchUserPositions } = useUserPositionsBatch(allMarketIds);
 
   // Get bonding curve address from active season (commented out - not needed without arbitrage panel)
   // const bondingCurveAddress = useMemo(() => {
@@ -205,17 +220,11 @@ const DesktopMarketsIndex = () => {
       )}
 
       {/* Loading and error states */}
-      {seasonsLoading && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading seasons…</p>
-        </div>
-      )}
-
       {isLoading && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            Loading markets from backend...
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MarketCardSkeleton key={i} />
+          ))}
         </div>
       )}
 
@@ -289,7 +298,12 @@ const DesktopMarketsIndex = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {seasonGrouped.winners.map((m) => (
-                        <InfoFiMarketCard key={m.id} market={m} />
+                        <InfoFiMarketCard
+                        key={m.id}
+                        market={m}
+                        marketInfo={batchMarketInfo[String(m.id)]}
+                        userPosition={batchUserPositions[String(m.id)]}
+                      />
                       ))}
                     </div>
                   </div>
@@ -307,7 +321,12 @@ const DesktopMarketsIndex = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {seasonGrouped.positionSize.map((m) => (
-                        <InfoFiMarketCard key={m.id} market={m} />
+                        <InfoFiMarketCard
+                        key={m.id}
+                        market={m}
+                        marketInfo={batchMarketInfo[String(m.id)]}
+                        userPosition={batchUserPositions[String(m.id)]}
+                      />
                       ))}
                     </div>
                   </div>
@@ -325,7 +344,12 @@ const DesktopMarketsIndex = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {seasonGrouped.behavioral.map((m) => (
-                        <InfoFiMarketCard key={m.id} market={m} />
+                        <InfoFiMarketCard
+                        key={m.id}
+                        market={m}
+                        marketInfo={batchMarketInfo[String(m.id)]}
+                        userPosition={batchUserPositions[String(m.id)]}
+                      />
                       ))}
                     </div>
                   </div>
@@ -341,7 +365,12 @@ const DesktopMarketsIndex = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {seasonGrouped.others.map((m) => (
-                        <InfoFiMarketCard key={m.id} market={m} />
+                        <InfoFiMarketCard
+                        key={m.id}
+                        market={m}
+                        marketInfo={batchMarketInfo[String(m.id)]}
+                        userPosition={batchUserPositions[String(m.id)]}
+                      />
                       ))}
                     </div>
                   </div>

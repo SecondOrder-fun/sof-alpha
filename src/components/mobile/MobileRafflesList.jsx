@@ -15,6 +15,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
+import MobileCardSkeleton from "@/components/common/skeletons/MobileCardSkeleton";
 
 const MobileActiveSeasonCard = ({ season, onBuy, onSell, isVerified, isGated, onVerify, isConnected, onConnect, isFarcaster }) => {
   const navigate = useNavigate();
@@ -164,15 +165,7 @@ export const MobileRafflesList = ({
         </div>
 
         {/* Loading */}
-        {isLoading && (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                {t("loadingSeasons")}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {isLoading && <MobileCardSkeleton />}
 
         {/* Empty */}
         {!isLoading && seasons.length === 0 && (

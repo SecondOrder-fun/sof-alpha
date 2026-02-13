@@ -13,6 +13,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MobileMarketsList from "@/components/mobile/MobileMarketsList";
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
+import { useUserPositionsBatch } from "@/hooks/useUserPositionsBatch";
+import MobileCardSkeleton from "@/components/common/skeletons/MobileCardSkeleton";
 
 /**
  * MobileMarkets - Mobile-first InfoFi Markets page
@@ -38,6 +40,17 @@ const MobileMarkets = () => {
     isLoading: marketsLoading,
     error,
   } = useInfoFiMarkets(seasonsArr, { isActive: true });
+
+  // Batch fetch user positions for all markets
+  const allMarketIds = useMemo(() => {
+    if (!allMarkets || typeof allMarkets !== "object") return [];
+    return Object.values(allMarkets)
+      .flat()
+      .map((m) => String(m.id))
+      .filter(Boolean);
+  }, [allMarkets]);
+
+  const { data: batchPositions } = useUserPositionsBatch(allMarketIds);
 
   // Compute smart default: first season (lowest ID) with ≥1 active market,
   // falling back to the active season, then "0"
@@ -126,11 +139,7 @@ const MobileMarkets = () => {
       </div>
 
       {/* Loading State */}
-      {isLoading && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">{t("common:loading")}</p>
-        </div>
-      )}
+      {isLoading && <MobileCardSkeleton />}
 
       {/* Error State */}
       {error && (
@@ -193,6 +202,7 @@ const MobileMarkets = () => {
           <MobileMarketsList
             markets={filteredMarkets}
             isLoading={marketsLoading}
+            batchPositions={batchPositions}
           />
         </div>
       )}
