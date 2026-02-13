@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import BottomNav from "./BottomNav";
 import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -159,19 +160,56 @@ const MobileLeaderboard = () => {
           {t("common:leaderboard")}
         </h1>
 
-        {/* Loading */}
+        {/* Loading Skeleton */}
         {loading && (
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-center text-muted-foreground">
-                {t("common:loading")}
-              </p>
+          <Card
+            ref={cardRef}
+            className="flex flex-col overflow-hidden"
+            style={cardHeight ? { height: cardHeight } : undefined}
+          >
+            <CardContent className="p-0 flex flex-col h-full">
+              <div className="flex-1 overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-xs font-medium text-muted-foreground px-3 py-1.5 w-10">
+                        #
+                      </th>
+                      <th className="text-left text-xs font-medium text-muted-foreground px-3 py-1.5">
+                        {t("raffle:player")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: pageSize }, (_, i) => (
+                      <tr key={i} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2">
+                          <Skeleton className="h-3.5 w-5" />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Skeleton className="h-3.5 w-32" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Skeleton Pagination */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <Skeleton className="h-9 w-9 rounded-md" />
+                <Skeleton className="h-4 w-12" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-9 w-9 rounded-md" />
+                  <Skeleton className="h-9 w-9 rounded-md" />
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
 
         {/* Error */}
-        {error && (
+        {!loading && error && (
           <Card>
             <CardContent className="py-8">
               <p className="text-center text-destructive">{error}</p>
