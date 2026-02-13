@@ -127,19 +127,14 @@ const MobileMarkets = () => {
       }));
   }, [marketsByType]);
 
-  const isLoading = seasonsLoading || marketsLoading;
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      {/* Page Title */}
+      {/* Page Title — always visible */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground text-left">
           {t("market:infoFiMarkets")}
         </h1>
       </div>
-
-      {/* Loading State */}
-      {isLoading && <MobileCardSkeleton />}
 
       {/* Error State */}
       {error && (
@@ -152,8 +147,11 @@ const MobileMarkets = () => {
         </Card>
       )}
 
-      {/* Main content */}
-      {!isLoading && !error && seasonsArr.length > 0 && (
+      {/* Skeleton while seasons are loading (no dropdown to show yet) */}
+      {seasonsLoading && <MobileCardSkeleton />}
+
+      {/* Main content — show as soon as seasons are loaded */}
+      {!seasonsLoading && !error && seasonsArr.length > 0 && (
         <div className="space-y-4">
           {/* Season Select dropdown */}
           <Select
@@ -178,8 +176,8 @@ const MobileMarkets = () => {
             </SelectContent>
           </Select>
 
-          {/* Market Type Tabs */}
-          {availableTypes.length > 0 && (
+          {/* Market Type Tabs — show once markets have loaded */}
+          {!marketsLoading && availableTypes.length > 0 && (
             <Tabs
               value={selectedMarketType}
               onValueChange={setSelectedMarketType}
@@ -198,40 +196,37 @@ const MobileMarkets = () => {
             </Tabs>
           )}
 
-          {/* Markets Carousel */}
+          {/* Markets Carousel (shows skeleton internally while loading) */}
           <MobileMarketsList
             markets={filteredMarkets}
             isLoading={marketsLoading}
             batchPositions={batchPositions}
           />
+
+          {/* No Markets for this type */}
+          {!marketsLoading &&
+            filteredMarkets.length === 0 && (
+              <Card className="text-center py-12">
+                <CardContent className="space-y-4">
+                  <div className="text-6xl mb-4">📊</div>
+                  <h3 className="text-lg font-semibold">
+                    {t("market:noMarketsAvailable")}
+                  </h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    {t("market:noMarketsDescription", {
+                      marketType: selectedMarketType
+                        .toLowerCase()
+                        .replace("_", " "),
+                    })}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
         </div>
       )}
 
-      {/* No Markets State */}
-      {!isLoading &&
-        !error &&
-        seasonsArr.length > 0 &&
-        filteredMarkets.length === 0 &&
-        !marketsLoading && (
-          <Card className="text-center py-12">
-            <CardContent className="space-y-4">
-              <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-lg font-semibold">
-                {t("market:noMarketsAvailable")}
-              </h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                {t("market:noMarketsDescription", {
-                  marketType: selectedMarketType
-                    .toLowerCase()
-                    .replace("_", " "),
-                })}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
       {/* No Seasons State */}
-      {!isLoading && !error && seasonsArr.length === 0 && (
+      {!seasonsLoading && !error && seasonsArr.length === 0 && (
         <Card className="text-center py-12">
           <CardContent className="space-y-4">
             <div className="text-6xl mb-4">🎲</div>
