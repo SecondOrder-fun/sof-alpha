@@ -107,15 +107,10 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute
             route="__feature__/prediction_markets"
-            redirectTo="/raffles"
+            redirectTo="/"
             loadingComponent={<MarketsLoadingSkeleton />}
           >
-            <ProtectedRoute
-              route="/markets"
-              loadingComponent={<MarketsLoadingSkeleton />}
-            >
-              <MarketsIndex />
-            </ProtectedRoute>
+            <MarketsIndex />
           </ProtectedRoute>
         ),
       },
@@ -124,11 +119,9 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute
             route="__feature__/prediction_markets"
-            redirectTo="/raffles"
+            redirectTo="/"
           >
-            <ProtectedRoute route="/markets/:id" resourceType="market">
-              <InfoFiMarketDetail />
-            </ProtectedRoute>
+            <InfoFiMarketDetail />
           </ProtectedRoute>
         ),
       },
