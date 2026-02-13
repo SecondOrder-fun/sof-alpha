@@ -160,15 +160,36 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
     );
   }
 
-  // ── Mini mode: bare chart, no chrome ──
+  // ── Mini mode: chart with grid + axes + legend, no tabs ──
   if (mini) {
     return (
-      <div className={heightClass}>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1 text-xs">
+          <div className="w-3 h-0.5 bg-emerald-500"></div>
+          <span className="text-muted-foreground">{t("yes")}</span>
+        </div>
+        <div className={heightClass}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
+            margin={{ top: 2, right: 2, left: -25, bottom: 2 }}
           >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={formatXAxis}
+              stroke="#9ca3af"
+              style={{ fontSize: "9px" }}
+              tickLine={false}
+            />
+            <YAxis
+              domain={[0, 100]}
+              ticks={[0, 50, 100]}
+              tickFormatter={(value) => `${value}%`}
+              stroke="#9ca3af"
+              style={{ fontSize: "9px" }}
+              tickLine={false}
+            />
             <Line
               type="monotone"
               dataKey="yes"
@@ -179,6 +200,7 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
             />
           </LineChart>
         </ResponsiveContainer>
+        </div>
       </div>
     );
   }
