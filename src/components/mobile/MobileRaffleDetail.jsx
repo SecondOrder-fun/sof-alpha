@@ -236,16 +236,16 @@ export const MobileRaffleDetail = ({
           <div className="flex gap-3">
             {/* Left stack: Price, Tickets, Win % */}
             <div className="flex flex-col gap-3" style={{ flex: "40" }}>
-              {!isPreStart && (
-                <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    {t("raffle:ticketPrice")}
-                  </div>
-                  <div className="font-bold text-sm">
-                    {formatSOF(curveStep?.price)} $SOF
-                  </div>
+              <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
+                <div className="text-xs text-muted-foreground mb-1">
+                  {isPreStart
+                    ? t("raffle:startingPrice", { defaultValue: "Starting Price (SOF)" })
+                    : t("raffle:ticketPrice")}
                 </div>
-              )}
+                <div className="font-bold text-sm">
+                  {formatSOF(curveStep?.price)} $SOF
+                </div>
+              </div>
               <div className="bg-background/40 rounded-lg p-3 border border-border flex-1">
                 <div className="text-xs text-muted-foreground mb-1">
                   {t("raffle:yourTickets")}

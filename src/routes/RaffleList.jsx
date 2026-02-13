@@ -41,7 +41,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
     {
       isActive: isActiveSeason,
       pollMs: 15000,
-      enabled: isActiveSeason,
+      enabled: isActiveSeason || isPreStart,
     },
   );
 
@@ -100,7 +100,7 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-2 pt-0">
-        {!isCompleted && !isPreStart && (
+        {!isCompleted && (
           <div className="overflow-hidden rounded-md bg-muted/40">
             <div className="h-44">
               <BondingCurvePanel
@@ -147,26 +147,30 @@ const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
             </div>
           </div>
         )}
-        {!isCompleted && !isPreStart && (
+        {!isCompleted && (
           <div className="flex items-center justify-between text-sm">
             <div>
-              <div className="text-xs text-primary">{t("currentPrice")}</div>
+              <div className="text-xs text-primary">
+                {isPreStart ? t("startingPrice", { defaultValue: "Starting Price (SOF)" }) : t("currentPrice")}
+              </div>
               <div className="font-mono text-base">{currentPriceLabel} SOF</div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => navigate(`/raffles/${season.id}?mode=buy`)}
-              >
-                {t("common:buy")}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => navigate(`/raffles/${season.id}?mode=sell`)}
-              >
-                {t("common:sell")}
-              </Button>
-            </div>
+            {!isPreStart && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/raffles/${season.id}?mode=buy`)}
+                >
+                  {t("common:buy")}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/raffles/${season.id}?mode=sell`)}
+                >
+                  {t("common:sell")}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
