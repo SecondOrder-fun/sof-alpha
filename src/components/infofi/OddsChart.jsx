@@ -31,7 +31,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
  * @param {boolean} props.compact - Compact mode for detail views
  * @param {boolean} props.mini - Minimal mode for card thumbnails (overrides compact)
  */
-const OddsChart = ({ marketId, compact = false, mini = false }) => {
+const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
   const { t } = useTranslation("market");
   const [timeRange, setTimeRange] = React.useState("ALL");
 
@@ -68,6 +68,32 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
       no: point.no_bps / 100,
     }));
   }, [oddsHistory]);
+
+  // Dynamic Y-axis domain based on actual data range
+  const { domainMin, domainMax, axisTicks } = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) {
+      return { domainMin: 0, domainMax: 100, axisTicks: [0, 50, 100] };
+    }
+    const values = chartData.map((d) => d.yes);
+    if (!compact && !mini) values.push(...chartData.map((d) => d.no));
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const dMin = Math.max(0, Math.floor(min / 10) * 10 - 10);
+    const dMax = Math.min(100, Math.ceil(max / 10) * 10 + 10);
+
+    // Generate evenly spaced ticks
+    let tickCount;
+    if (mini) tickCount = 3;
+    else if (compact) tickCount = 4;
+    else tickCount = 6;
+
+    const step = (dMax - dMin) / (tickCount - 1);
+    const ticks = Array.from({ length: tickCount }, (_, i) =>
+      Math.round(dMin + step * i)
+    );
+
+    return { domainMin: dMin, domainMax: dMax, axisTicks: ticks };
+  }, [chartData, compact, mini]);
 
   // Custom tooltip (hidden in mini mode)
   const CustomTooltip = ({ active, payload }) => {
@@ -165,7 +191,10 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-1 text-xs">
-          <div className="w-3 h-0.5 bg-emerald-500"></div>
+          <div
+            className="w-3 h-0.5"
+            style={{ backgroundColor: lineColor || "#10b981" }}
+          ></div>
           <span className="text-muted-foreground">{t("yes")}</span>
         </div>
         <div className={heightClass}>
@@ -183,8 +212,8 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
               tickLine={false}
             />
             <YAxis
-              domain={[0, 100]}
-              ticks={[0, 50, 100]}
+              domain={[domainMin, domainMax]}
+              ticks={axisTicks}
               tickFormatter={(value) => `${value}%`}
               stroke="#9ca3af"
               style={{ fontSize: "9px" }}
@@ -193,7 +222,7 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
             <Line
               type="monotone"
               dataKey="yes"
-              stroke="#10b981"
+              stroke={lineColor || "#10b981"}
               strokeWidth={2}
               dot={false}
               activeDot={false}
@@ -275,8 +304,8 @@ const OddsChart = ({ marketId, compact = false, mini = false }) => {
               tickLine={false}
             />
             <YAxis
-              domain={[0, 100]}
-              ticks={compact ? [0, 50, 100] : [0, 20, 40, 60, 80, 100]}
+              domain={[domainMin, domainMax]}
+              ticks={axisTicks}
               tickFormatter={(value) => `${value}%`}
               stroke="#9ca3af"
               style={{ fontSize: compact ? "10px" : "12px" }}
@@ -313,6 +342,7 @@ OddsChart.propTypes = {
     .isRequired,
   compact: PropTypes.bool,
   mini: PropTypes.bool,
+  lineColor: PropTypes.string,
 };
 
 export default OddsChart;

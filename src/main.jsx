@@ -72,6 +72,7 @@ import MarketsIndex from "./routes/MarketsIndex";
 import UsersIndex from "./routes/UsersIndex";
 import UserProfile from "./routes/UserProfile";
 import FaucetPage from "./routes/FaucetPage";
+import CreateSeasonPage from "./routes/CreateSeasonPage";
 import LocalizationAdmin from "./routes/LocalizationAdmin";
 import InfoFiMarketDetail from "./pages/InfoFiMarketDetail";
 // Dev-only: UI Gym component showcase (tree-shaken in production)
@@ -156,6 +157,10 @@ const router = createBrowserRouter([
             <LocalizationAdmin />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "create-season",
+        element: <CreateSeasonPage />,
       },
       {
         path: "portfolio",

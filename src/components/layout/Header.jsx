@@ -1,14 +1,22 @@
 // React import not needed with Vite JSX transform
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, Ticket, User, Crown } from "lucide-react";
 import LanguageToggle from "@/components/common/LanguageToggle";
 import SettingsMenu from "@/components/common/SettingsMenu";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 import { useRouteAccess } from "@/hooks/useRouteAccess";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const { t } = useTranslation("navigation");
@@ -17,7 +25,8 @@ const Header = () => {
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
-
+  const navigate = useNavigate();
+  const location = useLocation();
   const predictionMarketsToggle = useRouteAccess(
     "__feature__/prediction_markets",
     {
@@ -30,9 +39,15 @@ const Header = () => {
   const showPredictionMarkets =
     !predictionMarketsToggle.isDisabled && predictionMarketsToggle.hasAccess;
 
+
   // Shared nav link styling
   const navLinkClass = ({ isActive }) =>
     `transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+
+  // Raffles dropdown active state
+  const isRafflesActive =
+    location.pathname.startsWith("/raffles") ||
+    location.pathname.startsWith("/create-season");
 
   return (
     <header className="border-b bg-background text-foreground">
@@ -50,10 +65,49 @@ const Header = () => {
               <span className="text-muted-foreground">.fun</span>
             </span>
           </Link>
-          <nav className="hidden md:flex space-x-6">
-            <NavLink to="/raffles" className={navLinkClass}>
-              {t("raffles")}
-            </NavLink>
+          <nav className="hidden md:flex space-x-6 items-center">
+            {/* Raffles Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className={`transition-colors inline-flex items-center gap-1 cursor-pointer outline-none ${
+                    isRafflesActive
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  {t("raffles")}
+                  <ChevronDown className="h-3 w-3" />
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem
+                  onSelect={() => navigate("/raffles")}
+                  className="cursor-pointer"
+                >
+                  <Ticket className="mr-2 h-4 w-4" />
+                  {t("browseRaffles")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => navigate("/raffles?filter=mine")}
+                  className="cursor-pointer"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  {t("myRaffles")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => navigate("/create-season")}
+                  className="cursor-pointer"
+                >
+                  <Crown className="mr-2 h-4 w-4" />
+                  {t("createRaffle")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {showPredictionMarkets ? (
               <NavLink to="/markets" className={navLinkClass}>
                 {t("predictionMarkets")}

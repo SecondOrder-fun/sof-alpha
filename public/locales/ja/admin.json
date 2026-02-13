@@ -92,5 +92,13 @@
   "funded": "資金供給済み",
   "grand": "グランプライズ",
   "consolation": "参加賞",
-  "vrfReqId": "VRFリクエストID"
+  "vrfReqId": "VRFリクエストID",
+  "participationRequirements": "参加要件",
+  "gatingEnabledDesc": "チケット購入前にパスワードの入力が必要です。",
+  "gatingDisabledDesc": "制限なく誰でもこのシーズンに参加できます。",
+  "passwordGates": "パスワードゲート",
+  "password": "パスワード",
+  "addPasswordGate": "パスワードを追加",
+  "gatingHelpText": "参加するにはすべての有効なパスワードの入力が必要です（AND条件）。ゲートをスキップするにはパスワードを空のままにしてください。",
+  "gatingValidationError": "少なくとも1つのパスワードゲートを設定して有効にする必要があります。"
 }

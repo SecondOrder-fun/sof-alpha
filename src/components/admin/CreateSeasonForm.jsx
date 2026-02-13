@@ -5,7 +5,9 @@ import { usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 
 import { isAddress, decodeEventLog } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { CalendarIcon, Gift } from "lucide-react";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
@@ -33,7 +35,8 @@ const fmtLocalDatetime = (sec) => {
 const DEFAULT_START_OFFSET_SECONDS = 5 * 60; // 5 minutes from now
 const DEFAULT_DURATION_SECONDS = 7 * 24 * 60 * 60; // 1 week
 
-const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
+const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" }) => {
+  const { t } = useTranslation("raffle");
   const [name, setName] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -232,20 +235,20 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 
     // Validate name is not empty
     if (!name || name.trim().length === 0) {
-      setNameError("Season name is required");
-      setFormError("Season name is required");
+      setNameError(t("seasonNameRequired"));
+      setFormError(t("seasonNameRequired"));
       return;
     }
 
     // Validate treasury address
     if (!treasuryAddress || treasuryAddress.trim().length === 0) {
-      setTreasuryError("Treasury wallet address is required");
-      setFormError("Treasury wallet address is required");
+      setTreasuryError(t("treasuryRequired"));
+      setFormError(t("treasuryRequired"));
       return;
     }
     if (!isAddress(treasuryAddress.trim())) {
-      setTreasuryError("Invalid Ethereum address");
-      setFormError("Invalid treasury wallet address");
+      setTreasuryError(t("invalidAddress"));
+      setFormError(t("invalidTreasuryAddress"));
       return;
     }
 
@@ -268,12 +271,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
         : null;
     let manualStartSec = null;
     if (!startTime) {
-      setFormError("Start time is required");
+      setFormError(t("startTimeRequired"));
       return;
     }
     const parsed = Math.floor(new Date(startTime).getTime() / 1000);
     if (!Number.isFinite(parsed)) {
-      setFormError("Invalid start time");
+      setFormError(t("invalidStartTime"));
       return;
     }
     manualStartSec = parsed;
@@ -291,23 +294,23 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       const adjusted = new Date(minStartSec * 1000).toISOString().slice(0, 16);
       setStartTime(adjusted);
       setFormError(
-        `Start time must be at least ${AUTO_START_BUFFER_SECONDS}s ahead of chain time. Adjusted to ${adjusted}. Please review and submit again.`
+        t("startTimeTooSoon", { seconds: AUTO_START_BUFFER_SECONDS, adjusted })
       );
       return;
     }
 
     if (!endTime) {
-      setFormError("End time is required");
+      setFormError(t("endTimeRequired"));
       return;
     }
 
     const end = Math.floor(new Date(endTime).getTime() / 1000);
     if (!Number.isFinite(end)) {
-      setFormError("Invalid end time");
+      setFormError(t("invalidEndTime"));
       return;
     }
     if (end <= start) {
-      setFormError("End time must be after the start time");
+      setFormError(t("endAfterStart"));
       return;
     }
     // Validate grand prize percentage (UI only constraints 55% - 75%)
@@ -317,7 +320,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
       grandParsedPct < 55 ||
       grandParsedPct > 75
     ) {
-      setFormError("Grand Prize must be between 55% and 75%");
+      setFormError(t("grandPrizeRange"));
       return;
     }
     const grandPrizeBps = Math.round(grandParsedPct * 100); // convert % -> BPS
@@ -345,11 +348,11 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 
     // Validate bond steps from curve editor
     if (!curveData.isValid) {
-      setFormError("Bonding curve configuration is invalid. Please check the curve editor.");
+      setFormError(t("curveInvalid"));
       return;
     }
     if (!curveData.steps || curveData.steps.length === 0) {
-      setFormError("Bond steps required. Configure the bonding curve.");
+      setFormError(t("bondStepsRequired"));
       return;
     }
 
@@ -368,159 +371,181 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
   return (
     <form onSubmit={handleCreateSeason} className="space-y-4">
       {/* Show circuit breaker alert if error detected */}
-      <MetaMaskCircuitBreakerAlert 
-        error={createSeason?.error} 
-        onDismiss={() => createSeason.reset()} 
+      <MetaMaskCircuitBreakerAlert
+        error={createSeason?.error}
+        onDismiss={() => createSeason.reset()}
       />
-      
-      <div className="space-y-1">
-        <Input
-          placeholder="Season Name"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            if (nameError) setNameError("");
-          }}
-          required
-          className={nameError ? "border-red-500" : ""}
-          aria-invalid={nameError ? "true" : "false"}
-          aria-describedby={nameError ? "name-error" : undefined}
-        />
-        {nameError && (
-          <p id="name-error" className="text-xs text-red-500">
-            {nameError}
-          </p>
-        )}
-      </div>
-      <div className="space-y-1">
-        <label className="text-sm">Treasury Wallet</label>
-        <Input
-          placeholder="0x..."
-          value={treasuryAddress}
-          onChange={(e) => {
-            setTreasuryAddress(e.target.value);
-            if (treasuryError) setTreasuryError("");
-          }}
-          required
-          className={treasuryError ? "border-red-500" : ""}
-          aria-invalid={treasuryError ? "true" : "false"}
-          aria-describedby={treasuryError ? "treasury-error" : undefined}
-        />
-        {treasuryError && (
-          <p id="treasury-error" className="text-xs text-red-500">
-            {treasuryError}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Wallet address where accumulated fees will be sent.
-        </p>
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Season Timing</label>
-        <div className="flex items-end gap-3">
+
+      {/* ── Section 1: Main Details ───────────────────────────── */}
+      {(activeSection === "all" || activeSection === "details") && (
+        <div className="space-y-4">
+          {/* Season Name */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Start Time</label>
             <Input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-[210px] [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:bg-muted [&::-webkit-calendar-picker-indicator]:hover:bg-muted/80"
+              placeholder={t("seasonNamePlaceholder")}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError("");
+              }}
+              required
+              className={nameError ? "border-red-500" : ""}
+              aria-invalid={nameError ? "true" : "false"}
+              aria-describedby={nameError ? "name-error" : undefined}
             />
+            {nameError && (
+              <p id="name-error" className="text-xs text-red-500">
+                {nameError}
+              </p>
+            )}
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">End Time</label>
-            <Input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-[210px] [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:bg-muted [&::-webkit-calendar-picker-indicator]:hover:bg-muted/80"
-            />
+
+          {/* Season Timing */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("seasonTiming")}</label>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t("startTime")}</label>
+                <DateTimePicker
+                  value={startTime}
+                  onChange={setStartTime}
+                  label={t("startTime")}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t("endTime")}</label>
+                <DateTimePicker
+                  value={endTime}
+                  onChange={setEndTime}
+                  label={t("endTime")}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={resetToDefaultDates}
+                className="flex items-center gap-1 h-9"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {t("reset")}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("timingHelp", { seconds: AUTO_START_BUFFER_SECONDS })}
+            </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={resetToDefaultDates}
-            className="flex items-center gap-1 h-9"
-          >
-            <CalendarIcon className="h-4 w-4" />
-            Reset
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Default: Start in 5 minutes, End after 1 week. Start time must be at least {AUTO_START_BUFFER_SECONDS}s ahead of chain time.
-        </p>
-      </div>
-      <div>
-        <label className="text-sm">Grand Prize Split (%)</label>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={55}
-            max={75}
-            step={1}
-            value={grandPct}
-            onChange={(e) => setGrandPct(e.target.value)}
-            className="w-full"
+
+          {/* Participation Requirements (Gating) */}
+          <GatingConfig
+            gated={gated}
+            onGatedChange={setGated}
+            onGatesChange={setGatingGates}
           />
-          <span className="w-12 text-right text-sm font-mono">
-            {grandPct}%
-          </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Allowed range: 55%–75%. You can adjust per season.
-        </p>
-      </div>
-      {/* Bonding Curve Editor */}
-      <BondingCurveEditor
-        onChange={handleCurveChange}
-        sofDecimals={sofDecimals}
-      />
-      {/* Gating Configuration */}
-      <GatingConfig
-        gated={gated}
-        onGatedChange={setGated}
-        onGatesChange={setGatingGates}
-      />
-      {formError && (
-        <p className="text-xs text-red-500">{formError}</p>
       )}
-      {startTooSoonUi && (
-        <p className="text-xs text-amber-600 mb-1">
-          Start time must be at least {AUTO_START_BUFFER_SECONDS}s ahead
-          of chain time.
-        </p>
-      )}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0 || !treasuryAddress || !isAddress(treasuryAddress.trim()) || !curveData.isValid}
-      >
-        {createSeason?.isPending ? "Creating..." : "Create Season"}
-      </Button>
-      <TransactionModal mutation={createSeason} title="Creating Season" />
-      {gatingStatus === "pending" && (
-        <p className="text-xs text-amber-600">Configuring password gates...</p>
-      )}
-      {gatingStatus === "success" && (
-        <p className="text-xs text-green-600">Password gates configured successfully!</p>
-      )}
-      {gatingStatus === "error" && (
-        <p className="text-xs text-red-500">Failed to configure gates. You may need to set them manually.</p>
-      )}
-      {lastAttempt && (
-        <div className="mt-3 text-xs border rounded p-2 bg-muted/30">
-          <p>
-            <strong>Last Attempt</strong>
-          </p>
-          <p>autoStart: {String(lastAttempt.autoStart)}</p>
-          <p>start: {lastAttempt.start}</p>
-          <p>end: {lastAttempt.end}</p>
-          <p>chainNowSec: {lastAttempt.chainNowSec ?? "n/a"}</p>
-          <p>manualStartSec: {lastAttempt.manualStartSec ?? "n/a"}</p>
-          <p>secondsAhead: {lastAttempt.secondsAhead}</p>
+
+      {/* ── Section 2: Prize Settings ────────────────────────── */}
+      {(activeSection === "all" || activeSection === "prizes") && (
+        <div className="space-y-4">
+          {/* Treasury Wallet */}
+          <div className="space-y-1">
+            <label className="text-sm">{t("treasuryWallet")}</label>
+            <Input
+              placeholder="0x..."
+              value={treasuryAddress}
+              onChange={(e) => {
+                setTreasuryAddress(e.target.value);
+                if (treasuryError) setTreasuryError("");
+              }}
+              required
+              className={treasuryError ? "border-red-500" : ""}
+              aria-invalid={treasuryError ? "true" : "false"}
+              aria-describedby={treasuryError ? "treasury-error" : undefined}
+            />
+            {treasuryError && (
+              <p id="treasury-error" className="text-xs text-red-500">
+                {treasuryError}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {t("treasuryHelp")}
+            </p>
+          </div>
+
+          {/* Grand Prize Split */}
+          <div>
+            <label className="text-sm">{t("grandPrizeSplit")}</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={55}
+                max={75}
+                step={1}
+                value={grandPct}
+                onChange={(e) => setGrandPct(e.target.value)}
+                className="w-full"
+              />
+              <span className="w-12 text-right text-sm font-mono">
+                {grandPct}%
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("grandPrizeHelp")}
+            </p>
+          </div>
+
+          {/* Sponsored Prize (placeholder) */}
+          <div className="p-3 border border-dashed border-border rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Gift className="h-4 w-4" />
+              <span className="font-medium">{t("sponsoredPrizeLabel")}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("sponsoredPrizeHelp")}
+            </p>
+          </div>
         </div>
+      )}
+
+      {/* ── Section 3: Bonding Curve ─────────────────────────── */}
+      {(activeSection === "all" || activeSection === "curve") && (
+        <BondingCurveEditor
+          onChange={handleCurveChange}
+          sofDecimals={sofDecimals}
+        />
+      )}
+
+      {/* Form-level errors & submit — only on curve step or "all" */}
+      {(activeSection === "all" || activeSection === "curve") && (
+        <>
+          {formError && (
+            <p className="text-xs text-red-500">{formError}</p>
+          )}
+          {startTooSoonUi && (
+            <p className="text-xs text-amber-600 mb-1">
+              {t("startTimeTooSoonWarning", { seconds: AUTO_START_BUFFER_SECONDS })}
+            </p>
+          )}
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0 || !treasuryAddress || !isAddress(treasuryAddress.trim()) || !curveData.isValid}
+          >
+            {createSeason?.isPending ? t("creatingBtn") : t("createSeasonBtn")}
+          </Button>
+          <TransactionModal mutation={createSeason} title={t("creatingSeasonTitle")} />
+          {gatingStatus === "pending" && (
+            <p className="text-xs text-amber-600">{t("configuringGates")}</p>
+          )}
+          {gatingStatus === "success" && (
+            <p className="text-xs text-green-600">{t("gatesConfigured")}</p>
+          )}
+          {gatingStatus === "error" && (
+            <p className="text-xs text-red-500">{t("gatesConfigFailed")}</p>
+          )}
+        </>
       )}
     </form>
   );
@@ -529,6 +554,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery }) => {
 CreateSeasonForm.propTypes = {
   createSeason: PropTypes.object.isRequired,
   chainTimeQuery: PropTypes.object.isRequired,
+  activeSection: PropTypes.oneOf(["all", "details", "prizes", "curve"]),
 };
 
 export default CreateSeasonForm;

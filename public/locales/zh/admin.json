@@ -92,5 +92,13 @@
   "funded": "Funded",
   "grand": "Grand",
   "consolation": "Consolation",
-  "vrfReqId": "VRF reqId"
+  "vrfReqId": "VRF reqId",
+  "participationRequirements": "参与要求",
+  "gatingEnabledDesc": "用户必须输入密码才能购买票。",
+  "gatingDisabledDesc": "任何人都可以无限制地参与本赛季。",
+  "passwordGates": "密码门",
+  "password": "密码",
+  "addPasswordGate": "添加另一个密码",
+  "gatingHelpText": "用户必须输入所有启用的密码才能参与（AND逻辑）。将密码留空以跳过该门。",
+  "gatingValidationError": "至少需要配置并启用一个密码门。"
 }

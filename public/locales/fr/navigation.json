@@ -25,5 +25,8 @@
   "disclaimer": "Disclaimer",
   "copyright": "© {{year}} SecondOrder.fun. All rights reserved.",
   "tagline": "InfoFi-powered raffle platform transforming crypto speculation into structured games.",
-  "connectWallet": "Connect Wallet"
+  "connectWallet": "Connect Wallet",
+  "browseRaffles": "Parcourir les loteries",
+  "myRaffles": "Mes loteries",
+  "createRaffle": "Créer une loterie"
 }

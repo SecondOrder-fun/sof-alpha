@@ -73,7 +73,7 @@ const MobileMarketDetail = ({ market, marketId }) => {
     <div className="max-w-2xl mx-auto px-4 py-4">
       {/* Back button - UI library Button */}
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon"
         onClick={() => navigate("/markets")}
         className="mb-3"

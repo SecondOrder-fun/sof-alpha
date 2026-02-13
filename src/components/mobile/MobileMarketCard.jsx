@@ -12,16 +12,32 @@ import OddsChart from "@/components/infofi/OddsChart";
  * Uses div[role=button] instead of <button> to avoid the global
  * button CSS that overrides backgrounds with hsl(var(--primary)).
  */
-const MobileMarketCard = ({ market, onClick }) => {
+const MobileMarketCard = ({ market, onClick, hasPosition, positionSide }) => {
   const isWinnerPrediction =
     (market.market_type || market.type) === "WINNER_PREDICTION" &&
     market.player;
   const seasonId = market.raffle_id ?? market.seasonId;
 
-  // Current YES probability
-  const yesPct = market.current_probability_bps
-    ? (market.current_probability_bps / 100).toFixed(1)
-    : "50.0";
+  // Current probability
+  const bps = market.current_probability_bps ?? 5000;
+  const yesPct = (bps / 100).toFixed(1);
+  const noPct = ((10000 - bps) / 100).toFixed(1);
+
+  // Leading answer display
+  const leadingLabel =
+    bps > 5000
+      ? `${yesPct}% Yes`
+      : bps < 5000
+        ? `${noPct}% No`
+        : "50.0% Even";
+  const leadingColor =
+    bps > 5000
+      ? "text-green-500"
+      : bps < 5000
+        ? "text-red-400"
+        : "text-muted-foreground";
+  const miniLineColor =
+    bps > 5000 ? "#10b981" : bps < 5000 ? "#ef4444" : "#10b981";
 
   return (
     <div
@@ -57,19 +73,28 @@ const MobileMarketCard = ({ market, onClick }) => {
 
         {/* Stats row */}
         <ContentBox className="flex items-center justify-between py-2 px-3">
-          <span className="font-bold text-green-500 text-sm">
-            {yesPct}% Yes
+          <span className={`font-bold text-sm ${leadingColor}`}>
+            {leadingLabel}
           </span>
-          {market.volume != null && (
-            <span className="text-muted-foreground text-xs">
-              ${Number(market.volume).toLocaleString()} vol
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPosition && positionSide && (
+              <span
+                className={`text-xs font-medium ${positionSide === "YES" ? "text-green-500" : "text-red-400"}`}
+              >
+                You: {positionSide}
+              </span>
+            )}
+            {market.volume != null && (
+              <span className="text-muted-foreground text-xs">
+                ${Number(market.volume).toLocaleString()} vol
+              </span>
+            )}
+          </div>
         </ContentBox>
 
         {/* Mini Odds Chart — bare line, no chrome, fixed height */}
         <div className="flex-1 min-h-[96px]">
-          <OddsChart marketId={market.id} mini />
+          <OddsChart marketId={market.id} mini lineColor={miniLineColor} />
         </div>
       </div>
     </div>
@@ -79,6 +104,8 @@ const MobileMarketCard = ({ market, onClick }) => {
 MobileMarketCard.propTypes = {
   market: PropTypes.object.isRequired,
   onClick: PropTypes.func.isRequired,
+  hasPosition: PropTypes.bool,
+  positionSide: PropTypes.oneOf(["YES", "NO"]),
 };
 
 export default MobileMarketCard;

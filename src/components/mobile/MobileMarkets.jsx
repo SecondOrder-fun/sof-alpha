@@ -27,46 +27,52 @@ const MobileMarkets = () => {
     isLoading: false,
   };
 
-  // Determine active season and set as default
-  const activeSeasonId = useMemo(() => {
-    const arr = Array.isArray(seasons) ? seasons : [];
-    const active = arr.find((s) => Number(s?.status) === 1);
-    return active ? String(active.id ?? active.seasonId ?? "0") : "0";
-  }, [seasons]);
+  const seasonsArr = useMemo(
+    () => (Array.isArray(seasons) ? seasons : []),
+    [seasons]
+  );
 
-  const [selectedSeasonId, setSelectedSeasonId] = useState(activeSeasonId);
+  // Fetch markets for ALL seasons upfront so we can find the best default
+  const {
+    markets: allMarkets,
+    isLoading: marketsLoading,
+    error,
+  } = useInfoFiMarkets(seasonsArr, { isActive: true });
+
+  // Compute smart default: first season (lowest ID) with ≥1 active market,
+  // falling back to the active season, then "0"
+  const defaultSeasonId = useMemo(() => {
+    if (!allMarkets || typeof allMarkets !== "object") return "0";
+    // Sort season IDs numerically ascending
+    const seasonIds = Object.keys(allMarkets).sort(
+      (a, b) => Number(a) - Number(b)
+    );
+    const withMarkets = seasonIds.find(
+      (id) => Array.isArray(allMarkets[id]) && allMarkets[id].length > 0
+    );
+    if (withMarkets) return withMarkets;
+    // Fallback to active season
+    const active = seasonsArr.find((s) => Number(s?.status) === 1);
+    return active ? String(active.id ?? active.seasonId ?? "0") : "0";
+  }, [allMarkets, seasonsArr]);
+
+  const [selectedSeasonId, setSelectedSeasonId] = useState("0");
   const [selectedMarketType, setSelectedMarketType] =
     useState("WINNER_PREDICTION");
 
-  // Update selected season when active season changes
+  // Set initial season once default is computed
   useEffect(() => {
-    if (activeSeasonId !== "0" && selectedSeasonId === "0") {
-      setSelectedSeasonId(activeSeasonId);
+    if (defaultSeasonId !== "0" && selectedSeasonId === "0") {
+      setSelectedSeasonId(defaultSeasonId);
     }
-  }, [activeSeasonId, selectedSeasonId]);
+  }, [defaultSeasonId, selectedSeasonId]);
 
-  // Fetch markets only for the selected season
-  const selectedSeasonArray = useMemo(() => {
-    if (!selectedSeasonId || selectedSeasonId === "0") return [];
-    const arr = Array.isArray(seasons) ? seasons : [];
-    const season = arr.find(
-      (s) => String(s.id ?? s.seasonId) === selectedSeasonId
-    );
-    return season ? [season] : [];
-  }, [seasons, selectedSeasonId]);
-
-  const {
-    markets,
-    isLoading: marketsLoading,
-    error,
-  } = useInfoFiMarkets(selectedSeasonArray, { isActive: true });
-
-  // Get markets for selected season
+  // Get markets for selected season from the all-seasons data
   const seasonMarkets = useMemo(() => {
-    if (!markets || typeof markets !== "object") return [];
-    const marketArray = markets[selectedSeasonId] || [];
+    if (!allMarkets || typeof allMarkets !== "object") return [];
+    const marketArray = allMarkets[selectedSeasonId] || [];
     return Array.isArray(marketArray) ? marketArray : [];
-  }, [markets, selectedSeasonId]);
+  }, [allMarkets, selectedSeasonId]);
 
   // Group markets by type
   const marketsByType = useMemo(() => {
@@ -109,7 +115,6 @@ const MobileMarkets = () => {
   }, [marketsByType]);
 
   const isLoading = seasonsLoading || marketsLoading;
-  const seasonsArr = Array.isArray(seasons) ? seasons : [];
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
