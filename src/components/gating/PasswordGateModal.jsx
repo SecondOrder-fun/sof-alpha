@@ -226,12 +226,14 @@ export const PasswordGateModal = ({
       <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent
           side="bottom"
-          className="bg-background border-t-2 border-primary rounded-t-2xl px-4 pb-8 max-w-[100vw] box-border"
+          className="bg-background border-t-2 border-primary rounded-t-2xl !px-4 pb-8 w-full max-w-full overflow-x-hidden box-border"
         >
-          <SheetHeader className="mb-6">
+          <SheetHeader className="mb-6 min-w-0">
             {headerContent}
           </SheetHeader>
-          {bodyContent}
+          <div className="min-w-0 overflow-hidden">
+            {bodyContent}
+          </div>
         </SheetContent>
       </Sheet>
     );
