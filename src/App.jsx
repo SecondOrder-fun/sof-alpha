@@ -22,8 +22,9 @@ const App = () => {
   if (isMobile) {
     return (
       <div
-        className="min-h-screen bg-background flex flex-col"
+        className="min-h-screen bg-background flex flex-col overflow-x-hidden"
         style={{
+          maxWidth: "100vw",
           paddingTop: `${safeArea.top}px`,
           paddingBottom: `${safeArea.bottom}px`,
         }}

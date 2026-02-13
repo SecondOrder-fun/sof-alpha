@@ -85,7 +85,7 @@ const Carousel = ({
       role="region"
       aria-label="Carousel"
     >
-      <div {...swipeHandlers} className="relative overflow-hidden h-full">
+      <div {...swipeHandlers} className="relative overflow-hidden h-full" style={{ WebkitTransform: "translateZ(0)" }}>
         <AnimatePresence mode="wait" initial={false} custom={directionRef.current}>
           <motion.div
             key={currentIndex}
