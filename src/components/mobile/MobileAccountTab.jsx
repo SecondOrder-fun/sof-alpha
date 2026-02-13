@@ -6,7 +6,7 @@ import { FiEdit2, FiCopy, FiExternalLink } from "react-icons/fi";
 import { Card, CardContent } from "@/components/ui/card";
 import UsernameEditor from "@/components/account/UsernameEditor";
 import MobileFaucetWidget from "@/components/mobile/MobileFaucetWidget";
-import { SponsorStakingCard } from "@/components/sponsor/SponsorStakingCard";
+import { CreateSeasonWorkflow } from "@/components/sponsor/CreateSeasonWorkflow";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
 
@@ -125,8 +125,8 @@ const MobileAccountTab = ({ address, username }) => {
         </Card>
       )}
 
-      {/* Sponsor Staking */}
-      <SponsorStakingCard />
+      {/* Sponsor / Create Season Workflow */}
+      <CreateSeasonWorkflow />
     </div>
   );
 };

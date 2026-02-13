@@ -9,16 +9,31 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import Carousel from "@/components/common/Carousel";
 import MobileMarketCard from "@/components/mobile/MobileMarketCard";
+import { useUserMarketPosition } from "@/hooks/useUserMarketPosition";
 
 /**
- * Wrapper that gives each market card a navigate onClick
+ * Wrapper that gives each market card a navigate onClick + position data
  */
 const MobileActiveMarketCard = ({ market }) => {
   const navigate = useNavigate();
+  const { data: position } = useUserMarketPosition(market.id);
+
+  const hasPosition =
+    !!position && (position.yesAmount > 0n || position.noAmount > 0n);
+  const positionSide = hasPosition
+    ? position.netPosition > 0n
+      ? "YES"
+      : position.netPosition < 0n
+        ? "NO"
+        : null
+    : null;
+
   return (
     <MobileMarketCard
       market={market}
       onClick={() => navigate(`/markets/${market.id}`)}
+      hasPosition={hasPosition}
+      positionSide={positionSide}
     />
   );
 };

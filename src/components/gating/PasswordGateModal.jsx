@@ -1,7 +1,7 @@
 /**
  * PasswordGateModal
- * Bottom-sheet modal that prompts users to enter a password before
- * participating in a gated raffle season.
+ * Prompts users to enter a password before participating in a gated raffle season.
+ * Renders as a bottom Sheet on mobile/Farcaster, centered Dialog on desktop.
  */
 
 import PropTypes from "prop-types";
@@ -15,10 +15,18 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEASON_GATING_ABI } from "@/config/contracts";
 import { buildFriendlyContractError } from "@/lib/contractErrors";
+import { usePlatform } from "@/hooks/usePlatform";
 
 /**
  * @param {{
@@ -37,6 +45,7 @@ export const PasswordGateModal = ({
   onVerified,
 }) => {
   const { t } = useTranslation(["common", "raffle"]);
+  const { isMobile } = usePlatform();
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("idle"); // idle | loading | success | error
   const [errorMsg, setErrorMsg] = useState("");
@@ -114,86 +123,129 @@ export const PasswordGateModal = ({
     [onOpenChange],
   );
 
-  return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="bg-background border-t-2 border-primary rounded-t-2xl px-4 pb-8 max-w-[100vw] box-border"
-      >
-        <SheetHeader className="mb-6">
-          <div className="flex items-center gap-2">
-            <Lock className="w-5 h-5 text-primary" />
-            <SheetTitle className="text-xl font-bold">
-              {t("raffle:gatedSeason", { defaultValue: "Gated Season" })}
-            </SheetTitle>
-          </div>
-          <SheetDescription className="text-sm text-muted-foreground mt-1">
-            {seasonName
-              ? t("raffle:gatedSeasonDescNamed", {
-                  defaultValue:
-                    '"{{name}}" requires a password to participate.',
-                  name: seasonName,
-                })
-              : t("raffle:gatedSeasonDesc", {
-                  defaultValue:
-                    "This season requires a password to participate.",
-                })}
-          </SheetDescription>
-        </SheetHeader>
-
-        {status === "success" ? (
-          <div className="flex flex-col items-center gap-3 py-8">
-            <CheckCircle className="w-12 h-12 text-green-500" />
-            <p className="text-lg font-semibold">
-              {t("raffle:verified", { defaultValue: "Verified!" })}
-            </p>
-          </div>
+  // Shared header content
+  const headerContent = (
+    <>
+      <div className="flex items-center gap-2">
+        <Lock className="w-5 h-5 text-primary" />
+        {isMobile ? (
+          <SheetTitle className="text-xl font-bold">
+            {t("raffle:gatedSeason", { defaultValue: "Gated Season" })}
+          </SheetTitle>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="gate-password"
-                className="text-sm font-medium mb-2 block text-muted-foreground"
-              >
-                {t("common:password", { defaultValue: "Password" })}
-              </label>
-              <Input
-                id="gate-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("raffle:enterPassword", {
-                  defaultValue: "Enter the season password",
-                })}
-                disabled={status === "loading"}
-                autoFocus
-                className="bg-black/40 border-border"
-              />
-            </div>
-
-            {status === "error" && errorMsg && (
-              <p className="text-sm text-destructive">{errorMsg}</p>
-            )}
-
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full"
-              disabled={!password.trim() || status === "loading"}
-            >
-              {status === "loading" ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {t("common:verifying", { defaultValue: "Verifying…" })}
-                </span>
-              ) : (
-                t("common:submit", { defaultValue: "Submit" })
-              )}
-            </Button>
-          </form>
+          <DialogTitle className="text-xl font-bold">
+            {t("raffle:gatedSeason", { defaultValue: "Gated Season" })}
+          </DialogTitle>
         )}
-      </SheetContent>
-    </Sheet>
+      </div>
+      {isMobile ? (
+        <SheetDescription className="text-sm text-muted-foreground mt-1">
+          {seasonName
+            ? t("raffle:gatedSeasonDescNamed", {
+                defaultValue:
+                  '"{{name}}" requires a password to participate.',
+                name: seasonName,
+              })
+            : t("raffle:gatedSeasonDesc", {
+                defaultValue:
+                  "This season requires a password to participate.",
+              })}
+        </SheetDescription>
+      ) : (
+        <DialogDescription className="text-sm text-muted-foreground mt-1">
+          {seasonName
+            ? t("raffle:gatedSeasonDescNamed", {
+                defaultValue:
+                  '"{{name}}" requires a password to participate.',
+                name: seasonName,
+              })
+            : t("raffle:gatedSeasonDesc", {
+                defaultValue:
+                  "This season requires a password to participate.",
+              })}
+        </DialogDescription>
+      )}
+    </>
+  );
+
+  // Shared body content
+  const bodyContent = status === "success" ? (
+    <div className="flex flex-col items-center gap-3 py-8">
+      <CheckCircle className="w-12 h-12 text-green-500" />
+      <p className="text-lg font-semibold">
+        {t("raffle:verified", { defaultValue: "Verified!" })}
+      </p>
+    </div>
+  ) : (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label
+          htmlFor="gate-password"
+          className="text-sm font-medium mb-2 block text-muted-foreground"
+        >
+          {t("common:password", { defaultValue: "Password" })}
+        </label>
+        <Input
+          id="gate-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={t("raffle:enterPassword", {
+            defaultValue: "Enter the season password",
+          })}
+          disabled={status === "loading"}
+          autoFocus
+          className="bg-black/40 border-border"
+        />
+      </div>
+
+      {status === "error" && errorMsg && (
+        <p className="text-sm text-destructive">{errorMsg}</p>
+      )}
+
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={!password.trim() || status === "loading"}
+      >
+        {status === "loading" ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {t("common:verifying", { defaultValue: "Verifying..." })}
+          </span>
+        ) : (
+          t("common:submit", { defaultValue: "Submit" })
+        )}
+      </Button>
+    </form>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="bg-background border-t-2 border-primary rounded-t-2xl px-4 pb-8 max-w-[100vw] box-border"
+        >
+          <SheetHeader className="mb-6">
+            {headerContent}
+          </SheetHeader>
+          {bodyContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="bg-background border border-primary">
+        <DialogHeader className="mb-6">
+          {headerContent}
+        </DialogHeader>
+        {bodyContent}
+      </DialogContent>
+    </Dialog>
   );
 };
 

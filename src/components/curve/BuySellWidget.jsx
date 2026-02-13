@@ -141,9 +141,12 @@ const BuySellWidget = ({
 
   const onBuy = async (e) => {
     e.preventDefault();
-    if (!buyAmount) return;
+    if (!buyAmount && !needsVerification) return;
 
-    const result = await handleBuy(BigInt(buyAmount), () => setBuyAmount(""));
+    const result = await handleBuy(
+      buyAmount ? BigInt(buyAmount) : 0n,
+      () => setBuyAmount(""),
+    );
     if (result.success) {
       setBuyAmount("");
     }
@@ -170,6 +173,7 @@ const BuySellWidget = ({
     ? "Testnet RPC not configured. Set VITE_RPC_URL_TESTNET in .env and restart dev servers."
     : undefined;
   const walletNotConnected = !connectedAddress;
+  const needsVerification = isGated && isVerified !== true;
 
   return (
     <div className="space-y-4 relative">
@@ -230,12 +234,14 @@ const BuySellWidget = ({
               type="submit"
               disabled={
                 rpcMissing ||
-                !buyAmount ||
                 isPending ||
                 tradingLocked ||
                 walletNotConnected ||
-                hasZeroBalance ||
-                hasInsufficientBalance
+                (!needsVerification && (
+                  !buyAmount ||
+                  hasZeroBalance ||
+                  hasInsufficientBalance
+                ))
               }
               className="w-full"
               title={
@@ -243,7 +249,7 @@ const BuySellWidget = ({
                   ? "Trading is locked"
                   : walletNotConnected
                     ? "Connect wallet first"
-                    : hasZeroBalance || hasInsufficientBalance
+                    : !needsVerification && (hasZeroBalance || hasInsufficientBalance)
                       ? t("transactions:insufficientSOFShort", {
                           defaultValue: "Insufficient $SOF balance",
                         })
@@ -252,7 +258,7 @@ const BuySellWidget = ({
             >
               {isPending
                 ? t("transactions:buying")
-                : isGated && isVerified !== true
+                : needsVerification
                   ? t("raffle:verifyAccess", { defaultValue: "Verify Access" })
                   : t("common:buy")}
             </Button>
