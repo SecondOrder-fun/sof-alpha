@@ -1,7 +1,6 @@
 // React import not needed with Vite JSX transform
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useAccount, useDisconnect, usePublicClient } from "wagmi";
-import { useQuery } from "@tanstack/react-query";
+import { useAccount, useDisconnect } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Ticket, User, Crown } from "lucide-react";
@@ -11,8 +10,6 @@ import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
 import { useRouteAccess } from "@/hooks/useRouteAccess";
-import { getStoredNetworkKey } from "@/lib/wagmi";
-import { getContractAddresses } from "@/config/contracts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,11 +27,6 @@ const Header = () => {
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
   const navigate = useNavigate();
   const location = useLocation();
-  const publicClient = usePublicClient();
-
-  const netKey = getStoredNetworkKey();
-  const contracts = getContractAddresses(netKey);
-
   const predictionMarketsToggle = useRouteAccess(
     "__feature__/prediction_markets",
     {
@@ -47,30 +39,6 @@ const Header = () => {
   const showPredictionMarkets =
     !predictionMarketsToggle.isDisabled && predictionMarketsToggle.hasAccess;
 
-  // Check if user can create seasons (sponsor hat or creator role)
-  const { data: canCreateSeason } = useQuery({
-    queryKey: ["canCreateSeason", address, contracts.RAFFLE],
-    queryFn: async () => {
-      if (!publicClient || !contracts.RAFFLE) return false;
-      try {
-        return await publicClient.readContract({
-          address: contracts.RAFFLE,
-          abi: [{
-            type: "function",
-            name: "canCreateSeason",
-            inputs: [{ name: "account", type: "address" }],
-            outputs: [{ name: "", type: "bool" }],
-            stateMutability: "view",
-          }],
-          functionName: "canCreateSeason",
-          args: [address],
-        });
-      } catch {
-        return false;
-      }
-    },
-    enabled: !!address && !!publicClient,
-  });
 
   // Shared nav link styling
   const navLinkClass = ({ isActive }) =>
@@ -129,18 +97,14 @@ const Header = () => {
                   <User className="mr-2 h-4 w-4" />
                   {t("myRaffles")}
                 </DropdownMenuItem>
-                {canCreateSeason && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => navigate("/create-season")}
-                      className="cursor-pointer"
-                    >
-                      <Crown className="mr-2 h-4 w-4" />
-                      {t("createRaffle")}
-                    </DropdownMenuItem>
-                  </>
-                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => navigate("/create-season")}
+                  className="cursor-pointer"
+                >
+                  <Crown className="mr-2 h-4 w-4" />
+                  {t("createRaffle")}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
