@@ -10,13 +10,19 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import Carousel from "@/components/common/Carousel";
 import MobileMarketCard from "@/components/mobile/MobileMarketCard";
 import { useUserMarketPosition } from "@/hooks/useUserMarketPosition";
+import MobileCardSkeleton from "@/components/common/skeletons/MobileCardSkeleton";
 
 /**
- * Wrapper that gives each market card a navigate onClick + position data
+ * Wrapper that gives each market card a navigate onClick + position data.
+ * Uses batch-provided position when available, falls back to individual hook.
  */
-const MobileActiveMarketCard = ({ market }) => {
+const MobileActiveMarketCard = ({ market, batchPosition }) => {
   const navigate = useNavigate();
-  const { data: position } = useUserMarketPosition(market.id);
+  // Only call individual hook when batch data is not available
+  const { data: individualPosition } = useUserMarketPosition(
+    batchPosition ? null : market.id
+  );
+  const position = batchPosition || individualPosition;
 
   const hasPosition =
     !!position && (position.yesAmount > 0n || position.noAmount > 0n);
@@ -40,13 +46,14 @@ const MobileActiveMarketCard = ({ market }) => {
 
 MobileActiveMarketCard.propTypes = {
   market: PropTypes.object.isRequired,
+  batchPosition: PropTypes.object,
 };
 
 /**
  * MobileMarketsList - Carousel container with adaptive height.
  * Pattern: MobileRafflesList.jsx
  */
-const MobileMarketsList = ({ markets = [], isLoading }) => {
+const MobileMarketsList = ({ markets = [], isLoading, batchPositions = {} }) => {
   const { t } = useTranslation(["market", "common"]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardHeight, setCardHeight] = useState(null);
@@ -102,15 +109,7 @@ const MobileMarketsList = ({ markets = [], isLoading }) => {
 
   // Loading
   if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <p className="text-center text-muted-foreground">
-            {t("common:loading")}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <MobileCardSkeleton />;
   }
 
   // Empty
@@ -171,7 +170,11 @@ const MobileMarketsList = ({ markets = [], isLoading }) => {
             className="h-full"
             showArrows={false}
             renderItem={(market) => (
-              <MobileActiveMarketCard key={market.id} market={market} />
+              <MobileActiveMarketCard
+                key={market.id}
+                market={market}
+                batchPosition={batchPositions[String(market.id)]}
+              />
             )}
           />
         </CardContent>
@@ -183,6 +186,7 @@ const MobileMarketsList = ({ markets = [], isLoading }) => {
 MobileMarketsList.propTypes = {
   markets: PropTypes.array,
   isLoading: PropTypes.bool,
+  batchPositions: PropTypes.object,
 };
 
 export default MobileMarketsList;

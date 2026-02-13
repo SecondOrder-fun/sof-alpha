@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileRafflesList from "@/components/mobile/MobileRafflesList";
+import SeasonCardSkeleton from "@/components/common/skeletons/SeasonCardSkeleton";
 import { useState, useCallback } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
@@ -401,7 +402,13 @@ const RaffleList = () => {
           <h2 className="text-xl font-semibold">{t("allSeasons")}</h2>
           <p className="text-sm text-muted-foreground">{t("allSeasonsDescription")}</p>
         </div>
-        {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+        {allSeasonsQuery.isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SeasonCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
         {allSeasonsQuery.error && <p>Error loading seasons.</p>}
         {seasonsSorted.length === 0 && !allSeasonsQuery.isLoading && (
           <p>{t("noActiveSeasons")}</p>

@@ -84,15 +84,16 @@ describe("MobileRafflesList", () => {
     expect(screen.getByTestId("season-card-3")).toBeInTheDocument();
   });
 
-  it("shows loading state while fetching", () => {
-    renderList({
+  it("shows loading skeleton while fetching", () => {
+    const { container } = renderList({
       seasons: [],
       isLoading: true,
       onBuy: vi.fn(),
       onSell: vi.fn(),
     });
 
-    expect(screen.getByText("loadingSeasons")).toBeInTheDocument();
+    // Skeleton renders animated pulse elements instead of text
+    expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
     expect(screen.queryByText("noActiveSeasons")).not.toBeInTheDocument();
   });
 
