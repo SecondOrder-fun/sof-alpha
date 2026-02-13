@@ -333,32 +333,36 @@ export const MobileRaffleDetail = ({
           {/* Action Buttons — pinned at bottom */}
           <div className="shrink-0 px-6 pb-6 pt-3">
           {isPreStart ? null : isActive ? (
-            <div className="flex gap-3">
+            isGated && isVerified !== true ? (
               <Button
                 onClick={onBuy}
                 variant="primary"
                 size="lg"
-                className="flex-1 relative"
+                className="w-full relative"
               >
-                {isGated && isVerified !== true && (
-                  <Lock className="w-4 h-4 mr-1.5" />
-                )}
-                {isGated && isVerified !== true
-                  ? t("raffle:verifyAccess", { defaultValue: "Verify Access" }).toUpperCase()
-                  : t("common:buy").toUpperCase()}
+                <Lock className="w-4 h-4 mr-1.5" />
+                {t("raffle:verifyAccess", { defaultValue: "Verify Access" }).toUpperCase()}
               </Button>
-              <Button
-                onClick={onSell}
-                variant="primary"
-                size="lg"
-                className="flex-1 relative"
-              >
-                {isGated && isVerified !== true && (
-                  <Lock className="w-4 h-4 mr-1.5" />
-                )}
-                {t("common:sell").toUpperCase()}
-              </Button>
-            </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button
+                  onClick={onBuy}
+                  variant="primary"
+                  size="lg"
+                  className="flex-1 relative"
+                >
+                  {t("common:buy").toUpperCase()}
+                </Button>
+                <Button
+                  onClick={onSell}
+                  variant="primary"
+                  size="lg"
+                  className="flex-1 relative"
+                >
+                  {t("common:sell").toUpperCase()}
+                </Button>
+              </div>
+            )
           ) : (
             <div className="relative">
               <div className="flex gap-3 opacity-30">
