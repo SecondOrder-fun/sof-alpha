@@ -158,7 +158,7 @@ const DesktopMarketsIndex = () => {
   const isLoading = seasonsLoading || marketsLoading;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div>
       {/* Polymarket-style header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
