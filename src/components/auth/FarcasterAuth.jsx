@@ -61,9 +61,15 @@ const FarcasterAuth = () => {
 
   const handleError = useCallback(
     (error) => {
+      console.error("[SIWF] onError fired:", error);
+      console.error("[SIWF] error type:", typeof error);
+      if (error && typeof error === "object") {
+        console.error("[SIWF] error keys:", Object.keys(error));
+        console.error("[SIWF] error JSON:", JSON.stringify(error, null, 2));
+      }
       toast({
         title: t("siwfError", "Authentication Error"),
-        description: error?.message || "Sign in failed",
+        description: error?.message || error?.toString?.() || "Sign in failed",
         variant: "destructive",
       });
       setWantsToSignIn(false);
@@ -88,6 +94,9 @@ const FarcasterAuth = () => {
     url,
     qrCodeUri,
     isError,
+    error: signInError,
+    data: signInData,
+    validSignature,
   } = useSignIn({
     nonce: nonceGetter,
     onSuccess: handleSuccess,
@@ -95,6 +104,15 @@ const FarcasterAuth = () => {
     timeout: 300000,
     interval: 1500,
   });
+
+  // Debug: log state changes
+  useEffect(() => {
+    if (isError) {
+      console.error("[SIWF] isError=true, signInError:", signInError);
+      console.error("[SIWF] signInData:", signInData);
+      console.error("[SIWF] validSignature:", validSignature);
+    }
+  }, [isError, signInError, signInData, validSignature]);
 
   // Once the channel is created, start polling automatically
   useEffect(() => {
