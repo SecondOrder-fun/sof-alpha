@@ -5,7 +5,14 @@ import { useTranslation } from "react-i18next";
 import { useFarcaster } from "@/hooks/useFarcaster";
 import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Loader2, X } from "lucide-react";
 
 const FarcasterAuth = () => {
   const { t } = useTranslation("auth");
@@ -19,28 +26,25 @@ const FarcasterAuth = () => {
   } = useFarcaster();
   const { toast } = useToast();
 
-  // Track whether user has initiated sign-in (to auto-poll once channel is ready)
   const [wantsToSignIn, setWantsToSignIn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [showQrDialog, setShowQrDialog] = useState(false);
 
-  // Store nonce for use in onSuccess
   const nonceRef = useRef(null);
 
   const handleSuccess = useCallback(
     async (res) => {
-      setDebugInfo((p) => ({ ...p, onSuccess: true, resFid: res?.fid, resKeys: res ? Object.keys(res) : [] }));
       const { message, signature } = res;
       const nonce = nonceRef.current;
 
       if (!message || !signature || !nonce) {
-        setDebugInfo((p) => ({ ...p, missing: { message: !message, signature: !signature, nonce: !nonce } }));
         toast({
           title: t("siwfError", "Authentication Error"),
           description: "Missing SIWF response data",
           variant: "destructive",
         });
         setWantsToSignIn(false);
+        setShowQrDialog(false);
         return;
       }
 
@@ -51,7 +55,6 @@ const FarcasterAuth = () => {
           description: `${t("welcome", "Welcome")}, ${user.displayName || user.username || `FID ${user.fid}`}!`,
         });
       } catch (err) {
-        setDebugInfo((p) => ({ ...p, backendError: err.message }));
         toast({
           title: t("siwfError", "Authentication Error"),
           description: err.message,
@@ -59,21 +62,13 @@ const FarcasterAuth = () => {
         });
       }
       setWantsToSignIn(false);
+      setShowQrDialog(false);
     },
     [verifyWithBackend, toast, t],
   );
 
   const handleError = useCallback(
     (error) => {
-      const errStr = (() => { try { return JSON.stringify(error); } catch { return String(error); } })();
-      setDebugInfo((p) => ({
-        ...p,
-        onError: true,
-        errMsg: error?.message,
-        errCode: error?.errCode,
-        errStr,
-        errType: typeof error,
-      }));
       toast({
         title: t("siwfError", "Authentication Error"),
         description: error?.message || "Sign in failed",
@@ -81,6 +76,7 @@ const FarcasterAuth = () => {
       });
       setWantsToSignIn(false);
       setIsConnecting(false);
+      setShowQrDialog(false);
     },
     [toast, t],
   );
@@ -88,19 +84,8 @@ const FarcasterAuth = () => {
   const nonceGetter = useCallback(async () => {
     const nonce = await fetchNonce();
     nonceRef.current = nonce;
-    setDebugInfo((p) => ({ ...p, nonce: nonce?.slice(0, 8) + "..." }));
     return nonce;
   }, [fetchNonce]);
-
-  const handleStatusResponse = useCallback((statusData) => {
-    setDebugInfo((p) => ({
-      ...p,
-      relayState: statusData?.state,
-      relayFid: statusData?.fid,
-      relayHasMsg: !!statusData?.message,
-      relayHasSig: !!statusData?.signature,
-    }));
-  }, []);
 
   const {
     signIn,
@@ -111,25 +96,23 @@ const FarcasterAuth = () => {
     channelToken,
     url,
     isError,
-    data: signInData,
   } = useSignIn({
     nonce: nonceGetter,
     onSuccess: handleSuccess,
     onError: handleError,
-    onStatusResponse: handleStatusResponse,
     timeout: 300000,
     interval: 1500,
   });
 
-  // Once the channel is created, start polling automatically
+  // Once the channel is created, start polling and show dialog
   useEffect(() => {
     if (wantsToSignIn && channelToken && !isPolling) {
       signIn();
       setIsConnecting(false);
+      setShowQrDialog(true);
     }
   }, [wantsToSignIn, channelToken, isPolling, signIn]);
 
-  // Button click: create channel first, then polling starts via effect
   const handleSignInClick = useCallback(() => {
     setWantsToSignIn(true);
     setIsConnecting(true);
@@ -140,12 +123,10 @@ const FarcasterAuth = () => {
     }
   }, [connect, reconnect, isError]);
 
-  // Debug panel (temporary)
-  const debugPanel = debugInfo ? (
-    <pre className="text-[10px] text-destructive bg-muted p-2 rounded max-w-sm overflow-auto whitespace-pre-wrap mb-2">
-      v0.8.2 | {JSON.stringify({ ...debugInfo, channelToken: channelToken?.slice(0, 8), url: url?.slice(0, 50), isPolling, isError, dataState: signInData?.state }, null, 1)}
-    </pre>
-  ) : null;
+  const handleDialogClose = useCallback(() => {
+    setShowQrDialog(false);
+    setWantsToSignIn(false);
+  }, []);
 
   // Authenticated state — show profile + sign-out
   if (isBackendAuthenticated && backendUser) {
@@ -182,60 +163,73 @@ const FarcasterAuth = () => {
     );
   }
 
-  // Verifying state
-  if (isVerifying) {
-    return (
-      <Button variant="farcaster" disabled>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {t("siwfVerifying", "Verifying...")}
-      </Button>
-    );
-  }
+  // Button label depends on state
+  const isLoading = isVerifying || (isConnecting && !isPolling);
+  const buttonLabel = isVerifying
+    ? t("siwfVerifying", "Verifying...")
+    : t("signInWithFarcaster", "Sign in with Farcaster");
 
-  // Connecting state (creating channel)
-  if (isConnecting && !isPolling) {
-    return (
-      <Button variant="farcaster" disabled>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        {t("signInWithFarcaster", "Sign in with Farcaster")}
-      </Button>
-    );
-  }
-
-  // Polling state — QR code shown
-  if (isPolling && url) {
-    return (
-      <div className="flex flex-col items-center gap-3">
-        {debugPanel}
-        <p className="text-sm text-muted-foreground">
-          {t("scanQrCode", "Scan with Warpcast to sign in")}
-        </p>
-        <div className="rounded-lg overflow-hidden bg-white p-3">
-          <QRCodeSVG value={url} size={200} level="L" />
-        </div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-primary underline"
-        >
-          {t("openInWarpcast", "Open in Warpcast")}
-        </a>
-      </div>
-    );
-  }
-
-  // Default: sign-in button
   return (
-    <div className="flex flex-col items-center gap-2">
-      {debugPanel}
+    <>
       <Button
         variant="farcaster"
         onClick={handleSignInClick}
+        disabled={isLoading}
       >
-        {t("signInWithFarcaster", "Sign in with Farcaster")}
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {buttonLabel}
       </Button>
-    </div>
+
+      <Dialog open={showQrDialog} onOpenChange={handleDialogClose}>
+        <DialogContent className="bg-background border border-primary max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {t("signInWithFarcaster", "Log in with Farcaster")}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleDialogClose}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-4 py-4">
+            {url ? (
+              <>
+                <div className="rounded-lg overflow-hidden bg-white p-3">
+                  <QRCodeSVG value={url} size={220} level="L" />
+                </div>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline"
+                >
+                  {t("openInFarcaster", "Open in Farcaster")}
+                </a>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[220px] w-[220px]">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+
+          <DialogDescription className="text-center">
+            {t(
+              "scanQrCodeDescription",
+              "Scan this QR code with the camera on a smartphone that has Farcaster installed and logged in with the account you want to use.",
+            )}
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

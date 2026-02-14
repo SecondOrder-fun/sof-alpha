@@ -260,6 +260,13 @@ chore: update dependencies
 - Use environment variables for sensitive data (VITE_ prefix)
 - Validate data at system boundaries
 
+## Gotchas
+
+### Farcaster SIWF (Sign In With Farcaster)
+- **SIWE nonces must be alphanumeric** — SIWE (ERC-4361) nonces require `[a-zA-Z0-9]{8,}`. Use `crypto.randomUUID().replaceAll('-', '')` instead of raw `crypto.randomUUID()`. UUID hyphens cause Warpcast to fail silently when building the SIWE message.
+- **SIWF domain must match** — Backend `verifySignInMessage` must use the domain from the signed SIWE message, not a hardcoded value. Use `SIWF_ALLOWED_DOMAINS` env var with wildcard support (e.g., `*.vercel.app`) for preview deployments.
+- **`@farcaster/auth-kit` versioning** — Keep up to date. The Farcaster relay protocol changes between versions. Old versions (< 0.8.x) may fail silently with the current relay server.
+
 ## Key Contracts
 
 | Contract | Purpose |
