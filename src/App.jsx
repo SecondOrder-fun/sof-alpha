@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import StickyFooter from "@/components/layout/StickyFooter";
 import { Toaster } from "@/components/ui/toaster";
 import UsernameDialog from "@/components/user/UsernameDialog";
+import LoginModal from "@/components/auth/LoginModal";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { ContractAddressValidator } from "@/components/dev/ContractAddressValidator";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -52,6 +53,7 @@ const App = () => {
       <Footer />
       <StickyFooter />
       <Toaster />
+      <LoginModal />
       <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       <ContractAddressValidator />
     </div>

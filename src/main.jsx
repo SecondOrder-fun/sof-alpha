@@ -15,6 +15,7 @@ import "./styles/tailwind.css";
 import App from "./App";
 import ErrorPage from "./components/common/ErrorPage";
 import { FarcasterProvider } from "./context/FarcasterProvider";
+import { LoginModalProvider } from "./context/LoginModalContext";
 import { SSEProvider } from "./context/SSEProvider";
 import { UsernameProvider } from "./context/UsernameContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -259,14 +260,16 @@ import("./i18n").then(() => {
                     >
                       <ProviderErrorBoundary>
                         <FarcasterProvider>
-                          <SSEProvider>
-                            <UsernameProvider>
+                          <LoginModalProvider>
+                            <SSEProvider>
+                              <UsernameProvider>
                               <RouterProvider router={router} />
                               {import.meta.env.DEV && (
                                 <ReactQueryDevtools initialIsOpen={false} />
                               )}
-                            </UsernameProvider>
-                          </SSEProvider>
+                              </UsernameProvider>
+                            </SSEProvider>
+                          </LoginModalProvider>
                         </FarcasterProvider>
                       </ProviderErrorBoundary>
                     </RainbowKitProvider>

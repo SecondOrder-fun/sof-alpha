@@ -1,9 +1,7 @@
-import { useRef, useCallback, useState, useEffect } from "react";
-import { useSignIn } from "@farcaster/auth-kit";
-import { QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { useFarcaster } from "@/hooks/useFarcaster";
-import { useToast } from "@/hooks/useToast";
+import { useFarcasterSignIn } from "@/hooks/useFarcasterSignIn";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,114 +17,17 @@ const FarcasterAuth = () => {
   const {
     isBackendAuthenticated,
     backendUser,
-    fetchNonce,
-    verifyWithBackend,
     logout,
-    isVerifying,
   } = useFarcaster();
-  const { toast } = useToast();
-
-  const [wantsToSignIn, setWantsToSignIn] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [showQrDialog, setShowQrDialog] = useState(false);
-
-  const nonceRef = useRef(null);
-
-  const handleSuccess = useCallback(
-    async (res) => {
-      const { message, signature } = res;
-      const nonce = nonceRef.current;
-
-      if (!message || !signature || !nonce) {
-        toast({
-          title: t("siwfError", "Authentication Error"),
-          description: "Missing SIWF response data",
-          variant: "destructive",
-        });
-        setWantsToSignIn(false);
-        setShowQrDialog(false);
-        return;
-      }
-
-      try {
-        const { user } = await verifyWithBackend({ message, signature, nonce });
-        toast({
-          title: t("siwfSuccess", "Signed In"),
-          description: `${t("welcome", "Welcome")}, ${user.displayName || user.username || `FID ${user.fid}`}!`,
-        });
-      } catch (err) {
-        toast({
-          title: t("siwfError", "Authentication Error"),
-          description: err.message,
-          variant: "destructive",
-        });
-      }
-      setWantsToSignIn(false);
-      setShowQrDialog(false);
-    },
-    [verifyWithBackend, toast, t],
-  );
-
-  const handleError = useCallback(
-    (error) => {
-      toast({
-        title: t("siwfError", "Authentication Error"),
-        description: error?.message || "Sign in failed",
-        variant: "destructive",
-      });
-      setWantsToSignIn(false);
-      setIsConnecting(false);
-      setShowQrDialog(false);
-    },
-    [toast, t],
-  );
-
-  const nonceGetter = useCallback(async () => {
-    const nonce = await fetchNonce();
-    nonceRef.current = nonce;
-    return nonce;
-  }, [fetchNonce]);
 
   const {
-    signIn,
+    handleSignInClick,
+    handleCancel,
     signOut,
-    connect,
-    reconnect,
-    isPolling,
-    channelToken,
+    showQrView,
     url,
-    isError,
-  } = useSignIn({
-    nonce: nonceGetter,
-    onSuccess: handleSuccess,
-    onError: handleError,
-    timeout: 300000,
-    interval: 1500,
-  });
-
-  // Once the channel is created, start polling and show dialog
-  useEffect(() => {
-    if (wantsToSignIn && channelToken && !isPolling) {
-      signIn();
-      setIsConnecting(false);
-      setShowQrDialog(true);
-    }
-  }, [wantsToSignIn, channelToken, isPolling, signIn]);
-
-  const handleSignInClick = useCallback(() => {
-    setWantsToSignIn(true);
-    setIsConnecting(true);
-    if (isError) {
-      reconnect();
-    } else {
-      connect();
-    }
-  }, [connect, reconnect, isError]);
-
-  const handleDialogClose = useCallback(() => {
-    setShowQrDialog(false);
-    setWantsToSignIn(false);
-  }, []);
+    isLoading,
+  } = useFarcasterSignIn();
 
   // Authenticated state — show profile + sign-out
   if (isBackendAuthenticated && backendUser) {
@@ -164,10 +65,7 @@ const FarcasterAuth = () => {
   }
 
   // Button label depends on state
-  const isLoading = isVerifying || (isConnecting && !isPolling);
-  const buttonLabel = isVerifying
-    ? t("siwfVerifying", "Verifying...")
-    : t("signInWithFarcaster", "Sign in with Farcaster");
+  const buttonLabel = t("signInWithFarcaster", "Sign in with Farcaster");
 
   return (
     <>
@@ -180,7 +78,7 @@ const FarcasterAuth = () => {
         {buttonLabel}
       </Button>
 
-      <Dialog open={showQrDialog} onOpenChange={handleDialogClose}>
+      <Dialog open={showQrView} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent className="bg-background border border-primary max-w-sm">
           <DialogHeader>
             <div className="flex items-center justify-between">
@@ -191,7 +89,7 @@ const FarcasterAuth = () => {
                 variant="outline"
                 size="icon"
                 className="h-7 w-7"
-                onClick={handleDialogClose}
+                onClick={handleCancel}
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>

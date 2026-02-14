@@ -15,10 +15,13 @@ import { useAllowlist } from "@/hooks/useAllowlist";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings } from "lucide-react";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
+import { useLoginModal } from "@/hooks/useLoginModal";
 
 const Landing = () => {
   const profile = useUserProfile();
+  const { isConnected } = useAccount();
+  const { openLoginModal } = useLoginModal();
 
   // Get user's actual access level from the allowlist system
   const { isAdmin } = useAllowlist();
@@ -74,56 +77,32 @@ const Landing = () => {
             </button>
           )}
 
-          <ConnectButton.Custom>
-            {({
-              account,
-              chain,
-              openAccountModal,
-              openConnectModal,
-              mounted,
-            }) => {
-              const ready = mounted;
-              const connected = ready && account && chain;
-
-              const handleAvatarClick = () => {
-                try {
-                  if (!connected) {
-                    openConnectModal?.();
-                    return;
-                  }
-                  openAccountModal?.();
-                } catch (e) {
-                  // eslint-disable-next-line no-console
-                  console.error("Failed to open wallet modal", e);
-                }
-              };
-
-              return (
-                <button
-                  type="button"
-                  onClick={handleAvatarClick}
-                  className="rounded-full"
-                  aria-label={connected ? "Open account" : "Connect wallet"}
-                >
-                  <Avatar className="w-10 h-10 border-2 border-primary">
-                    {profile.pfpUrl ? (
-                      <AvatarImage
-                        src={profile.pfpUrl}
-                        alt={profile.displayName || "User"}
-                      />
-                    ) : null}
-                    <AvatarFallback className="bg-card text-muted-foreground">
-                      {profile.displayName ? (
-                        profile.displayName[0].toUpperCase()
-                      ) : (
-                        <User className="w-5 h-5" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              );
+          <button
+            type="button"
+            onClick={() => {
+              if (!isConnected) {
+                openLoginModal();
+              }
             }}
-          </ConnectButton.Custom>
+            className="rounded-full"
+            aria-label={isConnected ? "Account" : "Log in"}
+          >
+            <Avatar className="w-10 h-10 border-2 border-primary">
+              {profile.pfpUrl ? (
+                <AvatarImage
+                  src={profile.pfpUrl}
+                  alt={profile.displayName || "User"}
+                />
+              ) : null}
+              <AvatarFallback className="bg-card text-muted-foreground">
+                {profile.displayName ? (
+                  profile.displayName[0].toUpperCase()
+                ) : (
+                  <User className="w-5 h-5" />
+                )}
+              </AvatarFallback>
+            </Avatar>
+          </button>
         </div>
       </header>
 

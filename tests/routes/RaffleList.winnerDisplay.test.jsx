@@ -95,9 +95,13 @@ vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
   }),
 }));
 
-// RainbowKit
-vi.mock("@rainbow-me/rainbowkit", () => ({
-  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+// Login modal
+vi.mock("@/hooks/useLoginModal", () => ({
+  useLoginModal: () => ({
+    openLoginModal: vi.fn(),
+    closeLoginModal: vi.fn(),
+    isLoginModalOpen: false,
+  }),
 }));
 
 // Gating hook

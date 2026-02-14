@@ -80,6 +80,14 @@ vi.mock("@/context/ThemeContext", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useLoginModal", () => ({
+  useLoginModal: () => ({
+    openLoginModal: vi.fn(),
+    closeLoginModal: vi.fn(),
+    isLoginModalOpen: false,
+  }),
+}));
+
 import Header from "@/components/layout/Header.jsx";
 
 describe("Header prediction markets toggle", () => {
