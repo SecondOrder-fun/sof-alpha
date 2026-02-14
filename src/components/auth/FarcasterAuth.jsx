@@ -22,7 +22,6 @@ const FarcasterAuth = () => {
   // Track whether user has initiated sign-in (to auto-poll once channel is ready)
   const [wantsToSignIn, setWantsToSignIn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [debugError, setDebugError] = useState(null);
 
   // Store nonce for use in onSuccess
   const nonceRef = useRef(null);
@@ -62,17 +61,9 @@ const FarcasterAuth = () => {
 
   const handleError = useCallback(
     (error) => {
-      const info = {
-        type: typeof error,
-        message: error?.message,
-        str: String(error),
-        keys: error && typeof error === "object" ? Object.keys(error) : [],
-        json: (() => { try { return JSON.stringify(error); } catch { return "unstringifiable"; } })(),
-      };
-      setDebugError(info);
       toast({
         title: t("siwfError", "Authentication Error"),
-        description: error?.message || error?.toString?.() || "Sign in failed",
+        description: error?.message || "Sign in failed",
         variant: "destructive",
       });
       setWantsToSignIn(false);
@@ -95,11 +86,7 @@ const FarcasterAuth = () => {
     isPolling,
     channelToken,
     url,
-    qrCodeUri,
     isError,
-    error: signInError,
-    data: signInData,
-    validSignature,
   } = useSignIn({
     nonce: nonceGetter,
     onSuccess: handleSuccess,
@@ -107,22 +94,6 @@ const FarcasterAuth = () => {
     timeout: 300000,
     interval: 1500,
   });
-
-  // Debug: capture state changes
-  useEffect(() => {
-    if (isError || signInData) {
-      setDebugError((prev) => ({
-        ...prev,
-        isError,
-        signInError: String(signInError),
-        signInDataState: signInData?.state,
-        signInDataFid: signInData?.fid,
-        signInDataHasMsg: !!signInData?.message,
-        signInDataHasSig: !!signInData?.signature,
-        validSignature,
-      }));
-    }
-  }, [isError, signInError, signInData, validSignature]);
 
   // Once the channel is created, start polling automatically
   useEffect(() => {
@@ -199,47 +170,35 @@ const FarcasterAuth = () => {
   }
 
   // Polling state — QR code shown
-  // Use url (shorter Warpcast deep link) instead of qrCodeUri to avoid
-  // "Data too long" errors — Farcaster's qrCodeUri can exceed QR capacity.
-  const qrValue = url || qrCodeUri;
-  if (isPolling && qrValue) {
+  if (isPolling && url) {
     return (
       <div className="flex flex-col items-center gap-3">
         <p className="text-sm text-muted-foreground">
           {t("scanQrCode", "Scan with Warpcast to sign in")}
         </p>
         <div className="rounded-lg overflow-hidden bg-white p-3">
-          <QRCodeSVG value={qrValue} size={200} level="L" />
+          <QRCodeSVG value={url} size={200} level="L" />
         </div>
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary underline"
-          >
-            {t("openInWarpcast", "Open in Warpcast")}
-          </a>
-        )}
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary underline"
+        >
+          {t("openInWarpcast", "Open in Warpcast")}
+        </a>
       </div>
     );
   }
 
   // Default: sign-in button
   return (
-    <div className="flex flex-col items-center gap-2">
-      {debugError && (
-        <pre className="text-xs text-destructive bg-muted p-2 rounded max-w-sm overflow-auto whitespace-pre-wrap">
-          {JSON.stringify(debugError, null, 2)}
-        </pre>
-      )}
-      <Button
-        variant="farcaster"
-        onClick={handleSignInClick}
-      >
-        {t("signInWithFarcaster", "Sign in with Farcaster")}
-      </Button>
-    </div>
+    <Button
+      variant="farcaster"
+      onClick={handleSignInClick}
+    >
+      {t("signInWithFarcaster", "Sign in with Farcaster")}
+    </Button>
   );
 };
 
