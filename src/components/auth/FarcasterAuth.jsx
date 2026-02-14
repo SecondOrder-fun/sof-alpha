@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { useSignIn } from "@farcaster/auth-kit";
 import { QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,10 @@ const FarcasterAuth = () => {
   } = useFarcaster();
   const { toast } = useToast();
 
+  // Track whether user has initiated sign-in (to auto-poll once channel is ready)
+  const [wantsToSignIn, setWantsToSignIn] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+
   // Store nonce for use in onSuccess
   const nonceRef = useRef(null);
 
@@ -33,6 +37,7 @@ const FarcasterAuth = () => {
           description: "Missing SIWF response data",
           variant: "destructive",
         });
+        setWantsToSignIn(false);
         return;
       }
 
@@ -49,6 +54,7 @@ const FarcasterAuth = () => {
           variant: "destructive",
         });
       }
+      setWantsToSignIn(false);
     },
     [verifyWithBackend, toast, t],
   );
@@ -60,6 +66,8 @@ const FarcasterAuth = () => {
         description: error?.message || "Sign in failed",
         variant: "destructive",
       });
+      setWantsToSignIn(false);
+      setIsConnecting(false);
     },
     [toast, t],
   );
@@ -73,7 +81,10 @@ const FarcasterAuth = () => {
   const {
     signIn,
     signOut,
+    connect,
+    reconnect,
     isPolling,
+    channelToken,
     url,
     qrCodeUri,
     isError,
@@ -84,6 +95,25 @@ const FarcasterAuth = () => {
     timeout: 300000,
     interval: 1500,
   });
+
+  // Once the channel is created, start polling automatically
+  useEffect(() => {
+    if (wantsToSignIn && channelToken && !isPolling) {
+      signIn();
+      setIsConnecting(false);
+    }
+  }, [wantsToSignIn, channelToken, isPolling, signIn]);
+
+  // Button click: create channel first, then polling starts via effect
+  const handleSignInClick = useCallback(() => {
+    setWantsToSignIn(true);
+    setIsConnecting(true);
+    if (isError) {
+      reconnect();
+    } else {
+      connect();
+    }
+  }, [connect, reconnect, isError]);
 
   // Authenticated state — show profile + sign-out
   if (isBackendAuthenticated && backendUser) {
@@ -130,6 +160,16 @@ const FarcasterAuth = () => {
     );
   }
 
+  // Connecting state (creating channel)
+  if (isConnecting && !isPolling) {
+    return (
+      <Button variant="farcaster" disabled>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {t("signInWithFarcaster", "Sign in with Farcaster")}
+      </Button>
+    );
+  }
+
   // Polling state — QR code shown
   if (isPolling && qrCodeUri) {
     return (
@@ -158,8 +198,7 @@ const FarcasterAuth = () => {
   return (
     <Button
       variant="farcaster"
-      onClick={signIn}
-      disabled={isError}
+      onClick={handleSignInClick}
     >
       {t("signInWithFarcaster", "Sign in with Farcaster")}
     </Button>
