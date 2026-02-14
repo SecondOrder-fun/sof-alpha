@@ -22,16 +22,19 @@ const FarcasterAuth = () => {
   // Track whether user has initiated sign-in (to auto-poll once channel is ready)
   const [wantsToSignIn, setWantsToSignIn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Store nonce for use in onSuccess
   const nonceRef = useRef(null);
 
   const handleSuccess = useCallback(
     async (res) => {
+      setDebugInfo((p) => ({ ...p, onSuccess: true, resFid: res?.fid, resKeys: res ? Object.keys(res) : [] }));
       const { message, signature } = res;
       const nonce = nonceRef.current;
 
       if (!message || !signature || !nonce) {
+        setDebugInfo((p) => ({ ...p, missing: { message: !message, signature: !signature, nonce: !nonce } }));
         toast({
           title: t("siwfError", "Authentication Error"),
           description: "Missing SIWF response data",
@@ -48,6 +51,7 @@ const FarcasterAuth = () => {
           description: `${t("welcome", "Welcome")}, ${user.displayName || user.username || `FID ${user.fid}`}!`,
         });
       } catch (err) {
+        setDebugInfo((p) => ({ ...p, backendError: err.message }));
         toast({
           title: t("siwfError", "Authentication Error"),
           description: err.message,
@@ -61,6 +65,15 @@ const FarcasterAuth = () => {
 
   const handleError = useCallback(
     (error) => {
+      const errStr = (() => { try { return JSON.stringify(error); } catch { return String(error); } })();
+      setDebugInfo((p) => ({
+        ...p,
+        onError: true,
+        errMsg: error?.message,
+        errCode: error?.errCode,
+        errStr,
+        errType: typeof error,
+      }));
       toast({
         title: t("siwfError", "Authentication Error"),
         description: error?.message || "Sign in failed",
@@ -75,8 +88,19 @@ const FarcasterAuth = () => {
   const nonceGetter = useCallback(async () => {
     const nonce = await fetchNonce();
     nonceRef.current = nonce;
+    setDebugInfo((p) => ({ ...p, nonce: nonce?.slice(0, 8) + "..." }));
     return nonce;
   }, [fetchNonce]);
+
+  const handleStatusResponse = useCallback((statusData) => {
+    setDebugInfo((p) => ({
+      ...p,
+      relayState: statusData?.state,
+      relayFid: statusData?.fid,
+      relayHasMsg: !!statusData?.message,
+      relayHasSig: !!statusData?.signature,
+    }));
+  }, []);
 
   const {
     signIn,
@@ -87,10 +111,12 @@ const FarcasterAuth = () => {
     channelToken,
     url,
     isError,
+    data: signInData,
   } = useSignIn({
     nonce: nonceGetter,
     onSuccess: handleSuccess,
     onError: handleError,
+    onStatusResponse: handleStatusResponse,
     timeout: 300000,
     interval: 1500,
   });
@@ -113,6 +139,13 @@ const FarcasterAuth = () => {
       connect();
     }
   }, [connect, reconnect, isError]);
+
+  // Debug panel (temporary)
+  const debugPanel = debugInfo ? (
+    <pre className="text-[10px] text-destructive bg-muted p-2 rounded max-w-sm overflow-auto whitespace-pre-wrap mb-2">
+      v0.8.2 | {JSON.stringify({ ...debugInfo, channelToken: channelToken?.slice(0, 8), url: url?.slice(0, 50), isPolling, isError, dataState: signInData?.state }, null, 1)}
+    </pre>
+  ) : null;
 
   // Authenticated state — show profile + sign-out
   if (isBackendAuthenticated && backendUser) {
@@ -173,6 +206,7 @@ const FarcasterAuth = () => {
   if (isPolling && url) {
     return (
       <div className="flex flex-col items-center gap-3">
+        {debugPanel}
         <p className="text-sm text-muted-foreground">
           {t("scanQrCode", "Scan with Warpcast to sign in")}
         </p>
@@ -193,12 +227,15 @@ const FarcasterAuth = () => {
 
   // Default: sign-in button
   return (
-    <Button
-      variant="farcaster"
-      onClick={handleSignInClick}
-    >
-      {t("signInWithFarcaster", "Sign in with Farcaster")}
-    </Button>
+    <div className="flex flex-col items-center gap-2">
+      {debugPanel}
+      <Button
+        variant="farcaster"
+        onClick={handleSignInClick}
+      >
+        {t("signInWithFarcaster", "Sign in with Farcaster")}
+      </Button>
+    </div>
   );
 };
 
