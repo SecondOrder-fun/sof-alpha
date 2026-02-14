@@ -22,6 +22,7 @@ const FarcasterAuth = () => {
   // Track whether user has initiated sign-in (to auto-poll once channel is ready)
   const [wantsToSignIn, setWantsToSignIn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [debugError, setDebugError] = useState(null);
 
   // Store nonce for use in onSuccess
   const nonceRef = useRef(null);
@@ -61,12 +62,14 @@ const FarcasterAuth = () => {
 
   const handleError = useCallback(
     (error) => {
-      console.error("[SIWF] onError fired:", error);
-      console.error("[SIWF] error type:", typeof error);
-      if (error && typeof error === "object") {
-        console.error("[SIWF] error keys:", Object.keys(error));
-        console.error("[SIWF] error JSON:", JSON.stringify(error, null, 2));
-      }
+      const info = {
+        type: typeof error,
+        message: error?.message,
+        str: String(error),
+        keys: error && typeof error === "object" ? Object.keys(error) : [],
+        json: (() => { try { return JSON.stringify(error); } catch { return "unstringifiable"; } })(),
+      };
+      setDebugError(info);
       toast({
         title: t("siwfError", "Authentication Error"),
         description: error?.message || error?.toString?.() || "Sign in failed",
@@ -105,12 +108,19 @@ const FarcasterAuth = () => {
     interval: 1500,
   });
 
-  // Debug: log state changes
+  // Debug: capture state changes
   useEffect(() => {
-    if (isError) {
-      console.error("[SIWF] isError=true, signInError:", signInError);
-      console.error("[SIWF] signInData:", signInData);
-      console.error("[SIWF] validSignature:", validSignature);
+    if (isError || signInData) {
+      setDebugError((prev) => ({
+        ...prev,
+        isError,
+        signInError: String(signInError),
+        signInDataState: signInData?.state,
+        signInDataFid: signInData?.fid,
+        signInDataHasMsg: !!signInData?.message,
+        signInDataHasSig: !!signInData?.signature,
+        validSignature,
+      }));
     }
   }, [isError, signInError, signInData, validSignature]);
 
@@ -217,12 +227,19 @@ const FarcasterAuth = () => {
 
   // Default: sign-in button
   return (
-    <Button
-      variant="farcaster"
-      onClick={handleSignInClick}
-    >
-      {t("signInWithFarcaster", "Sign in with Farcaster")}
-    </Button>
+    <div className="flex flex-col items-center gap-2">
+      {debugError && (
+        <pre className="text-xs text-destructive bg-muted p-2 rounded max-w-sm overflow-auto whitespace-pre-wrap">
+          {JSON.stringify(debugError, null, 2)}
+        </pre>
+      )}
+      <Button
+        variant="farcaster"
+        onClick={handleSignInClick}
+      >
+        {t("signInWithFarcaster", "Sign in with Farcaster")}
+      </Button>
+    </div>
   );
 };
 
