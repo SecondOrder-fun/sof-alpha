@@ -14,7 +14,7 @@ import BottomNav from "@/components/mobile/BottomNav";
 import { useSafeArea } from "@/hooks/useSafeArea";
 
 const App = () => {
-  const { showDialog, setShowDialog } = useUsernameContext();
+  const { showDialog, setShowDialog, suggestedUsername } = useUsernameContext();
   const { isMobile } = usePlatform();
   const safeArea = useSafeArea();
 
@@ -35,7 +35,7 @@ const App = () => {
         </main>
         <BottomNav />
         <Toaster />
-        <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+        <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       </div>
     );
   }
@@ -52,7 +52,7 @@ const App = () => {
       <Footer />
       <StickyFooter />
       <Toaster />
-      <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+      <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       <ContractAddressValidator />
     </div>
   );

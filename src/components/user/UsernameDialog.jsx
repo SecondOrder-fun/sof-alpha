@@ -18,16 +18,25 @@ import { useSetUsername, useCheckUsername } from "@/hooks/useUsername";
 import { useToast } from "@/hooks/useToast";
 import { Loader2 } from "lucide-react";
 
-const UsernameDialog = ({ open, onOpenChange }) => {
+const UsernameDialog = ({ open, onOpenChange, suggestedUsername }) => {
   const { t } = useTranslation("common");
   const { address } = useAccount();
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [debouncedUsername, setDebouncedUsername] = useState("");
+  const [hasAppliedSuggestion, setHasAppliedSuggestion] = useState(false);
 
   const setUsernameMutation = useSetUsername();
   const { data: availabilityData, isLoading: isCheckingAvailability } =
     useCheckUsername(debouncedUsername);
+
+  // Pre-fill suggested username from Farcaster (once)
+  useEffect(() => {
+    if (suggestedUsername && !hasAppliedSuggestion && !username && open) {
+      setUsername(suggestedUsername);
+      setHasAppliedSuggestion(true);
+    }
+  }, [suggestedUsername, hasAppliedSuggestion, username, open]);
 
   // Debounce username input for availability checking
   useEffect(() => {
@@ -200,6 +209,7 @@ const UsernameDialog = ({ open, onOpenChange }) => {
 UsernameDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onOpenChange: PropTypes.func.isRequired,
+  suggestedUsername: PropTypes.string,
 };
 
 export default UsernameDialog;

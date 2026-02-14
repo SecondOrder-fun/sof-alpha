@@ -12,8 +12,10 @@ import {
   Settings,
   Globe,
   Check,
+  Link2,
 } from "lucide-react";
 import { FiEdit2 } from "react-icons/fi";
+import FarcasterAuth from "@/components/auth/FarcasterAuth";
 import { useTheme } from "@/context/ThemeContext";
 import {
   DropdownMenu,
@@ -50,7 +52,7 @@ import PropTypes from "prop-types";
  * Settings dropdown menu with SOF balance, username, address, theme, and language
  * Replaces AccountMenu when wallet is connected
  */
-const SettingsMenu = ({ address, username, onDisconnect }) => {
+const SettingsMenu = ({ address, username, farcasterUser, onDisconnect }) => {
   const { t } = useTranslation(["navigation", "account", "common"]);
   const { i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -240,6 +242,36 @@ const SettingsMenu = ({ address, username, onDisconnect }) => {
 
           <DropdownMenuSeparator />
 
+          {/* Farcaster Link Status */}
+          {farcasterUser ? (
+            <div className="px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                {farcasterUser.pfpUrl && (
+                  <img
+                    src={farcasterUser.pfpUrl}
+                    alt=""
+                    className="w-5 h-5 rounded-full"
+                  />
+                )}
+                <span className="text-sm text-foreground">
+                  @{farcasterUser.username || `FID ${farcasterUser.fid}`}
+                </span>
+                <span className="ml-auto text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  {t("auth:farcasterLinked", "Linked")}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <FarcasterAuth />
+              </div>
+            </div>
+          )}
+
+          <DropdownMenuSeparator />
+
           {/* Theme Toggle */}
           <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
             {t("navigation:theme", "Theme")}
@@ -322,6 +354,12 @@ const SettingsMenu = ({ address, username, onDisconnect }) => {
 SettingsMenu.propTypes = {
   address: PropTypes.string.isRequired,
   username: PropTypes.string,
+  farcasterUser: PropTypes.shape({
+    fid: PropTypes.number,
+    username: PropTypes.string,
+    displayName: PropTypes.string,
+    pfpUrl: PropTypes.string,
+  }),
   onDisconnect: PropTypes.func.isRequired,
 };
 

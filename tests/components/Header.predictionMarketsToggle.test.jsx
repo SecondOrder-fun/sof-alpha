@@ -56,6 +56,18 @@ vi.mock("@/hooks/useRouteAccess", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useFarcaster", () => ({
+  useFarcaster: () => ({
+    isBackendAuthenticated: false,
+    backendUser: null,
+    logout: vi.fn(),
+  }),
+}));
+
+vi.mock("@/components/auth/FarcasterAuth", () => ({
+  default: () => null,
+}));
+
 vi.mock("@/components/common/LanguageToggle", () => ({
   default: () => null,
 }));

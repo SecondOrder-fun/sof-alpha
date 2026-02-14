@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, Ticket, User, Crown } from "lucide-react";
 import LanguageToggle from "@/components/common/LanguageToggle";
 import SettingsMenu from "@/components/common/SettingsMenu";
+import FarcasterAuth from "@/components/auth/FarcasterAuth";
+import { useFarcaster } from "@/hooks/useFarcaster";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
@@ -22,6 +24,7 @@ const Header = () => {
   const { t } = useTranslation("navigation");
   const { address } = useAccount();
   const { disconnect } = useDisconnect();
+  const { isBackendAuthenticated, backendUser, logout: farcasterLogout } = useFarcaster();
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
@@ -170,9 +173,28 @@ const Header = () => {
                 >
                   {(() => {
                     if (!connected) {
+                      // Farcaster-authenticated but no wallet
+                      if (isBackendAuthenticated && backendUser) {
+                        return (
+                          <>
+                            <LanguageToggle />
+                            <FarcasterAuth />
+                            <button
+                              onClick={handleOpenConnect}
+                              type="button"
+                              className="px-3 py-2 rounded-md transition-colors text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                            >
+                              {t("connectWallet")}
+                            </button>
+                          </>
+                        );
+                      }
+
+                      // Fully disconnected — show both options
                       return (
                         <>
                           <LanguageToggle />
+                          <FarcasterAuth />
                           <button
                             onClick={handleOpenConnect}
                             type="button"
@@ -188,7 +210,11 @@ const Header = () => {
                       <SettingsMenu
                         address={address}
                         username={username}
-                        onDisconnect={disconnect}
+                        farcasterUser={isBackendAuthenticated ? backendUser : null}
+                        onDisconnect={() => {
+                          farcasterLogout();
+                          disconnect();
+                        }}
                       />
                     );
                   })()}
