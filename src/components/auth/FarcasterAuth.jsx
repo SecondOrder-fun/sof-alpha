@@ -171,14 +171,17 @@ const FarcasterAuth = () => {
   }
 
   // Polling state — QR code shown
-  if (isPolling && qrCodeUri) {
+  // Use url (shorter Warpcast deep link) instead of qrCodeUri to avoid
+  // "Data too long" errors — Farcaster's qrCodeUri can exceed QR capacity.
+  const qrValue = url || qrCodeUri;
+  if (isPolling && qrValue) {
     return (
       <div className="flex flex-col items-center gap-3">
         <p className="text-sm text-muted-foreground">
           {t("scanQrCode", "Scan with Warpcast to sign in")}
         </p>
         <div className="rounded-lg overflow-hidden bg-white p-3">
-          <QRCodeSVG value={qrCodeUri} size={200} />
+          <QRCodeSVG value={qrValue} size={200} level="L" />
         </div>
         {url && (
           <a
