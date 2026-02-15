@@ -5,6 +5,7 @@
 SecondOrder.fun is a Web3 platform that transforms memecoins from chaotic, scam-prone infinite games into structured, fair finite games using game theory principles enhanced with InfoFi (Information Finance) integration.
 
 **Tech Stack:**
+
 - **Frontend:** React 18, Vite 6, Tailwind CSS, shadcn/ui, Wagmi + Viem
 - **Backend:** Fastify + Hono (hybrid), Supabase (PostgreSQL)
 - **Smart Contracts:** Solidity ^0.8.20, Foundry, OpenZeppelin, Chainlink VRF
@@ -26,6 +27,7 @@ git checkout -b refactor/description-of-refactor
 ```
 
 **Branch naming conventions:**
+
 - `feat/` - New features
 - `fix/` - Bug fixes
 - `test/` - Test additions or fixes
@@ -33,9 +35,17 @@ git checkout -b refactor/description-of-refactor
 - `refactor/` - Code refactoring
 - `chore/` - Maintenance tasks
 
+**No orphaned branches.** Keep the repo clean:
+
+- One working branch at a time. When a feature requires sub-branches, merge them into the working branch and delete immediately.
+- After merging a PR into `main`, delete the remote and local branch in the same step.
+- Never leave merged branches lingering. Run `git fetch --prune` regularly.
+- Before starting new work, verify only `main` exists: `git branch -a` should show no stale branches.
+
 ### 2. Semantic Versioning
 
 Update `package.json` version following semver:
+
 - **MAJOR** (x.0.0): Breaking changes
 - **MINOR** (0.x.0): New features, backward compatible
 - **PATCH** (0.0.x): Bug fixes, backward compatible
@@ -72,6 +82,7 @@ cd contracts && forge test && cd ..
 ### 5. CI/CD Verification
 
 After committing and pushing:
+
 1. Check GitHub Actions for CI status
 2. Ensure all checks pass before creating PR
 3. Do not merge failing PRs
@@ -83,11 +94,13 @@ Add all tasks with detailed sub-tasks to `instructions/project-tasks.md`.
 ## Library References
 
 ### Smart Contracts
+
 - **OpenZeppelin:** Use for AccessControl, ReentrancyGuard, ERC20, security patterns
 - **Chainlink:** VRF v2.5 for verifiable randomness
 - **Foundry:** Testing framework (`forge test`)
 
 ### Frontend
+
 - **React Query:** Server state management
 - **Wagmi + Viem:** Web3 interactions
 - **shadcn/ui:** Component library (built on Radix UI)
@@ -99,12 +112,12 @@ Add all tasks with detailed sub-tasks to `instructions/project-tasks.md`.
 
 ```jsx
 // ❌ WRONG - hardcoded colors
-className="text-[#c82a54] bg-[#f9d6de] border-[#130013]"
-className="text-[#a89e99] hover:text-[#e25167]"
+className = "text-[#c82a54] bg-[#f9d6de] border-[#130013]";
+className = "text-[#a89e99] hover:text-[#e25167]";
 
 // ✅ CORRECT - semantic classes that reference CSS variables
-className="text-primary bg-muted border-foreground"
-className="text-muted-foreground hover:text-primary"
+className = "text-primary bg-muted border-foreground";
+className = "text-muted-foreground hover:text-primary";
 ```
 
 **Available semantic classes:**
@@ -129,6 +142,7 @@ className="text-muted-foreground hover:text-primary"
 **Full canonical UI guide:** See `instructions/frontend-guidelines.md` > "Canonical UI Components & Semantic Tokens".
 
 ### Research Resources
+
 - Use web search for best practices
 - Reference OpenZeppelin documentation for contract patterns
 - Check Chainlink docs for VRF integration
@@ -152,8 +166,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 ```jsx
 // Functional components only, no React import needed (Vite handles it)
-import { useState } from 'react';
-import PropTypes from 'prop-types';
+import { useState } from "react";
+import PropTypes from "prop-types";
 
 const ComponentName = ({ prop1, prop2 }) => {
   // Component logic
@@ -172,11 +186,11 @@ export default ComponentName;
 All user-facing text MUST use the i18n system:
 
 ```jsx
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 
 const Component = () => {
-  const { t } = useTranslation('namespace');
-  return <div>{t('key')}</div>;
+  const { t } = useTranslation("namespace");
+  return <div>{t("key")}</div>;
 };
 ```
 
@@ -231,6 +245,7 @@ forge test --match-test testName  # Run specific test
 ```
 
 Key test files:
+
 - `test/RaffleVRF.t.sol` - VRF flow and raffle lifecycle
 - `test/SellAllTickets.t.sol` - Bonding curve operations
 - `test/invariant/HybridPricingInvariant.t.sol` - Pricing invariants
@@ -259,33 +274,36 @@ chore: update dependencies
 ## Security Considerations
 
 ### Smart Contracts
+
 - Use ReentrancyGuard for external calls
 - Use AccessControl for role-based permissions
 - Custom errors for gas optimization
 - Never use `tx.origin` for authentication
 
 ### Frontend
+
 - Sanitize all user inputs
-- Use environment variables for sensitive data (VITE_ prefix)
+- Use environment variables for sensitive data (VITE\_ prefix)
 - Validate data at system boundaries
 
 ## Gotchas
 
 ### Farcaster SIWF (Sign In With Farcaster)
+
 - **SIWE nonces must be alphanumeric** — SIWE (ERC-4361) nonces require `[a-zA-Z0-9]{8,}`. Use `crypto.randomUUID().replaceAll('-', '')` instead of raw `crypto.randomUUID()`. UUID hyphens cause Warpcast to fail silently when building the SIWE message.
 - **SIWF domain must match** — Backend `verifySignInMessage` must use the domain from the signed SIWE message, not a hardcoded value. Use `SIWF_ALLOWED_DOMAINS` env var with wildcard support (e.g., `*.vercel.app`) for preview deployments.
 - **`@farcaster/auth-kit` versioning** — Keep up to date. The Farcaster relay protocol changes between versions. Old versions (< 0.8.x) may fail silently with the current relay server.
 
 ## Key Contracts
 
-| Contract | Purpose |
-|----------|---------|
-| `Raffle.sol` | Season management, VRF coordination |
-| `SOFBondingCurve.sol` | Ticket purchases, pricing |
-| `SOFToken.sol` | Platform token ($SOF) |
-| `RaffleToken.sol` | Per-season ticket tokens |
+| Contract                | Purpose                                  |
+| ----------------------- | ---------------------------------------- |
+| `Raffle.sol`            | Season management, VRF coordination      |
+| `SOFBondingCurve.sol`   | Ticket purchases, pricing                |
+| `SOFToken.sol`          | Platform token ($SOF)                    |
+| `RaffleToken.sol`       | Per-season ticket tokens                 |
 | `InfoFiPriceOracle.sol` | Hybrid pricing (70% raffle + 30% market) |
-| `SeasonFactory.sol` | Deploys seasonal contracts |
+| `SeasonFactory.sol`     | Deploys seasonal contracts               |
 
 ## Common Commands
 
