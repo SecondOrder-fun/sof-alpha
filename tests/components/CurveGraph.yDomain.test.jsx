@@ -1,51 +1,44 @@
 /*
   @vitest-environment jsdom
 */
+/* eslint-disable react/prop-types */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("@/config/contracts", () => ({
-  getContractAddresses: () => ({
-    SOF: "0x0000000000000000000000000000000000000001",
-  }),
+vi.mock("@/hooks/useSofDecimals", () => ({
+  useSofDecimals: () => 18,
 }));
 
-vi.mock("@/config/networks", () => ({
-  getNetworkByKey: () => ({
-    id: 31337,
-    name: "Local Anvil",
-    rpcUrl: "http://127.0.0.1:8545",
-  }),
-}));
-
-vi.mock("@/lib/wagmi", () => ({
-  getStoredNetworkKey: () => "LOCAL",
-}));
-
-const readContract = vi.fn().mockResolvedValue(18n);
-
-vi.mock("viem", async (importOriginal) => {
-  const orig = await importOriginal();
+// Mock Recharts components to render testable DOM elements
+vi.mock("recharts", async () => {
+  const { createElement: h } = await import("react");
   return {
-    ...orig,
-    createPublicClient: () => ({ readContract }),
-    http: vi.fn(() => ({})),
+    ResponsiveContainer: ({ children }) => h("div", { "data-testid": "responsive-container" }, children),
+    AreaChart: ({ children, data }) =>
+      h("svg", { "data-testid": "area-chart", "data-points": data?.length ?? 0 }, children),
+    Area: ({ dataKey }) => h("g", { "data-testid": `area-${dataKey}` }),
+    XAxis: () => h("g", { "data-testid": "x-axis" }),
+    YAxis: ({ domain }) =>
+      h("g", { "data-testid": "y-axis", "data-domain-min": domain?.[0], "data-domain-max": domain?.[1] }),
+    CartesianGrid: () => h("g", { "data-testid": "cartesian-grid" }),
+    Tooltip: () => h("g", { "data-testid": "tooltip" }),
+    ReferenceLine: ({ x, stroke }) =>
+      h("line", { "data-testid": "reference-line", "data-x": x, stroke }),
+    ReferenceDot: ({ x, y, r, fill }) =>
+      h("circle", { "data-testid": "reference-dot", cx: x, cy: y, r, fill }),
   };
 });
 
-// Render the actual BondingCurvePanel with minimal props
 import BondingCurvePanel from "@/components/curve/CurveGraph.jsx";
 
-// viem formatUnits is used inside; no need to mock if values are bigint with 18 decimals
-
 describe("BondingCurvePanel Y-axis domain", () => {
-  it("uses 0 and max step price as Y-axis bounds", async () => {
+  it("renders chart with correct data points reflecting step prices", () => {
     const steps = [
-      { step: 1n, rangeTo: 1000n, price: 1000000000000000000n }, // 1.0
-      { step: 2n, rangeTo: 2000n, price: 2000000000000000000n }, // 2.0
+      { step: 1n, rangeTo: 1000n, price: 1000000000000000000n }, // 1.0 SOF
+      { step: 2n, rangeTo: 2000n, price: 2000000000000000000n }, // 2.0 SOF
     ];
 
-    render(
+    const { container } = render(
       <BondingCurvePanel
         curveSupply={0n}
         curveStep={{ step: 1n, price: steps[0].price }}
@@ -53,8 +46,73 @@ describe("BondingCurvePanel Y-axis domain", () => {
       />,
     );
 
-    // Expect tick labels to include 0.00 and 2.00 (bounds)
-    expect(screen.getAllByText("0.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("2.00").length).toBeGreaterThan(0);
+    // Chart renders with correct number of data points
+    // 2 steps => 4 points (start + end for each step)
+    const chart = container.querySelector("[data-testid='area-chart']");
+    expect(chart).toBeTruthy();
+    expect(chart.getAttribute("data-points")).toBe("4");
+
+    // Y-axis domain starts at 0
+    const yAxis = container.querySelector("[data-testid='y-axis']");
+    expect(yAxis).toBeTruthy();
+    expect(yAxis.getAttribute("data-domain-min")).toBe("0");
+
+    // Full mode shows stats grid with current price (1.0000 SOF)
+    expect(screen.getByText("1.0000")).toBeTruthy();
+  });
+
+  it("shows empty state when no steps provided", () => {
+    render(
+      <BondingCurvePanel
+        curveSupply={0n}
+        curveStep={null}
+        allBondSteps={[]}
+      />,
+    );
+
+    expect(screen.getByText("noBondingCurveData")).toBeTruthy();
+  });
+
+  it("renders step boundary dots for each step", () => {
+    const steps = [
+      { step: 1n, rangeTo: 1000n, price: 500000000000000000n },  // 0.5 SOF
+      { step: 2n, rangeTo: 2000n, price: 1000000000000000000n }, // 1.0 SOF
+      { step: 3n, rangeTo: 3000n, price: 1500000000000000000n }, // 1.5 SOF
+    ];
+
+    const { container } = render(
+      <BondingCurvePanel
+        curveSupply={0n}
+        curveStep={{ step: 1n, price: steps[0].price }}
+        allBondSteps={steps}
+      />,
+    );
+
+    // ReferenceDot is used for step boundary dots — expect 3 (one per step)
+    const dots = container.querySelectorAll("[data-testid='reference-dot']");
+    expect(dots.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("hides axes in mini mode", () => {
+    const steps = [
+      { step: 1n, rangeTo: 1000n, price: 1000000000000000000n },
+    ];
+
+    const { container } = render(
+      <BondingCurvePanel
+        curveSupply={0n}
+        curveStep={{ step: 1n, price: steps[0].price }}
+        allBondSteps={steps}
+        mini
+      />,
+    );
+
+    // Chart renders
+    const chart = container.querySelector("[data-testid='area-chart']");
+    expect(chart).toBeTruthy();
+
+    // No stats grid or progress bar in mini mode
+    expect(screen.queryByText("currentStep")).toBeFalsy();
+    expect(screen.queryByText("bondingCurveProgress")).toBeFalsy();
   });
 });

@@ -1,73 +1,45 @@
 /*
   @vitest-environment jsdom
 */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+/* eslint-disable react/prop-types */
+import { describe, it, expect, vi } from "vitest";
+import { render } from "@testing-library/react";
 
-vi.mock("@/config/contracts", () => ({
-  getContractAddresses: () => ({
-    SOF: "0x0000000000000000000000000000000000000001",
-  }),
+vi.mock("@/hooks/useSofDecimals", () => ({
+  useSofDecimals: () => 18,
 }));
 
-vi.mock("@/config/networks", () => ({
-  getNetworkByKey: () => ({
-    id: 31337,
-    name: "Local Anvil",
-    rpcUrl: "http://127.0.0.1:8545",
-  }),
-}));
-
-vi.mock("@/lib/wagmi", () => ({
-  getStoredNetworkKey: () => "LOCAL",
-}));
-
-const readContract = vi.fn().mockResolvedValue(18n);
-
-vi.mock("viem", async (importOriginal) => {
-  const orig = await importOriginal();
+// Mock Recharts components to render testable DOM elements
+vi.mock("recharts", async () => {
+  const { createElement: h } = await import("react");
   return {
-    ...orig,
-    createPublicClient: () => ({ readContract }),
-    http: vi.fn(() => ({})),
+    ResponsiveContainer: ({ children }) => h("div", { "data-testid": "responsive-container" }, children),
+    AreaChart: ({ children, data }) =>
+      h("svg", { "data-testid": "area-chart", "data-points": data?.length ?? 0 }, children),
+    Area: ({ dataKey, type }) =>
+      h("g", { "data-testid": `area-${dataKey}`, "data-type": type }),
+    XAxis: ({ hide }) =>
+      h("g", { "data-testid": "x-axis", "data-hide": hide ? "true" : "false" }),
+    YAxis: ({ hide }) =>
+      h("g", { "data-testid": "y-axis", "data-hide": hide ? "true" : "false" }),
+    CartesianGrid: () => h("g", { "data-testid": "cartesian-grid" }),
+    Tooltip: () => h("g", { "data-testid": "tooltip" }),
+    ReferenceLine: ({ x, stroke }) =>
+      h("line", { "data-testid": "reference-line", "data-x": x, stroke }),
+    ReferenceDot: ({ x, y, r, fill }) =>
+      h("circle", { "data-testid": "reference-dot", cx: x, cy: y, r, fill }),
   };
 });
 
 import BondingCurvePanel from "@/components/curve/CurveGraph.jsx";
 
-describe("BondingCurvePanel hover coordinate conversion", () => {
-  const originalCreateSVGPoint = SVGSVGElement.prototype.createSVGPoint;
-  const originalGetScreenCTM = SVGSVGElement.prototype.getScreenCTM;
+describe("BondingCurvePanel Recharts tooltip", () => {
+  const steps = [
+    { step: 1n, rangeTo: 1000n, price: 1000000000000000000n },
+    { step: 2n, rangeTo: 2000n, price: 2000000000000000000n },
+  ];
 
-  beforeEach(() => {
-    SVGSVGElement.prototype.createSVGPoint = vi.fn(() => {
-      return {
-        x: 0,
-        y: 0,
-        matrixTransform: vi.fn(() => ({ x: 100, y: 50 })),
-      };
-    });
-
-    SVGSVGElement.prototype.getScreenCTM = vi.fn(() => {
-      return {
-        inverse: vi.fn(() => ({
-          /* identity placeholder */
-        })),
-      };
-    });
-  });
-
-  afterEach(() => {
-    SVGSVGElement.prototype.createSVGPoint = originalCreateSVGPoint;
-    SVGSVGElement.prototype.getScreenCTM = originalGetScreenCTM;
-  });
-
-  it("uses SVG transform helpers instead of getBoundingClientRect for hover coords", () => {
-    const steps = [
-      { step: 1n, rangeTo: 1000n, price: 1000000000000000000n },
-      { step: 2n, rangeTo: 2000n, price: 2000000000000000000n },
-    ];
-
+  it("renders Recharts AreaChart with Tooltip in full mode", () => {
     const { container } = render(
       <BondingCurvePanel
         curveSupply={0n}
@@ -76,15 +48,76 @@ describe("BondingCurvePanel hover coordinate conversion", () => {
       />,
     );
 
-    const svg = container.querySelector("svg");
-    expect(svg).toBeTruthy();
+    const chart = container.querySelector("[data-testid='area-chart']");
+    expect(chart).toBeTruthy();
 
-    const rectSpy = vi.spyOn(svg, "getBoundingClientRect");
+    // Tooltip is rendered in full mode
+    const tooltip = container.querySelector("[data-testid='tooltip']");
+    expect(tooltip).toBeTruthy();
 
-    fireEvent.mouseMove(svg, { clientX: 123, clientY: 45 });
+    // Area uses stepAfter type
+    const area = container.querySelector("[data-testid='area-price']");
+    expect(area).toBeTruthy();
+    expect(area.getAttribute("data-type")).toBe("stepAfter");
+  });
 
-    expect(SVGSVGElement.prototype.createSVGPoint).toHaveBeenCalledTimes(1);
-    expect(SVGSVGElement.prototype.getScreenCTM).toHaveBeenCalledTimes(1);
-    expect(rectSpy).not.toHaveBeenCalled();
+  it("does not render Tooltip in compact mode", () => {
+    const { container } = render(
+      <BondingCurvePanel
+        curveSupply={500n}
+        curveStep={{ step: 1n, price: steps[0].price }}
+        allBondSteps={steps}
+        compact
+      />,
+    );
+
+    const chart = container.querySelector("[data-testid='area-chart']");
+    expect(chart).toBeTruthy();
+
+    // No tooltip in compact mode
+    const tooltip = container.querySelector("[data-testid='tooltip']");
+    expect(tooltip).toBeFalsy();
+  });
+
+  it("does not render Tooltip in mini mode", () => {
+    const { container } = render(
+      <BondingCurvePanel
+        curveSupply={500n}
+        curveStep={{ step: 1n, price: steps[0].price }}
+        allBondSteps={steps}
+        mini
+      />,
+    );
+
+    const chart = container.querySelector("[data-testid='area-chart']");
+    expect(chart).toBeTruthy();
+
+    // No tooltip in mini mode
+    const tooltip = container.querySelector("[data-testid='tooltip']");
+    expect(tooltip).toBeFalsy();
+  });
+
+  it("renders current supply marker when supply > 0", () => {
+    const { container } = render(
+      <BondingCurvePanel
+        curveSupply={500n}
+        curveStep={{ step: 1n, price: steps[0].price }}
+        allBondSteps={steps}
+      />,
+    );
+
+    // ReferenceLine with orange stroke for current supply
+    const refLines = container.querySelectorAll("[data-testid='reference-line']");
+    const orangeLine = Array.from(refLines).find(
+      (l) => l.getAttribute("stroke") === "#f97316",
+    );
+    expect(orangeLine).toBeTruthy();
+
+    // ReferenceDot with orange fill for current supply
+    const refDots = container.querySelectorAll("[data-testid='reference-dot']");
+    const orangeDot = Array.from(refDots).find(
+      (d) => d.getAttribute("fill") === "#f97316",
+    );
+    expect(orangeDot).toBeTruthy();
   });
 });
