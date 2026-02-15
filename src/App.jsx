@@ -7,6 +7,7 @@ import StickyFooter from "@/components/layout/StickyFooter";
 import { Toaster } from "@/components/ui/toaster";
 import UsernameDialog from "@/components/user/UsernameDialog";
 import LoginModal from "@/components/auth/LoginModal";
+import MobileLoginSheet from "@/components/auth/MobileLoginSheet";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { ContractAddressValidator } from "@/components/dev/ContractAddressValidator";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -16,7 +17,7 @@ import { useSafeArea } from "@/hooks/useSafeArea";
 
 const App = () => {
   const { showDialog, setShowDialog, suggestedUsername } = useUsernameContext();
-  const { isMobile } = usePlatform();
+  const { isMobile, isMobileBrowser } = usePlatform();
   const safeArea = useSafeArea();
 
   // Mobile layout for Farcaster Mini App and Base App
@@ -53,7 +54,7 @@ const App = () => {
       <Footer />
       <StickyFooter />
       <Toaster />
-      <LoginModal />
+      {isMobileBrowser ? <MobileLoginSheet /> : <LoginModal />}
       <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       <ContractAddressValidator />
     </div>
