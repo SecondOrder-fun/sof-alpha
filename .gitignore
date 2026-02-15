@@ -94,6 +94,7 @@ playwright-report/
 test-report/
 coverage/
 .nyc_output/
+.playwright-mcp/
 
 # Documentation builds
 docs/build/
@@ -131,6 +132,8 @@ docs/build/
 /.emacs.desktop
 /.emacs.desktop.lock
 *.elc
+
+.windsurf/
 
 # ==================================
 # Operating System Files

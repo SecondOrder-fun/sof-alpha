@@ -6,9 +6,27 @@
  * - Base App (dApp browser)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useFarcasterSDK } from "./useFarcasterSDK";
 import { useSupportsBaseApp } from "./useIsMobile";
+
+const mobileMQ =
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(max-width: 768px)")
+    : null;
+
+function subscribeMobileMQ(cb) {
+  mobileMQ?.addEventListener("change", cb);
+  return () => mobileMQ?.removeEventListener("change", cb);
+}
+
+function getSnapshotMobileMQ() {
+  return mobileMQ?.matches ?? false;
+}
+
+function getServerSnapshotMobileMQ() {
+  return false;
+}
 
 export const PLATFORMS = {
   WEB: "web",
@@ -20,6 +38,11 @@ export const usePlatform = () => {
   const { isInFarcasterClient, isSDKLoaded } = useFarcasterSDK();
   const supportsBaseApp = useSupportsBaseApp();
   const [platform, setPlatform] = useState(PLATFORMS.WEB);
+  const isNarrowViewport = useSyncExternalStore(
+    subscribeMobileMQ,
+    getSnapshotMobileMQ,
+    getServerSnapshotMobileMQ,
+  );
 
   useEffect(() => {
     if (!isSDKLoaded) return;
@@ -43,13 +66,16 @@ export const usePlatform = () => {
     }
   }, [isInFarcasterClient, isSDKLoaded, supportsBaseApp]);
 
+  const isWeb = platform === PLATFORMS.WEB;
+
   return {
     platform,
-    isWeb: platform === PLATFORMS.WEB,
+    isWeb,
     isFarcaster: platform === PLATFORMS.FARCASTER,
     isBaseApp: platform === PLATFORMS.BASE_APP,
     isMobile:
       platform === PLATFORMS.FARCASTER || platform === PLATFORMS.BASE_APP,
+    isMobileBrowser: isWeb && isNarrowViewport,
   };
 };
 
