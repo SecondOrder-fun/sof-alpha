@@ -42,12 +42,21 @@ Update `package.json` version following semver:
 
 Current version: `0.9.31`
 
-### 3. Pre-Commit Verification
+### 3. Test-Driven Development
+
+**Use TDD: do NOT commit until the entire test suite passes.**
+
+- Write or update tests before (or alongside) implementation code.
+- Run `npm run test` (full suite) before every commit. All tests must pass — zero failures, zero errors.
+- If your changes break existing tests, fix them before committing.
+- If a pre-existing test is broken by infrastructure issues (e.g., OOM), exclude it in `vitest.config.js` with a comment explaining why, and file a follow-up task.
+
+### 4. Pre-Commit Verification
 
 **ALWAYS run these before committing:**
 
 ```bash
-# Frontend tests
+# Frontend tests (ALL must pass)
 npm run test
 
 # Linter
@@ -60,14 +69,14 @@ npm run build
 cd contracts && forge test && cd ..
 ```
 
-### 4. CI/CD Verification
+### 5. CI/CD Verification
 
 After committing and pushing:
 1. Check GitHub Actions for CI status
 2. Ensure all checks pass before creating PR
 3. Do not merge failing PRs
 
-### 5. Task Documentation
+### 6. Task Documentation
 
 Add all tasks with detailed sub-tasks to `instructions/project-tasks.md`.
 
