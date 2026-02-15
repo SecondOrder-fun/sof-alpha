@@ -6,7 +6,7 @@ import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useSeasonWinnerSummaries } from "@/hooks/useSeasonWinnerSummaries";
 import { useCurveState } from "@/hooks/useCurveState";
 import { useAccount, useChains } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useLoginModal } from "@/hooks/useLoginModal";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
 import { SOFBondingCurveAbi } from "@/utils/abis";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -206,7 +206,7 @@ const RaffleList = () => {
   const { address, isConnected } = useAccount();
   const { chainId } = useAccount();
   const chains = useChains();
-  const { openConnectModal } = useConnectModal();
+  const { openLoginModal } = useLoginModal();
   const allSeasonsQuery = useAllSeasons();
   const winnerSummariesQuery = useSeasonWinnerSummaries(allSeasonsQuery.data);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -232,8 +232,8 @@ const RaffleList = () => {
   }, []);
 
   const handleConnect = useCallback(() => {
-    openConnectModal?.();
-  }, [openConnectModal]);
+    openLoginModal();
+  }, [openLoginModal]);
 
   const renderBadge = (st) => {
     const statusNum = Number(st);

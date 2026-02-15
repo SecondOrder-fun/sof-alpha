@@ -5,20 +5,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-const openConnectModalMock = vi.fn();
-const openAccountModalMock = vi.fn();
+const openLoginModalMock = vi.fn();
 
-vi.mock("@rainbow-me/rainbowkit", () => ({
-  ConnectButton: {
-    Custom: ({ children }) =>
-      children({
-        account: null,
-        chain: null,
-        openAccountModal: openAccountModalMock,
-        openConnectModal: openConnectModalMock,
-        mounted: true,
-      }),
-  },
+vi.mock("wagmi", () => ({
+  useAccount: () => ({
+    isConnected: false,
+  }),
+}));
+
+vi.mock("@/hooks/useLoginModal", () => ({
+  useLoginModal: () => ({
+    openLoginModal: openLoginModalMock,
+    closeLoginModal: vi.fn(),
+    isLoginModalOpen: false,
+  }),
 }));
 
 vi.mock("@/hooks/useFarcasterSDK", () => ({
@@ -70,17 +70,15 @@ import Landing from "@/routes/Landing.jsx";
 
 describe("Landing avatar login", () => {
   beforeEach(() => {
-    openConnectModalMock.mockClear();
-    openAccountModalMock.mockClear();
+    openLoginModalMock.mockClear();
   });
 
-  it("opens connect modal when avatar is clicked while logged out", () => {
+  it("opens login modal when avatar is clicked while logged out", () => {
     render(<Landing />);
 
-    const button = screen.getByRole("button", { name: "Connect wallet" });
+    const button = screen.getByRole("button", { name: "Log in" });
     fireEvent.click(button);
 
-    expect(openConnectModalMock).toHaveBeenCalledTimes(1);
-    expect(openAccountModalMock).not.toHaveBeenCalled();
+    expect(openLoginModalMock).toHaveBeenCalledTimes(1);
   });
 });

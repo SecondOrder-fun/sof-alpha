@@ -56,6 +56,18 @@ vi.mock("@/hooks/useRouteAccess", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useFarcaster", () => ({
+  useFarcaster: () => ({
+    isBackendAuthenticated: false,
+    backendUser: null,
+    logout: vi.fn(),
+  }),
+}));
+
+vi.mock("@/components/auth/FarcasterAuth", () => ({
+  default: () => null,
+}));
+
 vi.mock("@/components/common/LanguageToggle", () => ({
   default: () => null,
 }));
@@ -65,6 +77,14 @@ vi.mock("@/context/ThemeContext", () => ({
     theme: "dark",
     setTheme: vi.fn(),
     toggleTheme: vi.fn(),
+  }),
+}));
+
+vi.mock("@/hooks/useLoginModal", () => ({
+  useLoginModal: () => ({
+    openLoginModal: vi.fn(),
+    closeLoginModal: vi.fn(),
+    isLoginModalOpen: false,
   }),
 }));
 

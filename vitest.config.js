@@ -41,8 +41,14 @@ export default defineConfig({
       "tests/backend/**",
       "tests/api/**",
       "tests/hooks/useRaffleTracker.test.jsx",
+      "tests/components/mobile/BuySellSheet.inputAndSeasonGuard.test.jsx", // OOM: heavy web3 dep tree
       "tests/e2e/**", // E2E tests use Playwright, not Vitest
     ],
+    poolOptions: {
+      forks: {
+        execArgv: ["--max-old-space-size=4096"],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import StickyFooter from "@/components/layout/StickyFooter";
 import { Toaster } from "@/components/ui/toaster";
 import UsernameDialog from "@/components/user/UsernameDialog";
+import LoginModal from "@/components/auth/LoginModal";
 import { useUsernameContext } from "@/context/UsernameContext";
 import { ContractAddressValidator } from "@/components/dev/ContractAddressValidator";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -14,7 +15,7 @@ import BottomNav from "@/components/mobile/BottomNav";
 import { useSafeArea } from "@/hooks/useSafeArea";
 
 const App = () => {
-  const { showDialog, setShowDialog } = useUsernameContext();
+  const { showDialog, setShowDialog, suggestedUsername } = useUsernameContext();
   const { isMobile } = usePlatform();
   const safeArea = useSafeArea();
 
@@ -35,7 +36,7 @@ const App = () => {
         </main>
         <BottomNav />
         <Toaster />
-        <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+        <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       </div>
     );
   }
@@ -52,7 +53,8 @@ const App = () => {
       <Footer />
       <StickyFooter />
       <Toaster />
-      <UsernameDialog open={showDialog} onOpenChange={setShowDialog} />
+      <LoginModal />
+      <UsernameDialog open={showDialog} onOpenChange={setShowDialog} suggestedUsername={suggestedUsername} />
       <ContractAddressValidator />
     </div>
   );

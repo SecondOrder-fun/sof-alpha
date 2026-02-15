@@ -1,11 +1,14 @@
 // React import not needed with Vite JSX transform
 import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Ticket, User, Crown } from "lucide-react";
 import LanguageToggle from "@/components/common/LanguageToggle";
 import SettingsMenu from "@/components/common/SettingsMenu";
+import FarcasterAuth from "@/components/auth/FarcasterAuth";
+import { useFarcaster } from "@/hooks/useFarcaster";
+import { useLoginModal } from "@/hooks/useLoginModal";
+import { Button } from "@/components/ui/button";
 import { useUsername } from "@/hooks/useUsername";
 import { useAllowlist } from "@/hooks/useAllowlist";
 import { ACCESS_LEVELS } from "@/config/accessLevels";
@@ -20,8 +23,11 @@ import {
 
 const Header = () => {
   const { t } = useTranslation("navigation");
-  const { address } = useAccount();
+  const { t: tAuth } = useTranslation("auth");
+  const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  const { openLoginModal } = useLoginModal();
+  const { isBackendAuthenticated, backendUser, logout: farcasterLogout } = useFarcaster();
   const { data: username } = useUsername(address);
   const { accessLevel } = useAllowlist();
   const isAdmin = accessLevel >= ACCESS_LEVELS.ADMIN;
@@ -130,72 +136,33 @@ const Header = () => {
           </nav>
         </div>
         <div className="flex items-center space-x-4">
-          <ConnectButton.Custom>
-            {({
-              account,
-              chain,
-              openConnectModal,
-              mounted,
-            }) => {
-              const ready = mounted;
-              const connected = ready && account && chain;
-
-              const handleOpenConnect = () => {
-                try {
-                  if (typeof openConnectModal !== "function") {
-                    // eslint-disable-next-line no-console
-                    console.error(
-                      "RainbowKit openConnectModal is not a function",
-                    );
-                    return;
-                  }
-                  openConnectModal();
-                } catch (e) {
-                  // eslint-disable-next-line no-console
-                  console.error("Failed to open connect modal", e);
-                }
-              };
-
-              return (
-                <div
-                  className="flex items-center space-x-4"
-                  {...(!ready && {
-                    "aria-hidden": true,
-                    style: {
-                      opacity: 0,
-                      pointerEvents: "none",
-                      userSelect: "none",
-                    },
-                  })}
-                >
-                  {(() => {
-                    if (!connected) {
-                      return (
-                        <>
-                          <LanguageToggle />
-                          <button
-                            onClick={handleOpenConnect}
-                            type="button"
-                            className="px-4 py-2 rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/80 active:bg-muted"
-                          >
-                            {t("connectWallet")}
-                          </button>
-                        </>
-                      );
-                    }
-
-                    return (
-                      <SettingsMenu
-                        address={address}
-                        username={username}
-                        onDisconnect={disconnect}
-                      />
-                    );
-                  })()}
-                </div>
-              );
-            }}
-          </ConnectButton.Custom>
+          <LanguageToggle />
+          {isConnected ? (
+            <SettingsMenu
+              address={address}
+              username={username}
+              farcasterUser={isBackendAuthenticated ? backendUser : null}
+              onDisconnect={() => {
+                farcasterLogout();
+                disconnect();
+              }}
+            />
+          ) : isBackendAuthenticated && backendUser ? (
+            <>
+              <FarcasterAuth />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={openLoginModal}
+              >
+                {t("connectWallet")}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={openLoginModal}>
+              {tAuth("logIn", "Log in")}
+            </Button>
+          )}
         </div>
       </div>
     </header>
