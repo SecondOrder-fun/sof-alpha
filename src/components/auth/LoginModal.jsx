@@ -30,7 +30,6 @@ const LoginModal = () => {
   const {
     handleSignInClick,
     handleCancel: cancelSiwf,
-    showQrView,
     url,
     isLoading: isSiwfLoading,
   } = useFarcasterSignIn({ onSuccess: handleSiwfSuccess });
@@ -42,19 +41,13 @@ const LoginModal = () => {
     }
   }, [isConnected, isLoginModalOpen, closeLoginModal]);
 
-  // Sync SIWF showQrView → internal view
-  useEffect(() => {
-    if (showQrView) {
-      setView("farcaster-qr");
-    }
-  }, [showQrView]);
-
-  // Reset to options view when modal reopens
+  // Reset to options view and cancel stale SIWF state when modal opens
   useEffect(() => {
     if (isLoginModalOpen) {
+      cancelSiwf();
       setView("options");
     }
-  }, [isLoginModalOpen]);
+  }, [isLoginModalOpen, cancelSiwf]);
 
   const handleOpenChange = useCallback(
     (open) => {
@@ -67,6 +60,7 @@ const LoginModal = () => {
   );
 
   const handleFarcasterClick = () => {
+    setView("farcaster-qr");
     handleSignInClick();
   };
 
