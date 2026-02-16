@@ -1,19 +1,87 @@
 // src/components/curve/CurveGraph.jsx
 import PropTypes from "prop-types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createPublicClient, formatUnits, http } from "viem";
-import { getStoredNetworkKey } from "@/lib/wagmi";
-import { getNetworkByKey } from "@/config/networks";
-import { getContractAddresses } from "@/config/contracts";
-import { ERC20Abi } from "@/utils/abis";
+import { formatUnits } from "viem";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceDot,
+  ReferenceLine,
+  ResponsiveContainer,
+} from "recharts";
+import { useSofDecimals } from "@/hooks/useSofDecimals";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** SVG tooltip label rendered above step dots (click-to-toggle) */
+const StepTooltipLabel = ({ viewBox, value }) => {
+  if (!viewBox) return null;
+  const cx = viewBox.cx ?? viewBox.x ?? 0;
+  const cy = viewBox.cy ?? viewBox.y ?? 0;
+  const textLen = value.length * 5.5 + 12;
+  const rh = 16;
+  return (
+    <g>
+      <rect
+        x={cx - textLen / 2}
+        y={cy - rh - 6}
+        width={textLen}
+        height={rh}
+        rx={4}
+        fill="hsl(var(--popover))"
+        stroke="hsl(var(--border))"
+        strokeWidth={1}
+      />
+      <text
+        x={cx}
+        y={cy - 12}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="hsl(var(--popover-foreground))"
+        fontSize={10}
+        fontFamily="ui-monospace, monospace"
+      >
+        {value}
+      </text>
+    </g>
+  );
+};
+
+StepTooltipLabel.propTypes = {
+  viewBox: PropTypes.object,
+  value: PropTypes.string,
+};
+
+/** Custom Recharts tooltip showing supply and price at cursor */
+const CurveTooltip = ({ active, payload, t }) => {
+  if (!active || !payload?.length) return null;
+  const data = payload[0].payload;
+  return (
+    <div className="bg-popover text-popover-foreground border border-border rounded-lg p-2 shadow-lg text-xs font-mono">
+      <div>
+        {t("supply")}: {Math.round(data.supply)}
+      </div>
+      <div>
+        {t("common:price")}: {data.price.toFixed(4)} SOF
+      </div>
+    </div>
+  );
+};
+
+CurveTooltip.propTypes = {
+  active: PropTypes.bool,
+  payload: PropTypes.array,
+  t: PropTypes.func,
+};
+
 /**
  * BondingCurvePanel
- * Visualizes stepped linear curve progress and current price using simple bars.
- * MVP: progress, current step, current price, recent steps.
+ * Visualizes stepped bonding curve using Recharts with responsive sizing.
  */
 const BondingCurvePanel = ({
   curveSupply,
@@ -23,41 +91,9 @@ const BondingCurvePanel = ({
   mini = false,
 }) => {
   const { t } = useTranslation("raffle");
-  const [sofDecimals, setSofDecimals] = useState(18);
-
-  // Read SOF decimals from configured token
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const netKey = getStoredNetworkKey();
-        const net = getNetworkByKey(netKey);
-        const { SOF } = getContractAddresses(netKey);
-        if (!SOF) return;
-        const client = createPublicClient({
-          chain: {
-            id: net.id,
-            name: net.name,
-            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-            rpcUrls: { default: { http: [net.rpcUrl] } },
-          },
-          transport: http(net.rpcUrl),
-        });
-        const dec = await client.readContract({
-          address: SOF,
-          abi: ERC20Abi,
-          functionName: "decimals",
-          args: [],
-        });
-        if (!cancelled) setSofDecimals(Number(dec || 18));
-      } catch (_) {
-        // fallback to 18
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const sofDecimals = useSofDecimals();
+  const gradientId = useId();
+  const [activeDot, setActiveDot] = useState(null);
 
   const formatSOF = (weiLike) => {
     try {
@@ -66,6 +102,7 @@ const BondingCurvePanel = ({
       return "0.0000";
     }
   };
+
   const maxSupply = useMemo(() => {
     try {
       const last =
@@ -96,128 +133,63 @@ const BondingCurvePanel = ({
     }
   }, [curveStep]);
 
-  // Build chart data from steps: x=cumulative supply, y=price (SOF)
+  // Build Recharts data: array of {supply, price}
   const chartData = useMemo(() => {
     try {
       const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
-      if (steps.length === 0) return { points: [], maxX: 0, maxY: 0 };
-      let prevX = 0n;
+      if (steps.length === 0) return [];
       const pts = [];
+      let prevX = 0n;
       for (const s of steps) {
         const x2 = BigInt(s?.rangeTo ?? 0);
-        const price = s?.price ?? 0n;
-        // horizontal segment from prevX -> x2 at current step price
-        pts.push({
-          x: Number(prevX),
-          y: Number(formatUnits(price, sofDecimals)),
-        });
-        pts.push({ x: Number(x2), y: Number(formatUnits(price, sofDecimals)) });
+        const price = Number(formatUnits(s?.price ?? 0n, sofDecimals));
+        pts.push({ supply: Number(prevX), price });
+        pts.push({ supply: Number(x2), price });
         prevX = x2;
       }
-      const maxX = Number(steps[steps.length - 1]?.rangeTo ?? 0n);
-      const prices = steps.map((s) =>
-        Number(formatUnits(s?.price ?? 0n, sofDecimals)),
-      );
-      const minY = Math.min(...prices);
-      const maxY = Math.max(...prices);
-      return { points: pts, maxX, minY, maxY };
+      return pts;
     } catch {
-      return { points: [], maxX: 0, minY: 0, maxY: 0 };
+      return [];
     }
   }, [allBondSteps, sofDecimals]);
 
-  // SVG dimensions and scales — mini uses a short viewBox; CSS stretches to fill container
-  const width = 640; // will scale via viewBox
-  const height = mini ? 100 : compact ? 200 : 320;
-  const margin = mini
-    ? { top: 0, right: 0, bottom: 0, left: 0 }
-    : { top: 10, right: 16, bottom: 24, left: 48 };
-  const innerW = width - margin.left - margin.right;
-  const innerH = height - margin.top - margin.bottom;
-  const maxX = chartData.maxX || 1;
-  const rawMaxY = chartData.maxY ?? 1;
-  const domainMinY = 0;
-  const domainMaxY = Math.max(1e-9, rawMaxY);
-  const yRange = Math.max(1e-9, domainMaxY - domainMinY);
-  const xScale = (x) => margin.left + innerW * (x / maxX);
-  const yScale = (y) =>
-    margin.top + innerH - innerH * ((y - domainMinY) / yRange);
-
-  // Build path string for stepped line
-  const buildPath = () => {
-    const pts = chartData.points;
-    if (!pts || pts.length === 0) return "";
-    const to = (p) => `${xScale(p.x)},${yScale(p.y)}`;
-    let d = `M ${to(pts[0])}`;
-    for (let i = 1; i < pts.length; i++) d += ` L ${to(pts[i])}`;
-    return d;
-  };
-
-  // Area under the stepped curve
-  const buildArea = () => {
-    const pts = chartData.points;
-    if (!pts || pts.length === 0) return "";
-    const baselineY = yScale(domainMinY);
-    const to = (p) => `${xScale(p.x)},${yScale(p.y)}`;
-    let d = `M ${to(pts[0])}`;
-    for (let i = 1; i < pts.length; i++) d += ` L ${to(pts[i])}`;
-    // close to baseline
-    const last = pts[pts.length - 1];
-    const first = pts[0];
-    d += ` L ${xScale(last.x)},${baselineY}`;
-    d += ` L ${xScale(first.x)},${baselineY} Z`;
-    return d;
-  };
-
-  // Helper to get price at a specific supply using steps (SOF units)
-  const getPriceAtSupply = (supply) => {
-    try {
-      const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
-      if (steps.length === 0) return 0;
-      for (const s of steps) {
-        const to = BigInt(s?.rangeTo ?? 0);
-        if (BigInt(Math.floor(supply)) <= to) {
-          return Number(formatUnits(s.price ?? 0n, sofDecimals));
-        }
-      }
-      return Number(
-        formatUnits(steps[steps.length - 1].price ?? 0n, sofDecimals),
-      );
-    } catch {
-      return 0;
+  // Step boundary dots at midpoint of each horizontal segment
+  const stepDots = useMemo(() => {
+    const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+    if (steps.length === 0) return [];
+    const dots = [];
+    let prevRangeTo = 0n;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const rangeTo = BigInt(s?.rangeTo ?? 0);
+      const price = Number(formatUnits(s?.price ?? 0n, sofDecimals));
+      const mid = (Number(prevRangeTo) + Number(rangeTo)) / 2;
+      dots.push({ supply: mid, price, step: Number(s?.step ?? i + 1) });
+      prevRangeTo = rangeTo;
     }
-  };
+    const count = dots.length;
+    if (count <= 15) return dots;
+    const stride = Math.ceil(count / 15);
+    return dots.filter((_, idx) => idx % stride === 0 || idx === count - 1);
+  }, [allBondSteps, sofDecimals]);
 
-  // Hover interaction state
-  const svgRef = useRef(null);
-  const [hover, setHover] = useState(null); // {xSupply, yPrice, cx, cy}
+  const currentSupply = Number(curveSupply ?? 0n);
 
-  const onMouseMove = (e) => {
-    if (!svgRef.current) return;
-    const svg = svgRef.current;
-    const pt = svg.createSVGPoint?.();
-    const ctm = svg.getScreenCTM?.();
-    if (!pt || !ctm) return;
+  // Price at current supply (for the orange marker dot)
+  const priceAtSupply = useMemo(() => {
+    const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
+    for (const s of steps) {
+      if (currentSupply <= Number(BigInt(s?.rangeTo ?? 0))) {
+        return Number(formatUnits(s?.price ?? 0n, sofDecimals));
+      }
+    }
+    if (steps.length > 0) {
+      return Number(formatUnits(steps[steps.length - 1]?.price ?? 0n, sofDecimals));
+    }
+    return 0;
+  }, [allBondSteps, currentSupply, sofDecimals]);
 
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-
-    const localPoint = pt.matrixTransform(ctm.inverse());
-    const mx = localPoint.x;
-    const my = localPoint.y;
-    // invert xScale → supply
-    const clamped = Math.max(margin.left, Math.min(width - margin.right, mx));
-    const ratio = (clamped - margin.left) / innerW;
-    const xSupply = Math.max(0, Math.min(maxX, ratio * maxX));
-    const yPrice = getPriceAtSupply(xSupply);
-    const cx = xScale(xSupply);
-    const cy = yScale(yPrice);
-    setHover({ xSupply, yPrice, cx, cy, mx: clamped, my });
-  };
-
-  const onMouseLeave = () => setHover(null);
-
-  // Build steps array for Progress component
+  // Build steps array for Progress component (full mode only)
   const progressSteps = useMemo(() => {
     const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
@@ -242,7 +214,6 @@ const BondingCurvePanel = ({
           sublabel: `${t("step")} #${stepNum}`,
         };
       });
-    // Add Step #0 at the start (initial price) and pin last dot to the end
     if (mapped.length > 0) {
       const rawStartPrice = Number(formatUnits(steps[0].price ?? 0n, sofDecimals));
       const startPrice = (Math.ceil(rawStartPrice * 10) / 10).toFixed(1);
@@ -252,234 +223,183 @@ const BondingCurvePanel = ({
     return mapped;
   }, [allBondSteps, maxSupply, sofDecimals, t]);
 
+  const safeGradientId = gradientId.replace(/:/g, "_");
+
+  // Chart height by mode
+  const chartHeight = mini ? "100%" : compact ? 200 : 320;
+
+  // Margins by mode
+  const chartMargin = mini
+    ? { top: 4, right: 4, bottom: 4, left: 4 }
+    : compact
+      ? { top: 8, right: 8, bottom: 8, left: -20 }
+      : { top: 10, right: 16, bottom: 24, left: -10 };
+
   const containerClassName = mini ? "h-full" : "space-y-4";
   const graphWrapperClassName = mini
     ? "w-full h-full"
     : "w-full overflow-hidden border rounded p-2 bg-background";
 
-  return (
-    <div className={containerClassName}>
-      {/* SVG Stepped Curve Visualization */}
-      <div className={graphWrapperClassName}>
-        {chartData.points.length === 0 ? (
-          mini ? (
+  if (chartData.length === 0) {
+    return (
+      <div className={containerClassName}>
+        <div className={graphWrapperClassName}>
+          {mini ? (
             <Skeleton className="w-full h-full rounded-none" />
           ) : (
             <div className="text-sm text-muted-foreground">
               {t("noBondingCurveData")}
             </div>
-          )
-        ) : (
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${width} ${height}`}
-            className={mini ? "w-full h-full" : "w-full h-80"}
-            preserveAspectRatio={mini ? "none" : "xMidYMid meet"}
-            onMouseMove={onMouseMove}
-            onMouseLeave={onMouseLeave}
-          >
-            {/* Axes */}
-            <line
-              x1={margin.left}
-              y1={margin.top}
-              x2={margin.left}
-              y2={height - margin.bottom}
-              stroke="#e5e7eb"
-              strokeWidth={3}
-            />
-            <line
-              x1={margin.left}
-              y1={height - margin.bottom}
-              x2={width - margin.right}
-              y2={height - margin.bottom}
-              stroke="#e5e7eb"
-              strokeWidth={3}
-            />
-
-            {/* Y ticks */}
-            {!mini &&
-              Array.from({ length: 5 }).map((_, i) => {
-                const yVal = domainMinY + (yRange * i) / 4;
-                const y = yScale(yVal);
-                return (
-                  <g key={`y-${i}`}>
-                    <line
-                      x1={margin.left}
-                      y1={y}
-                      x2={width - margin.right}
-                      y2={y}
-                      stroke="#f3f4f6"
-                      strokeWidth={1}
-                    />
-                    {!compact && !mini && (
-                      <text
-                        x={margin.left - 6}
-                        y={y + 3}
-                        textAnchor="end"
-                        fontSize="10"
-                        fill="#6b7280"
-                      >
-                        {yVal.toFixed(2)}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-
-            {/* X ticks */}
-            {!mini &&
-              Array.from({ length: 5 }).map((_, i) => {
-                const xVal = Math.floor((maxX * i) / 4);
-                const x = xScale(xVal);
-                return (
-                  <g key={`x-${i}`}>
-                    <line
-                      x1={x}
-                      y1={height - margin.bottom}
-                      x2={x}
-                      y2={margin.top}
-                      stroke="#f9fafb"
-                      strokeWidth={1}
-                    />
-                    {!compact && (
-                      <text
-                        x={x}
-                        y={height - margin.bottom + 14}
-                        textAnchor="middle"
-                        fontSize="10"
-                        fill="#6b7280"
-                      >
-                        {xVal}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-
-            {/* Shaded area under curve */}
-            <path d={buildArea()} fill="#f9d6de" fillOpacity="0.55" />
-            {/* Stepped curve path */}
-            <path
-              d={buildPath()}
-              fill="none"
-              stroke="#e25167"
-              strokeWidth="2"
-            />
-
-            {/* Current supply marker (at currentPrice horizontally) */}
-            {(() => {
-              try {
-                const cs = Number(curveSupply ?? 0n);
-                const lastPrice = Number(
-                  formatUnits(currentPrice ?? 0n, sofDecimals),
-                );
-                const cx = xScale(Math.min(cs, maxX));
-                const cy = yScale(lastPrice);
-                return (
-                  <g>
-                    <line
-                      x1={cx}
-                      y1={margin.top}
-                      x2={cx}
-                      y2={height - margin.bottom}
-                      stroke="#f97316"
-                      strokeDasharray={mini ? "2 4" : "4 3"}
-                    />
-                    <circle cx={cx} cy={cy} r={3} fill="#ef4444" />
-                    {!compact && !mini && (
-                      <text x={cx + 6} y={cy - 6} fontSize="10" fill="#ef4444">
-                        {t("current")}
-                      </text>
-                    )}
-                  </g>
-                );
-              } catch {
-                return null;
-              }
-            })()}
-
-            {/* Hover vertical and tooltip (disabled in compact or mini modes) */}
-            {!compact && !mini && hover && (
-              <g>
-                <line
-                  x1={hover.cx}
-                  y1={margin.top}
-                  x2={hover.cx}
-                  y2={height - margin.bottom}
-                  stroke="#9ca3af"
-                  strokeDasharray="3 3"
-                />
-                <circle cx={hover.cx} cy={hover.cy} r={3} fill="#111827" />
-                {(() => {
-                  const boxW = 120;
-                  const boxH = 44;
-                  const pad = 8;
-                  let tx = hover.cx + 10;
-                  let ty = hover.cy - (boxH + 6);
-                  if (tx + boxW > width - margin.right)
-                    tx = hover.cx - boxW - 10;
-                  if (ty < margin.top) ty = hover.cy + 10;
-                  return (
-                    <g>
-                      <rect
-                        x={tx}
-                        y={ty}
-                        width={boxW}
-                        height={boxH}
-                        rx={6}
-                        ry={6}
-                        fill="#111827"
-                        opacity="0.9"
-                      />
-                      <text
-                        x={tx + pad}
-                        y={ty + 16}
-                        fontSize="11"
-                        fill="#e5e7eb"
-                      >
-                        {t("supply")}: {Math.round(hover.xSupply)}
-                      </text>
-                      <text
-                        x={tx + pad}
-                        y={ty + 32}
-                        fontSize="11"
-                        fill="#e5e7eb"
-                      >
-                        {t("common:price")}: {hover.yPrice.toFixed(4)} SOF
-                      </text>
-                    </g>
-                  );
-                })()}
-              </g>
-            )}
-
-            {/* Axis labels */}
-            {!compact && !mini && (
-              <>
-                <text
-                  x={width / 2}
-                  y={height + 1}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill="#6b7280"
-                >
-                  {t("supplyTickets")}
-                </text>
-                <text
-                  x={12}
-                  y={height / 2}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill="#6b7280"
-                  transform={`rotate(-90 12 ${height / 2})`}
-                >
-                  {t("priceSof")}
-                </text>
-              </>
-            )}
-          </svg>
-        )}
+          )}
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className={containerClassName}>
+      <div className={graphWrapperClassName}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <AreaChart
+            data={chartData}
+            margin={chartMargin}
+            style={{ outline: "none" }}
+          >
+            <defs>
+              <linearGradient id={safeGradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="hsl(var(--primary))"
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(var(--primary))"
+                  stopOpacity={0.05}
+                />
+              </linearGradient>
+            </defs>
+
+            {/* Grid — visible in full/compact, hidden in mini */}
+            {!mini && (
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
+                strokeOpacity={0.5}
+              />
+            )}
+
+            <XAxis
+              dataKey="supply"
+              type="number"
+              hide={mini}
+              tick={compact ? false : { fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              tickLine={false}
+              axisLine={!mini}
+              stroke="hsl(var(--border))"
+              label={
+                !compact && !mini
+                  ? {
+                      value: t("supplyTickets"),
+                      position: "insideBottom",
+                      offset: -16,
+                      fontSize: 11,
+                      fill: "hsl(var(--muted-foreground))",
+                    }
+                  : undefined
+              }
+            />
+            <YAxis
+              hide={mini}
+              tick={compact ? false : { fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              tickLine={false}
+              axisLine={!mini}
+              stroke="hsl(var(--border))"
+              domain={[0, "auto"]}
+              label={
+                !compact && !mini
+                  ? {
+                      value: t("priceSof"),
+                      angle: -90,
+                      position: "insideLeft",
+                      offset: 20,
+                      fontSize: 11,
+                      fill: "hsl(var(--muted-foreground))",
+                    }
+                  : undefined
+              }
+            />
+
+            {/* Cursor tooltip — full mode only */}
+            {!compact && !mini && (
+              <Tooltip
+                content={<CurveTooltip t={t} />}
+                cursor={{ stroke: "hsl(var(--muted-foreground))", strokeDasharray: "3 3" }}
+              />
+            )}
+
+            <Area
+              type="stepAfter"
+              dataKey="price"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2}
+              fill={`url(#${safeGradientId})`}
+              isAnimationActive={false}
+              activeDot={false}
+            />
+
+            {/* Step boundary dots */}
+            {stepDots.map((dot, idx) => (
+              <ReferenceDot
+                key={`step-${dot.step}`}
+                x={dot.supply}
+                y={dot.price}
+                r={mini ? 2 : 3}
+                fill="hsl(var(--primary))"
+                stroke="hsl(var(--background))"
+                strokeWidth={1.5}
+                style={{ cursor: mini ? undefined : "pointer" }}
+                onClick={
+                  !mini
+                    ? (e) => {
+                        e?.stopPropagation?.();
+                        setActiveDot(activeDot === idx ? null : idx);
+                      }
+                    : undefined
+                }
+                label={
+                  activeDot === idx
+                    ? <StepTooltipLabel value={`${(Math.ceil(dot.price * 10) / 10).toFixed(1)} SOF`} />
+                    : undefined
+                }
+              />
+            ))}
+
+            {/* Current supply marker — orange dashed line */}
+            {currentSupply > 0 && (
+              <ReferenceLine
+                x={currentSupply}
+                stroke="#f97316"
+                strokeDasharray={mini ? "2 4" : "4 3"}
+                strokeWidth={1.5}
+              />
+            )}
+            {/* Current supply dot */}
+            {currentSupply > 0 && priceAtSupply > 0 && (
+              <ReferenceDot
+                x={currentSupply}
+                y={priceAtSupply}
+                r={mini ? 3 : 4}
+                fill="#f97316"
+                stroke="hsl(var(--background))"
+                strokeWidth={2}
+              />
+            )}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Stats and progress bar — full mode only */}
       {!compact && !mini && (
         <>
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -495,7 +415,6 @@ const BondingCurvePanel = ({
             </div>
           </div>
 
-          {/* Progress bar moved below the graph */}
           <div>
             <div className="flex justify-between text-sm text-primary mb-1">
               <span>{t("bondingCurveProgress")}</span>
@@ -520,8 +439,6 @@ const BondingCurvePanel = ({
 };
 
 BondingCurvePanel.propTypes = {
-  // Accept bigint (no native PropTypes.bigint), object wrappers, strings, or numbers.
-  // Internal logic normalizes values as needed.
   curveSupply: PropTypes.any,
   curveStep: PropTypes.object,
   allBondSteps: PropTypes.array,
