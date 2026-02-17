@@ -7,6 +7,8 @@ import { buildPublicClient } from "@/lib/viemClient";
  * useCurveState keeps bonding curve state (supply, reserves, current step, steps tail) fresh.
  * - Exposes debounced refresh for tx success events
  * - Polls periodically while season is Active
+ * - Bond steps are immutable once a season is created, so we skip re-fetching
+ *   them after the first successful load.
  */
 export function useCurveState(
   bondingCurveAddress,
@@ -26,6 +28,15 @@ export function useCurveState(
   const [curveFees, setCurveFees] = useState(0n);
 
   const refreshTimerRef = useRef(null);
+  // Bond steps are immutable after season creation — skip re-fetching after first load
+  const stepsLoadedRef = useRef(false);
+  const prevCurveAddrRef = useRef(bondingCurveAddress);
+
+  // Reset stepsLoadedRef when the bonding curve address changes (different season)
+  if (prevCurveAddrRef.current !== bondingCurveAddress) {
+    prevCurveAddrRef.current = bondingCurveAddress;
+    stepsLoadedRef.current = false;
+  }
 
   const refreshCurveState = useCallback(async () => {
     try {
@@ -38,6 +49,9 @@ export function useCurveState(
       ).default;
       const SOFBondingCurveAbi =
         SOFBondingCurveJson?.abi ?? SOFBondingCurveJson;
+
+      // Should we fetch steps this cycle?
+      const shouldFetchSteps = includeSteps && !stepsLoadedRef.current;
 
       const contracts = [
         {
@@ -54,7 +68,7 @@ export function useCurveState(
         },
       ];
 
-      if (includeSteps) {
+      if (shouldFetchSteps) {
         contracts.push({
           address: bondingCurveAddress,
           abi: SOFBondingCurveAbi,
@@ -108,8 +122,8 @@ export function useCurveState(
         results[0]?.status === "success" ? results[0].result : null;
       const stepResult =
         results[1]?.status === "success" ? results[1].result : null;
-      const stepsIndex = includeSteps ? 2 : -1;
-      const feesIndex = includeFees ? (includeSteps ? 3 : 2) : -1;
+      const stepsIndex = shouldFetchSteps ? 2 : -1;
+      const feesIndex = includeFees ? (shouldFetchSteps ? 3 : 2) : -1;
       const stepsResult =
         stepsIndex >= 0 && results[stepsIndex]?.status === "success"
           ? results[stepsIndex].result
@@ -128,10 +142,11 @@ export function useCurveState(
         price: stepResult?.[1] ?? 0n,
         rangeTo: stepResult?.[2] ?? 0n,
       });
-      if (includeSteps) {
+      if (shouldFetchSteps && steps.length > 0) {
         setBondStepsPreview(steps.slice(Math.max(0, steps.length - 3)));
         setAllBondSteps(steps);
-      } else {
+        stepsLoadedRef.current = true;
+      } else if (!includeSteps) {
         setBondStepsPreview([]);
         setAllBondSteps([]);
       }

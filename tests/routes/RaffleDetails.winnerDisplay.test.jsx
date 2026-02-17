@@ -120,6 +120,11 @@ vi.mock("viem", async () => {
   };
 });
 
+// Mock useChainTime to return a current timestamp immediately (no async wait)
+vi.mock("@/hooks/useChainTime", () => ({
+  useChainTime: () => Math.floor(Date.now() / 1000),
+}));
+
 import RaffleDetails from "@/routes/RaffleDetails.jsx";
 
 function renderPage() {

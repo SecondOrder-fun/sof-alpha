@@ -142,6 +142,23 @@ vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
   useSeasonWinnerSummaries: () => ({ isLoading: false, error: null, data: {} }),
 }));
 
+// Mock useChainTime to return a current timestamp immediately (no async wait)
+vi.mock("@/hooks/useChainTime", () => ({
+  useChainTime: () => Math.floor(Date.now() / 1000),
+}));
+
+// Mock usePlayerPosition (extracted from RaffleDetails inline code)
+const mockRefreshPositionNow = vi.fn();
+vi.mock("@/hooks/usePlayerPosition", () => ({
+  usePlayerPosition: () => ({
+    position: { tickets: 4321n, probBps: 4321, total: 10000n },
+    isRefreshing: false,
+    setIsRefreshing: vi.fn(),
+    setPosition: vi.fn(),
+    refreshNow: mockRefreshPositionNow,
+  }),
+}));
+
 // Mock admin components to avoid Wagmi provider requirements
 vi.mock("@/components/admin/RaffleAdminControls", () => ({
   RaffleAdminControls: () => null,
@@ -241,24 +258,20 @@ describe("RaffleDetails toasts and ERC20 fallback", () => {
     vi.useRealTimers();
   });
 
-  it("falls back to ERC20 balance when curve mapping is unavailable", async () => {
+  it("displays position data from usePlayerPosition hook", async () => {
+    // The ERC20 fallback logic has been extracted to usePlayerPosition
+    // and is tested in tests/hooks/usePlayerPosition.test.jsx.
+    // Here we verify the component renders position data from the hook.
     renderPage();
 
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.getByText("Sim Tx")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Sim Tx"));
-
+    // The mocked usePlayerPosition returns tickets: 4321n
     await waitFor(
       () => {
-        expect(readContractMock).toHaveBeenCalledWith(
-          expect.objectContaining({ functionName: "balanceOf" }),
-        );
-        expect(readContractMock).toHaveBeenCalledWith(
-          expect.objectContaining({ functionName: "totalSupply" }),
-        );
+        expect(screen.getByText("4321")).toBeInTheDocument();
       },
       { timeout: 3000 },
     );

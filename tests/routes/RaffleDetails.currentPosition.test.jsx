@@ -172,6 +172,24 @@ vi.mock("@/hooks/useSeasonWinnerSummaries", () => ({
   useSeasonWinnerSummaries: () => ({ isLoading: false, error: null, data: {} }),
 }));
 
+// Mock useChainTime to return a current timestamp immediately (no async wait)
+vi.mock("@/hooks/useChainTime", () => ({
+  useChainTime: () => Math.floor(Date.now() / 1000),
+}));
+
+// Mock usePlayerPosition — position logic was extracted from RaffleDetails.
+// refreshNow calls are verified via the mock spy.
+const mockRefreshPositionNow = vi.fn();
+vi.mock("@/hooks/usePlayerPosition", () => ({
+  usePlayerPosition: () => ({
+    position: { tickets: 1234n, probBps: 1234, total: 10000n },
+    isRefreshing: false,
+    setIsRefreshing: vi.fn(),
+    setPosition: vi.fn(),
+    refreshNow: mockRefreshPositionNow,
+  }),
+}));
+
 // Mock admin components to avoid Wagmi provider requirements
 vi.mock("@/components/admin/RaffleAdminControls", () => ({
   RaffleAdminControls: () => null,
@@ -204,28 +222,33 @@ function renderPage() {
 
 describe("RaffleDetails current position refresh", () => {
   beforeEach(() => vi.clearAllMocks());
-  it("updates the Your Current Position widget after a simulated buy", async () => {
+
+  it("renders position data from usePlayerPosition and triggers refresh after buy", async () => {
+    // Position logic was extracted to usePlayerPosition hook.
+    // The readContract assertions for playerTickets/curveConfig are now in
+    // tests/hooks/usePlayerPosition.test.jsx.
+    // Here we verify the component renders position data and triggers refresh.
     renderPage();
 
-    // initially shows placeholder or 0 (i18n key: yourCurrentPosition)
+    // Shows "yourCurrentPosition" header (i18n key)
     expect(screen.getByText("yourCurrentPosition")).toBeInTheDocument();
 
-    // BuySellWidget is now gated on chainNow (on-chain time) to prevent pre-start trading.
-    // Wait until the widget is rendered.
+    // Position data from mock (tickets: 1234n)
+    await waitFor(() => {
+      expect(screen.getByText("1234")).toBeInTheDocument();
+    });
+
+    // Wait for BuySellWidget to appear (gated on chainNow)
     await waitFor(() => {
       expect(screen.getByText("Simulate Buy")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText("Simulate Buy"));
 
+    // After buy, the staggered refresh triggers refreshNow from the hook
     await waitFor(
       () => {
-        expect(readContractMock).toHaveBeenCalledWith(
-          expect.objectContaining({ functionName: "playerTickets" }),
-        );
-        expect(readContractMock).toHaveBeenCalledWith(
-          expect.objectContaining({ functionName: "curveConfig" }),
-        );
+        expect(mockRefreshPositionNow).toHaveBeenCalled();
       },
       { timeout: 3000 },
     );

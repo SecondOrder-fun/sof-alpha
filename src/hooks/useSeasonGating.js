@@ -113,6 +113,8 @@ export function useSeasonGating(seasonId, options = {}) {
   });
 
   // ── Read user verification status ──
+  // Once verified, stop polling — verification never reverts on-chain.
+  // Also skip polling entirely for non-gated seasons.
   const verifiedQuery = useQuery({
     queryKey: [
       "seasonGating",
@@ -137,7 +139,13 @@ export function useSeasonGating(seasonId, options = {}) {
       client && gatingAddress && sid != null && connectedAddress && isGatedHint,
     ),
     staleTime: 10_000,
-    refetchInterval: 15_000,
+    // React Query supports a function for refetchInterval that receives the query.
+    // Stop polling when: season is not gated, or user is already verified.
+    refetchInterval: (query) => {
+      if (!isGatedHint) return false;
+      if (query.state.data === true) return false;
+      return 15_000;
+    },
     retry: false,
   });
 
