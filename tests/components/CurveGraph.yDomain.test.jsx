@@ -46,11 +46,11 @@ describe("BondingCurvePanel Y-axis domain", () => {
       />,
     );
 
-    // Chart renders with correct number of data points
-    // 2 steps => 4 points (start + end for each step)
+    // Chart renders with many data points for smooth tooltip tracking
+    // 2 steps × ~150 intermediate points each + boundary points
     const chart = container.querySelector("[data-testid='area-chart']");
     expect(chart).toBeTruthy();
-    expect(chart.getAttribute("data-points")).toBe("4");
+    expect(Number(chart.getAttribute("data-points"))).toBeGreaterThan(4);
 
     // Y-axis domain starts at 0
     const yAxis = container.querySelector("[data-testid='y-axis']");

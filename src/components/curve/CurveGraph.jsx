@@ -134,19 +134,33 @@ const BondingCurvePanel = ({
   }, [curveStep]);
 
   // Build Recharts data: array of {supply, price}
+  // Uses stepAfter interpolation — each point holds its price until the next.
+  // Intermediate points are added within each step so the tooltip tracks
+  // smoothly instead of snapping to step boundaries.
   const chartData = useMemo(() => {
     try {
       const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
       if (steps.length === 0) return [];
+      const totalRange = Number(BigInt(steps[steps.length - 1]?.rangeTo ?? 0));
+      if (totalRange <= 0) return [];
+      // ~300 points across the full range for smooth tooltip tracking
+      const resolution = Math.max(1, Math.floor(totalRange / 300));
       const pts = [];
-      let prevX = 0n;
+      let prevRangeTo = 0;
       for (const s of steps) {
-        const x2 = BigInt(s?.rangeTo ?? 0);
+        const rangeTo = Number(BigInt(s?.rangeTo ?? 0));
         const price = Number(formatUnits(s?.price ?? 0n, sofDecimals));
-        pts.push({ supply: Number(prevX), price });
-        pts.push({ supply: Number(x2), price });
-        prevX = x2;
+        // First point at start of this step
+        pts.push({ supply: prevRangeTo, price });
+        // Intermediate points for smooth tooltip
+        for (let x = prevRangeTo + resolution; x < rangeTo; x += resolution) {
+          pts.push({ supply: x, price });
+        }
+        prevRangeTo = rangeTo;
       }
+      // Final point at the end of the last step
+      const lastPrice = Number(formatUnits(steps[steps.length - 1]?.price ?? 0n, sofDecimals));
+      pts.push({ supply: prevRangeTo, price: lastPrice });
       return pts;
     } catch {
       return [];
@@ -190,34 +204,40 @@ const BondingCurvePanel = ({
   }, [allBondSteps, currentSupply, sofDecimals]);
 
   // Build steps array for Progress component (full mode only)
+  // Each marker is placed at the START of a step (previous step's rangeTo)
+  // showing that step's price — no duplicate first entry.
   const progressSteps = useMemo(() => {
     const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
     const count = steps.length;
     const stride = count > 40 ? Math.ceil(count / 40) : 1;
-    const mapped = steps
-      .filter((_, idx) => idx % stride === 0 || idx === count - 1)
-      .map((s, idx) => {
-        const pos = Math.min(
-          100,
-          Math.max(
-            0,
-            Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100,
-          ),
-        );
-        const rawPrice = Number(formatUnits(s.price ?? 0n, sofDecimals));
-        const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
-        const stepNum = s?.step ?? idx + 1;
-        return {
-          position: pos,
-          label: `${price} SOF`,
-          sublabel: `${t("step")} #${stepNum}`,
-        };
+    const mapped = [];
+    let prevRangeTo = 0n;
+    for (let i = 0; i < count; i++) {
+      if (i % stride !== 0 && i !== count - 1) {
+        prevRangeTo = BigInt(steps[i]?.rangeTo ?? 0);
+        continue;
+      }
+      const s = steps[i];
+      const pos =
+        i === 0
+          ? 0
+          : Math.min(
+              100,
+              Math.max(
+                0,
+                Number((prevRangeTo * 10000n) / (maxSupply || 1n)) / 100,
+              ),
+            );
+      const rawPrice = Number(formatUnits(s.price ?? 0n, sofDecimals));
+      const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
+      const stepNum = s?.step ?? i;
+      mapped.push({
+        position: pos,
+        label: `${price} SOF`,
+        sublabel: `${t("step")} #${stepNum}`,
       });
-    if (mapped.length > 0) {
-      const rawStartPrice = Number(formatUnits(steps[0].price ?? 0n, sofDecimals));
-      const startPrice = (Math.ceil(rawStartPrice * 10) / 10).toFixed(1);
-      mapped.unshift({ position: 0, label: `${startPrice} SOF`, sublabel: `${t("step")} #0` });
+      prevRangeTo = BigInt(s?.rangeTo ?? 0);
     }
     if (mapped.length > 1) mapped[mapped.length - 1].position = 100;
     return mapped;
