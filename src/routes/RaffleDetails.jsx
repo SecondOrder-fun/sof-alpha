@@ -536,41 +536,23 @@ const RaffleDetails = () => {
                 })()}
                 <Card>
                   <CardContent>
-                    {(() => {
-                      if (!chainNow) return null;
-                      const startTs = Number(cfg.startTime);
-                      const endTs = Number(cfg.endTime);
-                      const preStart = Number.isFinite(startTs)
-                        ? chainNow < startTs
-                        : false;
-                      const activeWindow =
-                        statusNum === 1 &&
-                        Number.isFinite(startTs) &&
-                        Number.isFinite(endTs)
-                          ? chainNow >= startTs && chainNow < endTs
-                          : false;
-
-                      if (preStart) return null;
-                      if (!activeWindow) return null;
-
-                      return (
-                        <BuySellWidget
-                          bondingCurveAddress={bc}
-                          initialTab={initialTradeTab}
-                          isGated={isSeasonGated}
-                          isVerified={isGatingVerified}
-                          onGatingRequired={(mode) => {
-                            setPendingAction(mode);
-                            setGateModalOpen(true);
-                          }}
-                          onTxSuccess={() => triggerStaggeredRefresh()}
-                          onNotify={(evt) => {
-                            addToast(evt);
-                            triggerStaggeredRefresh();
-                          }}
-                        />
-                      );
-                    })()}
+                    {chainNow && (
+                      <BuySellWidget
+                        bondingCurveAddress={bc}
+                        initialTab={initialTradeTab}
+                        isGated={isSeasonGated}
+                        isVerified={isGatingVerified}
+                        onGatingRequired={(mode) => {
+                          setPendingAction(mode);
+                          setGateModalOpen(true);
+                        }}
+                        onTxSuccess={() => triggerStaggeredRefresh()}
+                        onNotify={(evt) => {
+                          addToast(evt);
+                          triggerStaggeredRefresh();
+                        }}
+                      />
+                    )}
                     {/* Player position display - only visible when a wallet is connected */}
                     {isConnected && (
                       <SecondaryCard
