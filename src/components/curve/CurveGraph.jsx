@@ -204,43 +204,28 @@ const BondingCurvePanel = ({
   }, [allBondSteps, currentSupply, sofDecimals]);
 
   // Build steps array for Progress component (full mode only)
-  // Each marker is placed at the START of a step (previous step's rangeTo)
-  // showing that step's price — no duplicate first entry.
+  // Dots are evenly spaced across the bar (0% to 100%), each showing its
+  // step's price. This keeps the visual clean regardless of step range sizes.
   const progressSteps = useMemo(() => {
     const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
     const count = steps.length;
     const stride = count > 40 ? Math.ceil(count / 40) : 1;
-    const mapped = [];
-    let prevRangeTo = 0n;
-    for (let i = 0; i < count; i++) {
-      if (i % stride !== 0 && i !== count - 1) {
-        prevRangeTo = BigInt(steps[i]?.rangeTo ?? 0);
-        continue;
-      }
-      const s = steps[i];
-      const pos =
-        i === 0
-          ? 0
-          : Math.min(
-              100,
-              Math.max(
-                0,
-                Number((prevRangeTo * 10000n) / (maxSupply || 1n)) / 100,
-              ),
-            );
+    const included = steps.filter(
+      (_, idx) => idx % stride === 0 || idx === count - 1,
+    );
+    const n = included.length;
+    return included.map((s, idx) => {
+      const pos = n <= 1 ? 0 : (idx / (n - 1)) * 100;
       const rawPrice = Number(formatUnits(s.price ?? 0n, sofDecimals));
       const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
-      const stepNum = s?.step ?? i;
-      mapped.push({
+      const stepNum = s?.step ?? idx;
+      return {
         position: pos,
         label: `${price} SOF`,
         sublabel: `${t("step")} #${stepNum}`,
-      });
-      prevRangeTo = BigInt(s?.rangeTo ?? 0);
-    }
-    if (mapped.length > 1) mapped[mapped.length - 1].position = 100;
-    return mapped;
+      };
+    });
   }, [allBondSteps, maxSupply, sofDecimals, t]);
 
   const safeGradientId = gradientId.replace(/:/g, "_");
