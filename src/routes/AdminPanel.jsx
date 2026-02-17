@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAccount, usePublicClient, useChainId } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
+import { useChainTime } from "@/hooks/useChainTime";
 import { useRaffleWrite } from "@/hooks/useRaffleWrite";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
 import { useAccessControl } from "@/hooks/useAccessControl";
@@ -100,16 +101,9 @@ function AdminPanelInner() {
     enabled: !!address,
   });
 
-  // Get chain time for UI
-  const chainTimeQuery = useQuery({
-    queryKey: ["chainTime", netKey],
-    queryFn: async () => {
-      if (!publicClient) return null;
-      const block = await publicClient.getBlock();
-      return Number(block.timestamp);
-    },
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
+  // Shared chain time hook (React Query cache keyed by netKey)
+  const chainNow = useChainTime({ refetchInterval: 10_000 });
+  const chainTimeQuery = { data: chainNow };
 
   // Initialize the FundDistributor hook
   const { fundDistributorManual } = useFundDistributor({

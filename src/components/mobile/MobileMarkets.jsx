@@ -52,21 +52,26 @@ const MobileMarkets = () => {
 
   const { data: batchPositions } = useUserPositionsBatch(allMarketIds);
 
-  // Compute smart default: first season (lowest ID) with ≥1 active market,
-  // falling back to the active season, then "0"
+  // Compute smart default: prefer the active season if it has markets,
+  // otherwise fall back to the most recent (highest ID) season with markets.
   const defaultSeasonId = useMemo(() => {
     if (!allMarkets || typeof allMarkets !== "object") return "0";
-    // Sort season IDs numerically ascending
+    // Prefer the active season if it has markets
+    const active = seasonsArr.find((s) => Number(s?.status) === 1);
+    if (active) {
+      const activeId = String(active.id ?? active.seasonId);
+      if (Array.isArray(allMarkets[activeId]) && allMarkets[activeId].length > 0) {
+        return activeId;
+      }
+    }
+    // Fallback: most recent (highest ID) season with markets
     const seasonIds = Object.keys(allMarkets).sort(
-      (a, b) => Number(a) - Number(b)
+      (a, b) => Number(b) - Number(a),
     );
     const withMarkets = seasonIds.find(
-      (id) => Array.isArray(allMarkets[id]) && allMarkets[id].length > 0
+      (id) => Array.isArray(allMarkets[id]) && allMarkets[id].length > 0,
     );
-    if (withMarkets) return withMarkets;
-    // Fallback to active season
-    const active = seasonsArr.find((s) => Number(s?.status) === 1);
-    return active ? String(active.id ?? active.seasonId ?? "0") : "0";
+    return withMarkets || "0";
   }, [allMarkets, seasonsArr]);
 
   const [selectedSeasonId, setSelectedSeasonId] = useState("0");
@@ -80,12 +85,23 @@ const MobileMarkets = () => {
     }
   }, [defaultSeasonId, selectedSeasonId]);
 
-  // Get markets for selected season from the all-seasons data
+  // Check if the selected season is active (status === 1)
+  const isSelectedSeasonActive = useMemo(() => {
+    const season = seasonsArr.find(
+      (s) => String(s.id ?? s.seasonId) === selectedSeasonId,
+    );
+    return season ? Number(season.status) === 1 : false;
+  }, [seasonsArr, selectedSeasonId]);
+
+  // Get markets for selected season from the all-seasons data.
+  // Override is_active to false when the parent season isn't active.
   const seasonMarkets = useMemo(() => {
     if (!allMarkets || typeof allMarkets !== "object") return [];
     const marketArray = allMarkets[selectedSeasonId] || [];
-    return Array.isArray(marketArray) ? marketArray : [];
-  }, [allMarkets, selectedSeasonId]);
+    const arr = Array.isArray(marketArray) ? marketArray : [];
+    if (isSelectedSeasonActive) return arr;
+    return arr.map((m) => ({ ...m, is_active: false }));
+  }, [allMarkets, selectedSeasonId, isSelectedSeasonActive]);
 
   // Group markets by type
   const marketsByType = useMemo(() => {

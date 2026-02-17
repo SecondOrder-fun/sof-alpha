@@ -111,6 +111,16 @@ const DesktopMarketsIndex = () => {
   //   return active?.config?.bondingCurve || null;
   // }, [seasons]);
 
+  // Build a set of active season IDs for quick lookup
+  const activeSeasonIds = useMemo(() => {
+    const arr = Array.isArray(seasons) ? seasons : [];
+    return new Set(
+      arr
+        .filter((s) => Number(s?.status) === 1)
+        .map((s) => String(s.id ?? s.seasonId)),
+    );
+  }, [seasons]);
+
   // Filter and group markets by season and market type
   const groupedBySeason = useMemo(() => {
     if (!markets || typeof markets !== "object") return {};
@@ -118,7 +128,11 @@ const DesktopMarketsIndex = () => {
     const result = {};
 
     Object.entries(markets).forEach(([seasonId, seasonMarkets]) => {
-      const marketArray = Array.isArray(seasonMarkets) ? seasonMarkets : [];
+      const raw = Array.isArray(seasonMarkets) ? seasonMarkets : [];
+      // Override is_active to false when parent season isn't active
+      const marketArray = activeSeasonIds.has(seasonId)
+        ? raw
+        : raw.map((m) => ({ ...m, is_active: false }));
 
       // Apply search filter only (status filter already applied by backend)
       let filtered = marketArray;
@@ -164,7 +178,7 @@ const DesktopMarketsIndex = () => {
     });
 
     return result;
-  }, [markets, statusFilter, searchQuery]);
+  }, [markets, statusFilter, searchQuery, activeSeasonIds]);
 
   // Calculate total markets count
   const totalMarketsCount = useMemo(() => {

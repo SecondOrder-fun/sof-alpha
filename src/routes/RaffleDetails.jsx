@@ -1,5 +1,5 @@
 // src/routes/RaffleDetails.jsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useRaffleState } from "@/hooks/useRaffleState";
@@ -16,8 +16,7 @@ import { formatUnits } from "viem";
 // removed inline buy/sell form controls
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getNetworkByKey } from "@/config/networks";
-import { buildPublicClient } from "@/lib/viemClient";
-import { SOFBondingCurveAbi, ERC20Abi } from "@/utils/abis";
+import { useChainTime } from "@/hooks/useChainTime";
 import { useCurveState } from "@/hooks/useCurveState";
 import BondingCurvePanel from "@/components/curve/CurveGraph";
 import BuySellWidget from "@/components/curve/BuySellWidget";
@@ -27,6 +26,7 @@ import HoldersTab from "@/components/curve/HoldersTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurveEvents } from "@/hooks/useCurveEvents";
 import { useStaggeredRefresh } from "@/hooks/useStaggeredRefresh";
+import { usePlayerPosition } from "@/hooks/usePlayerPosition";
 import { useAccount } from "wagmi";
 import { RaffleAdminControls } from "@/components/admin/RaffleAdminControls";
 import { TreasuryControls } from "@/components/admin/TreasuryControls";
@@ -53,7 +53,7 @@ const RaffleDetails = () => {
     modeParam === "sell" || modeParam === "buy" ? modeParam : undefined;
   const { seasonDetailsQuery } = useRaffleState(seasonIdNumber);
   const bondingCurveAddress = seasonDetailsQuery?.data?.config?.bondingCurve;
-  const [chainNow, setChainNow] = useState(null);
+  const chainNow = useChainTime();
   const [activeTab, setActiveTab] = useState("token-info");
   const { isMobile } = usePlatform();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -105,125 +105,33 @@ const RaffleDetails = () => {
   // removed inline estimator state used by old form
   // helpers now imported from lib/curveMath
 
+  // Connected wallet (needed for desktop position display guard)
+  const { isConnected } = useAccount();
+
+  // Player position via extracted hook (handles wallet reads + ERC20 fallback)
+  const {
+    position: localPosition,
+    isRefreshing,
+    setIsRefreshing,
+    setPosition: setLocalPosition,
+    refreshNow: refreshPositionNow,
+  } = usePlayerPosition(bondingCurveAddress, {
+    seasonDetails: seasonDetailsQuery?.data,
+  });
+
   const [lastPositionRefreshAt, setLastPositionRefreshAt] = useState(0);
 
   // Subscribe to on-chain PositionUpdate events to refresh immediately
   useCurveEvents(bondingCurveAddress, {
     onPositionUpdate: () => {
       if (!isActiveSeason) return;
-
-      // Reason: server-side state has changed; refresh chart/supply/reserves quickly
       debouncedRefresh(0);
-
-      // Keep wallet position fresh based on events too (mobile relies on this more heavily).
-      // Throttle to avoid spamming RPC reads when multiple logs arrive quickly.
       const now = Date.now();
       if (now - lastPositionRefreshAt < 1200) return;
       setLastPositionRefreshAt(now);
       refreshPositionNow();
     },
   });
-
-  // Connected wallet
-  const { address, isConnected } = useAccount();
-
-  // Local immediate position override after tx (until server snapshot catches up)
-  const [localPosition, setLocalPosition] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const refreshPositionNow = async () => {
-    try {
-      if (!isConnected || !address || !bondingCurveAddress) return;
-      const netKey = getStoredNetworkKey();
-      const client = buildPublicClient(netKey);
-      if (!client) return;
-      const curveAbi = Array.isArray(SOFBondingCurveAbi)
-        ? SOFBondingCurveAbi
-        : (SOFBondingCurveAbi?.abi ?? SOFBondingCurveAbi);
-      const erc20Abi = Array.isArray(ERC20Abi)
-        ? ERC20Abi
-        : (ERC20Abi?.abi ?? ERC20Abi);
-      // 1) Try the curve's public mapping playerTickets(address) first (authoritative)
-      try {
-        const [pt, cfg] = await Promise.all([
-          client.readContract({
-            address: bondingCurveAddress,
-            abi: curveAbi,
-            functionName: "playerTickets",
-            args: [address],
-          }),
-          client.readContract({
-            address: bondingCurveAddress,
-            abi: curveAbi,
-            functionName: "curveConfig",
-            args: [],
-          }),
-        ]);
-        const tickets = BigInt(pt ?? 0n);
-        const total = BigInt(cfg?.[0] ?? cfg?.totalSupply ?? 0n);
-        const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
-        setLocalPosition({ tickets, probBps, total });
-        return;
-      } catch (error) {
-        // fallback to ERC20 path below
-      }
-
-      // 2) Fallback: discover ERC20 tickets token from the curve if the curve is not the token itself
-      // Prefer explicit token from season details if available
-      let tokenAddress =
-        seasonDetailsQuery?.data?.ticketToken ||
-        seasonDetailsQuery?.data?.config?.ticketToken ||
-        seasonDetailsQuery?.data?.config?.token ||
-        bondingCurveAddress;
-      for (const fn of [
-        "token",
-        "raffleToken",
-        "ticketToken",
-        "tickets",
-        "asset",
-      ]) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const addr = await client.readContract({
-            address: bondingCurveAddress,
-            abi: curveAbi,
-            functionName: fn,
-            args: [],
-          });
-          if (
-            typeof addr === "string" &&
-            /^0x[a-fA-F0-9]{40}$/.test(addr) &&
-            addr !== "0x0000000000000000000000000000000000000000"
-          ) {
-            tokenAddress = addr;
-            break;
-          }
-        } catch (_) {
-          // continue trying other function names
-        }
-      }
-
-      const [bal, supply] = await Promise.all([
-        client.readContract({
-          address: tokenAddress,
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [address],
-        }),
-        client.readContract({
-          address: tokenAddress,
-          abi: erc20Abi,
-          functionName: "totalSupply",
-          args: [],
-        }),
-      ]);
-      const tickets = BigInt(bal ?? 0n);
-      const total = BigInt(supply ?? 0n);
-      const probBps = total > 0n ? Number((tickets * 10000n) / total) : 0;
-      setLocalPosition({ tickets, probBps, total });
-    } catch (err) {
-      // ignore
-    }
-  };
 
   // Staggered refresh: immediate + 1.5 s + 4 s to handle indexer lag
   const triggerStaggeredRefresh = useStaggeredRefresh(
@@ -250,45 +158,11 @@ const RaffleDetails = () => {
     }, 120000); // 2 minutes
   };
 
-  // Initial load: fetch position immediately
-  useEffect(() => {
-    if (isConnected && address && bondingCurveAddress) {
-      refreshPositionNow();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, bondingCurveAddress]);
-
   // Live pricing rendered via InfoFiPricingTicker component (SSE)
 
   // removed old inline SOF formatter; TokenInfoTab handles formatting where needed
 
-  // Fetch on-chain time for accurate window checks
-  useEffect(() => {
-    const netKey = getStoredNetworkKey();
-    const client = buildPublicClient(netKey);
-    if (!client) return;
-    let mounted = true;
-    (async () => {
-      try {
-        const block = await client.getBlock();
-        if (mounted) setChainNow(Number(block.timestamp));
-      } catch (_err) {
-        // silent: non-fatal
-      }
-    })();
-    const id = setInterval(async () => {
-      try {
-        const block = await client.getBlock();
-        if (mounted) setChainNow(Number(block.timestamp));
-      } catch (_err) {
-        // silent: non-fatal
-      }
-    }, 15000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, []);
+  // chainNow is provided by useChainTime() hook (shared React Query cache)
 
   // removed old inline buy/sell handlers (now in BuySellWidget)
 
@@ -662,41 +536,23 @@ const RaffleDetails = () => {
                 })()}
                 <Card>
                   <CardContent>
-                    {(() => {
-                      if (!chainNow) return null;
-                      const startTs = Number(cfg.startTime);
-                      const endTs = Number(cfg.endTime);
-                      const preStart = Number.isFinite(startTs)
-                        ? chainNow < startTs
-                        : false;
-                      const activeWindow =
-                        statusNum === 1 &&
-                        Number.isFinite(startTs) &&
-                        Number.isFinite(endTs)
-                          ? chainNow >= startTs && chainNow < endTs
-                          : false;
-
-                      if (preStart) return null;
-                      if (!activeWindow) return null;
-
-                      return (
-                        <BuySellWidget
-                          bondingCurveAddress={bc}
-                          initialTab={initialTradeTab}
-                          isGated={isSeasonGated}
-                          isVerified={isGatingVerified}
-                          onGatingRequired={(mode) => {
-                            setPendingAction(mode);
-                            setGateModalOpen(true);
-                          }}
-                          onTxSuccess={() => triggerStaggeredRefresh()}
-                          onNotify={(evt) => {
-                            addToast(evt);
-                            triggerStaggeredRefresh();
-                          }}
-                        />
-                      );
-                    })()}
+                    {chainNow && (
+                      <BuySellWidget
+                        bondingCurveAddress={bc}
+                        initialTab={initialTradeTab}
+                        isGated={isSeasonGated}
+                        isVerified={isGatingVerified}
+                        onGatingRequired={(mode) => {
+                          setPendingAction(mode);
+                          setGateModalOpen(true);
+                        }}
+                        onTxSuccess={() => triggerStaggeredRefresh()}
+                        onNotify={(evt) => {
+                          addToast(evt);
+                          triggerStaggeredRefresh();
+                        }}
+                      />
+                    )}
                     {/* Player position display - only visible when a wallet is connected */}
                     {isConnected && (
                       <SecondaryCard

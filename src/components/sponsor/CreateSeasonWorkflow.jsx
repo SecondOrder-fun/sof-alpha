@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
+import { useChainTime } from "@/hooks/useChainTime";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { decodeEventLog } from "viem";
@@ -67,16 +68,9 @@ function WorkflowInner() {
     enabled: !!address && !!publicClient,
   });
 
-  // Chain time for CreateSeasonForm
-  const chainTimeQuery = useQuery({
-    queryKey: ["chainTime", netKey],
-    queryFn: async () => {
-      if (!publicClient) return null;
-      const block = await publicClient.getBlock();
-      return Number(block.timestamp);
-    },
-    refetchInterval: 10000,
-  });
+  // Shared chain time hook (React Query cache keyed by netKey)
+  const chainNow = useChainTime({ refetchInterval: 10_000 });
+  const chainTimeQuery = { data: chainNow };
 
   // Workflow state
   const initialStep = isSponsor ? "details" : "stake";

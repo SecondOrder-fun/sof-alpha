@@ -98,24 +98,36 @@ vi.mock("@/lib/viemClient", () => ({
   }),
 }));
 
+// Mock useChainTime to return a current timestamp immediately (no async wait)
+vi.mock("@/hooks/useChainTime", () => ({
+  useChainTime: () => Math.floor(Date.now() / 1000),
+}));
+
+// usePlayerPosition was extracted from RaffleDetails. ABI normalization tests are in
+// tests/hooks/usePlayerPosition.test.jsx. Here we mock the hook to return a position.
+const mockRefreshNow = vi.fn();
+vi.mock("@/hooks/usePlayerPosition", () => ({
+  usePlayerPosition: () => ({
+    position: { tickets: 7n, probBps: 7000, total: 10n },
+    isRefreshing: false,
+    setIsRefreshing: vi.fn(),
+    setPosition: vi.fn(),
+    refreshNow: mockRefreshNow,
+  }),
+}));
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RaffleDetails from "@/routes/RaffleDetails.jsx";
 
-describe("RaffleDetails (mobile) refreshPositionNow ABI normalization", () => {
+describe("RaffleDetails (mobile) position display", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders updated Your Tickets when playerTickets mapping read succeeds with wrapped ABI", async () => {
-    // refreshPositionNow does Promise.all([playerTickets, curveConfig])
-    // Provide responses in call order.
-    readContractMock.mockImplementation(async ({ functionName }) => {
-      if (functionName === "playerTickets") return 7n;
-      if (functionName === "curveConfig")
-        return [10n, 0n, 0n, 0n, 0n, false, true];
-      return 0n;
-    });
-
+  it("renders Your Tickets with position data from usePlayerPosition hook", async () => {
+    // ABI normalization logic was extracted to usePlayerPosition and is
+    // tested directly in tests/hooks/usePlayerPosition.test.jsx.
+    // Here we verify the mobile view renders the hook's returned position.
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -130,7 +142,6 @@ describe("RaffleDetails (mobile) refreshPositionNow ABI normalization", () => {
       </QueryClientProvider>,
     );
 
-    // Initial load effect triggers refreshPositionNow.
     await act(async () => {
       await Promise.resolve();
     });
@@ -139,16 +150,9 @@ describe("RaffleDetails (mobile) refreshPositionNow ABI normalization", () => {
       expect(screen.getByText("raffle:yourTickets")).toBeInTheDocument();
     });
 
-    // The ticket count is rendered as a string in MobileRaffleDetail.
+    // The ticket count from the mocked usePlayerPosition (tickets: 7n)
     await waitFor(() => {
       expect(screen.getByText("7")).toBeInTheDocument();
     });
-
-    // Ensure readContract was called with an ABI array (post-normalization)
-    const playerTicketsCall = readContractMock.mock.calls.find(
-      (call) => call?.[0]?.functionName === "playerTickets",
-    );
-    expect(playerTicketsCall).toBeTruthy();
-    expect(Array.isArray(playerTicketsCall[0].abi)).toBe(true);
   });
 });
