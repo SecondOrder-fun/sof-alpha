@@ -118,7 +118,6 @@ describe("TransactionsTab", () => {
         totalTickets: 100n,
         probabilityBps: 10000,
         type: "buy",
-        logIndex: 0,
       },
     ];
 
@@ -133,8 +132,21 @@ describe("TransactionsTab", () => {
     });
 
     await waitFor(() => {
-      // Check for the shortened transaction hash (first 10 chars)
       expect(screen.getByText(/0xabc12345/i)).toBeInTheDocument();
     });
+  });
+
+  it("should call useRaffleTransactions without startBlock/startTime", () => {
+    vi.mocked(useRaffleTransactions).mockReturnValue({
+      transactions: [],
+      isLoading: false,
+      error: null,
+    });
+
+    render(<TransactionsTab bondingCurveAddress="0x123" seasonId={1} />, {
+      wrapper,
+    });
+
+    expect(useRaffleTransactions).toHaveBeenCalledWith("0x123", 1);
   });
 });

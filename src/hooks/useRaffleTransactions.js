@@ -1,16 +1,14 @@
 // src/hooks/useRaffleTransactions.js
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { parseAbiItem } from "viem";
-import { getStoredNetworkKey } from "@/lib/wagmi";
-import { buildPublicClient } from "@/lib/viemClient";
-import { queryLogsInChunks } from "@/utils/blockRangeQuery";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 /**
- * Fetch raffle transactions from on-chain PositionUpdate events
- * @param {string} bondingCurveAddress - The bonding curve contract address
- * @param {number} seasonId - The season ID for filtering
- * @param {object} options - Query options
+ * Fetch raffle transactions from the backend API (Supabase-backed)
+ * @param {string} bondingCurveAddress - The bonding curve contract address (used for cache key only)
+ * @param {number} seasonId - The season ID
+ * @param {object} options - Query options (enablePolling)
  * @returns {object} Query result with transactions data
  */
 export const useRaffleTransactions = (
@@ -19,119 +17,48 @@ export const useRaffleTransactions = (
   options = {},
 ) => {
   const queryClient = useQueryClient();
-  const netKey = getStoredNetworkKey();
-  const client = useMemo(() => {
-    return buildPublicClient(netKey);
-  }, [netKey]);
 
   const query = useQuery({
     queryKey: ["raffleTransactions", bondingCurveAddress, seasonId],
     queryFn: async () => {
-      if (!client || !bondingCurveAddress) {
-        return [];
+      if (!seasonId) return [];
+
+      const url = `${API_BASE}/raffle/transactions/season/${seasonId}?limit=500&order=desc`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch transactions: ${res.status}`);
       }
 
-      try {
-        // Get current block
-        const currentBlock = await client.getBlockNumber();
+      const { transactions } = await res.json();
+      if (!transactions || transactions.length === 0) return [];
 
-        // Use startBlock (exact) if available, otherwise estimate from startTime
-        let fromBlock = 0n;
-        if (options.startBlock) {
-          // Exact block from database - most efficient
-          fromBlock = BigInt(options.startBlock);
-        } else if (options.startTime) {
-          // Estimate from startTime (trading starts at startTime)
-          // Base has ~2s blocks, so: blocksAgo = secondsAgo / 2
-          const nowSec = Math.floor(Date.now() / 1000);
-          const secondsAgo = nowSec - Number(options.startTime);
-          const blocksAgo = BigInt(Math.ceil(secondsAgo / 2)) + 1000n; // +1000 buffer
-          fromBlock = currentBlock > blocksAgo ? currentBlock - blocksAgo : 0n;
-        } else {
-          // Fallback: 50k blocks (~1 day) if no timing info provided
-          const FALLBACK_LOOKBACK = 50000n;
-          fromBlock = currentBlock > FALLBACK_LOOKBACK ? currentBlock - FALLBACK_LOOKBACK : 0n;
-        }
+      return transactions.map((tx) => {
+        const ticketsDelta =
+          tx.transaction_type === "BUY"
+            ? tx.ticket_amount
+            : -tx.ticket_amount;
 
-        const positionUpdateEvent = parseAbiItem(
-          "event PositionUpdate(uint256 indexed seasonId, address indexed player, uint256 oldTickets, uint256 newTickets, uint256 totalTickets)",
-        );
-
-        // Use chunked query to handle RPC block range limits
-        const logs = await queryLogsInChunks(client, {
-          address: bondingCurveAddress,
-          event: positionUpdateEvent,
-          fromBlock,
-          toBlock: "latest",
-        });
-
-        // Filter by seasonId if provided
-        const filteredLogs = seasonId
-          ? logs.filter((log) => Number(log.args.seasonId) === Number(seasonId))
-          : logs;
-
-        // Fetch block timestamps for each transaction
-        const transactions = await Promise.all(
-          filteredLogs.map(async (log) => {
-            try {
-              const block = await client.getBlock({
-                blockNumber: log.blockNumber,
-              });
-              const oldTickets = BigInt(log.args.oldTickets || 0n);
-              const newTickets = BigInt(log.args.newTickets || 0n);
-              const ticketsDelta = newTickets - oldTickets;
-
-              return {
-                txHash: log.transactionHash,
-                blockNumber: Number(log.blockNumber),
-                timestamp: Number(block.timestamp),
-                player: log.args.player,
-                oldTickets,
-                newTickets,
-                ticketsDelta,
-                totalTickets: BigInt(log.args.totalTickets || 0n),
-                probabilityBps: 0,
-                type: ticketsDelta > 0n ? "buy" : "sell",
-                logIndex: log.logIndex,
-              };
-            } catch (error) {
-              // Return transaction without timestamp if block fetch fails
-              const oldTickets = BigInt(log.args.oldTickets || 0n);
-              const newTickets = BigInt(log.args.newTickets || 0n);
-              const ticketsDelta = newTickets - oldTickets;
-
-              return {
-                txHash: log.transactionHash,
-                blockNumber: Number(log.blockNumber),
-                timestamp: null,
-                player: log.args.player,
-                oldTickets,
-                newTickets,
-                ticketsDelta,
-                totalTickets: BigInt(log.args.totalTickets || 0n),
-                probabilityBps: 0,
-                type: ticketsDelta > 0n ? "buy" : "sell",
-                logIndex: log.logIndex,
-              };
-            }
-          }),
-        );
-
-        // Sort by block number (descending) and return
-        return transactions.sort((a, b) => b.blockNumber - a.blockNumber);
-      } catch (error) {
-        throw error;
-      }
+        return {
+          txHash: tx.tx_hash,
+          blockNumber: tx.block_number,
+          timestamp: tx.block_timestamp
+            ? Math.floor(new Date(tx.block_timestamp).getTime() / 1000)
+            : null,
+          player: tx.user_address,
+          oldTickets: BigInt(tx.tickets_before ?? 0),
+          newTickets: BigInt(tx.tickets_after ?? 0),
+          ticketsDelta: BigInt(ticketsDelta),
+          totalTickets: BigInt(tx.tickets_after ?? 0),
+          probabilityBps: 0,
+          type: tx.transaction_type === "BUY" ? "buy" : "sell",
+        };
+      });
     },
-    enabled: !!client && !!bondingCurveAddress,
-    staleTime: 30000, // 30 seconds
+    enabled: !!bondingCurveAddress && !!seasonId,
+    staleTime: 30000,
     refetchInterval: options.enablePolling !== false ? 30000 : false,
-    ...options,
   });
 
-  /**
-   * Manually refetch transactions
-   */
   const refetch = () => {
     queryClient.invalidateQueries({
       queryKey: ["raffleTransactions", bondingCurveAddress, seasonId],

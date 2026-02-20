@@ -18,13 +18,11 @@ import { getStoredNetworkKey } from '@/lib/wagmi';
  * TransactionsTab - Display raffle transactions with sorting, filtering, and pagination
  * @param {string} bondingCurveAddress - Bonding curve contract address
  * @param {number|string} seasonId - Season ID
- * @param {number} startBlock - Created block number (preferred, exact)
- * @param {number} startTime - Season start timestamp (fallback)
  */
-const TransactionsTab = ({ bondingCurveAddress, seasonId, startBlock, startTime }) => {
+const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
   const { t } = useTranslation('raffle');
   const queryClient = useQueryClient();
-  const { transactions, isLoading, error } = useRaffleTransactions(bondingCurveAddress, seasonId, { startBlock, startTime });
+  const { transactions, isLoading, error } = useRaffleTransactions(bondingCurveAddress, seasonId);
   
   // Real-time updates: invalidate query when new PositionUpdate events occur
   useCurveEvents(bondingCurveAddress, {
@@ -242,8 +240,6 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId, startBlock, startTime 
 TransactionsTab.propTypes = {
   bondingCurveAddress: PropTypes.string,
   seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  startBlock: PropTypes.number,
-  startTime: PropTypes.number,
 };
 
 export default TransactionsTab;
