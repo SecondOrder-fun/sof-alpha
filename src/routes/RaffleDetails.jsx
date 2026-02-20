@@ -667,8 +667,6 @@ const RaffleDetails = () => {
                       <TransactionsTab
                         bondingCurveAddress={bc}
                         seasonId={seasonIdNumber}
-                        startBlock={createdBlock}
-                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                     <TabsContent value="holders">
