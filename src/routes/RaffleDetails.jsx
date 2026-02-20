@@ -41,7 +41,7 @@ import PasswordGateModal from "@/components/gating/PasswordGateModal";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 import { useSeasonGating } from "@/hooks/useSeasonGating";
-import { useSeasonBlock } from "@/hooks/useSeasonBlock";
+
 
 const RaffleDetails = () => {
   const { t } = useTranslation("raffle");
@@ -76,9 +76,6 @@ const RaffleDetails = () => {
   const [gateModalOpen, setGateModalOpen] = useState(false);
   // Track which action to resume after password verification
   const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
-
-  // ── Created block for efficient event queries ──
-  const { createdBlock } = useSeasonBlock(seasonIdNumber);
 
   const nowSec = Math.floor(Date.now() / 1000);
   const startTimeSec = seasonDetailsQuery?.data?.config?.startTime
@@ -659,8 +656,6 @@ const RaffleDetails = () => {
                         curveReserves={curveReserves}
                         seasonStatus={seasonDetailsQuery.data.status}
                         totalPrizePool={seasonDetailsQuery.data.totalPrizePool}
-                        startBlock={createdBlock}
-                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                     <TabsContent value="transactions">
@@ -673,8 +668,6 @@ const RaffleDetails = () => {
                       <HoldersTab
                         bondingCurveAddress={bc}
                         seasonId={seasonIdNumber}
-                        startBlock={createdBlock}
-                        startTime={Number(seasonDetailsQuery.data?.config?.startTime || 0)}
                       />
                     </TabsContent>
                   </Tabs>

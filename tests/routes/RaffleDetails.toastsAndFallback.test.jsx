@@ -42,6 +42,18 @@ vi.mock("@/utils/blockRangeQuery", () => ({
   queryLogsInChunks: vi.fn(() => Promise.resolve([])),
 }));
 
+// Mock useRaffleHolders (now uses fetch, not viem)
+vi.mock("@/hooks/useRaffleHolders", () => ({
+  useRaffleHolders: () => ({
+    holders: [],
+    totalHolders: 0,
+    totalTickets: 0n,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
+
 const readContractMock = vi.fn(async ({ functionName }) => {
   if (functionName === "playerTickets") throw new Error("no selector");
   if (functionName === "curveConfig") throw new Error("no selector");

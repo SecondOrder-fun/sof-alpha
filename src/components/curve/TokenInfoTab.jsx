@@ -20,8 +20,6 @@ const TokenInfoTab = ({
   curveReserves,
   seasonStatus,
   totalPrizePool,
-  startBlock,
-  startTime,
 }) => {
   const { t } = useTranslation("common");
   const sofDecimals = useSofDecimals();
@@ -31,7 +29,7 @@ const TokenInfoTab = ({
   const [walletToastVisible, setWalletToastVisible] = useState(false);
 
   // Get actual participants count from holders (users with active positions)
-  const { totalHolders } = useRaffleHolders(bondingCurveAddress, seasonId, { startBlock, startTime });
+  const { totalHolders } = useRaffleHolders(bondingCurveAddress, seasonId);
   const totalParticipants = totalHolders;
 
   const formatSOF = (v) => {
@@ -303,8 +301,6 @@ TokenInfoTab.propTypes = {
   curveReserves: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
   seasonStatus: PropTypes.number,
   totalPrizePool: PropTypes.oneOfType([PropTypes.string, PropTypes.bigint]),
-  startBlock: PropTypes.number,
-  startTime: PropTypes.number,
 };
 
 export default TokenInfoTab;
