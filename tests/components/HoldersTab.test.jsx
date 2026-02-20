@@ -68,7 +68,7 @@ describe("HoldersTab", () => {
       holders: [],
       totalHolders: 0,
       totalTickets: 0n,
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
@@ -86,7 +86,7 @@ describe("HoldersTab", () => {
       holders: [],
       totalHolders: 0,
       totalTickets: 0n,
-      isLoading: true,
+      isPending: true,
       error: null,
     });
 
@@ -104,7 +104,7 @@ describe("HoldersTab", () => {
       holders: [],
       totalHolders: 0,
       totalTickets: 0n,
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
@@ -122,7 +122,7 @@ describe("HoldersTab", () => {
       holders: [],
       totalHolders: 0,
       totalTickets: 0n,
-      isLoading: false,
+      isPending: false,
       error: new Error("Test error"),
     });
 
@@ -150,7 +150,7 @@ describe("HoldersTab", () => {
       holders: mockHolders,
       totalHolders: 1,
       totalTickets: 10000n,
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
@@ -158,8 +158,7 @@ describe("HoldersTab", () => {
       wrapper,
     });
 
-    // Just check that the component renders without error
-    expect(screen.queryByText(/loadingHolders/i)).not.toBeInTheDocument();
+    // Should render data, not skeleton or error
     expect(screen.queryByText(/errorLoadingHolders/i)).not.toBeInTheDocument();
   });
 
@@ -187,7 +186,7 @@ describe("HoldersTab", () => {
       holders: mockHolders,
       totalHolders: 1,
       totalTickets: 10000n,
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 

@@ -66,7 +66,7 @@ describe("TransactionsTab", () => {
   it("should render loading skeleton", () => {
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: [],
-      isLoading: true,
+      isPending: true,
       error: null,
     });
 
@@ -82,7 +82,7 @@ describe("TransactionsTab", () => {
   it("should render empty state when no transactions", async () => {
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: [],
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
@@ -98,7 +98,7 @@ describe("TransactionsTab", () => {
   it("should render error state", () => {
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: [],
-      isLoading: false,
+      isPending: false,
       error: new Error("Test error"),
     });
 
@@ -126,7 +126,7 @@ describe("TransactionsTab", () => {
 
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: mockTransactions,
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
@@ -142,7 +142,7 @@ describe("TransactionsTab", () => {
   it("should call useRaffleTransactions without startBlock/startTime", () => {
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: [],
-      isLoading: false,
+      isPending: false,
       error: null,
     });
 
