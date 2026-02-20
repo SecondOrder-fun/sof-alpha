@@ -63,7 +63,7 @@ describe("TransactionsTab", () => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 
-  it("should render loading state", () => {
+  it("should render loading skeleton", () => {
     vi.mocked(useRaffleTransactions).mockReturnValue({
       transactions: [],
       isLoading: true,
@@ -73,7 +73,10 @@ describe("TransactionsTab", () => {
     render(<TransactionsTab bondingCurveAddress="0x123" seasonId={1} />, {
       wrapper,
     });
-    expect(screen.getByText("loadingTransactions")).toBeInTheDocument();
+    // Skeleton table renders column headers
+    expect(screen.getByText("transactionType")).toBeInTheDocument();
+    expect(screen.getByText("player")).toBeInTheDocument();
+    expect(screen.getByText("time")).toBeInTheDocument();
   });
 
   it("should render empty state when no transactions", async () => {

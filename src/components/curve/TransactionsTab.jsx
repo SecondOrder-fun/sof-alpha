@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRaffleTransactions } from '@/hooks/useRaffleTransactions';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { DataTable, DataTableColumnHeader, DataTablePagination, DataTableToolbar } from '@/components/common/DataTable';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getNetworkByKey } from '@/config/networks';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 
@@ -170,8 +171,28 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        {t('loadingTransactions')}
+      <div className="space-y-4">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border">
+              {[t('transactionType'), t('player'), t('ticketsChanged'), t('newTotal'), t('time'), t('transaction')].map((h) => (
+                <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <tr key={i} className="border-b border-border">
+                <td className="px-3 py-3"><Skeleton className="h-5 w-12" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-24" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-20" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-20" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }

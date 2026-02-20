@@ -16,6 +16,7 @@ import {
   DataTablePagination,
   DataTableToolbar,
 } from "@/components/common/DataTable";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * HoldersTab - Display token holders with ranking, sorting, and pagination
@@ -222,8 +223,33 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        {t("loadingHolders")}
+      <div className="space-y-4">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border">
+              {[t("rank"), t("player"), t("tickets"), t("winProbability"), t("shareOfTotal"), t("lastUpdate")].map((h) => (
+                <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <tr key={i} className="border-b border-border">
+                <td className="px-3 py-3"><Skeleton className="h-5 w-10" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-24" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3">
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-1.5 w-full rounded-full" />
+                  </div>
+                </td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-20" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }

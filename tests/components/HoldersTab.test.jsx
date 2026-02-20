@@ -81,7 +81,7 @@ describe("HoldersTab", () => {
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 
-  it("should render loading state", () => {
+  it("should render loading skeleton", () => {
     mockUseRaffleHolders.mockReturnValue({
       holders: [],
       totalHolders: 0,
@@ -93,7 +93,10 @@ describe("HoldersTab", () => {
     render(<HoldersTab bondingCurveAddress="0x123" seasonId={1} />, {
       wrapper,
     });
-    expect(screen.getByText("loadingHolders")).toBeInTheDocument();
+    // Skeleton table renders column headers
+    expect(screen.getByText("rank")).toBeInTheDocument();
+    expect(screen.getByText("player")).toBeInTheDocument();
+    expect(screen.getByText("tickets")).toBeInTheDocument();
   });
 
   it("should render empty state when no holders", async () => {
