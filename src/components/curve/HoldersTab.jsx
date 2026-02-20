@@ -27,7 +27,7 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
   const { t } = useTranslation("raffle");
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
-  const { holders, totalHolders, totalTickets, isLoading, error } =
+  const { holders, totalHolders, totalTickets, isPending, error } =
     useRaffleHolders(bondingCurveAddress, seasonId);
 
   // Real-time updates: invalidate query when new PositionUpdate events occur
@@ -221,7 +221,7 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
     [t, connectedAddress, totalTickets]
   );
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="space-y-4">
         <table className="w-full">

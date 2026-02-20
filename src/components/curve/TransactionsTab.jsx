@@ -23,7 +23,7 @@ import { getStoredNetworkKey } from '@/lib/wagmi';
 const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
   const { t } = useTranslation('raffle');
   const queryClient = useQueryClient();
-  const { transactions, isLoading, error } = useRaffleTransactions(bondingCurveAddress, seasonId);
+  const { transactions, isPending, error } = useRaffleTransactions(bondingCurveAddress, seasonId);
   
   // Real-time updates: invalidate query when new PositionUpdate events occur
   useCurveEvents(bondingCurveAddress, {
@@ -169,7 +169,7 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
     { column: 'type', value: 'sell', label: t('sell') },
   ];
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="space-y-4">
         <table className="w-full">
