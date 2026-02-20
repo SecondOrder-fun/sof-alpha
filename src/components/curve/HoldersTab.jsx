@@ -16,20 +16,19 @@ import {
   DataTablePagination,
   DataTableToolbar,
 } from "@/components/common/DataTable";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * HoldersTab - Display token holders with ranking, sorting, and pagination
  * @param {string} bondingCurveAddress - Bonding curve contract address
  * @param {number|string} seasonId - Season ID
- * @param {number} startBlock - Created block number (preferred, exact)
- * @param {number} startTime - Season start timestamp (fallback)
  */
-const HoldersTab = ({ bondingCurveAddress, seasonId, startBlock, startTime }) => {
+const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
   const { t } = useTranslation("raffle");
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const { holders, totalHolders, totalTickets, isLoading, error } =
-    useRaffleHolders(bondingCurveAddress, seasonId, { startBlock, startTime });
+    useRaffleHolders(bondingCurveAddress, seasonId);
 
   // Real-time updates: invalidate query when new PositionUpdate events occur
   useCurveEvents(bondingCurveAddress, {
@@ -224,8 +223,33 @@ const HoldersTab = ({ bondingCurveAddress, seasonId, startBlock, startTime }) =>
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        {t("loadingHolders")}
+      <div className="space-y-4">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border">
+              {[t("rank"), t("player"), t("tickets"), t("winProbability"), t("shareOfTotal"), t("lastUpdate")].map((h) => (
+                <th key={h} className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <tr key={i} className="border-b border-border">
+                <td className="px-3 py-3"><Skeleton className="h-5 w-10" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-24" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3">
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-1.5 w-full rounded-full" />
+                  </div>
+                </td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-14" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-5 w-20" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -320,8 +344,6 @@ const HoldersTab = ({ bondingCurveAddress, seasonId, startBlock, startTime }) =>
 HoldersTab.propTypes = {
   bondingCurveAddress: PropTypes.string,
   seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  startBlock: PropTypes.number,
-  startTime: PropTypes.number,
 };
 
 export default HoldersTab;
