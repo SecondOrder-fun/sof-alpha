@@ -8,7 +8,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 const DataTableColumnHeader = ({ column, children, className = '' }) => {
   if (!column.getCanSort()) {
     return (
-      <div className={`flex items-center gap-2 text-white ${className}`}>
+      <div className={`flex items-center gap-2 text-foreground ${className}`}>
         {children}
       </div>
     );
@@ -31,7 +31,7 @@ const DataTableColumnHeader = ({ column, children, className = '' }) => {
     <div
       role="button"
       tabIndex={0}
-      className={`flex items-center gap-2 text-white cursor-pointer select-none ${className}`}
+      className={`flex items-center gap-2 text-foreground cursor-pointer select-none ${className}`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
