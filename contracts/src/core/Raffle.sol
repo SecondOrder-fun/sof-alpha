@@ -656,6 +656,19 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     /**
+     * @notice Update the VRF Coordinator address (both the local COORDINATOR and inherited s_vrfCoordinator)
+     * @dev Needed when the coordinator address was set incorrectly at deployment or after migration.
+     *      Updates COORDINATOR (used for outgoing requestRandomWords calls) and
+     *      s_vrfCoordinator (used by VRFConsumerBaseV2Plus.rawFulfillRandomWords for callback validation).
+     * @param _vrfCoordinator The new VRF Coordinator address
+     */
+    function setVRFCoordinator(address _vrfCoordinator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_vrfCoordinator == address(0)) revert InvalidAddress();
+        COORDINATOR = IVRFCoordinatorV2Plus(_vrfCoordinator);
+        s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+    }
+
+    /**
      * @notice Manually complete a season that is stuck in Distributing state
      * @dev Only for emergency use when automatic completion fails
      */
