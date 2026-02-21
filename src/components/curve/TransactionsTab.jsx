@@ -140,7 +140,7 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
       },
       {
         accessorKey: 'txHash',
-        header: () => <span className="text-white">{t('transaction')}</span>,
+        header: () => <span className="text-foreground">{t('transaction')}</span>,
         cell: ({ row }) => {
           const txHash = row.getValue('txHash');
           if (!txHash) {

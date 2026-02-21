@@ -46,7 +46,7 @@ const DataTableToolbar = ({
                   role="button"
                   tabIndex={0}
                   className={`flex items-center gap-1 text-sm cursor-pointer select-none transition-colors ${
-                    isActive ? 'text-[#e25167]' : 'text-white/80 hover:text-white'
+                    isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
                   onClick={() => {
                     const currentValue = column?.getFilterValue();
