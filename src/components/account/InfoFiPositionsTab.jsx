@@ -1,5 +1,5 @@
 // src/components/account/InfoFiPositionsTab.jsx
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
@@ -17,6 +17,13 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const InfoFiPositionsTab = ({ address }) => {
   const { t } = useTranslation(["account"]);
@@ -24,12 +31,32 @@ const InfoFiPositionsTab = ({ address }) => {
   const contracts = getContractAddresses(netKey);
   const seasonsQry = useAllSeasons();
   const seasons = seasonsQry.data || [];
+  const seasonsArr = useMemo(
+    () => (Array.isArray(seasons) ? seasons : []),
+    [seasons]
+  );
 
-  // Get current active season (highest season ID)
-  const currentSeason = useMemo(() => {
-    if (!seasons || seasons.length === 0) return null;
-    return seasons.reduce((max, s) => (s.id > max.id ? s : max), seasons[0]);
-  }, [seasons]);
+  // Default to the active season (status === 1), fallback to highest ID
+  const defaultSeasonId = useMemo(() => {
+    if (seasonsArr.length === 0) return "0";
+    const active = seasonsArr.find((s) => Number(s?.status) === 1);
+    if (active) return String(active.id);
+    const highest = seasonsArr.reduce((max, s) => (s.id > max.id ? s : max), seasonsArr[0]);
+    return String(highest.id);
+  }, [seasonsArr]);
+
+  const [selectedSeasonId, setSelectedSeasonId] = useState("0");
+
+  useEffect(() => {
+    if (defaultSeasonId !== "0" && selectedSeasonId === "0") {
+      setSelectedSeasonId(defaultSeasonId);
+    }
+  }, [defaultSeasonId, selectedSeasonId]);
+
+  const selectedSeason = useMemo(
+    () => seasonsArr.find((s) => String(s.id) === selectedSeasonId) || null,
+    [seasonsArr, selectedSeasonId]
+  );
 
   // Fetch trade history from database
   const tradesQuery = useQuery({
@@ -65,12 +92,12 @@ const InfoFiPositionsTab = ({ address }) => {
     queryKey: [
       "infofiPositionsOnchainActive",
       address,
-      currentSeason?.id,
+      selectedSeason?.id,
       netKey,
     ],
-    enabled: !!address && !!currentSeason,
+    enabled: !!address && !!selectedSeason,
     queryFn: async () => {
-      const seasonId = currentSeason.id;
+      const seasonId = selectedSeason.id;
 
       // Fetch markets from Supabase (includes contract_address)
       const response = await fetch(
@@ -87,9 +114,11 @@ const InfoFiPositionsTab = ({ address }) => {
       const markets = data.markets?.[seasonId] || [];
 
       if (!markets || markets.length === 0) {
-        return [];
+        return { positions: [], marketIds: [] };
       }
 
+      // Collect all market IDs for this season (for trade filtering)
+      const marketIds = markets.map((m) => m.id);
       const positions = [];
 
       for (const m of markets) {
@@ -138,48 +167,64 @@ const InfoFiPositionsTab = ({ address }) => {
         }
       }
 
-      console.log("[InfoFi] Positions found:", positions.length);
-      return positions;
+      return { positions, marketIds };
     },
     staleTime: 5_000,
     refetchInterval: 10_000,
   });
 
-  // Group trades by market
+  // Build set of all market IDs belonging to the selected season
+  const seasonMarketIds = useMemo(() => {
+    const ids = positionsQuery.data?.marketIds || [];
+    return new Set(ids.map((id) => String(id)));
+  }, [positionsQuery.data]);
+
+  // Group trades by market, filtered to the selected season's markets
   const tradesByMarket = useMemo(() => {
     const trades = tradesQuery.data || [];
     const grouped = {};
 
-    console.log("[InfoFi] Grouping trades:", trades.length, "trades");
-
     for (const trade of trades) {
-      const marketId = trade.market_id;
+      const marketId = String(trade.market_id);
+      // Only include trades for markets in the selected season
+      if (seasonMarketIds.size > 0 && !seasonMarketIds.has(marketId)) continue;
       if (!grouped[marketId]) {
         grouped[marketId] = [];
       }
       grouped[marketId].push(trade);
     }
 
-    console.log(
-      "[InfoFi] Grouped by market:",
-      Object.keys(grouped).length,
-      "markets"
-    );
-
     return grouped;
-  }, [tradesQuery.data]);
+  }, [tradesQuery.data, seasonMarketIds]);
 
   return (
     <div className="h-80 overflow-y-auto overflow-x-hidden pr-1">
-      {!currentSeason && (
+      {seasonsArr.length === 0 && (
         <p className="text-muted-foreground">No active season found.</p>
       )}
-      {currentSeason && (
+      {seasonsArr.length > 0 && (
         <>
-          <div className="mb-3 text-sm text-muted-foreground">
-            Season #{currentSeason.id}{" "}
-            {currentSeason.name ? `— ${currentSeason.name}` : ""}
-          </div>
+          <Select
+            value={selectedSeasonId}
+            onValueChange={setSelectedSeasonId}
+          >
+            <SelectTrigger className="w-full mb-3">
+              <SelectValue placeholder="Select season" />
+            </SelectTrigger>
+            <SelectContent>
+              {seasonsArr.map((s) => {
+                const id = String(s.id);
+                const isActive = Number(s.status) === 1;
+                return (
+                  <SelectItem key={id} value={id}>
+                    Season #{id}
+                    {s.config?.name ? ` - ${s.config.name}` : ""}
+                    {isActive ? " (Active)" : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
           {(positionsQuery.isLoading || tradesQuery.isLoading) && (
             <p className="text-muted-foreground">Loading positions...</p>
           )}
@@ -201,7 +246,7 @@ const InfoFiPositionsTab = ({ address }) => {
             !positionsQuery.error &&
             !tradesQuery.error && (
               <>
-                {(positionsQuery.data || []).length === 0 &&
+                {(positionsQuery.data?.positions || []).length === 0 &&
                   Object.keys(tradesByMarket).length === 0 && (
                     <p className="text-muted-foreground">
                       No positions or trades found.
@@ -211,7 +256,7 @@ const InfoFiPositionsTab = ({ address }) => {
                   <Accordion type="multiple" className="space-y-2">
                     {Object.entries(tradesByMarket).map(
                       ([marketId, marketTrades]) => {
-                        const pos = (positionsQuery.data || []).find(
+                        const pos = (positionsQuery.data?.positions || []).find(
                           (p) => p.marketId === parseInt(marketId)
                         );
 
