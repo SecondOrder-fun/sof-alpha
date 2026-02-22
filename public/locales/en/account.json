@@ -72,6 +72,7 @@
   "languageSettings": "Language Settings",
   "disconnectWallet": "Disconnect Wallet",
   "connectWallet": "Connect Wallet",
+  "connectWalletToViewAccount": "Please connect your wallet to view your account.",
   "wrongNetwork": "Wrong network",
   "scanningForClaims": "Scanning for claims…",
   "noClaimableItems": "No claimable items found right now.",
@@ -108,5 +109,6 @@
   "viewTx": "View Tx",
   "raffleContract": "Raffle",
   "marketContract": "Market",
-  "conditionalToken": "Cond. Token"
+  "conditionalToken": "Cond. Token",
+  "userProfile": "User Profile"
 }
