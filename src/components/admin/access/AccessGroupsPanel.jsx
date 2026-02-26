@@ -36,7 +36,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newGroup, setNewGroup] = useState({ name: "", slug: "", description: "" });
   const [expandedGroup, setExpandedGroup] = useState(null);
-  const [addMemberFid, setAddMemberFid] = useState("");
+  const [addMemberInput, setAddMemberInput] = useState("");
 
   // Fetch all groups
   const groupsQuery = useQuery({
@@ -105,13 +105,32 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
     },
   });
 
+  /**
+   * Parse identifier input — detects wallet address (0x...) vs FID (number)
+   */
+  const parseIdentifier = (input) => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+      return { wallet: trimmed };
+    }
+    const fid = parseInt(trimmed, 10);
+    if (!isNaN(fid) && fid > 0) {
+      return { fid };
+    }
+    return null;
+  };
+
   // Add member
   const addMemberMutation = useMutation({
-    mutationFn: async ({ fid, groupSlug }) => {
+    mutationFn: async ({ fid, wallet, groupSlug }) => {
+      const body = { groupSlug };
+      if (fid) body.fid = fid;
+      if (wallet) body.wallet = wallet;
       const res = await fetch(`${API_BASE}/groups/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ fid: parseInt(fid, 10), groupSlug }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -122,17 +141,20 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["access-group-members"] });
       queryClient.invalidateQueries({ queryKey: ["access-groups"] });
-      setAddMemberFid("");
+      setAddMemberInput("");
     },
   });
 
   // Remove member
   const removeMemberMutation = useMutation({
-    mutationFn: async ({ fid, groupSlug }) => {
+    mutationFn: async ({ fid, wallet, groupSlug }) => {
+      const body = { groupSlug };
+      if (fid) body.fid = fid;
+      if (wallet) body.wallet = wallet;
       const res = await fetch(`${API_BASE}/groups/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ fid: parseInt(fid, 10), groupSlug }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -260,7 +282,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
               </Button>
             </div>
             {createGroupMutation.isError && (
-              <p className="text-sm text-red-500">{createGroupMutation.error.message}</p>
+              <p className="text-sm text-destructive">{createGroupMutation.error.message}</p>
             )}
           </div>
         )}
@@ -269,7 +291,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
         {groupsQuery.isLoading ? (
           <p className="text-muted-foreground">Loading groups...</p>
         ) : groupsQuery.isError ? (
-          <p className="text-sm text-red-500">{groupsQuery.error.message}</p>
+          <p className="text-sm text-destructive">{groupsQuery.error.message}</p>
         ) : groups.length === 0 ? (
           <p className="text-muted-foreground">No groups created yet</p>
         ) : (
@@ -312,7 +334,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                       }}
                       disabled={deleteGroupMutation.isPending}
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>
@@ -329,35 +351,41 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                     {/* Add Member */}
                     <div className="flex gap-2">
                       <Input
-                        placeholder="FID to add"
-                        value={addMemberFid}
-                        onChange={(e) => setAddMemberFid(e.target.value)}
+                        placeholder="FID or wallet (0x...)"
+                        value={addMemberInput}
+                        onChange={(e) => setAddMemberInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && addMemberFid.trim()) {
+                          if (e.key === "Enter" && addMemberInput.trim()) {
+                            const id = parseIdentifier(addMemberInput);
+                            if (id) {
+                              addMemberMutation.mutate({
+                                ...id,
+                                groupSlug: group.slug,
+                              });
+                            }
+                          }
+                        }}
+                        className="max-w-[250px]"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const id = parseIdentifier(addMemberInput);
+                          if (id) {
                             addMemberMutation.mutate({
-                              fid: addMemberFid.trim(),
+                              ...id,
                               groupSlug: group.slug,
                             });
                           }
                         }}
-                        className="max-w-[200px]"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          addMemberMutation.mutate({
-                            fid: addMemberFid.trim(),
-                            groupSlug: group.slug,
-                          })
-                        }
-                        disabled={addMemberMutation.isPending || !addMemberFid.trim()}
+                        disabled={addMemberMutation.isPending || !addMemberInput.trim()}
                       >
                         <UserPlus className="h-4 w-4 mr-1" />
                         Add
                       </Button>
                     </div>
                     {addMemberMutation.isError && (
-                      <p className="text-sm text-red-500">{addMemberMutation.error.message}</p>
+                      <p className="text-sm text-destructive">{addMemberMutation.error.message}</p>
                     )}
                     {addMemberMutation.isSuccess && (
                       <p className="text-sm text-green-500">Member added</p>
@@ -367,7 +395,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                     {membersQuery.isLoading ? (
                       <p className="text-sm text-muted-foreground">Loading members...</p>
                     ) : membersQuery.isError ? (
-                      <p className="text-sm text-red-500">{membersQuery.error.message}</p>
+                      <p className="text-sm text-destructive">{membersQuery.error.message}</p>
                     ) : members.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No members in this group</p>
                     ) : (
@@ -376,6 +404,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                           <TableHeader>
                             <TableRow>
                               <TableHead>FID</TableHead>
+                              <TableHead>Wallet</TableHead>
                               <TableHead>Username</TableHead>
                               <TableHead>Added</TableHead>
                               <TableHead></TableHead>
@@ -383,9 +412,14 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                           </TableHeader>
                           <TableBody>
                             {members.map((member) => (
-                              <TableRow key={member.fid}>
+                              <TableRow key={member.fid || member.wallet_address}>
                                 <TableCell className="font-mono text-sm">
-                                  {member.fid}
+                                  {member.fid || "—"}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {member.wallet_address
+                                    ? `${member.wallet_address.slice(0, 6)}...${member.wallet_address.slice(-4)}`
+                                    : "—"}
                                 </TableCell>
                                 <TableCell className="text-sm">
                                   {member.username ? `@${member.username}` : "—"}
@@ -400,20 +434,26 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
+                                      const label = member.fid
+                                        ? `FID ${member.fid}`
+                                        : member.wallet_address;
                                       if (
                                         confirm(
-                                          `Remove FID ${member.fid} from ${group.name}?`,
+                                          `Remove ${label} from ${group.name}?`,
                                         )
                                       ) {
+                                        const id = member.fid
+                                          ? { fid: member.fid }
+                                          : { wallet: member.wallet_address };
                                         removeMemberMutation.mutate({
-                                          fid: member.fid,
+                                          ...id,
                                           groupSlug: group.slug,
                                         });
                                       }
                                     }}
                                     disabled={removeMemberMutation.isPending}
                                   >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                    <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
                                 </TableCell>
                               </TableRow>

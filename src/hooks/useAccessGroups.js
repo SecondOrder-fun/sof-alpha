@@ -173,19 +173,21 @@ export function useAddUserToGroup() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: async ({ fid, groupSlug, expiresAt, grantedBy }) => {
+    mutationFn: async ({ fid, wallet, groupSlug, expiresAt, grantedBy }) => {
       const res = await fetch(`${API_BASE}/groups/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fid, groupSlug, expiresAt, grantedBy }),
+        body: JSON.stringify({ fid, wallet, groupSlug, expiresAt, grantedBy }),
       });
       if (!res.ok) throw new Error("Failed to add user to group");
       return res.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["user-groups", variables.fid],
-      });
+      if (variables.fid) {
+        queryClient.invalidateQueries({
+          queryKey: ["user-groups", variables.fid],
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: ["group-members", variables.groupSlug],
       });
@@ -209,19 +211,21 @@ export function useRemoveUserFromGroup() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: async ({ fid, groupSlug }) => {
+    mutationFn: async ({ fid, wallet, groupSlug }) => {
       const res = await fetch(`${API_BASE}/groups/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fid, groupSlug }),
+        body: JSON.stringify({ fid, wallet, groupSlug }),
       });
       if (!res.ok) throw new Error("Failed to remove user from group");
       return res.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["user-groups", variables.fid],
-      });
+      if (variables.fid) {
+        queryClient.invalidateQueries({
+          queryKey: ["user-groups", variables.fid],
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: ["group-members", variables.groupSlug],
       });
