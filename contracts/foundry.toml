@@ -11,6 +11,8 @@ bytecode_hash = "none"
 cbor_metadata = false
 # Exclude old Solidity 0.5.x libraries that are incompatible with our 0.8.20+ contracts
 exclude = ['lib/conditional-tokens-market-makers/**', 'lib/conditional-tokens-contracts/**']
+# Skip fork tests that require --fork-url (InfoFiFPMMForkTest)
+no_match_contract = "ForkTest"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
