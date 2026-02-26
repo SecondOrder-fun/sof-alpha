@@ -66,12 +66,12 @@ const SimpleView = ({
   return (
     <div className="space-y-4">
       {isCustom && (
-        <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted border border-border">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+            <Badge variant="outline">
               Custom Curve
             </Badge>
-            <span className="text-sm text-amber-700 dark:text-amber-300">
+            <span className="text-sm text-muted-foreground">
               Curve has been manually edited
             </span>
           </div>
