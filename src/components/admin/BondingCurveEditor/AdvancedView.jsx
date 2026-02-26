@@ -170,12 +170,31 @@ InsertBetweenButton.propTypes = {
 const AdvancedView = ({
   steps,
   maxTickets,
+  setMaxTickets,
   updateStep,
   addStep,
   removeStep,
   insertStepBetween,
   validationErrors,
 }) => {
+  // Draft state for max tickets input (same pattern as StepCard)
+  const [draftMaxTickets, setDraftMaxTickets] = useState(null);
+
+  const handleMaxTicketsChange = useCallback((e) => {
+    const raw = e.target.value;
+    setDraftMaxTickets(raw);
+    const n = Number(raw);
+    if (raw !== "" && !Number.isNaN(n) && n >= 1) setMaxTickets(n);
+  }, [setMaxTickets]);
+
+  const handleMaxTicketsBlur = useCallback(() => {
+    if (draftMaxTickets === null) return;
+    const n = Number(draftMaxTickets);
+    if (draftMaxTickets === "" || Number.isNaN(n) || n < 1) {
+      setMaxTickets(maxTickets); // reset to current
+    }
+    setDraftMaxTickets(null);
+  }, [draftMaxTickets, setMaxTickets, maxTickets]);
   // Build per-step validation error map
   const stepErrors = {};
   validationErrors.forEach((error) => {
@@ -188,6 +207,22 @@ const AdvancedView = ({
 
   return (
     <div className="space-y-3">
+      {/* Max Tickets */}
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Max Tickets</label>
+        <Input
+          type="number"
+          min={1}
+          value={draftMaxTickets !== null ? draftMaxTickets : maxTickets}
+          onChange={handleMaxTicketsChange}
+          onBlur={handleMaxTicketsBlur}
+          className="font-mono"
+        />
+        <p className="text-xs text-muted-foreground">
+          Total ticket supply (adjusts last step range)
+        </p>
+      </div>
+
       {/* Global errors */}
       {validationErrors.filter((e) => !e.match(/Step \d+/)).length > 0 && (
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30">
@@ -271,6 +306,7 @@ AdvancedView.propTypes = {
     })
   ).isRequired,
   maxTickets: PropTypes.number.isRequired,
+  setMaxTickets: PropTypes.func.isRequired,
   updateStep: PropTypes.func.isRequired,
   addStep: PropTypes.func.isRequired,
   removeStep: PropTypes.func.isRequired,

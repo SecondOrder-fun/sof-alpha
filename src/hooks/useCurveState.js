@@ -182,6 +182,12 @@ export function useCurveState(
     };
   }, [isActive, pollMs, bondingCurveAddress, enabled, refreshCurveState]);
 
+  // One-time fetch for pre-start seasons (curve data is immutable once deployed)
+  useEffect(() => {
+    if (isActive || !enabled || !bondingCurveAddress) return;
+    void refreshCurveState();
+  }, [isActive, enabled, bondingCurveAddress, refreshCurveState]);
+
   return {
     curveSupply,
     curveReserves,
