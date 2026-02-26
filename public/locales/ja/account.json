@@ -61,6 +61,7 @@
   "powFaucetDescription": "スパム防止のためにプルーフ・オブ・ワークマイニングを使用",
   "visitPowFaucet": "PoWフォーセットを訪問",
   "claims": "請求",
+  "creator": "クリエイター",
   "scanningForClaims": "請求をスキャン中…",
   "noClaimableItems": "現在請求可能なアイテムはありません。",
   "season": "シーズン",

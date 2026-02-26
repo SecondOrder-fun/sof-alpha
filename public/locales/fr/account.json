@@ -61,6 +61,7 @@
   "powFaucetDescription": "Uses proof-of-work mining to prevent spam",
   "visitPowFaucet": "Visit PoW Faucet",
   "claims": "Claims",
+  "creator": "Créateur",
   "scanningForClaims": "Scanning for claims…",
   "noClaimableItems": "No claimable items found right now.",
   "season": "Season",

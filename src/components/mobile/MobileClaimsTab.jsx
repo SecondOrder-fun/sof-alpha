@@ -2,6 +2,7 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import ClaimCenter from "@/components/infofi/ClaimCenter";
+import MobileFaucetWidget from "@/components/mobile/MobileFaucetWidget";
 
 /**
  * MobileClaimsTab - Claims interface adapted for the Farcaster/mobile Portfolio UI
@@ -12,7 +13,10 @@ const MobileClaimsTab = ({ address }) => {
   const { t } = useTranslation(["account", "common", "market"]);
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 space-y-3">
+      {/* Beta Phase Airdrop (moved from Profile tab) */}
+      <MobileFaucetWidget />
+
       <ClaimCenter
         address={address}
         title={t("account:claims")}

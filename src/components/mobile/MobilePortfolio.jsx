@@ -3,27 +3,19 @@ import { useMemo } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
-import { Crown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import BottomNav from "./BottomNav";
-import MobileAccountTab from "./MobileAccountTab";
+import MobileCreatorTab from "./MobileCreatorTab";
 import MobileBalancesTab from "./MobileBalancesTab";
 import MobileClaimsTab from "./MobileClaimsTab";
-import { useUsername } from "@/hooks/useUsername";
 import { useProfileData } from "@/hooks/useProfileData";
-import { useSponsorStaking } from "@/hooks/useSponsorStaking";
 
 /**
  * MobilePortfolio - Mobile-optimized portfolio page with tab navigation
  */
 const MobilePortfolio = () => {
   const { address, isConnected } = useAccount();
-  const { data: username } = useUsername(address);
-  const { t } = useTranslation(["account", "common", "raffle"]);
-  const navigate = useNavigate();
-  const { isSponsor } = useSponsorStaking();
+  const { t } = useTranslation(["account", "common"]);
 
   const { sofBalanceQuery, seasonBalancesQuery } = useProfileData(address);
 
@@ -60,26 +52,22 @@ const MobilePortfolio = () => {
         </h1>
 
         <Tabs
-          defaultValue="account"
+          defaultValue="balances"
           className="flex-1 flex flex-col overflow-hidden"
         >
           <TabsList className="w-full">
-            <TabsTrigger value="account" className="flex-1">
-              {t("account:profile")}
-            </TabsTrigger>
             <TabsTrigger value="balances" className="flex-1">
               {t("account:holdings")}
             </TabsTrigger>
             <TabsTrigger value="claims" className="flex-1">
               {t("account:claims")}
             </TabsTrigger>
+            <TabsTrigger value="creator" className="flex-1">
+              {t("account:creator")}
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto">
-            <TabsContent value="account" className="mt-0">
-              <MobileAccountTab address={address} username={username} />
-            </TabsContent>
-
             <TabsContent value="balances" className="mt-0">
               <MobileBalancesTab
                 address={address}
@@ -92,20 +80,12 @@ const MobilePortfolio = () => {
             <TabsContent value="claims" className="mt-0">
               <MobileClaimsTab address={address} />
             </TabsContent>
+
+            <TabsContent value="creator" className="mt-0">
+              <MobileCreatorTab />
+            </TabsContent>
           </div>
         </Tabs>
-
-        {/* Create Season — sponsors only */}
-        {isSponsor && (
-          <Button
-            variant="outline"
-            className="w-full mt-3 gap-2"
-            onClick={() => navigate("/create-season")}
-          >
-            <Crown className="h-4 w-4" />
-            {t("raffle:createSeasonBtn")}
-          </Button>
-        )}
       </div>
 
       <BottomNav activeTab="portfolio" />
