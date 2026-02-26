@@ -1,10 +1,17 @@
 // src/routes/CreateSeasonPage.jsx
-// Desktop route for /create-season — thin wrapper around CreateSeasonWorkflow.
+// Route for /create-season — renders mobile or desktop flow based on platform.
 import { useTranslation } from "react-i18next";
+import { usePlatform } from "@/hooks/usePlatform";
 import { CreateSeasonWorkflow } from "@/components/sponsor/CreateSeasonWorkflow";
+import MobileCreateSeason from "@/components/mobile/MobileCreateSeason";
 
 const CreateSeasonPage = () => {
   const { t } = useTranslation("raffle");
+  const { isMobile, isMobileBrowser } = usePlatform();
+
+  if (isMobile || isMobileBrowser) {
+    return <MobileCreateSeason />;
+  }
 
   return (
     <div className="max-w-2xl mx-auto">

@@ -209,5 +209,13 @@
   "raffleEnded": "Cette loterie est terminée.",
   "startingPrice": "Prix de départ (SOF)",
   "startsIn": "Commence dans",
-  "raffleNotStarted": "Ce tirage n'a pas encore commencé"
+  "raffleNotStarted": "Ce tirage n'a pas encore commencé",
+  "curvePreset": "Courbe de prix",
+  "curveStandard": "Standard",
+  "curveAggressive": "Agressif",
+  "curveFlat": "Plat",
+  "curveStandardDesc": "{{steps}} paliers, {{tickets}} tickets, +1 SOF/palier",
+  "curveAggressiveDesc": "{{steps}} paliers, {{tickets}} tickets, +3 SOF/palier",
+  "curveFlatDesc": "{{steps}} paliers, {{tickets}} tickets, prix fixe",
+  "notSponsorMobile": "Vous devez être sponsor pour créer des saisons. Stakez $SOF sur desktop."
 }

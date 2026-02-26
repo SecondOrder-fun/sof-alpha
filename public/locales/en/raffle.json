@@ -209,5 +209,13 @@
   "sponsoredPrizeHelp": "Add additional ERC-20 or ERC-721 tokens to the grand prize. Coming soon.",
   "startingPrice": "Starting Price (SOF)",
   "startsIn": "Starts in",
-  "raffleNotStarted": "This raffle hasn't started yet"
+  "raffleNotStarted": "This raffle hasn't started yet",
+  "curvePreset": "Pricing Curve",
+  "curveStandard": "Standard",
+  "curveAggressive": "Aggressive",
+  "curveFlat": "Flat",
+  "curveStandardDesc": "{{steps}} steps, {{tickets}} tickets, +1 SOF/step",
+  "curveAggressiveDesc": "{{steps}} steps, {{tickets}} tickets, +3 SOF/step",
+  "curveFlatDesc": "{{steps}} steps, {{tickets}} tickets, fixed price",
+  "notSponsorMobile": "You must be a sponsor to create seasons. Stake $SOF on desktop to get started."
 }

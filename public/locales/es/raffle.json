@@ -209,5 +209,13 @@
   "yourTickets": "Tus tickets",
   "startingPrice": "Precio inicial (SOF)",
   "startsIn": "Empieza en",
-  "raffleNotStarted": "Esta rifa aún no ha comenzado"
+  "raffleNotStarted": "Esta rifa aún no ha comenzado",
+  "curvePreset": "Curva de precios",
+  "curveStandard": "Estándar",
+  "curveAggressive": "Agresivo",
+  "curveFlat": "Plano",
+  "curveStandardDesc": "{{steps}} pasos, {{tickets}} tickets, +1 SOF/paso",
+  "curveAggressiveDesc": "{{steps}} pasos, {{tickets}} tickets, +3 SOF/paso",
+  "curveFlatDesc": "{{steps}} pasos, {{tickets}} tickets, precio fijo",
+  "notSponsorMobile": "Debes ser un sponsor para crear temporadas. Haz stake de $SOF en el escritorio."
 }
