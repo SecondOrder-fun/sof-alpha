@@ -141,7 +141,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                   <Button
                     onClick={handleDisconnect}
                     variant="outline"
-                    className="w-full text-foreground border-border hover:bg-red-500/10 hover:border-red-500"
+                    className="w-full text-foreground border-border hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     {t("account:disconnectWallet")}
@@ -188,18 +188,15 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
               {/* Theme Toggle Buttons */}
               <div className="grid grid-cols-3 gap-2">
                 {themeOptions.map(({ value, icon: Icon, label }) => (
-                  <button
+                  <Button
                     key={value}
+                    variant={theme === value ? "default" : "ghost"}
                     onClick={() => setTheme(value)}
-                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg transition-colors ${
-                      theme === value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
+                    className="flex flex-col items-center justify-center gap-1.5 h-auto py-2.5"
                   >
                     <Icon className="w-5 h-5" />
                     <span className="text-xs font-medium">{label}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </CardContent>
@@ -253,32 +250,35 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
                       {t("account:languageSettings")}
                     </h3>
                   </div>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setIsLanguagePickerOpen(false)}
-                    className="p-1 rounded hover:bg-accent text-muted-foreground/60 hover:text-foreground transition-colors"
+                    className="h-8 w-8"
                   >
                     <X className="w-5 h-5" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {languages.map((language) => (
-                    <button
+                    <Button
                       key={language.code}
+                      variant={selectedLanguage === language.code ? "outline" : "ghost"}
                       onClick={() => {
                         handleLanguageChange(language.code);
                         setIsLanguagePickerOpen(false);
                       }}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                      className={`justify-start h-auto py-2.5 ${
                         selectedLanguage === language.code
-                          ? "bg-primary/20 border border-primary text-primary"
-                          : "bg-muted border border-transparent text-foreground hover:bg-accent"
+                          ? "border-primary text-primary"
+                          : ""
                       }`}
                     >
                       <span className="text-lg">{language.flag}</span>
                       <span className="text-sm font-medium truncate">
                         {language.nativeName}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
