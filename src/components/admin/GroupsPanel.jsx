@@ -290,29 +290,47 @@ CreateGroupForm.propTypes = {
   isSubmitting: PropTypes.bool,
 };
 
+/**
+ * Parse identifier input — detects wallet address (0x...) vs FID (number)
+ * @param {string} input
+ * @returns {{ fid?: number, wallet?: string } | null}
+ */
+function parseIdentifier(input) {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return { wallet: trimmed };
+  }
+  const fid = parseInt(trimmed, 10);
+  if (!isNaN(fid) && fid > 0) {
+    return { fid };
+  }
+  return null;
+}
+
 function GroupMembersDialog({ group, onClose }) {
   const { members, isLoading } = useGroupMembers(group.slug);
   const { addUserToGroup } = useAddUserToGroup();
   const { removeUserFromGroup } = useRemoveUserFromGroup();
   const { toast } = useToast();
-  const [newMemberFid, setNewMemberFid] = useState("");
+  const [newMemberInput, setNewMemberInput] = useState("");
 
   const handleAddMember = () => {
-    const fid = parseInt(newMemberFid, 10);
-    if (!fid || isNaN(fid)) {
+    const id = parseIdentifier(newMemberInput);
+    if (!id) {
       toast({
         title: "Error",
-        description: "Invalid FID",
+        description: "Enter a valid FID (number) or wallet address (0x...)",
         variant: "destructive",
       });
       return;
     }
 
     addUserToGroup(
-      { fid, groupSlug: group.slug },
+      { ...id, groupSlug: group.slug },
       {
         onSuccess: () => {
-          setNewMemberFid("");
+          setNewMemberInput("");
           toast({ title: "Success", description: "User added to group" });
         },
         onError: (error) => {
@@ -326,10 +344,13 @@ function GroupMembersDialog({ group, onClose }) {
     );
   };
 
-  const handleRemoveMember = (fid) => {
+  const handleRemoveMember = (member) => {
     if (confirm("Remove this user from the group?")) {
+      const id = member.fid
+        ? { fid: member.fid }
+        : { wallet: member.wallet_address };
       removeUserFromGroup(
-        { fid, groupSlug: group.slug },
+        { ...id, groupSlug: group.slug },
         {
           onSuccess: () => {
             toast({ title: "Success", description: "User removed from group" });
@@ -357,10 +378,9 @@ function GroupMembersDialog({ group, onClose }) {
       <div className="space-y-4 py-4">
         <div className="flex gap-2">
           <Input
-            placeholder="Enter FID"
-            type="number"
-            value={newMemberFid}
-            onChange={(e) => setNewMemberFid(e.target.value)}
+            placeholder="FID or wallet address (0x...)"
+            value={newMemberInput}
+            onChange={(e) => setNewMemberInput(e.target.value)}
           />
           <Button onClick={handleAddMember}>
             <UserPlus className="h-4 w-4 mr-2" />
@@ -379,6 +399,7 @@ function GroupMembersDialog({ group, onClose }) {
             <TableHeader>
               <TableRow>
                 <TableHead>FID</TableHead>
+                <TableHead>Wallet</TableHead>
                 <TableHead>Granted At</TableHead>
                 <TableHead>Granted By</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -386,8 +407,15 @@ function GroupMembersDialog({ group, onClose }) {
             </TableHeader>
             <TableBody>
               {members.map((member) => (
-                <TableRow key={member.fid}>
-                  <TableCell className="font-mono">{member.fid}</TableCell>
+                <TableRow key={member.fid || member.wallet_address}>
+                  <TableCell className="font-mono">
+                    {member.fid || "-"}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {member.wallet_address
+                      ? `${member.wallet_address.slice(0, 6)}...${member.wallet_address.slice(-4)}`
+                      : "-"}
+                  </TableCell>
                   <TableCell className="text-sm">
                     {new Date(member.granted_at).toLocaleDateString()}
                   </TableCell>
@@ -398,7 +426,7 @@ function GroupMembersDialog({ group, onClose }) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleRemoveMember(member.fid)}
+                      onClick={() => handleRemoveMember(member)}
                     >
                       <UserMinus className="h-4 w-4" />
                     </Button>
