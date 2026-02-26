@@ -378,15 +378,21 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             return;
         }
 
+        uint256 totalParticipants = state.totalParticipants;
+
         uint16 grandBps = cfg.grandPrizeBps == 0 ? defaultGrandPrizeBps : cfg.grandPrizeBps;
         if (grandBps > 10000) revert InvalidBasisPoints(grandBps);
         uint256 grandAmount = (totalPrizePool * uint256(grandBps)) / 10000;
         uint256 consolationAmount = totalPrizePool - grandAmount;
 
+        // Single participant gets the entire pool — no consolation recipients exist
+        if (totalParticipants == 1) {
+            grandAmount = totalPrizePool;
+            consolationAmount = 0;
+        }
+
         address grandWinner = winners.length > 0 ? winners[0] : address(0);
         if (grandWinner == address(0)) revert NoWinnersSelected();
-
-        uint256 totalParticipants = state.totalParticipants;
 
         address curveAddr = cfg.bondingCurve;
         if (curveAddr == address(0)) revert InvalidAddress();

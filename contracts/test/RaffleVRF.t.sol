@@ -476,6 +476,68 @@ contract RaffleVRFTest is Test {
         // Season should be in Distributing or Completed state
     }
 
+    // ============================================================================
+    // SINGLE-PARTICIPANT FULL PRIZE POOL TEST
+    // ============================================================================
+
+    function testSingleParticipantGetsFullPrizePool() public {
+        // Create season with winnerCount = 3 and 65% grand prize BPS
+        RaffleTypes.SeasonConfig memory cfg;
+        cfg.name = "Solo";
+        cfg.startTime = block.timestamp + 1;
+        cfg.endTime = block.timestamp + 3 days;
+        cfg.winnerCount = 3;
+        cfg.grandPrizeBps = 6500;
+        cfg.treasuryAddress = treasury;
+        uint256 seasonId = raffle.createSeason(cfg, _steps(), 50, 70);
+        (RaffleTypes.SeasonConfig memory out,,,,) = raffle.getSeasonDetails(seasonId);
+        SOFBondingCurve curve = SOFBondingCurve(out.bondingCurve);
+
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        // Only one participant buys tickets
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
+
+        uint256 prizePool = curve.getSofReserves();
+        assertGt(prizePool, 0, "Prize pool should be non-zero");
+
+        // Set prize pool before VRF (simulating requestSeasonEnd capturing reserves)
+        raffle.testSetPrizePool(seasonId, prizePool);
+
+        // Simulate VRF + finalize
+        uint256 reqId = 8888;
+        raffle.testRequestSeasonEnd(seasonId, reqId);
+        uint256[] memory words = new uint256[](3);
+        words[0] = 7;
+        words[1] = 7;
+        words[2] = 7;
+        raffle.testFulfillAndFinalize(reqId, words);
+
+        // Verify winner
+        address[] memory winners = raffle.getWinners(seasonId);
+        assertEq(winners.length, 1, "Should have exactly 1 winner");
+        assertEq(winners[0], player1, "Winner should be the solo player");
+
+        // Verify grandAmount == full prize pool and consolationAmount == 0
+        address distAddr = raffle.prizeDistributor();
+        IRafflePrizeDistributor.SeasonPayouts memory payouts =
+            IRafflePrizeDistributor(distAddr).getSeason(seasonId);
+        assertEq(payouts.grandAmount, prizePool, "Grand amount should be the full prize pool");
+        assertEq(payouts.consolationAmount, 0, "Consolation amount should be zero");
+        assertTrue(payouts.funded, "Season should be funded");
+
+        // Verify the solo player can claim the full pool
+        uint256 balBefore = sof.balanceOf(player1);
+        vm.prank(player1);
+        IRafflePrizeDistributor(distAddr).claimGrand(seasonId);
+        uint256 balAfter = sof.balanceOf(player1);
+        assertEq(balAfter - balBefore, prizePool, "Player should receive the full prize pool");
+    }
+
     // Event declaration for expectEmit
     event VRFFulfilled(uint256 indexed seasonId, uint256 indexed requestId);
     event AutoFinalizeAttempted(uint256 indexed seasonId, bool success);
