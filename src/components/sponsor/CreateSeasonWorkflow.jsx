@@ -152,7 +152,7 @@ function WorkflowInner() {
 
   return (
     <Workflow value={currentStep} onValueChange={handleStepChange}>
-      <WorkflowSteps className="max-w-sm mx-auto">
+      <WorkflowSteps className="mx-auto">
         <WorkflowStep value="stake" label={step1Label} stepNumber={1} />
         <WorkflowStep value="details" label={t("sectionMainDetails")} stepNumber={2} />
         <WorkflowStep value="prizes" label={t("sectionPrizeSettings")} stepNumber={3} />

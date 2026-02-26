@@ -120,7 +120,7 @@ Workflow.propTypes = {
 const WorkflowSteps = ({ children, className }) => {
   return (
     <TabsPrimitive.List
-      className={cn("flex items-center w-full mb-12", className)}
+      className={cn("flex items-center w-full mb-12 flex-shrink-0", className)}
     >
       {children}
     </TabsPrimitive.List>
