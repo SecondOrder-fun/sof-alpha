@@ -78,19 +78,20 @@ const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
     if (!compact && !mini) values.push(...chartData.map((d) => d.no));
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const dMin = Math.max(0, Math.floor(min / 10) * 10 - 10);
-    const dMax = Math.min(100, Math.ceil(max / 10) * 10 + 10);
+    const range = max - min;
+    // Proportional padding: at least 5pp, or 15% of range, rounded to nearest 5
+    const padding = Math.max(5, Math.ceil((range * 0.15) / 5) * 5);
+    const dMin = Math.max(0, Math.floor((min - padding) / 5) * 5);
+    const dMax = Math.min(100, Math.ceil((max + padding) / 5) * 5);
 
-    // Generate evenly spaced ticks
-    let tickCount;
-    if (mini) tickCount = 3;
-    else if (compact) tickCount = 4;
-    else tickCount = 6;
-
-    const step = (dMax - dMin) / (tickCount - 1);
-    const ticks = Array.from({ length: tickCount }, (_, i) =>
-      Math.round(dMin + step * i)
-    );
+    // Dynamic tick step: scale with range instead of fixed count
+    const tickStep = mini
+      ? Math.max(5, Math.ceil((dMax - dMin) / 2 / 5) * 5)
+      : (dMax - dMin) <= 30
+        ? 5
+        : 10;
+    const ticks = [];
+    for (let v = dMin; v <= dMax; v += tickStep) ticks.push(v);
 
     return { domainMin: dMin, domainMax: dMax, axisTicks: ticks };
   }, [chartData, compact, mini]);
