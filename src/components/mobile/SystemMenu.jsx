@@ -2,11 +2,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAccount, useDisconnect, useConnect } from "wagmi";
-import { Globe, Wallet, LogOut, User, ChevronDown, X, Sun, Moon, Monitor, Ticket } from "lucide-react";
+import { Globe, Wallet, LogOut, User, ChevronDown, X, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useTheme } from "@/context/ThemeContext";
-import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 
 /**
@@ -18,7 +17,6 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
   const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
   const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
 
@@ -159,21 +157,6 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
               </div>
             </CardContent>
           </Card>
-
-          {/* Quick Navigation */}
-          {isConnected && (
-            <Button
-              variant="outline"
-              className="w-full justify-start text-foreground border-border hover:bg-accent"
-              onClick={() => {
-                navigate("/raffles?filter=mine");
-                onClose();
-              }}
-            >
-              <Ticket className="w-4 h-4 mr-2" />
-              {t("navigation:myRaffles")}
-            </Button>
-          )}
 
           {/* Theme Settings Section */}
           <Card className="border-border bg-card">
