@@ -10,6 +10,7 @@ import { GridRows, GridColumns } from "@visx/grid";
 import { localPoint } from "@visx/event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Plus, Minus, PlusCircle } from "lucide-react";
 
 // Chart dimensions
@@ -20,6 +21,7 @@ const MARGIN = { top: 20, right: 30, bottom: 40, left: 60 };
 const GraphView = ({
   steps,
   maxTickets,
+  setMaxTickets,
   applyDrag,
   addStep,
   removeStep,
@@ -32,6 +34,25 @@ const GraphView = ({
   const [ghostSteps, setGhostSteps] = useState(null);
   // Shift-select state: array of selected indices (max 2)
   const [selectedIndices, setSelectedIndices] = useState([]);
+
+  // Draft state for max tickets input
+  const [draftMaxTickets, setDraftMaxTickets] = useState(null);
+
+  const handleMaxTicketsChange = useCallback((e) => {
+    const raw = e.target.value;
+    setDraftMaxTickets(raw);
+    const n = Number(raw);
+    if (raw !== "" && !Number.isNaN(n) && n >= 1) setMaxTickets(n);
+  }, [setMaxTickets]);
+
+  const handleMaxTicketsBlur = useCallback(() => {
+    if (draftMaxTickets === null) return;
+    const n = Number(draftMaxTickets);
+    if (draftMaxTickets === "" || Number.isNaN(n) || n < 1) {
+      setMaxTickets(maxTickets);
+    }
+    setDraftMaxTickets(null);
+  }, [draftMaxTickets, setMaxTickets, maxTickets]);
 
   // Chart bounds
   const width = DEFAULT_WIDTH;
@@ -268,6 +289,17 @@ const GraphView = ({
               {selectedIndices.length} selected
             </Badge>
           )}
+          <div className="flex items-center gap-1">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Max:</label>
+            <Input
+              type="number"
+              min={1}
+              value={draftMaxTickets !== null ? draftMaxTickets : maxTickets}
+              onChange={handleMaxTicketsChange}
+              onBlur={handleMaxTicketsBlur}
+              className="font-mono h-7 w-24 text-xs"
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {draggingIndex !== null && (
@@ -585,6 +617,7 @@ GraphView.propTypes = {
     })
   ).isRequired,
   maxTickets: PropTypes.number.isRequired,
+  setMaxTickets: PropTypes.func.isRequired,
   applyDrag: PropTypes.func.isRequired,
   addStep: PropTypes.func.isRequired,
   removeStep: PropTypes.func.isRequired,

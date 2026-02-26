@@ -79,6 +79,7 @@ const BondingCurveEditor = ({ onChange, sofDecimals = 18 }) => {
           <AdvancedView
             steps={editor.steps}
             maxTickets={editor.maxTickets}
+            setMaxTickets={editor.setMaxTickets}
             updateStep={editor.updateStep}
             addStep={editor.addStep}
             removeStep={editor.removeStep}
@@ -91,6 +92,7 @@ const BondingCurveEditor = ({ onChange, sofDecimals = 18 }) => {
           <GraphView
             steps={editor.steps}
             maxTickets={editor.maxTickets}
+            setMaxTickets={editor.setMaxTickets}
             applyDrag={editor.applyDrag}
             addStep={editor.addStep}
             removeStep={editor.removeStep}
