@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils"
 const Progress = React.forwardRef(
   ({ className, value, steps, ...props }, ref) => {
     const [tip, setTip] = React.useState(null)
+    // Suppress transition on first render so the bar doesn't animate from 0
+    const [mounted, setMounted] = React.useState(false)
+    React.useEffect(() => { setMounted(true) }, [])
 
     const bar = (
       <ProgressPrimitive.Root
@@ -26,7 +29,7 @@ const Progress = React.forwardRef(
         {...props}
       >
         <ProgressPrimitive.Indicator
-          className="h-full w-full flex-1 bg-primary transition-all"
+          className={cn("h-full w-full flex-1 bg-primary", mounted && "transition-all")}
           style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
         />
       </ProgressPrimitive.Root>
