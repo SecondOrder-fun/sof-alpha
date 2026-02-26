@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { formatUnits, createPublicClient, http } from "viem";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
@@ -12,15 +12,17 @@ import { SOFBondingCurveAbi } from "@/utils/abis";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import CountdownTimer from "@/components/common/CountdownTimer";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileRafflesList from "@/components/mobile/MobileRafflesList";
 import SeasonCardSkeleton from "@/components/common/skeletons/SeasonCardSkeleton";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonGating } from "@/hooks/useSeasonGating";
 import PasswordGateModal from "@/components/gating/PasswordGateModal";
+import { useProfileData } from "@/hooks/useProfileData";
 
 const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
   const navigate = useNavigate();
@@ -200,15 +202,46 @@ ActiveSeasonCard.propTypes = {
 };
 
 const RaffleList = () => {
-  const { t } = useTranslation("raffle");
+  const { t } = useTranslation(["raffle", "navigation"]);
   const { isMobile, isFarcaster } = usePlatform();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { address, isConnected } = useAccount();
   const { chainId } = useAccount();
   const chains = useChains();
   const { openLoginModal } = useLoginModal();
   const allSeasonsQuery = useAllSeasons();
   const winnerSummariesQuery = useSeasonWinnerSummaries(allSeasonsQuery.data);
+
+  // "My Raffles" filter — initialized from ?filter=mine URL param
+  const [showMineOnly, setShowMineOnly] = useState(
+    searchParams.get("filter") === "mine",
+  );
+  const { seasonBalancesQuery } = useProfileData(address);
+  const ownedSeasonIds = useMemo(() => {
+    const ids = new Set();
+    if (seasonBalancesQuery.data) {
+      for (const s of seasonBalancesQuery.data) {
+        ids.add(Number(s.seasonId));
+      }
+    }
+    return ids;
+  }, [seasonBalancesQuery.data]);
+
+  const handleToggleMine = useCallback(
+    (checked) => {
+      setShowMineOnly(checked);
+      setSearchParams((prev) => {
+        if (checked) {
+          prev.set("filter", "mine");
+        } else {
+          prev.delete("filter");
+        }
+        return prev;
+      });
+    },
+    [setSearchParams],
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState("buy");
   const [selectedSeason, setSelectedSeason] = useState(null);
@@ -347,6 +380,10 @@ const RaffleList = () => {
   const seasonsSorted = [...(allSeasonsQuery.data || [])].sort(
     (a, b) => Number(b.id) - Number(a.id),
   );
+  const displayedSeasons =
+    showMineOnly && isConnected
+      ? seasonsSorted.filter((s) => ownedSeasonIds.has(Number(s.id)))
+      : seasonsSorted;
 
   if (isMobile) {
     // Note: We pass raw season data and let MobileRafflesList handle curve state
@@ -354,7 +391,7 @@ const RaffleList = () => {
     return (
       <>
         <MobileRafflesList
-          seasons={seasonsSorted}
+          seasons={displayedSeasons}
           isLoading={allSeasonsQuery.isLoading}
           onBuy={handleBuy}
           onSell={handleSell}
@@ -365,6 +402,8 @@ const RaffleList = () => {
           isConnected={isConnected}
           onConnect={handleConnect}
           isFarcaster={isFarcaster}
+          showMineOnly={showMineOnly}
+          onToggleMine={handleToggleMine}
         />
         {selectedSeason && (
           <BuySellSheet
@@ -398,9 +437,26 @@ const RaffleList = () => {
     <div>
       <h1 className="text-2xl font-bold text-foreground mb-4">{t("title")}</h1>
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold">{t("allSeasons")}</h2>
-          <p className="text-sm text-muted-foreground">{t("allSeasonsDescription")}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">{t("allSeasons")}</h2>
+            <p className="text-sm text-muted-foreground">{t("allSeasonsDescription")}</p>
+          </div>
+          {isConnected && (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={showMineOnly}
+                onCheckedChange={handleToggleMine}
+                id="desktop-mine-toggle"
+              />
+              <label
+                htmlFor="desktop-mine-toggle"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
+                {t("navigation:myRaffles")}
+              </label>
+            </div>
+          )}
         </div>
         {allSeasonsQuery.isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -410,11 +466,11 @@ const RaffleList = () => {
           </div>
         )}
         {allSeasonsQuery.error && <p>Error loading seasons.</p>}
-        {seasonsSorted.length === 0 && !allSeasonsQuery.isLoading && (
+        {displayedSeasons.length === 0 && !allSeasonsQuery.isLoading && (
           <p>{t("noActiveSeasons")}</p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {seasonsSorted.map((season) => (
+          {displayedSeasons.map((season) => (
             <ActiveSeasonCard
               key={season.id}
               season={season}

@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { Switch } from "@/components/ui/switch";
 import Carousel from "@/components/common/Carousel";
 import SeasonCard from "@/components/mobile/SeasonCard";
 import { useCurveState } from "@/hooks/useCurveState";
@@ -73,8 +74,10 @@ export const MobileRafflesList = ({
   isConnected,
   onConnect,
   isFarcaster,
+  showMineOnly,
+  onToggleMine,
 }) => {
-  const { t } = useTranslation(["raffle"]);
+  const { t } = useTranslation(["raffle", "navigation"]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardHeight, setCardHeight] = useState(null);
   const cardRef = useRef(null);
@@ -134,7 +137,25 @@ export const MobileRafflesList = ({
       <div className="flex-1 overflow-hidden px-3 pt-1 pb-20">
         {/* Title row with pagination controls */}
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-bold text-foreground">{t("raffles")}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">{t("raffles")}</h1>
+            {isConnected && (
+              <div className="flex items-center gap-1.5">
+                <Switch
+                  checked={showMineOnly}
+                  onCheckedChange={onToggleMine}
+                  id="mobile-mine-toggle"
+                  className="scale-75"
+                />
+                <label
+                  htmlFor="mobile-mine-toggle"
+                  className="text-xs text-muted-foreground cursor-pointer select-none"
+                >
+                  {t("navigation:myRaffles")}
+                </label>
+              </div>
+            )}
+          </div>
           {!isLoading && seasons.length > 1 && (
             <div className="flex items-center gap-2">
               <ButtonGroup>
@@ -227,6 +248,8 @@ MobileRafflesList.propTypes = {
   isConnected: PropTypes.bool,
   onConnect: PropTypes.func,
   isFarcaster: PropTypes.bool,
+  showMineOnly: PropTypes.bool,
+  onToggleMine: PropTypes.func,
 };
 
 export default MobileRafflesList;
