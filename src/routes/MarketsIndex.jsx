@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, TrendingUp, Activity } from "lucide-react";
+import { Search, Filter, TrendingUp, Activity, Circle } from "lucide-react";
 import InfoFiMarketCard from "@/components/infofi/InfoFiMarketCard";
 import { useInfoFiMarkets } from "@/hooks/useInfoFiMarkets";
 import { useAllSeasons } from "@/hooks/useAllSeasons";
@@ -309,15 +309,35 @@ const DesktopMarketsIndex = () => {
             </Card>
           )}
 
-          {Object.entries(groupedBySeason).map(([seasonId, seasonGrouped]) => (
+          {Object.entries(groupedBySeason)
+            .sort(([a], [b]) => {
+              // Active seasons first, then by ID descending (newest first)
+              const aActive = activeSeasonIds.has(a);
+              const bActive = activeSeasonIds.has(b);
+              if (aActive !== bActive) return bActive - aActive;
+              return Number(b) - Number(a);
+            })
+            .map(([seasonId, seasonGrouped]) => (
             <div key={seasonId}>
               <div className="flex items-center justify-between mb-4">
-                <a
-                  href={`/raffle/${seasonId}`}
-                  className="text-xl font-semibold hover:underline"
-                >
-                  Season #{seasonId}
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`/raffle/${seasonId}`}
+                    className="text-xl font-semibold hover:underline"
+                  >
+                    Season #{seasonId}
+                  </a>
+                  {activeSeasonIds.has(seasonId) ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-500/10 px-2 py-0.5 rounded-full">
+                      <Circle className="h-2 w-2 fill-current" />
+                      {t("active")}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {t("ended")}
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm text-muted-foreground">
                   {Object.values(seasonGrouped).flat().length} {t("markets")}
                 </span>
