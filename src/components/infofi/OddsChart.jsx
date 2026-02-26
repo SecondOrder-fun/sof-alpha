@@ -204,11 +204,11 @@ const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
             data={chartData}
             margin={{ top: 2, right: 2, left: -25, bottom: 2 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatXAxis}
-              stroke="#9ca3af"
+              stroke="hsl(var(--muted-foreground))"
               style={{ fontSize: "9px" }}
               tickLine={false}
             />
@@ -216,7 +216,7 @@ const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
               domain={[domainMin, domainMax]}
               ticks={axisTicks}
               tickFormatter={(value) => `${value}%`}
-              stroke="#9ca3af"
+              stroke="hsl(var(--muted-foreground))"
               style={{ fontSize: "9px" }}
               tickLine={false}
             />
@@ -296,11 +296,11 @@ const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
                 : { top: 5, right: 5, left: -20, bottom: 5 }
             }
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatXAxis}
-              stroke="#9ca3af"
+              stroke="hsl(var(--muted-foreground))"
               style={{ fontSize: compact ? "10px" : "12px" }}
               tickLine={false}
             />
@@ -308,7 +308,7 @@ const OddsChart = ({ marketId, compact = false, mini = false, lineColor }) => {
               domain={[domainMin, domainMax]}
               ticks={axisTicks}
               tickFormatter={(value) => `${value}%`}
-              stroke="#9ca3af"
+              stroke="hsl(var(--muted-foreground))"
               style={{ fontSize: compact ? "10px" : "12px" }}
               tickLine={false}
             />

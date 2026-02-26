@@ -375,14 +375,14 @@ const GraphView = ({
             <GridRows
               scale={yScale}
               width={innerWidth}
-              stroke="#e5e7eb"
+              stroke="hsl(var(--border))"
               strokeOpacity={0.5}
               numTicks={5}
             />
             <GridColumns
               scale={xScale}
               height={innerHeight}
-              stroke="#e5e7eb"
+              stroke="hsl(var(--border))"
               strokeOpacity={0.5}
               numTicks={5}
             />
@@ -392,7 +392,7 @@ const GraphView = ({
               <path
                 d={buildSteppedPath(ghostSteps)}
                 fill="none"
-                stroke="#9ca3af"
+                stroke="hsl(var(--muted-foreground))"
                 strokeWidth={1}
                 strokeDasharray="4 4"
                 opacity={0.5}
@@ -402,15 +402,15 @@ const GraphView = ({
             {/* Area fill */}
             <path
               d={buildAreaPath(steps)}
-              fill="#fecdd3"
-              fillOpacity={0.3}
+              fill="hsl(var(--primary))"
+              fillOpacity={0.15}
             />
 
             {/* Stepped line */}
             <path
               d={buildSteppedPath(steps)}
               fill="none"
-              stroke="#e11d48"
+              stroke="hsl(var(--primary))"
               strokeWidth={2}
             />
 
@@ -433,7 +433,7 @@ const GraphView = ({
                   cy={yScale((steps[insertAfterIndex].price + steps[insertAfterIndex + 1].price) / 2)}
                   r={4}
                   fill="#3b82f6"
-                  stroke="#fff"
+                  stroke="hsl(var(--background))"
                   strokeWidth={1}
                   opacity={0.8}
                 />
@@ -481,8 +481,8 @@ const GraphView = ({
                     cx={cx}
                     cy={cy}
                     r={isActive ? 8 : 6}
-                    fill={isSelected ? "#3b82f6" : isActive ? "#e11d48" : "#fff"}
-                    stroke={isSelected ? "#3b82f6" : "#e11d48"}
+                    fill={isSelected ? "#3b82f6" : isActive ? "hsl(var(--primary))" : "hsl(var(--background))"}
+                    stroke={isSelected ? "#3b82f6" : "hsl(var(--primary))"}
                     strokeWidth={2}
                     style={{
                       cursor: isXFixed ? "ns-resize" : "move",
@@ -498,7 +498,7 @@ const GraphView = ({
                       y1={cy - 15}
                       x2={cx}
                       y2={cy + 15}
-                      stroke="#9ca3af"
+                      stroke="hsl(var(--muted-foreground))"
                       strokeWidth={1}
                       strokeDasharray="2 2"
                       opacity={0.7}
@@ -514,14 +514,14 @@ const GraphView = ({
                         width={90}
                         height={30}
                         rx={4}
-                        fill="#1f2937"
-                        opacity={0.9}
+                        fill="hsl(var(--card))"
+                        opacity={0.95}
                       />
                       <text
                         x={cx + 55}
                         y={cy - 21}
                         textAnchor="middle"
-                        fill="#fff"
+                        fill="hsl(var(--foreground))"
                         fontSize={10}
                         fontFamily="monospace"
                       >
@@ -531,7 +531,7 @@ const GraphView = ({
                         x={cx + 55}
                         y={cy - 9}
                         textAnchor="middle"
-                        fill="#9ca3af"
+                        fill="hsl(var(--muted-foreground))"
                         fontSize={9}
                         fontFamily="monospace"
                       >
@@ -546,10 +546,10 @@ const GraphView = ({
             {/* Axes */}
             <AxisLeft
               scale={yScale}
-              stroke="#6b7280"
-              tickStroke="#6b7280"
+              stroke="hsl(var(--muted-foreground))"
+              tickStroke="hsl(var(--muted-foreground))"
               tickLabelProps={() => ({
-                fill: "#6b7280",
+                fill: "hsl(var(--muted-foreground))",
                 fontSize: 10,
                 textAnchor: "end",
                 dy: "0.33em",
@@ -557,7 +557,7 @@ const GraphView = ({
               })}
               label="Price (SOF)"
               labelProps={{
-                fill: "#6b7280",
+                fill: "hsl(var(--muted-foreground))",
                 fontSize: 11,
                 textAnchor: "middle",
               }}
@@ -566,17 +566,17 @@ const GraphView = ({
             <AxisBottom
               scale={xScale}
               top={innerHeight}
-              stroke="#6b7280"
-              tickStroke="#6b7280"
+              stroke="hsl(var(--muted-foreground))"
+              tickStroke="hsl(var(--muted-foreground))"
               tickLabelProps={() => ({
-                fill: "#6b7280",
+                fill: "hsl(var(--muted-foreground))",
                 fontSize: 10,
                 textAnchor: "middle",
                 dy: 4,
               })}
               label="Tickets Sold"
               labelProps={{
-                fill: "#6b7280",
+                fill: "hsl(var(--muted-foreground))",
                 fontSize: 11,
                 textAnchor: "middle",
               }}
@@ -593,7 +593,7 @@ const GraphView = ({
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-full border-2 border-rose-600 bg-white" />
+          <div className="w-3 h-3 rounded-full border-2 border-primary bg-background" />
           <span>Drag to adjust</span>
         </div>
         <div className="flex items-center gap-1">
@@ -601,7 +601,7 @@ const GraphView = ({
           <span>Shift+click to select</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-6 h-0.5 bg-rose-600" />
+          <div className="w-6 h-0.5 bg-primary" />
           <span>Bonding curve</span>
         </div>
       </div>

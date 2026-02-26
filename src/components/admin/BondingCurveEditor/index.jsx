@@ -32,7 +32,7 @@ const BondingCurveEditor = ({ onChange, sofDecimals = 18 }) => {
         <label className="text-sm font-medium">Bonding Curve Configuration</label>
         <div className="flex items-center gap-2">
           {editor.isCustom && (
-            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+            <Badge variant="outline" className="text-xs">
               Custom
             </Badge>
           )}
