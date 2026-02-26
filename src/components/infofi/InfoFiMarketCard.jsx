@@ -235,6 +235,7 @@ const InfoFiMarketCard = ({ market, marketInfo: batchMarketInfo, userPosition: b
           selectedSide={form.side}
           isConnected={isConnected}
           isSettled={market.is_settled}
+          isActive={market.is_active}
           isPending={betMutation.isPending}
           onSubmit={() => betMutation.mutate()}
         />
