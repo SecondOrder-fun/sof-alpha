@@ -65,6 +65,7 @@
   "powFaucetDescription": "Uses proof-of-work mining to prevent spam",
   "visitPowFaucet": "Visit PoW Faucet",
   "claims": "Claims",
+  "creator": "Creator",
   "claimsComingSoon": "Check back later to claim your prizes and rewards",
   "systemMenu": "System Menu",
   "linkedAccount": "Linked Account",
