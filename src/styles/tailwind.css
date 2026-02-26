@@ -57,26 +57,26 @@
     --background: 300 100% 4%; /* Black #130013 */
     --foreground: 20 9% 63%; /* Cement #a89e99 */
 
-    --muted: 100 10% 22%; /* Asphalt #353e34 */
+    --muted: 300 8% 20%; /* Dark purple-grey (was Asphalt green) */
     --muted-foreground: 20 9% 63%; /* Cement */
 
     --popover: 300 100% 4%; /* Black */
     --popover-foreground: 20 9% 63%; /* Cement */
 
-    --card: 100 10% 22%; /* Asphalt */
+    --card: 300 10% 14%; /* Dark purple-grey (was Asphalt green) */
     --card-foreground: 20 9% 63%; /* Cement */
 
-    --border: 0 0% 30%; /* Dark grey for borders */
-    --input: 0 0% 30%;
+    --border: 300 8% 25%; /* Purple-grey border (was neutral grey) */
+    --input: 300 8% 25%;
 
     /* Cochineal Red stays primary in dark mode too */
     --primary: 343 66% 47%;
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 100 10% 22%; /* Asphalt */
+    --secondary: 300 10% 14%; /* Matches card (was Asphalt green) */
     --secondary-foreground: 20 9% 63%; /* Cement */
 
-    --accent: 100 10% 22%; /* Asphalt */
+    --accent: 300 10% 14%; /* Matches card (was Asphalt green) */
     --accent-foreground: 20 9% 63%; /* Cement */
 
     --destructive: 0 100% 50%;
