@@ -1,7 +1,9 @@
 // src/components/sponsor/CreateSeasonWorkflow.jsx
-// Shared 3-step create-season workflow: Stake → Create → Confirmation
-// Used by both desktop /create-season route and mobile Portfolio tab.
-import { useState, useEffect, useCallback, useRef } from "react";
+// Two-panel create-season flow:
+//   Panel 1: SponsorStakingCard (stake/unstake management)
+//   Panel 2: 4-step workflow (Details → Prizes → Curve → Done)
+// "Back" on Details returns to the sponsor panel so users can unstake.
+import { useState, useEffect, useCallback } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { useChainTime } from "@/hooks/useChainTime";
@@ -29,7 +31,8 @@ import { getStoredNetworkKey } from "@/lib/wagmi";
 import { getContractAddresses, RAFFLE_ABI } from "@/config/contracts";
 
 /**
- * Inner workflow content — requires AdminAuthProvider above it.
+ * Inner component — requires AdminAuthProvider above it.
+ * Manages the sponsor panel ↔ creation workflow toggle.
  */
 function WorkflowInner() {
   const { t } = useTranslation("raffle");
@@ -68,28 +71,24 @@ function WorkflowInner() {
     enabled: !!address && !!publicClient,
   });
 
-  // Shared chain time hook (React Query cache keyed by netKey)
   const chainNow = useChainTime({ refetchInterval: 10_000 });
   const chainTimeQuery = { data: chainNow };
 
-  // Workflow state
-  const initialStep = isSponsor ? "details" : "stake";
-  const [currentStep, setCurrentStep] = useState(initialStep);
+  // Two views: "sponsor" (staking panel) or "create" (4-step workflow)
+  const [view, setView] = useState(isSponsor ? "create" : "sponsor");
+  const [currentStep, setCurrentStep] = useState("details");
   const [createdSeasonId, setCreatedSeasonId] = useState(null);
-  const hasAutoAdvanced = useRef(false);
 
-  // If sponsor status loads and they're already a sponsor, jump to details (once)
+  // When sponsor status resolves and user is already a sponsor, show creation view
   useEffect(() => {
-    if (!isSponsorLoading && isSponsor && currentStep === "stake" && !hasAutoAdvanced.current) {
-      hasAutoAdvanced.current = true;
-      setCurrentStep("details");
+    if (!isSponsorLoading && isSponsor && view === "sponsor") {
+      setView("create");
     }
-  }, [isSponsor, isSponsorLoading, currentStep]);
+  }, [isSponsor, isSponsorLoading, view]);
 
   // Watch for season creation success
   useEffect(() => {
     if (!createSeason?.isConfirmed || !createSeason?.receipt) return;
-    // Parse seasonId from SeasonCreated event
     const seasonLog = createSeason.receipt.logs.find((log) => {
       try {
         const decoded = decodeEventLog({
@@ -113,9 +112,19 @@ function WorkflowInner() {
     }
   }, [createSeason?.isConfirmed, createSeason?.receipt]);
 
-  // Handle step change with completion marking
   const handleStepChange = useCallback((newStep) => {
     setCurrentStep(newStep);
+  }, []);
+
+  // "Back" on the Details step swaps to the sponsor panel
+  const handleBackToSponsor = useCallback(() => {
+    setView("sponsor");
+  }, []);
+
+  // "Create Season" on sponsor panel swaps to the creation workflow
+  const handleStartCreation = useCallback(() => {
+    setCurrentStep("details");
+    setView("create");
   }, []);
 
   if (!isConnected) {
@@ -143,30 +152,35 @@ function WorkflowInner() {
     );
   }
 
-  // Dynamic Step 1 label: "Manage Stake" if already a sponsor, else "Become Sponsor"
-  const step1Label = isSponsor ? t("manageStake") : t("stepBecomeSponsor");
+  /* ── Sponsor Panel ── */
+  if (view === "sponsor") {
+    return (
+      <div className="space-y-4">
+        <SponsorStakingCard />
+        {isSponsor && (
+          <Button onClick={handleStartCreation} className="w-full gap-2">
+            <Crown className="h-4 w-4" />
+            {t("nextConfigureSeason")}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
-  // Map workflow step to form section
+  /* ── Creation Workflow (4 steps) ── */
   const formSection = { details: "details", prizes: "prizes", curve: "curve" }[currentStep] || null;
   const isFormStep = !!formSection;
 
   return (
     <Workflow value={currentStep} onValueChange={handleStepChange}>
       <WorkflowSteps className="mx-auto">
-        <WorkflowStep value="stake" label={step1Label} stepNumber={1} />
-        <WorkflowStep value="details" label={t("sectionMainDetails")} stepNumber={2} />
-        <WorkflowStep value="prizes" label={t("sectionPrizeSettings")} stepNumber={3} />
-        <WorkflowStep value="curve" label={t("sectionBondingCurve")} stepNumber={4} />
-        <WorkflowStep value="confirm" label={t("stepDone")} stepNumber={5} />
+        <WorkflowStep value="details" label={t("sectionMainDetails")} stepNumber={1} />
+        <WorkflowStep value="prizes" label={t("sectionPrizeSettings")} stepNumber={2} />
+        <WorkflowStep value="curve" label={t("sectionBondingCurve")} stepNumber={3} />
+        <WorkflowStep value="confirm" label={t("stepDone")} stepNumber={4} />
       </WorkflowSteps>
 
-      {/* Step 1: Sponsor Staking */}
-      <WorkflowContent value="stake">
-        <SponsorStakingCard />
-        <StakeNav />
-      </WorkflowContent>
-
-      {/* Steps 2-4: Form sections — auth gate or section content */}
+      {/* Steps 1-3: Form sections — auth gate or section content */}
       {["details", "prizes", "curve"].map((step) => (
         <WorkflowContent key={step} value={step}>
           {!isAuthenticated ? (
@@ -187,8 +201,7 @@ function WorkflowInner() {
         </WorkflowContent>
       ))}
 
-      {/* Persistent form — rendered once, always mounted while on a form step.
-          activeSection controls which fields are visible. */}
+      {/* Persistent form — rendered once, always mounted while on a form step */}
       {isFormStep && isAuthenticated && (
         <Card>
           <CardContent className="pt-6">
@@ -201,12 +214,17 @@ function WorkflowInner() {
         </Card>
       )}
 
-      {/* Back / Next nav for form steps (details, prizes only — curve has submit) */}
+      {/* Back / Next nav for form steps */}
       {isFormStep && (
-        <FormStepNav step={currentStep} isAuthenticated={isAuthenticated} showNext={currentStep !== "curve"} />
+        <FormStepNav
+          step={currentStep}
+          isAuthenticated={isAuthenticated}
+          showNext={currentStep !== "curve"}
+          onBackToSponsor={currentStep === "details" ? handleBackToSponsor : undefined}
+        />
       )}
 
-      {/* Step 5: Confirmation */}
+      {/* Step 4: Confirmation */}
       <WorkflowContent value="confirm">
         <Card>
           <CardContent className="pt-6 flex flex-col items-center gap-4 text-center">
@@ -232,37 +250,11 @@ function WorkflowInner() {
 }
 
 /**
- * Navigation for the Stake step — uses workflow context.
- */
-function StakeNav() {
-  const { t } = useTranslation("raffle");
-  const { isSponsor } = useSponsorStaking();
-  const { goNext, markCompleted } = useWorkflow();
-
-  // Mark stake as completed when user is already a sponsor
-  useEffect(() => {
-    if (isSponsor) markCompleted("stake");
-  }, [isSponsor, markCompleted]);
-
-  const handleNext = useCallback(() => {
-    markCompleted("stake");
-    goNext();
-  }, [markCompleted, goNext]);
-
-  return (
-    <div className="flex justify-end mt-4">
-      <Button onClick={handleNext} disabled={!isSponsor} type="button">
-        {isSponsor ? t("nextConfigureSeason") : t("completeStakingToContinue")}
-      </Button>
-    </div>
-  );
-}
-
-/**
  * Navigation for form steps — Back / Next buttons.
- * Uses workflow context to mark step completed and advance.
+ * On the Details step, Back returns to the sponsor panel (onBackToSponsor).
+ * On other steps, Back goes to the previous workflow step.
  */
-function FormStepNav({ step, isAuthenticated, showNext = true }) {
+function FormStepNav({ step, isAuthenticated, showNext = true, onBackToSponsor }) {
   const { goBack, goNext, markCompleted } = useWorkflow();
 
   const handleNext = useCallback(() => {
@@ -270,9 +262,11 @@ function FormStepNav({ step, isAuthenticated, showNext = true }) {
     goNext();
   }, [markCompleted, goNext, step]);
 
+  const handleBack = onBackToSponsor || goBack;
+
   return (
     <div className="flex justify-between mt-4">
-      <Button variant="outline" onClick={goBack} type="button">
+      <Button variant="outline" onClick={handleBack} type="button">
         <ChevronLeft className="h-4 w-4" />
       </Button>
       {showNext && (
@@ -288,6 +282,7 @@ FormStepNav.propTypes = {
   step: PropTypes.string.isRequired,
   isAuthenticated: PropTypes.bool,
   showNext: PropTypes.bool,
+  onBackToSponsor: PropTypes.func,
 };
 
 /**
