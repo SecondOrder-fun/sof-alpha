@@ -45,32 +45,21 @@ export const MobileRaffleDetail = ({
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
   };
 
-  // Build step markers for Progress
+  // Build step markers for Progress — evenly spaced across the bar
   const progressSteps = useMemo(() => {
     const steps = Array.isArray(allBondSteps) ? allBondSteps : [];
     if (steps.length === 0 || !maxSupply || maxSupply === 0n) return [];
     const count = steps.length;
     const stride = count > 20 ? Math.ceil(count / 20) : 1;
-    const mapped = steps
-      .filter((_, idx) => idx % stride === 0 || idx === count - 1)
-      .map((s, idx) => {
-        const pos = Math.min(
-          100,
-          Math.max(0, Number((BigInt(s.rangeTo ?? 0) * 10000n) / (maxSupply || 1n)) / 100),
-        );
-        const rawPrice = Number(formatUnits(s.price ?? 0n, 18));
-        const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
-        const stepNum = s?.step ?? idx + 1;
-        return { position: pos, label: `${price} SOF`, sublabel: `Step #${stepNum}` };
-      });
-    // Add Step #0 at the start (initial price) and pin last dot to the end
-    if (mapped.length > 0) {
-      const rawStartPrice = Number(formatUnits(steps[0].price ?? 0n, 18));
-      const startPrice = (Math.ceil(rawStartPrice * 10) / 10).toFixed(1);
-      mapped.unshift({ position: 0, label: `${startPrice} SOF`, sublabel: `Step #0` });
-    }
-    if (mapped.length > 1) mapped[mapped.length - 1].position = 100;
-    return mapped;
+    const included = steps.filter((_, idx) => idx % stride === 0 || idx === count - 1);
+    const n = included.length;
+    return included.map((s, idx) => {
+      const pos = n <= 1 ? 0 : (idx / (n - 1)) * 100;
+      const rawPrice = Number(formatUnits(s.price ?? 0n, 18));
+      const price = (Math.ceil(rawPrice * 10) / 10).toFixed(1);
+      const stepNum = s?.step ?? idx;
+      return { position: pos, label: `${price} SOF`, sublabel: `Step #${stepNum}` };
+    });
   }, [allBondSteps, maxSupply]);
 
   const grandPrize = useMemo(() => {
