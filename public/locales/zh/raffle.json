@@ -209,5 +209,13 @@
   "yourTickets": "你的票",
   "startingPrice": "起始价格 (SOF)",
   "startsIn": "开始于",
-  "raffleNotStarted": "此抽奖尚未开始"
+  "raffleNotStarted": "此抽奖尚未开始",
+  "curvePreset": "定价曲线",
+  "curveStandard": "标准",
+  "curveAggressive": "激进",
+  "curveFlat": "平坦",
+  "curveStandardDesc": "{{steps}}个阶梯，{{tickets}}张票，+1 SOF/阶梯",
+  "curveAggressiveDesc": "{{steps}}个阶梯，{{tickets}}张票，+3 SOF/阶梯",
+  "curveFlatDesc": "{{steps}}个阶梯，{{tickets}}张票，固定价格",
+  "notSponsorMobile": "您必须成为赞助商才能创建赛季。请在桌面端质押$SOF。"
 }

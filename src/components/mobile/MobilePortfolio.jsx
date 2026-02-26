@@ -3,13 +3,17 @@ import { useMemo } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { Crown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import BottomNav from "./BottomNav";
 import MobileAccountTab from "./MobileAccountTab";
 import MobileBalancesTab from "./MobileBalancesTab";
 import MobileClaimsTab from "./MobileClaimsTab";
 import { useUsername } from "@/hooks/useUsername";
 import { useProfileData } from "@/hooks/useProfileData";
+import { useSponsorStaking } from "@/hooks/useSponsorStaking";
 
 /**
  * MobilePortfolio - Mobile-optimized portfolio page with tab navigation
@@ -17,7 +21,9 @@ import { useProfileData } from "@/hooks/useProfileData";
 const MobilePortfolio = () => {
   const { address, isConnected } = useAccount();
   const { data: username } = useUsername(address);
-  const { t } = useTranslation(["account", "common"]);
+  const { t } = useTranslation(["account", "common", "raffle"]);
+  const navigate = useNavigate();
+  const { isSponsor } = useSponsorStaking();
 
   const { sofBalanceQuery, seasonBalancesQuery } = useProfileData(address);
 
@@ -88,6 +94,18 @@ const MobilePortfolio = () => {
             </TabsContent>
           </div>
         </Tabs>
+
+        {/* Create Season — sponsors only */}
+        {isSponsor && (
+          <Button
+            variant="outline"
+            className="w-full mt-3 gap-2"
+            onClick={() => navigate("/create-season")}
+          >
+            <Crown className="h-4 w-4" />
+            {t("raffle:createSeasonBtn")}
+          </Button>
+        )}
       </div>
 
       <BottomNav activeTab="portfolio" />

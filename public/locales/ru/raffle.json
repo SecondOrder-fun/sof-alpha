@@ -209,5 +209,13 @@
   "yourTickets": "Ваши билеты",
   "startingPrice": "Начальная цена (SOF)",
   "startsIn": "Начало через",
-  "raffleNotStarted": "Этот розыгрыш ещё не начался"
+  "raffleNotStarted": "Этот розыгрыш ещё не начался",
+  "curvePreset": "Кривая цен",
+  "curveStandard": "Стандартная",
+  "curveAggressive": "Агрессивная",
+  "curveFlat": "Плоская",
+  "curveStandardDesc": "{{steps}} шагов, {{tickets}} билетов, +1 SOF/шаг",
+  "curveAggressiveDesc": "{{steps}} шагов, {{tickets}} билетов, +3 SOF/шаг",
+  "curveFlatDesc": "{{steps}} шагов, {{tickets}} билетов, фиксированная цена",
+  "notSponsorMobile": "Вы должны быть спонсором для создания сезонов. Застейкайте $SOF на десктопе."
 }

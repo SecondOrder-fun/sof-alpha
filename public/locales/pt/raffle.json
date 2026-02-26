@@ -209,5 +209,13 @@
   "raffleEnded": "Este sorteio terminou.",
   "startingPrice": "Preço inicial (SOF)",
   "startsIn": "Começa em",
-  "raffleNotStarted": "Esta rifa ainda não começou"
+  "raffleNotStarted": "Esta rifa ainda não começou",
+  "curvePreset": "Curva de preços",
+  "curveStandard": "Padrão",
+  "curveAggressive": "Agressivo",
+  "curveFlat": "Plano",
+  "curveStandardDesc": "{{steps}} etapas, {{tickets}} tickets, +1 SOF/etapa",
+  "curveAggressiveDesc": "{{steps}} etapas, {{tickets}} tickets, +3 SOF/etapa",
+  "curveFlatDesc": "{{steps}} etapas, {{tickets}} tickets, preço fixo",
+  "notSponsorMobile": "Você precisa ser um sponsor para criar temporadas. Faça stake de $SOF no desktop."
 }

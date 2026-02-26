@@ -209,5 +209,13 @@
   "yourTickets": "Ihre Tickets",
   "startingPrice": "Startpreis (SOF)",
   "startsIn": "Startet in",
-  "raffleNotStarted": "Diese Verlosung hat noch nicht begonnen"
+  "raffleNotStarted": "Diese Verlosung hat noch nicht begonnen",
+  "curvePreset": "Preiskurve",
+  "curveStandard": "Standard",
+  "curveAggressive": "Aggressiv",
+  "curveFlat": "Flach",
+  "curveStandardDesc": "{{steps}} Stufen, {{tickets}} Tickets, +1 SOF/Stufe",
+  "curveAggressiveDesc": "{{steps}} Stufen, {{tickets}} Tickets, +3 SOF/Stufe",
+  "curveFlatDesc": "{{steps}} Stufen, {{tickets}} Tickets, Festpreis",
+  "notSponsorMobile": "Sie müssen ein Sponsor sein, um Seasons zu erstellen. Staken Sie $SOF am Desktop."
 }

@@ -209,5 +209,13 @@
   "raffleEnded": "このラッフルは終了しました。",
   "startingPrice": "開始価格 (SOF)",
   "startsIn": "開始まで",
-  "raffleNotStarted": "この抽選はまだ始まっていません"
+  "raffleNotStarted": "この抽選はまだ始まっていません",
+  "curvePreset": "価格カーブ",
+  "curveStandard": "スタンダード",
+  "curveAggressive": "アグレッシブ",
+  "curveFlat": "フラット",
+  "curveStandardDesc": "{{steps}}ステップ、{{tickets}}チケット、+1 SOF/ステップ",
+  "curveAggressiveDesc": "{{steps}}ステップ、{{tickets}}チケット、+3 SOF/ステップ",
+  "curveFlatDesc": "{{steps}}ステップ、{{tickets}}チケット、固定価格",
+  "notSponsorMobile": "シーズンを作成するにはスポンサーである必要があります。デスクトップで$SOFをステークしてください。"
 }
