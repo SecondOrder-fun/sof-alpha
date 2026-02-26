@@ -12,10 +12,12 @@ const MarketTradeForm = ({
   selectedSide,
   isConnected,
   isSettled,
+  isActive,
   isPending,
   onSubmit,
 }) => {
   const { t } = useTranslation("market");
+  const isLocked = isSettled || isActive === false;
 
   return (
     <div className="relative space-y-2">
@@ -25,7 +27,7 @@ const MarketTradeForm = ({
           value={amount}
           onChange={(e) => onAmountChange(e.target.value)}
           className="flex-1"
-          disabled={isSettled}
+          disabled={isLocked}
         />
         <Button
           onClick={onSubmit}
@@ -33,7 +35,7 @@ const MarketTradeForm = ({
             !isConnected ||
             !amount ||
             isPending ||
-            isSettled
+            isLocked
           }
           className={`min-w-[100px] ${
             selectedSide === "YES"
@@ -46,14 +48,16 @@ const MarketTradeForm = ({
       </div>
 
       {/* Trading Locked Overlay */}
-      {isSettled && (
+      {isLocked && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
           <div className="text-center px-4 py-3 bg-card border-2 border-muted rounded-lg shadow-lg">
             <div className="text-lg font-semibold text-muted-foreground mb-1">
-              Trading is Locked
+              {t("tradingLocked", "Trading is Locked")}
             </div>
             <div className="text-sm text-muted-foreground">
-              Season has ended
+              {isSettled
+                ? t("seasonEnded", "Season has ended")
+                : t("marketInactive", "Market is no longer active")}
             </div>
           </div>
         </div>
@@ -68,6 +72,7 @@ MarketTradeForm.propTypes = {
   selectedSide: PropTypes.oneOf(["YES", "NO"]).isRequired,
   isConnected: PropTypes.bool.isRequired,
   isSettled: PropTypes.bool,
+  isActive: PropTypes.bool,
   isPending: PropTypes.bool.isRequired,
   onSubmit: PropTypes.func.isRequired,
 };
