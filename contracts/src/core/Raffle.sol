@@ -718,13 +718,13 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         seasons[seasonId].isActive = false;
     }
 
-    function updateVRFConfig(uint64 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit)
+    function updateVRFConfig(uint64 _subscriptionId, bytes32 _keyHash, uint32 _callbackGasLimit)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        vrfSubscriptionId = subscriptionId;
-        vrfKeyHash = keyHash;
-        vrfCallbackGasLimit = callbackGasLimit;
+        vrfSubscriptionId = _subscriptionId;
+        vrfKeyHash = _keyHash;
+        vrfCallbackGasLimit = _callbackGasLimit;
     }
 
     /**
