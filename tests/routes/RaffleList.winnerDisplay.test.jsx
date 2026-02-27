@@ -21,7 +21,12 @@ vi.mock("@/hooks/usePlatform", () => ({
 
 // Wagmi hooks
 vi.mock("wagmi", () => ({
+  createConfig: vi.fn(() => ({})),
+  WagmiProvider: ({ children }) => children,
   useAccount: () => ({ address: "0xabc", chainId: 1, isConnected: true }),
+  useChainId: () => 1,
+  useConnect: () => ({ connect: vi.fn() }),
+  useSwitchChain: () => ({ switchChain: vi.fn() }),
   useChains: () => [
     { id: 1, rpcUrls: { default: { http: ["http://localhost"] } } },
   ],
@@ -125,6 +130,25 @@ vi.mock("@/config/networks", () => ({
 
 vi.mock("@/lib/wagmi", () => ({
   getStoredNetworkKey: () => "LOCAL",
+  getChainConfig: () => ({
+    key: "LOCAL",
+    chain: { id: 1, rpcUrls: { default: { http: ["http://localhost"] } } },
+    transport: null,
+  }),
+}));
+
+// Stub useProfileData to avoid deep chain of wagmi/viem dependencies
+vi.mock("@/hooks/useProfileData", () => ({
+  useProfileData: () => ({
+    sofBalanceQuery: { data: 0n, isLoading: false },
+    seasonBalancesQuery: { data: [], isLoading: false },
+    winningSeasonsQuery: { data: [], isLoading: false },
+    client: null,
+    netKey: "LOCAL",
+    contracts: {},
+    seasons: [],
+    allSeasonsQuery: { data: [], isLoading: false },
+  }),
 }));
 
 // Prevent curve hook from doing work

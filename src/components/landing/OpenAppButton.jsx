@@ -85,7 +85,7 @@ export const OpenAppButton = ({
     <Button
       onClick={handleOpenApp}
       disabled={isChecking}
-      className={`bg-[#c82a54] hover:bg-[#c82a54]/90 text-white font-semibold px-8 py-6 text-lg rounded-lg transition-all shadow-lg shadow-[#c82a54]/30 ${className}`}
+      className={`bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6 text-lg rounded-lg transition-all shadow-lg shadow-primary/30 ${className}`}
     >
       {isChecking ? "Checking Access..." : "Open App"}
     </Button>

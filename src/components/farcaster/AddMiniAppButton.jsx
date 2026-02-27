@@ -1,6 +1,6 @@
 /**
  * Farcaster Add Mini App Button
- * Only renders when running inside a Farcaster client (Warpcast, etc.)
+ * Only renders when running inside a Farcaster client (other clients)
  * Uses the Farcaster Frame SDK to prompt users to add the app
  */
 
@@ -226,7 +226,7 @@ const AddMiniAppButton = ({
           variant="default"
           className="flex items-center gap-2"
         >
-          {/* Farcaster icon - only show for Warpcast, not Base App */}
+          {/* Farcaster icon - only show in Farcaster client, not Base App */}
           {!isBaseApp && (
             <svg
               viewBox="0 0 1000 1000"

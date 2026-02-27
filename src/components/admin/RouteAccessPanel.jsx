@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Shield, ShieldOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import {
   ACCESS_LEVELS,
   getAccessLevelDisplayName,
@@ -54,13 +55,16 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL + "/access";
 export function RouteAccessPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { getAuthHeaders } = useAdminAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Fetch all route configs
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ["route-configs"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/route-configs`);
+      const res = await fetch(`${API_BASE}/route-configs`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to fetch route configs");
       const data = await res.json();
       return data.configs;
@@ -72,7 +76,7 @@ export function RouteAccessPanel() {
     mutationFn: async (config) => {
       const res = await fetch(`${API_BASE}/route-config`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(config),
       });
       if (!res.ok) throw new Error("Failed to save route config");
@@ -97,7 +101,7 @@ export function RouteAccessPanel() {
     mutationFn: async ({ routePattern, isPublic }) => {
       const res = await fetch(`${API_BASE}/set-public-override`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ routePattern, isPublic }),
       });
       if (!res.ok) throw new Error("Failed to toggle public override");
@@ -133,6 +137,7 @@ export function RouteAccessPanel() {
         `${API_BASE}/route-config/${encodeURIComponent(routePattern)}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         }
       );
       if (!res.ok) throw new Error("Failed to delete route config");
