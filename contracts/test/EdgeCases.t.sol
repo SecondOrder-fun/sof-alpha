@@ -159,7 +159,7 @@ contract EdgeCasesTest is Test {
     }
 
     function _getTotalSupply(SOFBondingCurve curve) internal view returns (uint256) {
-        (uint256 totalSupply,,,,,, ) = curve.curveConfig();
+        (uint256 totalSupply,,,,,,, ) = curve.curveConfig();
         return totalSupply;
     }
 

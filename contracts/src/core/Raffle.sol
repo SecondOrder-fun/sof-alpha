@@ -43,6 +43,8 @@ error InvalidTreasuryAddress();
 error UnauthorizedCaller();
 error NoVRFWords(uint256 seasonId);
 error UserNotVerified(uint256 seasonId, address user);
+error VRFTimeoutNotReached(uint256 seasonId, uint256 requestTime, uint256 timeoutAt);
+error SeasonNotVRFPending(uint256 seasonId);
 
 /**
  * @title Raffle Contract
@@ -63,6 +65,8 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
     }
 
     uint16 public constant VRF_REQUEST_CONFIRMATIONS = 3;
+    uint256 public constant VRF_TIMEOUT = 48 hours;
+    uint16 public constant MAX_WINNER_COUNT = 10;
 
     // Core
     IERC20 public immutable sofToken;
@@ -188,6 +192,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         if (config.startTime <= block.timestamp) revert InvalidStartTime(config.startTime, block.timestamp);
         if (config.endTime <= config.startTime) revert InvalidEndTime(config.endTime, config.startTime);
         if (config.winnerCount == 0) revert InvalidWinnerCount(0);
+        if (config.winnerCount > MAX_WINNER_COUNT) revert InvalidWinnerCount(config.winnerCount);
         if (config.grandPrizeBps > 10000) revert InvalidBasisPoints(config.grandPrizeBps);
         if (config.treasuryAddress == address(0)) revert InvalidTreasuryAddress();
         if (bondSteps.length == 0) revert InvalidBondSteps();
@@ -262,6 +267,7 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             })
         );
         seasonStates[seasonId].vrfRequestId = requestId;
+        seasonStates[seasonId].vrfRequestTimestamp = block.timestamp;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
         vrfRequestToSeason[requestId] = seasonId;
         emit SeasonEndRequested(seasonId, requestId);
@@ -300,14 +306,46 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             })
         );
         seasonStates[seasonId].vrfRequestId = requestId;
+        seasonStates[seasonId].vrfRequestTimestamp = block.timestamp;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
         vrfRequestToSeason[requestId] = seasonId;
         emit SeasonEndRequested(seasonId, requestId);
     }
 
+    /**
+     * @notice Cancel a season stuck in VRFPending after the timeout period.
+     * @dev Unlocks the bonding curve in sell-only mode so users can exit.
+     *      No re-request of VRF is allowed — this prevents re-roll attacks.
+     *      If VRF arrives late after cancellation, fulfillRandomWords ignores it silently.
+     * @param seasonId The season to cancel
+     */
+    function cancelStuckSeason(uint256 seasonId) external onlyRole(EMERGENCY_ROLE) nonReentrant {
+        if (seasonId == 0 || seasonId > currentSeasonId) revert SeasonNotFound(seasonId);
+        SeasonState storage state = seasonStates[seasonId];
+        if (state.status != SeasonStatus.VRFPending) revert SeasonNotVRFPending(seasonId);
+
+        uint256 timeoutAt = state.vrfRequestTimestamp + VRF_TIMEOUT;
+        if (block.timestamp < timeoutAt) {
+            revert VRFTimeoutNotReached(seasonId, state.vrfRequestTimestamp, timeoutAt);
+        }
+
+        // Unlock curve in sell-only mode so users can exit
+        SOFBondingCurve curve = SOFBondingCurve(seasons[seasonId].bondingCurve);
+        curve.unlockTradingSellOnly();
+
+        state.status = SeasonStatus.Cancelled;
+        emit SeasonCancelled(seasonId);
+    }
+
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         uint256 seasonId = vrfRequestToSeason[requestId];
         if (seasonId == 0) revert VRFRequestNotFound(requestId);
+
+        // Late VRF arrival for a cancelled season — ignore silently to avoid wasting VRF node gas
+        if (seasonStates[seasonId].status == SeasonStatus.Cancelled) {
+            return;
+        }
+
         if (seasonStates[seasonId].status != SeasonStatus.VRFPending) {
             revert InvalidSeasonStatus(seasonId, uint8(seasonStates[seasonId].status), uint8(SeasonStatus.VRFPending));
         }
@@ -459,7 +497,10 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         external
         onlyRole(BONDING_CURVE_ROLE)
     {
-        require(seasons[seasonId].isActive, "Raffle: season inactive");
+        require(
+            seasons[seasonId].isActive || seasonStates[seasonId].status == SeasonStatus.Cancelled,
+            "Raffle: season inactive"
+        );
         SeasonState storage state = seasonStates[seasonId];
         ParticipantPosition storage pos = state.participantPositions[participant];
         require(pos.isActive, "Raffle: not active");
@@ -682,9 +723,17 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         require(seasonId != 0 && seasonId <= currentSeasonId, "Raffle: no season");
         require(seasonStates[seasonId].status == SeasonStatus.Distributing, "Raffle: not distributing");
 
+        SeasonState storage state = seasonStates[seasonId];
+        // Only allow manual completion if prizes were already distributed (winners selected)
+        // or there are no participants to pay out
+        require(
+            state.winners.length > 0 || state.totalParticipants == 0,
+            "Raffle: prizes not distributed"
+        );
+
         // Mark complete
         seasons[seasonId].isCompleted = true;
-        seasonStates[seasonId].status = SeasonStatus.Completed;
+        state.status = SeasonStatus.Completed;
         emit SeasonCompleted(seasonId);
     }
 

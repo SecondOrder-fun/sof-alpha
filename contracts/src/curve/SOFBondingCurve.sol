@@ -34,6 +34,7 @@ error AmountZero();
 error AmountTooLarge(uint256 amount);
 error InvalidAddress();
 error FeeTooHigh(uint256 fee);
+error TradingSellOnly();
 
 /**
  * @title SOF Bonding Curve
@@ -62,6 +63,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         uint16 sellFee; // Sell fee in basis points (e.g., 70 = 0.7%)
         bool tradingLocked; // Whether trading is locked (season ended)
         bool initialized; // Whether curve has been initialized
+        bool sellOnly; // Whether only sells are allowed (season cancelled, users exiting)
     }
 
     CurveConfig public curveConfig;
@@ -155,7 +157,8 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
             buyFee: _buyFee,
             sellFee: _sellFee,
             tradingLocked: false,
-            initialized: true
+            initialized: true,
+            sellOnly: false
         });
 
         treasuryAddress = _treasuryAddress;
@@ -183,6 +186,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
     function buyTokens(uint256 tokenAmount, uint256 maxSofAmount) external nonReentrant whenNotPaused {
         if (!curveConfig.initialized) revert CurveNotInitialized();
         if (curveConfig.tradingLocked) revert TradingLocked();
+        if (curveConfig.sellOnly) revert TradingSellOnly();
         if (tokenAmount == 0) revert AmountZero();
 
         // Guardrail: prevent addition overflow when computing target supply inside price calc
@@ -299,6 +303,20 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         curveConfig.tradingLocked = true;
         emit TradingLockedEvent(block.timestamp);
     }
+
+    /**
+     * @notice Unlock trading in sell-only mode (for cancelled season recovery)
+     * @dev Users can sell their tokens to exit, but cannot buy new ones
+     */
+    function unlockTradingSellOnly() external onlyRole(RAFFLE_MANAGER_ROLE) {
+        if (!curveConfig.initialized) revert CurveNotInitialized();
+        if (!curveConfig.tradingLocked) revert TradingNotLocked();
+        curveConfig.tradingLocked = false;
+        curveConfig.sellOnly = true;
+        emit TradingUnlockedSellOnly(block.timestamp);
+    }
+
+    event TradingUnlockedSellOnly(uint256 timestamp);
 
     /**
      * @notice Extract $SOF reserves for prize distribution
