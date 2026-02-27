@@ -18,6 +18,7 @@ vi.mock("@/components/account/InfoFiPositionsTab", () => ({
 
 // Mock Link from react-router-dom used inside the accordion content
 vi.mock("react-router-dom", () => ({
+  // eslint-disable-next-line react/prop-types
   Link: ({ children, ...props }) => <a {...props}>{children}</a>,
 }));
 

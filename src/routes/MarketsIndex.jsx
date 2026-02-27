@@ -178,7 +178,7 @@ const DesktopMarketsIndex = () => {
     });
 
     return result;
-  }, [markets, statusFilter, searchQuery, activeSeasonIds]);
+  }, [markets, searchQuery, activeSeasonIds]);
 
   // Calculate total markets count
   const totalMarketsCount = useMemo(() => {

@@ -50,6 +50,59 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
+## VRF Security Audit & Hardening (2026-02-27)
+
+Comprehensive security audit of Chainlink VRF usage in Raffle contracts. All Critical and High issues resolved; Medium items tracked for multi-winner expansion.
+
+### Completed (PRs #69, #70, #71)
+
+- [x] **C-2: VRF stuck season recovery** (PR #69)
+  - Added 48h timeout + `cancelStuckSeason()` for seasons stuck in VRFPending
+  - Unlocks bonding curve in sell-only mode so users can exit
+  - Late VRF arrivals silently ignored; no re-roll attacks possible
+  - Added `Cancelled` status, `vrfRequestTimestamp`, `SeasonCancelled` event
+  - Added `unlockTradingSellOnly()` to SOFBondingCurve with `TradingSellOnly` error
+  - 5 new tests
+
+- [x] **H-1: Hash-and-extend retry for winner deduplication** (PR #69)
+  - Replaced naive loop with hash-and-extend retry (MAX_RETRIES=20) in `RaffleLogic._selectWinnersAddressBased()`
+  - On collision, derives new random via `keccak256(abi.encode(originalWord, nonce++))`
+  - Replaced O(n) linear scan with O(log n) binary search on cumulative prefix sums
+
+- [x] **H-2: Cap winnerCount in createSeason** (PR #69)
+  - Added `MAX_WINNER_COUNT = 10` constant
+  - Check in `createSeason()` reverts `InvalidWinnerCount` if exceeded
+
+- [x] **H-3: Guard completeSeasonManually** (PR #69)
+  - Requires `state.winners.length > 0 || state.totalParticipants == 0` before allowing manual completion
+  - Prevents skipping prize distribution
+
+- [x] **Audit snapshot of participant state at lock time** (PR #70)
+  - Stores `keccak256(abi.encode(participants[], ticketCounts[]))` in `SeasonState.lockSnapshot` at lock time
+  - Emits `SeasonSnapshotted` event; `getSeasonSnapshot()` view for off-chain verification
+  - 6 new TDD tests
+
+- [x] **L-1: Remove unused `_toString`** (PR #71)
+  - Removed dead code from `RaffleLogic.sol`
+
+- [x] **L-3: Fix parameter shadowing in `updateVRFConfig`** (PR #71)
+  - Renamed params to `_subscriptionId`, `_keyHash`, `_callbackGasLimit`
+
+### Pending (for multi-winner expansion)
+
+- [ ] **M-1: Increase VRF callback gas limit / defer finalization**
+  - `vrfCallbackGasLimit` is 500,000 gas. For multi-winner seasons with many participants, auto-finalization could exceed this limit. If outer `fulfillRandomWords` runs out of gas, random words are permanently lost.
+  - Options: increase to 1,000,000+, or make `fulfillRandomWords` only store words and defer finalization.
+  - Low urgency for single-winner seasons (current usage).
+
+- [ ] **M-2: Validate requestSeasonEnd idempotency**
+  - Currently safe due to atomic tx behavior. Re-validate when multi-winner features are built out.
+
+- [ ] **M-3: Add per-season participant cap**
+  - Add optional `maxParticipants` to `SeasonConfig` (0 = unlimited). Check in `recordParticipant`.
+  - Prevents unbounded gas costs in snapshot/winner-selection for very large participant counts.
+  - Low urgency on Base L2; important for mainnet.
+
 ## Critical Priority Tasks (2025-10-03)
 
 ## Frontend Tasks (2026-01-21)

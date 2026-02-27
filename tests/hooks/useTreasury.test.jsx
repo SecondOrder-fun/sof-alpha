@@ -36,7 +36,7 @@ describe('useTreasury', () => {
 
   // Helper to create proper mock implementation
   const createMockReadContract = (overrides = {}) => {
-    return ({ address, functionName, query }) => {
+    return ({ functionName, query }) => {
       if (functionName === 'seasons') {
         const data = ['Season 1', 0n, 0n, 1, 6500, mockBondingCurve, '0xToken', false, false];
         return { data: query?.select ? query.select(data) : mockBondingCurve, refetch: vi.fn() };

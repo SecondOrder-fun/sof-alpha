@@ -81,7 +81,10 @@ Button.propTypes = {
     'base',
   ]),
   size: PropTypes.oneOf(['default', 'sm', 'lg', 'icon']),
-  asChild: PropTypes.bool
+  asChild: PropTypes.bool,
+  onPointerDown: PropTypes.func,
+  onPointerUp: PropTypes.func,
+  onPointerLeave: PropTypes.func,
 };
 
 export { Button };

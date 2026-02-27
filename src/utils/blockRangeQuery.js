@@ -52,8 +52,6 @@ export async function queryLogsInChunks(client, params, maxBlockRange = 10000n) 
       // If we still hit a limit, try with smaller chunks
       const errorMsg = error.message?.toLowerCase() || '';
       if (errorMsg.includes('block range') || errorMsg.includes('exceed') || errorMsg.includes('returned more than')) {
-        console.warn(`[blockRangeQuery] Hit block range limit, retrying with smaller chunks from ${currentFrom}`);
-        
         // Retry with half the chunk size
         const smallerChunkSize = maxBlockRange / 2n;
         if (smallerChunkSize < 1000n) {

@@ -151,7 +151,7 @@ export const BuySellSheet = ({
     open
   );
 
-  const { buyEstBase, sellEstBase, estBuyWithFees, estSellAfterFees } =
+  const { buyEstBase: _buyEstBase, sellEstBase: _sellEstBase, estBuyWithFees, estSellAfterFees } =
     usePriceEstimation(
       client,
       bondingCurveAddress,

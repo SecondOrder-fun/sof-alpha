@@ -3,11 +3,9 @@
 
 import {
   createPublicClient,
-  createWalletClient,
   getAddress,
   http,
   webSocket,
-  custom,
   keccak256,
   encodePacked,
   parseUnits,

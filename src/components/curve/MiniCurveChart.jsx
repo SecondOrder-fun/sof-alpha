@@ -56,7 +56,7 @@ StepTooltipLabel.propTypes = {
  * Responsive mini bonding curve visualization using Recharts.
  * Renders a stepped area chart that fills its container.
  */
-const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep }) => {
+const MiniCurveChart = ({ curveSupply, allBondSteps, currentStep: _currentStep }) => {
   const gradientId = useId();
   const [activeDot, setActiveDot] = useState(null);
 

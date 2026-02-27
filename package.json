@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:length": "node scripts/lint-file-length.js",
     "lint:length:staged": "node scripts/lint-file-length.js --staged",
     "copy-abis": "node scripts/copy-abis.js",

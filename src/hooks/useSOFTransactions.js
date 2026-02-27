@@ -83,8 +83,8 @@ export function useSOFTransactions(address, options = {}) {
             });
           });
         }
-      } catch (err) {
-        console.warn("[SOFTransactions] Failed to fetch seasons/markets:", err);
+      } catch {
+        // Seasons/markets fetch failed; proceed with available data
       }
 
       const bondingCurveAddresses = Object.keys(bondingCurveMap);
@@ -367,7 +367,6 @@ export function useSOFTransactions(address, options = {}) {
       // Categorize outgoing transfers based on recipient
       for (const transfer of outgoingTransfers) {
         const recipientLower = transfer.to?.toLowerCase();
-        const senderLower = transfer.from?.toLowerCase();
 
         // Check if this transfer was to a bonding curve (raffle ticket purchase)
         if (bondingCurveAddresses.includes(recipientLower)) {

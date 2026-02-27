@@ -47,8 +47,8 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
     isTransferConfirmed,
     transferError,
     isUpdatingTreasury: hookIsUpdatingTreasury,
-    isUpdateConfirmed,
-    updateError,
+    isUpdateConfirmed: _isUpdateConfirmed,
+    updateError: _updateError,
   } = useTreasury(seasonId, bondingCurveAddress);
 
   const { curveReserves, curveFees } = useCurveState(bondingCurveAddress, {

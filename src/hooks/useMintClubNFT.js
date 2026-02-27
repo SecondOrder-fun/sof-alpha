@@ -96,7 +96,6 @@ export function useMintClubNFT({ symbol = null, network = null } = {}) {
         reserveToken,
       });
     } catch (err) {
-      console.error("[MintClub] Error fetching NFT data:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -114,8 +113,7 @@ export function useMintClubNFT({ symbol = null, network = null } = {}) {
         const nft = getNftInstance();
         const [reserveAmount, royalty] = await nft.getBuyEstimation(amount);
         return { reserveAmount, royalty, total: reserveAmount + royalty };
-      } catch (err) {
-        console.error("[MintClub] Error getting buy estimation:", err);
+      } catch {
         return null;
       }
     },
@@ -163,21 +161,17 @@ export function useMintClubNFT({ symbol = null, network = null } = {}) {
           amount: BigInt(amount),
           slippage,
           onSignatureRequest: () => {
-            console.log("[MintClub] Signature requested");
             onSignatureRequest?.();
           },
           onSigned: (hash) => {
-            console.log("[MintClub] Transaction signed:", hash);
             onSigned?.(hash);
           },
           onSuccess: (txReceipt) => {
-            console.log("[MintClub] Mint successful:", txReceipt);
             onSuccess?.(txReceipt);
             // Refresh data after successful mint
             fetchNftData();
           },
           onError: (err) => {
-            console.error("[MintClub] Mint error:", err);
             setError(err.message);
             onError?.(err);
           },
@@ -185,7 +179,6 @@ export function useMintClubNFT({ symbol = null, network = null } = {}) {
 
         return receipt;
       } catch (err) {
-        console.error("[MintClub] Mint failed:", err);
         setError(err.message);
         onError?.(err);
         throw err;

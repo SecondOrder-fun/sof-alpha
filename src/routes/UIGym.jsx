@@ -5,11 +5,8 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Bell,
-  Check,
   ChevronDown,
   ChevronRight,
-  Copy,
   Info,
   Loader2,
   Mail,
@@ -21,7 +18,6 @@ import {
   User,
   X,
   AlertCircle,
-  AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
 

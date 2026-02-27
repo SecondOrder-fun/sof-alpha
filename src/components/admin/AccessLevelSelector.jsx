@@ -55,7 +55,7 @@ export const AccessLevelSelector = ({
               <SelectValue placeholder="Select access level" />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
-              {Object.entries(ACCESS_LEVELS).map(([key, value]) => (
+              {Object.entries(ACCESS_LEVELS).map(([_key, value]) => (
                 <SelectItem
                   key={value}
                   value={value.toString()}

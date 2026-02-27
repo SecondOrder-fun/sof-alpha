@@ -63,10 +63,10 @@ async function fetchActiveDrops() {
 /**
  * Create a new NFT drop
  */
-async function createDrop(dropData) {
+async function createDrop(dropData, authHeaders = {}) {
   const response = await fetch(`${API_BASE_URL}/nft-drops/admin/create`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     body: JSON.stringify(dropData),
   });
 
@@ -82,10 +82,10 @@ async function createDrop(dropData) {
 /**
  * Update an NFT drop
  */
-async function updateDrop({ id, ...updates }) {
+async function updateDrop({ id, authHeaders = {}, ...updates }) {
   const response = await fetch(`${API_BASE_URL}/nft-drops/admin/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     body: JSON.stringify(updates),
   });
 
@@ -101,11 +101,11 @@ async function updateDrop({ id, ...updates }) {
 /**
  * Delete an NFT drop
  */
-async function deleteDrop({ id, hard = false }) {
+async function deleteDrop({ id, hard = false, authHeaders = {} }) {
   const url = `${API_BASE_URL}/nft-drops/admin/${id}${
     hard ? "?hard=true" : ""
   }`;
-  const response = await fetch(url, { method: "DELETE" });
+  const response = await fetch(url, { method: "DELETE", headers: authHeaders });
 
   if (!response.ok) {
     const error = await response.json();
@@ -118,11 +118,12 @@ async function deleteDrop({ id, hard = false }) {
 /**
  * Toggle active status
  */
-async function toggleActive(id) {
+async function toggleActive({ id, authHeaders = {} }) {
   const response = await fetch(
     `${API_BASE_URL}/nft-drops/admin/${id}/toggle-active`,
     {
       method: "POST",
+      headers: authHeaders,
     }
   );
 
@@ -138,11 +139,12 @@ async function toggleActive(id) {
 /**
  * Toggle featured status
  */
-async function toggleFeatured(id) {
+async function toggleFeatured({ id, authHeaders = {} }) {
   const response = await fetch(
     `${API_BASE_URL}/nft-drops/admin/${id}/toggle-featured`,
     {
       method: "POST",
+      headers: authHeaders,
     }
   );
 
@@ -196,7 +198,7 @@ export function useActiveNftDrops() {
 /**
  * Hook for NFT drop mutations (create, update, delete)
  */
-export function useNftDropMutations() {
+export function useNftDropMutations({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const invalidateDrops = () => {
@@ -204,27 +206,27 @@ export function useNftDropMutations() {
   };
 
   const createMutation = useMutation({
-    mutationFn: createDrop,
+    mutationFn: (data) => createDrop(data, getAuthHeaders?.() ?? {}),
     onSuccess: invalidateDrops,
   });
 
   const updateMutation = useMutation({
-    mutationFn: updateDrop,
+    mutationFn: (data) => updateDrop({ ...data, authHeaders: getAuthHeaders?.() ?? {} }),
     onSuccess: invalidateDrops,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteDrop,
+    mutationFn: (data) => deleteDrop({ ...data, authHeaders: getAuthHeaders?.() ?? {} }),
     onSuccess: invalidateDrops,
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: toggleActive,
+    mutationFn: (id) => toggleActive({ id, authHeaders: getAuthHeaders?.() ?? {} }),
     onSuccess: invalidateDrops,
   });
 
   const toggleFeaturedMutation = useMutation({
-    mutationFn: toggleFeatured,
+    mutationFn: (id) => toggleFeatured({ id, authHeaders: getAuthHeaders?.() ?? {} }),
     onSuccess: invalidateDrops,
   });
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PropTypes from "prop-types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -472,3 +473,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
     </Card>
   );
 }
+
+AccessGroupsPanel.propTypes = {
+  getAuthHeaders: PropTypes.func.isRequired,
+};

@@ -39,8 +39,7 @@ export function useSOFToken() {
         });
         
         return formatUnits(balance, 18);
-      } catch (err) {
-        console.error('Error fetching SOF balance:', err);
+      } catch {
         return '0';
       }
     },
@@ -87,8 +86,7 @@ export function useSOFToken() {
           totalSupply: formatUnits(totalSupply, decimals),
           decimals: Number(decimals)
         };
-      } catch (err) {
-        console.error('Error fetching token details:', err);
+      } catch {
         return null;
       }
     },
@@ -184,8 +182,7 @@ export function useSOFToken() {
       
       const decimals = tokenDetails?.decimals || 18;
       return formatUnits(allowance, decimals);
-    } catch (err) {
-      console.error('Error fetching allowance:', err);
+    } catch {
       return '0';
     }
   };

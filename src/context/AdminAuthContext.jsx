@@ -8,6 +8,7 @@
  */
 
 import { createContext, useState, useCallback, useEffect, useMemo } from "react";
+import PropTypes from "prop-types";
 import { useAccount } from "wagmi";
 import { signMessage } from "@wagmi/core";
 import { config } from "@/context/WagmiConfigProvider";
@@ -117,6 +118,7 @@ export function AdminAuthProvider({ children }) {
       setJwt(token);
       try { sessionStorage.setItem(STORAGE_KEY, token); } catch { /* noop */ }
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error("[AdminAuth] login error:", err);
       setError(err?.shortMessage || err?.message || "Login failed");
     } finally {
@@ -160,3 +162,7 @@ export function AdminAuthProvider({ children }) {
     </AdminAuthContext.Provider>
   );
 }
+
+AdminAuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};

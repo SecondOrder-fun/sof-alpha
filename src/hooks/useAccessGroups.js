@@ -75,14 +75,15 @@ export function useAccessGroup(slug) {
  *   isCreating: boolean
  * }}
  */
-export function useCreateGroup() {
+export function useCreateGroup({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async ({ slug, name, description }) => {
+      const authHeaders = getAuthHeaders?.() ?? {};
       const res = await fetch(`${API_BASE}/groups`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ slug, name, description }),
       });
       if (!res.ok) throw new Error("Failed to create group");
@@ -106,14 +107,15 @@ export function useCreateGroup() {
  *   isUpdating: boolean
  * }}
  */
-export function useUpdateGroup() {
+export function useUpdateGroup({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async ({ slug, updates }) => {
+      const authHeaders = getAuthHeaders?.() ?? {};
       const res = await fetch(`${API_BASE}/groups/${slug}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error("Failed to update group");
@@ -140,13 +142,15 @@ export function useUpdateGroup() {
  *   isDeleting: boolean
  * }}
  */
-export function useDeleteGroup() {
+export function useDeleteGroup({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async (slug) => {
+      const authHeaders = getAuthHeaders?.() ?? {};
       const res = await fetch(`${API_BASE}/groups/${slug}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
       if (!res.ok) throw new Error("Failed to delete group");
       return res.json();
@@ -169,14 +173,15 @@ export function useDeleteGroup() {
  *   isAdding: boolean
  * }}
  */
-export function useAddUserToGroup() {
+export function useAddUserToGroup({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async ({ fid, wallet, groupSlug, expiresAt, grantedBy }) => {
+      const authHeaders = getAuthHeaders?.() ?? {};
       const res = await fetch(`${API_BASE}/groups/assign`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ fid, wallet, groupSlug, expiresAt, grantedBy }),
       });
       if (!res.ok) throw new Error("Failed to add user to group");
@@ -207,14 +212,15 @@ export function useAddUserToGroup() {
  *   isRemoving: boolean
  * }}
  */
-export function useRemoveUserFromGroup() {
+export function useRemoveUserFromGroup({ getAuthHeaders } = {}) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async ({ fid, wallet, groupSlug }) => {
+      const authHeaders = getAuthHeaders?.() ?? {};
       const res = await fetch(`${API_BASE}/groups/remove`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ fid, wallet, groupSlug }),
       });
       if (!res.ok) throw new Error("Failed to remove user from group");

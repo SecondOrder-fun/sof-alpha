@@ -125,7 +125,6 @@ export function useMintClubAirdrop({ airdropId = null, network = null } = {}) {
         userWhitelisted,
       });
     } catch (err) {
-      console.error("[MintClub Airdrop] Error fetching data:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -163,21 +162,17 @@ export function useMintClubAirdrop({ airdropId = null, network = null } = {}) {
         const receipt = await airdrop.claimAirdrop({
           airdropId,
           onSignatureRequest: () => {
-            console.log("[MintClub Airdrop] Signature requested");
             onSignatureRequest?.();
           },
           onSigned: (hash) => {
-            console.log("[MintClub Airdrop] Transaction signed:", hash);
             onSigned?.(hash);
           },
           onSuccess: (txReceipt) => {
-            console.log("[MintClub Airdrop] Claim successful:", txReceipt);
             onSuccess?.(txReceipt);
             // Refresh data after successful claim
             fetchAirdropData();
           },
           onError: (err) => {
-            console.error("[MintClub Airdrop] Claim error:", err);
             setError(err.message);
             onError?.(err);
           },
@@ -185,7 +180,6 @@ export function useMintClubAirdrop({ airdropId = null, network = null } = {}) {
 
         return receipt;
       } catch (err) {
-        console.error("[MintClub Airdrop] Claim failed:", err);
         setError(err.message);
         onError?.(err);
         throw err;

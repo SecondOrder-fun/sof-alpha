@@ -42,8 +42,15 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "no-console": "warn",
+    },
+  },
+  // Context files export both Context + Provider — standard React pattern
+  {
+    files: ["src/context/**/*.{js,jsx}", "src/components/ui/workflow.jsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
     },
   },
   // Backend (Node) files: enable Node globals like `process`

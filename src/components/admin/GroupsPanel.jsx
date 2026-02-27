@@ -44,12 +44,14 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Users, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 export function GroupsPanel() {
   const { toast } = useToast();
+  const { getAuthHeaders } = useAdminAuth();
   const { groups, isLoading, refetch } = useAccessGroups();
-  const { createGroup, isCreating } = useCreateGroup();
-  const { deleteGroup } = useDeleteGroup();
+  const { createGroup, isCreating } = useCreateGroup({ getAuthHeaders });
+  const { deleteGroup } = useDeleteGroup({ getAuthHeaders });
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
@@ -310,8 +312,9 @@ function parseIdentifier(input) {
 
 function GroupMembersDialog({ group, onClose }) {
   const { members, isLoading } = useGroupMembers(group.slug);
-  const { addUserToGroup } = useAddUserToGroup();
-  const { removeUserFromGroup } = useRemoveUserFromGroup();
+  const { getAuthHeaders } = useAdminAuth();
+  const { addUserToGroup } = useAddUserToGroup({ getAuthHeaders });
+  const { removeUserFromGroup } = useRemoveUserFromGroup({ getAuthHeaders });
   const { toast } = useToast();
   const [newMemberInput, setNewMemberInput] = useState("");
 

@@ -217,7 +217,7 @@ describe('Oracle Integration Tests', () => {
       // Market 2 succeeds
       mockWalletClient.writeContract.mockResolvedValue('0xhash2');
       mockPublicClient.waitForTransactionReceipt.mockResolvedValue({ status: 'success' });
-      const result2 = await oracleService.updateRaffleProbability(fpmm2, 6000, mockLogger);
+      await oracleService.updateRaffleProbability(fpmm2, 6000, mockLogger);
       alertService.recordSuccess(fpmm2, mockLogger);
 
       expect(alertService.getFailureCount(fpmm1)).toBe(1);

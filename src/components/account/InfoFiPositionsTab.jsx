@@ -30,10 +30,12 @@ const InfoFiPositionsTab = ({ address }) => {
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
   const seasonsQry = useAllSeasons();
-  const seasons = seasonsQry.data || [];
   const seasonsArr = useMemo(
-    () => (Array.isArray(seasons) ? seasons : []),
-    [seasons]
+    () => {
+      const seasons = seasonsQry.data;
+      return Array.isArray(seasons) ? seasons : [];
+    },
+    [seasonsQry.data]
   );
 
   // Default to the active season (status === 1), fallback to highest ID
@@ -67,21 +69,13 @@ const InfoFiPositionsTab = ({ address }) => {
         import.meta.env.VITE_API_BASE_URL
       }/infofi/positions/${address}`;
 
-      console.log("[InfoFi] Fetching trades from:", url);
-
       const response = await fetch(url);
 
       if (!response.ok) {
-        console.error(
-          "[InfoFi] Failed to fetch trades:",
-          response.status,
-          response.statusText
-        );
         throw new Error("Failed to fetch trade history");
       }
 
       const data = await response.json();
-      console.log("[InfoFi] Trades response:", data);
       return data.positions || [];
     },
     staleTime: 5_000,
@@ -162,8 +156,8 @@ const InfoFiPositionsTab = ({ address }) => {
               noAmount: noAmt,
             });
           }
-        } catch (error) {
-          console.error(`Error reading position for market ${m.id}:`, error);
+        } catch {
+          // Skip markets that fail to read
         }
       }
 

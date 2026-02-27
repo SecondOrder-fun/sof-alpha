@@ -83,7 +83,7 @@ export function SOFTransactionHistory({ address, embedded = false }) {
     const start = page * ITEMS_PER_PAGE;
     const end = start + ITEMS_PER_PAGE;
     return filteredTransactions.slice(start, end);
-  }, [filteredTransactions, page]);
+  }, [filteredTransactions, page, ITEMS_PER_PAGE]);
 
   const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
 

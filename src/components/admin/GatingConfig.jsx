@@ -38,7 +38,6 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
           enabled: g.enabled,
           configHash: hashPassword(g.password),
         }));
-      console.log("[GatingConfig] Updating parent with gates:", formattedGates.length, formattedGates);
       onGatesChange(formattedGates);
     }
   }, [onGatesChange]);
