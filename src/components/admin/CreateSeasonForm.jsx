@@ -1,7 +1,7 @@
 // src/components/admin/CreateSeasonForm.jsx
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
-import { usePublicClient, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { usePublicClient, useWriteContract } from "wagmi";
 import { isAddress, decodeEventLog } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   const [grandPct, setGrandPct] = useState("65");
   const [treasuryAddress, setTreasuryAddress] = useState("");
   const [formError, setFormError] = useState("");
-  const [lastAttempt, setLastAttempt] = useState(null);
+
   const [nameError, setNameError] = useState("");
   const [treasuryError, setTreasuryError] = useState("");
 
@@ -59,7 +59,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   const [gated, setGated] = useState(false);
   const [gatingGates, setGatingGates] = useState([]);
   const [gatingStatus, setGatingStatus] = useState(""); // "", "pending", "success", "error"
-  const pendingSeasonIdRef = useRef(null);
 
   const publicClient = usePublicClient();
   const netKey = getStoredNetworkKey();
@@ -172,7 +171,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     });
 
     if (!seasonCreatedLog) {
-      console.warn("[CreateSeasonForm] Could not find SeasonCreated event in receipt");
       setStartTime("");
       setEndTime("");
       return;
@@ -184,12 +182,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
       topics: seasonCreatedLog.topics,
     });
     const seasonId = decoded.args.seasonId;
-    console.log("[CreateSeasonForm] Season created with ID:", seasonId.toString());
 
     // If gated with gates configured, call configureGates
-    console.log("[CreateSeasonForm] Post-create check - gated:", gated, "gatingGates:", gatingGates.length, "SEASON_GATING:", addresses.SEASON_GATING);
     if (gated && gatingGates.length > 0 && addresses.SEASON_GATING) {
-      console.log("[CreateSeasonForm] Configuring gates for season", seasonId.toString());
       setGatingStatus("pending");
       
       // Format gates for contract: [{ gateType, enabled, configHash }]
@@ -206,16 +201,13 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
         args: [seasonId, formattedGates],
       })
         .then(async (hash) => {
-          console.log("[CreateSeasonForm] configureGates tx:", hash);
           // Wait for confirmation
           if (publicClient) {
             await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
           }
           setGatingStatus("success");
-          console.log("[CreateSeasonForm] Gates configured successfully");
         })
         .catch((err) => {
-          console.error("[CreateSeasonForm] Failed to configure gates:", err);
           setGatingStatus("error");
           setFormError(`Season created but failed to configure gates: ${err.message}`);
         });
@@ -324,13 +316,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
       return;
     }
     const grandPrizeBps = Math.round(grandParsedPct * 100); // convert % -> BPS
-    setLastAttempt({
-      start: Number(start),
-      end,
-      chainNowSec,
-      manualStartSec,
-      secondsAhead,
-    });
     const config = {
       name,
       startTime: BigInt(start),

@@ -74,9 +74,7 @@ describe("usePlayerPosition", () => {
   });
 
   it("falls back to ERC20 when playerTickets throws", async () => {
-    let callCount = 0;
     readContractMock.mockImplementation(async ({ functionName }) => {
-      callCount++;
       if (functionName === "playerTickets") throw new Error("not found");
       if (functionName === "curveConfig") throw new Error("not found");
       // Token discovery — first function name "token" returns a valid address

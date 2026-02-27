@@ -22,7 +22,7 @@ const GraphView = ({
   steps,
   maxTickets,
   setMaxTickets,
-  applyDrag,
+  applyDrag: _applyDrag,
   addStep,
   removeStep,
   updateStepPosition,

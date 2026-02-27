@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { Copy } from 'lucide-react';
 import PlayerLabel from '@/components/common/PlayerLabel';
 import ExplorerLink from '@/components/common/ExplorerLink';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +11,6 @@ import { useRaffleTransactions } from '@/hooks/useRaffleTransactions';
 import { useCurveEvents } from '@/hooks/useCurveEvents';
 import { DataTable, DataTableColumnHeader, DataTablePagination, DataTableToolbar } from '@/components/common/DataTable';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getNetworkByKey } from '@/config/networks';
-import { getStoredNetworkKey } from '@/lib/wagmi';
 
 /**
  * TransactionsTab - Display raffle transactions with sorting, filtering, and pagination
@@ -35,19 +32,6 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
   const [sorting, setSorting] = useState([{ id: 'timestamp', desc: true }]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
-
-  const netKey = getStoredNetworkKey();
-  const net = getNetworkByKey(netKey);
-  const explorerUrl = net?.explorer || '';
-
-  // Copy to clipboard helper
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
 
   // Format relative time
   const formatTime = (timestamp) => {
@@ -160,7 +144,7 @@ const TransactionsTab = ({ bondingCurveAddress, seasonId }) => {
         enableSorting: false,
       },
     ],
-    [t, explorerUrl]
+    [t]
   );
 
   // Filter options for transaction type

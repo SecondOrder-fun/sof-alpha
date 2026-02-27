@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PropTypes from "prop-types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -393,3 +394,7 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
     </Card>
   );
 }
+
+RouteConfigPanel.propTypes = {
+  getAuthHeaders: PropTypes.func.isRequired,
+};

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { Copy, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 import PlayerLabel from "@/components/common/PlayerLabel";
 import { Badge } from "@/components/ui/badge";
 import { useRaffleHolders } from "@/hooks/useRaffleHolders";
@@ -42,16 +42,6 @@ const HoldersTab = ({ bondingCurveAddress, seasonId }) => {
   const [sorting, setSorting] = useState([{ id: "rank", desc: false }]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
-
-  // Copy to clipboard helper
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to copy:", err);
-    }
-  };
 
   // Format relative time
   const formatTime = (timestamp) => {

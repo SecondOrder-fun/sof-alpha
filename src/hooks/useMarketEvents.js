@@ -53,37 +53,33 @@ export function useMarketEvents(options = {}) {
         // Call appropriate callback based on event type
         switch (data.event) {
           case "connected":
-            console.log("✅ Connected to market events stream");
             setIsConnected(true);
             setConnectionError(null);
             break;
 
           case "market-creation-started":
-            console.log("🎯 Market creation started:", data.data);
             if (onMarketCreationStarted) {
               onMarketCreationStarted(data.data);
             }
             break;
 
           case "market-creation-confirmed":
-            console.log("✅ Market creation confirmed:", data.data);
             if (onMarketCreationConfirmed) {
               onMarketCreationConfirmed(data.data);
             }
             break;
 
           case "market-creation-failed":
-            console.error("❌ Market creation failed:", data.data);
             if (onMarketCreationFailed) {
               onMarketCreationFailed(data.data);
             }
             break;
 
           default:
-            console.debug("📨 Received event:", data.event);
+            break;
         }
-      } catch (error) {
-        console.error("Error parsing SSE message:", error);
+      } catch {
+        // Ignore malformed SSE messages
       }
     },
     [onMarketCreationStarted, onMarketCreationConfirmed, onMarketCreationFailed]
@@ -100,23 +96,19 @@ export function useMarketEvents(options = {}) {
 
       eventSource.onmessage = handleMessage;
       eventSource.onerror = (error) => {
-        console.error("❌ SSE connection error:", error);
         setIsConnected(false);
         setConnectionError(error.message || "Connection error");
 
         // Attempt to reconnect after 5 seconds
         setTimeout(() => {
           if (enabled && !eventSourceRef.current) {
-            console.log("🔄 Attempting to reconnect...");
             connectToStream();
           }
         }, 5000);
       };
 
       eventSourceRef.current = eventSource;
-      console.log("📡 Connecting to market events stream...");
     } catch (error) {
-      console.error("Failed to create EventSource:", error);
       setConnectionError(error.message);
     }
   }, [apiUrl, enabled, handleMessage]);
@@ -129,7 +121,6 @@ export function useMarketEvents(options = {}) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
       setIsConnected(false);
-      console.log("📡 Disconnected from market events stream");
     }
   }, []);
 
@@ -153,8 +144,7 @@ export function useMarketEvents(options = {}) {
         throw new Error(`HTTP ${response.status}`);
       }
       return await response.json();
-    } catch (error) {
-      console.error("Failed to get health status:", error);
+    } catch {
       return null;
     }
   }, [apiUrl]);

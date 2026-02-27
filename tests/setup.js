@@ -4,7 +4,7 @@
 // Fix for Node.js v25+ which provides a stub localStorage (plain object without
 // Storage methods) that prevents jsdom from installing its own implementation.
 // We replace it with a spec-compliant in-memory Storage before tests run.
-;(() => {
+(() => {
   if (typeof globalThis.localStorage?.getItem === 'function') return; // already fine
 
   function createStorage() {

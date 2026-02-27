@@ -1,6 +1,4 @@
 // tests/utils/test-utils.jsx
-// React is needed for JSX in the Wrapper component
-import * as React from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';

@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as ProgressPrimitive from "@radix-ui/react-progress"
+import PropTypes from "prop-types"
 
 import { cn } from "@/lib/utils"
 
@@ -72,5 +73,17 @@ const Progress = React.forwardRef(
   },
 )
 Progress.displayName = ProgressPrimitive.Root.displayName
+
+Progress.propTypes = {
+  className: PropTypes.string,
+  value: PropTypes.number,
+  steps: PropTypes.arrayOf(
+    PropTypes.shape({
+      position: PropTypes.number.isRequired,
+      label: PropTypes.string,
+      sublabel: PropTypes.string,
+    })
+  ),
+}
 
 export { Progress }

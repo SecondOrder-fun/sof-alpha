@@ -119,6 +119,7 @@ export function useBuySellTransactions(
         
         return { success: true, hash };
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error("Buy transaction error:", err);
         const message = getReadableContractError(err, t);
         onNotify?.({ type: "error", message, hash: "" });
@@ -233,6 +234,7 @@ export function useBuySellTransactions(
         
         return { success: true, hash };
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error("Sell transaction error:", err);
         const message = getReadableContractError(err, t);
         onNotify?.({ type: "error", message, hash: "" });

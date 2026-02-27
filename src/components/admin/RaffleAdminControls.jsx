@@ -15,6 +15,7 @@ export function RaffleAdminControls({ seasonId }) {
     try {
       await requestSeasonEnd();
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('[RaffleAdminControls] Button click error:', err);
       setLocalError(err?.message || 'Failed to request season end');
     }

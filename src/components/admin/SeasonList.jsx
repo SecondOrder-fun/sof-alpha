@@ -53,7 +53,7 @@ const getSeasonCategory = (status) => {
 const SeasonList = ({
   seasons,
   hasCreatorRole,
-  hasEmergencyRole,
+  hasEmergencyRole: _hasEmergencyRole,
   chainId,
   networkConfig,
   startSeason,
@@ -90,8 +90,6 @@ const SeasonList = ({
     const isPastEnd = nowSec >= endSec;
     const isNotStarted = season.status === SeasonStatus.NotStarted;
     const isActive = season.status === SeasonStatus.Active;
-    const isCreator = !!hasCreatorRole;
-    const isEmergency = !!hasEmergencyRole;
     const chainMatch = chainId === networkConfig.id;
     const canStart = isNotStarted && isWindowOpen;
     const canEnd = (isActive && isPastEnd) || (isNotStarted && isPastEnd);

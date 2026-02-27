@@ -8,7 +8,7 @@ import { useSponsorStaking } from "@/hooks/useSponsorStaking";
 import { useSOFBalance } from "@/hooks/useSOFBalance";
 import { HATS_CONFIG } from "@/config/hats";
 import { CONTRACTS } from "@/config/contracts";
-import { StakingEligibilityAbi, HatsAbi } from "@/utils/abis";
+import { StakingEligibilityAbi } from "@/utils/abis";
 import { useTranslation } from "react-i18next";
 import { Crown, Loader2, Check, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 

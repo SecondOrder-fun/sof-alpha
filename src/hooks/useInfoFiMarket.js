@@ -81,8 +81,7 @@ export function useInfoFiMarket(marketId) {
           isActive,
           totalLiquidity: formatUnits(totalLiquidity, 18)
         };
-      } catch (err) {
-        console.error('Error fetching market details:', err);
+      } catch {
         return null;
       }
     },
@@ -122,8 +121,7 @@ export function useInfoFiMarket(marketId) {
           yesPosition: formatUnits(yesPosition, 18),
           noPosition: formatUnits(noPosition, 18)
         };
-      } catch (err) {
-        console.error('Error fetching user positions:', err);
+      } catch {
         return { yesPosition: '0', noPosition: '0' };
       }
     },
@@ -161,8 +159,7 @@ export function useInfoFiMarket(marketId) {
           yesPrice: formatUnits(yesPrice, 18),
           noPrice: formatUnits(noPrice, 18)
         };
-      } catch (err) {
-        console.error('Error fetching market prices:', err);
+      } catch {
         return { yesPrice: '0', noPrice: '0' };
       }
     },

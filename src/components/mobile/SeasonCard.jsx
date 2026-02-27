@@ -128,7 +128,6 @@ export const SeasonCard = ({
         {/* Mini Curve Graph — shown for active AND pre-start */}
         {!isSeasonEnded && (
           <>
-            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */}
             <div
               className="bg-muted/40 overflow-hidden flex-1 min-h-0 border border-primary rounded-lg outline-none [&_*]:outline-none"
               style={{ WebkitTapHighlightColor: "transparent" }}

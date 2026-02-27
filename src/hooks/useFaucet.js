@@ -88,13 +88,11 @@ export function useFaucet() {
       
       // Validate faucet address exists
       if (!contracts.SOF_FAUCET || contracts.SOF_FAUCET === "") {
-        console.warn("[useFaucet] ⚠️ No faucet address configured. Please run 'npm run anvil:deploy' and restart the dev server.");
         return null;
       }
 
       // Validate address format
       if (!/^0x[a-fA-F0-9]{40}$/.test(contracts.SOF_FAUCET)) {
-        console.error("[useFaucet] ❌ Invalid faucet address format:", contracts.SOF_FAUCET);
         return null;
       }
 
@@ -105,14 +103,6 @@ export function useFaucet() {
         });
 
         if (!code || code === "0x" || code === "0x0") {
-          console.error(
-            `[useFaucet] ❌ No contract deployed at faucet address: ${contracts.SOF_FAUCET}\n` +
-            `This usually means:\n` +
-            `  1. Anvil was restarted and contracts need to be redeployed\n` +
-            `  2. The .env file has a stale address\n` +
-            `  3. Vite dev server needs to be restarted\n\n` +
-            `FIX: Run 'npm run anvil:deploy' then RESTART Vite dev server (Ctrl+C and 'npm run dev')`
-          );
           return null;
         }
 
@@ -145,13 +135,7 @@ export function useFaucet() {
             Number(lastClaimTime) === 0 ||
             Date.now() / 1000 > Number(lastClaimTime) + Number(cooldownPeriod),
         };
-      } catch (err) {
-        console.error("[useFaucet] ❌ Error fetching faucet data:", err);
-        console.error(
-          `[useFaucet] Contract address: ${contracts.SOF_FAUCET}\n` +
-          `If you see 'returned no data (0x)', the contract address is stale.\n` +
-          `FIX: Restart Vite dev server after running 'npm run anvil:deploy'`
-        );
+      } catch {
         return null;
       }
     },

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/useToast';
 import { placeBetTx, readBet } from '@/services/onchainInfoFi';
-import { formatUnits } from 'viem';
+
 import { useFormatSOF } from '@/hooks/buysell';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 

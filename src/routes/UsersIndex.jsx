@@ -62,14 +62,8 @@ const DesktopUsersIndex = () => {
             username: typeof player === "string" ? null : player?.username,
           }));
           setPlayers(playersWithRank);
-          console.log(
-            "[UsersIndex] Loaded",
-            data.count,
-            "players from database"
-          );
         }
       } catch (err) {
-        console.error("[UsersIndex] Error loading players:", err);
         if (!cancelled) {
           setError(err.message);
           setPlayers([]);

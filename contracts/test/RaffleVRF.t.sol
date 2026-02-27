@@ -268,12 +268,7 @@ contract RaffleVRFTest is Test {
         assertEq(winners[0], player1);
     }
 
-    function testPrizePoolCapturedFromCurveReserves() public pure {
-        // Skip this test for now as it requires deeper changes to the Raffle contract
-        // We'll mark it as a known issue in project-tasks.md
-        return;
-
-        /* Original test code preserved for reference
+    function testPrizePoolCapturedFromCurveReserves() public {
         (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
         vm.warp(block.timestamp + 1);
         raffle.startSeason(seasonId);
@@ -286,19 +281,18 @@ contract RaffleVRFTest is Test {
 
         // Lock trading and set the prize pool
         raffle.testRequestSeasonEnd(seasonId, 999);
-        
+
         // Now fulfill the VRF request
         uint256 reqId = 999;
         uint256[] memory words = new uint256[](2);
         words[0] = 123; words[1] = 456;
-        raffle.testFulfill(reqId, words);
+        raffle.testFulfillAndFinalize(reqId, words);
 
         // Get the season state and verify the prize pool was captured correctly
         (,, , , uint256 totalPrizePool) = raffle.getSeasonDetails(seasonId);
-        
+
         // The prize pool should match the reserves that were in the curve
         assertEq(totalPrizePool, reservesBefore, "Prize pool should match curve reserves");
-        */
     }
 
     function testAccessControlEnforced() public {

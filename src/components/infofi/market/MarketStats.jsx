@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
-import { Badge } from "@/components/ui/badge";
+
 import { formatUnits } from "viem";
 import ExplorerLink from "@/components/common/ExplorerLink";
 

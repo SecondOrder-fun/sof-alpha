@@ -1,7 +1,8 @@
 // src/pages/InfoFiMarketDetail.jsx
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Clock, ExternalLink as ExternalLinkIcon, Copy, Check } from "lucide-react";
+import PropTypes from "prop-types";
+import { ArrowLeft, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,7 +13,6 @@ import ExplorerLink from "@/components/common/ExplorerLink";
 import { useQuery } from "@tanstack/react-query";
 import { useRaffleRead } from "@/hooks/useRaffleRead";
 import { formatDistanceToNow, format } from "date-fns";
-import { useState } from "react";
 import { usePlatform } from "@/hooks/usePlatform";
 import MobileMarketDetail from "@/components/mobile/MobileMarketDetail";
 
@@ -439,14 +439,6 @@ const TopHolders = ({ marketId }) => {
 
 const MarketInfo = ({ market, marketId, seasonId, isWinnerPrediction }) => {
   const { t } = useTranslation("market");
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   return (
     <div className="space-y-4">
@@ -543,5 +535,33 @@ const InfoRow = ({ label, children }) => (
     <div className="text-right">{children}</div>
   </div>
 );
+
+ActivityFeed.propTypes = {
+  marketId: PropTypes.string.isRequired,
+};
+
+TopHolders.propTypes = {
+  marketId: PropTypes.string.isRequired,
+};
+
+MarketInfo.propTypes = {
+  market: PropTypes.shape({
+    contract_address: PropTypes.string,
+    market_type: PropTypes.string,
+    player: PropTypes.string,
+    is_active: PropTypes.bool,
+    is_settled: PropTypes.bool,
+    created_at: PropTypes.string,
+    description: PropTypes.string,
+  }).isRequired,
+  marketId: PropTypes.string.isRequired,
+  seasonId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  isWinnerPrediction: PropTypes.bool,
+};
+
+InfoRow.propTypes = {
+  label: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+};
 
 export default InfoFiMarketDetail;
