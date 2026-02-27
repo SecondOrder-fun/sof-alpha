@@ -8,6 +8,9 @@ import "../core/RaffleStorage.sol";
  * @notice Contains internal helper functions for the Raffle contract to reduce its size.
  */
 library RaffleLogic {
+    /// @notice Maximum retry attempts for hash-and-extend deduplication per winner slot
+    uint256 internal constant MAX_RETRIES = 20;
+
     function _selectWinnersAddressBased(
         RaffleStorage.SeasonState storage state,
         uint16 winnerCount,
@@ -24,17 +27,39 @@ library RaffleLogic {
             return singleWinner;
         }
 
-        address[] memory temp = new address[](winnerCount);
-        bool[] memory picked = new bool[](state.participants.length);
+        // Build cumulative ticket prefix sums for binary search
+        uint256 pLen = state.participants.length;
+        uint256[] memory prefixSums = new uint256[](pLen);
+        uint256 cumulative = 0;
+        for (uint256 i = 0; i < pLen; i++) {
+            cumulative += state.participantPositions[state.participants[i]].ticketCount;
+            prefixSums[i] = cumulative;
+        }
+
+        // Cannot select more unique winners than there are participants
+        uint256 maxWinners = winnerCount > pLen ? pLen : winnerCount;
+
+        address[] memory temp = new address[](maxWinners);
+        bool[] memory picked = new bool[](pLen);
         uint256 selected = 0;
 
-        for (uint256 i = 0; i < winnerCount && selected < winnerCount; i++) {
-            uint256 ticketNumber = (randomWords[i % randomWords.length] % state.totalTickets) + 1;
-            (uint256 idx, address addr) = _findParticipantByTicket(state, ticketNumber);
-            if (addr != address(0) && !picked[idx]) {
-                temp[selected] = addr;
-                picked[idx] = true;
-                selected++;
+        for (uint256 i = 0; i < maxWinners; i++) {
+            uint256 rand = randomWords[i % randomWords.length];
+            // Hash-and-extend: if the initial word collides with an already-picked
+            // participant, derive a new pseudo-random value and retry
+            uint256 nonce = 0;
+            for (uint256 r = 0; r <= MAX_RETRIES; r++) {
+                uint256 ticketNumber = (rand % state.totalTickets) + 1;
+                uint256 idx = _findParticipantByTicketBinarySearch(prefixSums, ticketNumber);
+                if (idx < pLen && !picked[idx]) {
+                    temp[selected] = state.participants[idx];
+                    picked[idx] = true;
+                    selected++;
+                    break;
+                }
+                // Derive a new random value from the original word + nonce
+                nonce++;
+                rand = uint256(keccak256(abi.encode(randomWords[i % randomWords.length], nonce)));
             }
         }
 
@@ -45,22 +70,29 @@ library RaffleLogic {
         return winners;
     }
 
-    function _findParticipantByTicket(RaffleStorage.SeasonState storage state, uint256 ticketNumber)
+    /// @notice Binary search on cumulative prefix sums to find participant index for a ticket number
+    /// @param prefixSums Cumulative ticket counts (1-indexed ticket space)
+    /// @param ticketNumber The ticket to look up (1-based)
+    /// @return idx The index into the participants array
+    function _findParticipantByTicketBinarySearch(uint256[] memory prefixSums, uint256 ticketNumber)
         internal
-        view
-        returns (uint256 idx, address addr)
+        pure
+        returns (uint256 idx)
     {
-        uint256 cur = 1;
-        for (uint256 j = 0; j < state.participants.length; j++) {
-            address p = state.participants[j];
-            RaffleStorage.ParticipantPosition storage pos = state.participantPositions[p];
-            uint256 end = cur + pos.ticketCount;
-            if (ticketNumber >= cur && ticketNumber < end) {
-                return (j, p);
+        // ticketNumber is 1-based; prefixSums[i] = cumulative tickets through participant i
+        // Participant i owns tickets (prefixSums[i-1]+1 .. prefixSums[i])
+        // We need the smallest i where prefixSums[i] >= ticketNumber
+        uint256 lo = 0;
+        uint256 hi = prefixSums.length;
+        while (lo < hi) {
+            uint256 mid = (lo + hi) / 2;
+            if (prefixSums[mid] < ticketNumber) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
             }
-            cur = end;
         }
-        return (type(uint256).max, address(0));
+        return lo;
     }
 
     function _toString(uint256 value) internal pure returns (string memory) {

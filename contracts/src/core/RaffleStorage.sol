@@ -20,7 +20,8 @@ abstract contract RaffleStorage {
         EndRequested,
         VRFPending,
         Distributing,
-        Completed
+        Completed,
+        Cancelled
     }
 
     struct ParticipantPosition {
@@ -37,6 +38,7 @@ abstract contract RaffleStorage {
         uint256 totalPrizePool;
         address[] winners;
         uint256 vrfRequestId;
+        uint256 vrfRequestTimestamp;
         uint256[] vrfRandomWords;
         mapping(address => ParticipantPosition) participantPositions;
         address[] participants;
@@ -76,6 +78,9 @@ abstract contract RaffleStorage {
     event AutoFinalizeAttempted(uint256 indexed seasonId, bool success);
     event AutoFinalizeFailed(uint256 indexed seasonId, string reason);
     event AutoFinalizeFailedLowLevel(uint256 indexed seasonId, bytes data);
+
+    // Season cancellation events
+    event SeasonCancelled(uint256 indexed seasonId);
 
     // Gating events
     event GatingContractUpdated(address indexed oldContract, address indexed newContract);

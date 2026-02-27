@@ -48,7 +48,10 @@ contract RaffleHarness is Raffle {
     function testRequestSeasonEnd(uint256 seasonId, uint256 requestId) external {
         // simulate requestSeasonEnd: lock trading and set VRFPending + request mapping
         SOFBondingCurve(seasons[seasonId].bondingCurve).lockTrading();
+        seasonStates[seasonId].totalPrizePool = SOFBondingCurve(seasons[seasonId].bondingCurve).getSofReserves();
+        seasons[seasonId].isActive = false;
         seasonStates[seasonId].status = SeasonStatus.VRFPending;
+        seasonStates[seasonId].vrfRequestTimestamp = block.timestamp;
         vrfRequestToSeason[requestId] = seasonId;
     }
 
@@ -538,7 +541,124 @@ contract RaffleVRFTest is Test {
         assertEq(balAfter - balBefore, prizePool, "Player should receive the full prize pool");
     }
 
+    // ============================================================================
+    // CANCEL STUCK SEASON TESTS (C-2 FIX)
+    // ============================================================================
+
+    function testCancelStuckSeason_Success() public {
+        (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        // Player buys tickets
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(10, 20 ether);
+        vm.stopPrank();
+
+        // Simulate VRF pending (season end requested)
+        uint256 reqId = 900;
+        raffle.testRequestSeasonEnd(seasonId, reqId);
+
+        // Warp past VRF timeout (48 hours)
+        vm.warp(block.timestamp + 48 hours + 1);
+
+        // Cancel stuck season
+        raffle.cancelStuckSeason(seasonId);
+
+        // Verify season is Cancelled
+        (,RaffleStorage.SeasonStatus status,,,) = raffle.getSeasonDetails(seasonId);
+        assertEq(uint8(status), uint8(RaffleStorage.SeasonStatus.Cancelled));
+
+        // Verify player can sell tokens (curve in sell-only mode)
+        uint256 balBefore = sof.balanceOf(player1);
+        vm.startPrank(player1);
+        curve.sellTokens(10, 0);
+        vm.stopPrank();
+        uint256 balAfter = sof.balanceOf(player1);
+        assertGt(balAfter, balBefore, "Player should receive SOF from selling");
+    }
+
+    function testCancelStuckSeason_RevertBeforeTimeout() public {
+        (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
+
+        uint256 reqId = 901;
+        raffle.testRequestSeasonEnd(seasonId, reqId);
+
+        // Try to cancel before timeout — should revert
+        vm.warp(block.timestamp + 24 hours); // only 24h, not 48h
+        vm.expectRevert();
+        raffle.cancelStuckSeason(seasonId);
+    }
+
+    function testCancelStuckSeason_RevertIfNotVRFPending() public {
+        (uint256 seasonId,) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        // Season is Active, not VRFPending
+        vm.expectRevert();
+        raffle.cancelStuckSeason(seasonId);
+    }
+
+    function testCancelStuckSeason_BuyBlockedAfterCancel() public {
+        (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
+
+        uint256 reqId = 902;
+        raffle.testRequestSeasonEnd(seasonId, reqId);
+        vm.warp(block.timestamp + 48 hours + 1);
+        raffle.cancelStuckSeason(seasonId);
+
+        // Buying should be blocked (sell-only mode)
+        vm.startPrank(player2);
+        sof.approve(address(curve), type(uint256).max);
+        vm.expectRevert();
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
+    }
+
+    function testCancelStuckSeason_LateVRFIgnored() public {
+        (uint256 seasonId, SOFBondingCurve curve) = _createSeason();
+        vm.warp(block.timestamp + 1);
+        raffle.startSeason(seasonId);
+
+        vm.startPrank(player1);
+        sof.approve(address(curve), type(uint256).max);
+        curve.buyTokens(5, 10 ether);
+        vm.stopPrank();
+
+        uint256 reqId = 903;
+        raffle.testRequestSeasonEnd(seasonId, reqId);
+        vm.warp(block.timestamp + 48 hours + 1);
+        raffle.cancelStuckSeason(seasonId);
+
+        // Late VRF arrival should be silently ignored (no revert)
+        uint256[] memory words = new uint256[](2);
+        words[0] = 111;
+        words[1] = 222;
+        raffle.testFulfill(reqId, words);
+
+        // Season should still be Cancelled, not Distributing
+        (,RaffleStorage.SeasonStatus status,,,) = raffle.getSeasonDetails(seasonId);
+        assertEq(uint8(status), uint8(RaffleStorage.SeasonStatus.Cancelled));
+    }
+
     // Event declaration for expectEmit
     event VRFFulfilled(uint256 indexed seasonId, uint256 indexed requestId);
     event AutoFinalizeAttempted(uint256 indexed seasonId, bool success);
+    event SeasonCancelled(uint256 indexed seasonId);
 }
