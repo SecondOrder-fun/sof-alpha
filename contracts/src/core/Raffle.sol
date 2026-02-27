@@ -253,6 +253,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         seasonStates[seasonId].status = SeasonStatus.EndRequested;
         emit SeasonLocked(seasonId);
 
+        // Capture audit snapshot of participant state at lock time
+        _snapshotParticipants(seasonId);
+
         // VRF v2.5 request for winner selection (numWords == winnerCount)
         uint256 requestId = COORDINATOR.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
@@ -291,6 +294,9 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         seasons[seasonId].isActive = false;
         seasonStates[seasonId].status = SeasonStatus.EndRequested;
         emit SeasonLocked(seasonId);
+
+        // Capture audit snapshot of participant state at lock time
+        _snapshotParticipants(seasonId);
 
         // VRF v2.5 request for winner selection (numWords == winnerCount)
         uint256 requestId = COORDINATOR.requestRandomWords(
@@ -452,6 +458,25 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         state.status = SeasonStatus.Completed;
         emit PrizeDistributionSetup(seasonId, prizeDistributor);
         emit SeasonCompleted(seasonId);
+    }
+
+    /// @notice Compute and store a keccak256 hash of participant addresses and ticket counts
+    /// @dev Called at season lock time to create an immutable audit trail
+    function _snapshotParticipants(uint256 seasonId) internal {
+        SeasonState storage state = seasonStates[seasonId];
+        address[] memory participants = state.participants;
+        uint256[] memory ticketCounts = new uint256[](participants.length);
+        for (uint256 i = 0; i < participants.length; i++) {
+            ticketCounts[i] = state.participantPositions[participants[i]].ticketCount;
+        }
+        bytes32 snapshotHash = keccak256(abi.encode(participants, ticketCounts));
+        state.lockSnapshot = snapshotHash;
+        emit SeasonSnapshotted(seasonId, snapshotHash);
+    }
+
+    /// @notice Get the audit snapshot hash stored at season lock time
+    function getSeasonSnapshot(uint256 seasonId) external view returns (bytes32) {
+        return seasonStates[seasonId].lockSnapshot;
     }
 
     // Called by curve

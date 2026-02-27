@@ -42,6 +42,7 @@ abstract contract RaffleStorage {
         uint256[] vrfRandomWords;
         mapping(address => ParticipantPosition) participantPositions;
         address[] participants;
+        bytes32 lockSnapshot;
     }
 
     // Storage
@@ -81,6 +82,9 @@ abstract contract RaffleStorage {
 
     // Season cancellation events
     event SeasonCancelled(uint256 indexed seasonId);
+
+    // Audit snapshot event
+    event SeasonSnapshotted(uint256 indexed seasonId, bytes32 snapshotHash);
 
     // Gating events
     event GatingContractUpdated(address indexed oldContract, address indexed newContract);
