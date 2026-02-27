@@ -20,6 +20,11 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+// Mock MobileFaucetWidget to avoid WagmiProvider dependency
+vi.mock("@/components/mobile/MobileFaucetWidget", () => ({
+  default: () => <div data-testid="mock-faucet-widget" />,
+}));
+
 // Mock ClaimCenter so this test focuses on the Farcaster/mobile tab wiring
 vi.mock("@/components/infofi/ClaimCenter", () => ({
   default: ({ address, title, description }) => (
