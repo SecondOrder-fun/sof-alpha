@@ -43,10 +43,10 @@ SecondOrder.fun is a full-stack Web3 platform that transforms cryptocurrency spe
   - Verified: Smart contracts unchanged (already correct). Frontend now queries oracle directly, properly converts BigInt types, and displays correct hybrid probability including 0% cases.
   - Architecture Change: Consistent with market discovery fix - all InfoFi data now queried directly from blockchain with no backend dependencies. See `PROBABILITY_CALCULATION_AUDIT.md`, `PROBABILITY_FIX_PLAN.md`, and `INFOFI_PROBABILITY_FIX.md` for complete analysis.
 
-- [ ] Skipped tests that need deeper fixes (Reported 2025-09-29)
-  - Symptom: Three tests temporarily skipped as they require deeper changes to the Raffle contract.
-  - Scope: `testPrizePoolCapturedFromCurveReserves` in RaffleVRF.t.sol, `test_MultiAddress_StaggeredRemovals_OrderAndReadd` in SellAllTickets.t.sol, and the entire `FullSeasonFlow.t.sol` test.
-  - Action: Implement proper prize pool capture from curve reserves, fix participant tracking in the Raffle contract, and resolve circular dependency between Raffle and SeasonFactory.
+- [x] Skipped tests that need deeper fixes (Reported 2025-09-29, partially resolved 2026-02-27)
+  - [x] `testPrizePoolCapturedFromCurveReserves` in RaffleVRF.t.sol — restored in PR #72, passing with `testFulfillAndFinalize` harness from PR #69.
+  - [ ] `test_MultiAddress_StaggeredRemovals_OrderAndReadd` in SellAllTickets.t.sol — env-gated bonding curve edge case, not VRF related. Deferred.
+  - [ ] `FullSeasonFlow.t.sol.skip` — architectural circular dep between Raffle and SeasonFactory. Deferred.
 
 Note: Backend API tests are now green locally (see Latest Progress for details).
 
@@ -126,10 +126,11 @@ Comprehensive security audit of Chainlink VRF usage in Raffle contracts. All Cri
 
 ## Discovered During Work (2026-01-27)
 
-- [ ] **Restore strict ESLint gating + clean warnings (2026-01-27)**
-  - [ ] Revert `package.json` lint script back to `eslint . --max-warnings 0`
-  - [ ] Address existing warnings (primarily `no-console`, `no-unused-vars`, and `react-hooks/exhaustive-deps`) so CI can enforce strict lint again
-  - [ ] Keep changes scoped; avoid drive-by refactors
+- [x] **Restore strict ESLint gating + clean warnings (2026-01-27, resolved 2026-02-27 PR #72)**
+  - [x] Reverted `package.json` lint script to `eslint . --max-warnings 0`
+  - [x] Fixed all 157 ESLint problems (39 errors, 118 warnings) → 0
+  - [x] Added `_` prefix ignore pattern, context file override for react-refresh, missing PropTypes
+  - [x] Removed dead imports/vars/console statements, fixed exhaustive-deps
 
 ### Desktop UI: Adopt Farcaster Component Design (Audit + Proposal + Approval Gate) (2026-01-24)
 
@@ -369,7 +370,9 @@ Comprehensive security audit of Chainlink VRF usage in Raffle contracts. All Cri
 - [x] Fix Admin Allowlist 401 (frontend): attach Bearer auth header on allowlist admin API calls.
   - [x] Added `VITE_ADMIN_BEARER_TOKEN` requirement and wired `Authorization: Bearer <token>` into `AllowlistPanel.jsx` fetch calls.
   - [x] Added Vitest coverage: `tests/components/admin/AllowlistPanel.authHeader.test.jsx`.
-  - [ ] Discovered During Work: Other admin tools still call protected endpoints without Authorization headers (e.g. RouteAccessPanel, NotificationPanel, NFT drops, backend wallet manager, manual market creation). Consolidate into a shared `fetchWithAdminAuth` helper and migrate remaining panels.
+  - [x] Discovered During Work: Other admin tools still call protected endpoints without Authorization headers. Partially resolved in PR #72: added `getAuthHeaders` to `useAccessGroups` and `useNftDrops` mutation hooks; wired `GroupsPanel` and `NftDropsPanel` through `useAdminAuth()`.
+  - [x] Added `getAuthHeaders` to all 4 fetch calls in `RouteAccessPanel.jsx` (PR #73).
+  - [ ] Remaining: NotificationPanel, backend wallet manager, manual market creation still lack auth headers.
 
 - [x] Bonding curve preview Y-axis scales per season (2026-01-25)
   - [x] Raffle list mini chart now uses Y domain `0..maxStepPrice` so initial price changes don\'t shift the chart baseline.
@@ -1837,3 +1840,10 @@ Goal: Automatically create an InfoFi prediction market for a player as soon as t
 - [ ] Phase 3: Backend Services (PaymasterService, SSEService)
 - [ ] Phase 4: Frontend Integration (useMarketEvents hook)
 - [ ] Phase 5: Testing & Deployment
+
+- [x] **Tier 2 Cleanup (PR #73, v0.13.6)**
+  - [x] Fix 2 failing tests: `RaffleList.winnerDisplay` (missing wagmi/useProfileData mocks) and `MobileClaimsTab` (missing MobileFaucetWidget mock).
+  - [x] Add auth headers to `RouteAccessPanel.jsx` — all 4 fetch calls now use `getAuthHeaders()`.
+  - [x] Rename "Warpcast" → "Farcaster client" in `AddMiniAppButton.jsx` comments.
+  - [x] Replace hardcoded hex colors with semantic classes in `OpenAppButton.jsx`.
+  - [ ] Deferred: `MeltyLines.jsx` has 11 hardcoded gradient hex values — needs dedicated theme cleanup task.
