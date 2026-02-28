@@ -322,7 +322,7 @@ export default function AllowlistPanel() {
               <Clock className="h-5 w-5 text-muted-foreground" />
               <div className="flex items-center gap-2">
                 {stats.windowOpen ? (
-                  <Badge variant="default" className="bg-green-500">
+                  <Badge variant="success">
                     Open
                   </Badge>
                 ) : (
@@ -362,12 +362,12 @@ export default function AllowlistPanel() {
               </Button>
             </div>
             {addMutation.isError && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-destructive">
                 {addMutation.error.message}
               </p>
             )}
             {addMutation.isSuccess && (
-              <p className="text-sm text-green-500">
+              <p className="text-sm text-success">
                 {addMutation.data.alreadyExists
                   ? "Already in allowlist"
                   : "Added successfully"}
@@ -388,7 +388,7 @@ export default function AllowlistPanel() {
             <div className="flex items-center gap-2">
               <Label>Window Status:</Label>
               {stats.windowOpen ? (
-                <Badge variant="default" className="bg-green-500">
+                <Badge variant="success">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Open
                 </Badge>
@@ -491,7 +491,7 @@ export default function AllowlistPanel() {
           </Button>
 
           {(retryMutation.isSuccess || importMutation.isSuccess) && (
-            <span className="text-sm text-green-500 self-center">
+            <span className="text-sm text-success self-center">
               {retryMutation.isSuccess &&
                 `Resolved: ${retryMutation.data.resolved}, Failed: ${retryMutation.data.failed}`}
               {importMutation.isSuccess &&
@@ -512,7 +512,7 @@ export default function AllowlistPanel() {
           {entriesQuery.isLoading ? (
             <p className="text-muted-foreground">Loading...</p>
           ) : entriesQuery.isError ? (
-            <p className="text-red-500">Error: {entriesQuery.error.message}</p>
+            <p className="text-destructive">Error: {entriesQuery.error.message}</p>
           ) : entries.length === 0 ? (
             <p className="text-muted-foreground">No entries found</p>
           ) : (
@@ -560,7 +560,7 @@ export default function AllowlistPanel() {
                             {truncateAddress(entry.wallet_address)}
                           </span>
                         ) : (
-                          <Badge variant="outline" className="text-yellow-600">
+                          <Badge variant="outline" className="text-warning">
                             Pending
                           </Badge>
                         )}
@@ -573,7 +573,7 @@ export default function AllowlistPanel() {
                       </TableCell>
                       <TableCell>
                         {entry.is_active ? (
-                          <Badge variant="default" className="bg-green-500">
+                          <Badge variant="success">
                             Active
                           </Badge>
                         ) : (
@@ -596,7 +596,7 @@ export default function AllowlistPanel() {
                             }}
                             disabled={removeMutation.isPending}
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </TableCell>

@@ -374,12 +374,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 if (nameError) setNameError("");
               }}
               required
-              className={nameError ? "border-red-500" : ""}
+              className={nameError ? "border-destructive" : ""}
               aria-invalid={nameError ? "true" : "false"}
               aria-describedby={nameError ? "name-error" : undefined}
             />
             {nameError && (
-              <p id="name-error" className="text-xs text-red-500">
+              <p id="name-error" className="text-xs text-destructive">
                 {nameError}
               </p>
             )}
@@ -444,12 +444,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 if (treasuryError) setTreasuryError("");
               }}
               required
-              className={treasuryError ? "border-red-500" : ""}
+              className={treasuryError ? "border-destructive" : ""}
               aria-invalid={treasuryError ? "true" : "false"}
               aria-describedby={treasuryError ? "treasury-error" : undefined}
             />
             {treasuryError && (
-              <p id="treasury-error" className="text-xs text-red-500">
+              <p id="treasury-error" className="text-xs text-destructive">
                 {treasuryError}
               </p>
             )}
@@ -505,10 +505,10 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
       {(activeSection === "all" || activeSection === "curve") && (
         <>
           {formError && (
-            <p className="text-xs text-red-500">{formError}</p>
+            <p className="text-xs text-destructive">{formError}</p>
           )}
           {startTooSoonUi && (
-            <p className="text-xs text-amber-600 mb-1">
+            <p className="text-xs text-warning mb-1">
               {t("startTimeTooSoonWarning", { seconds: AUTO_START_BUFFER_SECONDS })}
             </p>
           )}
@@ -522,13 +522,13 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           </Button>
           <TransactionModal mutation={createSeason} title={t("creatingSeasonTitle")} />
           {gatingStatus === "pending" && (
-            <p className="text-xs text-amber-600">{t("configuringGates")}</p>
+            <p className="text-xs text-warning">{t("configuringGates")}</p>
           )}
           {gatingStatus === "success" && (
-            <p className="text-xs text-green-600">{t("gatesConfigured")}</p>
+            <p className="text-xs text-success">{t("gatesConfigured")}</p>
           )}
           {gatingStatus === "error" && (
-            <p className="text-xs text-red-500">{t("gatesConfigFailed")}</p>
+            <p className="text-xs text-destructive">{t("gatesConfigFailed")}</p>
           )}
         </>
       )}

@@ -177,7 +177,7 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
   }
 
   return (
-    <Card className="mt-4 border-amber-500" data-testid="treasury-controls">
+    <Card className="mt-4 border-warning" data-testid="treasury-controls">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Wallet className="h-5 w-5" />
@@ -228,13 +228,13 @@ export function TreasuryControls({ seasonId, bondingCurveAddress }) {
           </div>
         </div>
 
-        <div className="border border-amber-200 bg-amber-50 rounded-md p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="border border-warning/20 bg-warning/10 rounded-md p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Info className="h-4 w-4" />
               Pending Treasury Fees
             </p>
-            <p className="text-xl font-semibold text-amber-700">
+            <p className="text-xl font-semibold text-warning">
               {liveAccumulatedFeesFormatted} SOF
             </p>
             <p className="text-xs text-muted-foreground">

@@ -11,14 +11,14 @@ import { Clock, PlayCircle, CheckCircle2 } from "lucide-react";
 // Section header component for grouped seasons
 const SectionHeader = ({ icon: Icon, title, count, variant }) => (
   <div className={`flex items-center gap-2 py-2 px-3 rounded-t-lg border-b ${
-    variant === "pending" ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30" :
-    variant === "started" ? "bg-blue-50 border-blue-200 dark:bg-blue-950/30" :
-    "bg-green-50 border-green-200 dark:bg-green-950/30"
+    variant === "pending" ? "bg-warning/10 border-warning/20" :
+    variant === "started" ? "bg-info/10 border-info/20" :
+    "bg-success/10 border-success/20"
   }`}>
     <Icon className={`h-5 w-5 ${
-      variant === "pending" ? "text-amber-600" :
-      variant === "started" ? "text-blue-600" :
-      "text-green-600"
+      variant === "pending" ? "text-warning" :
+      variant === "started" ? "text-info" :
+      "text-success"
     }`} />
     <span className="font-semibold">{title}</span>
     <Badge variant="secondary" className="ml-auto">{count}</Badge>
@@ -136,7 +136,7 @@ const SeasonList = ({
 
               <div className="flex flex-col gap-2">
                 {!hasCreatorRole && (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-warning">
                     {t("missingSeasonCreatorRole")}
                   </p>
                 )}
@@ -161,7 +161,7 @@ const SeasonList = ({
                 )}
 
                 {showStartStatus && startSeason?.error && (
-                  <p className="max-w-[260px] break-words text-xs text-red-600">
+                  <p className="max-w-[260px] break-words text-xs text-destructive">
                     {startSeason.error.message}
                   </p>
                 )}
@@ -198,7 +198,7 @@ const SeasonList = ({
                 )}
 
                 {lastEndSeasonId === season.id && requestSeasonEnd?.error && (
-                  <p className="max-w-[260px] break-words text-xs text-red-600">
+                  <p className="max-w-[260px] break-words text-xs text-destructive">
                     {requestSeasonEnd.error.message}
                   </p>
                 )}
@@ -214,7 +214,7 @@ const SeasonList = ({
                 {verify[season.id] && (
                   <div className="mt-2 rounded border p-2 text-xs">
                     {verify[season.id].error ? (
-                      <p className="text-red-600">{verify[season.id]?.error}</p>
+                      <p className="text-destructive">{verify[season.id]?.error}</p>
                     ) : (
                       <>
                         {(() => {
@@ -291,7 +291,7 @@ const SeasonList = ({
                           <p>
                             {t("finalizeTx")}:{" "}
                             <a
-                              className="text-blue-600 underline"
+                              className="text-info underline"
                               href={`${networkConfig.explorer}/tx/${
                                 verify[season.id].finalizeHash
                               }`}

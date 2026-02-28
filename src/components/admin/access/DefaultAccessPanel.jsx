@@ -32,15 +32,15 @@ const ACCESS_LEVEL_OPTIONS = [
 
 function accessLevelBadge(level) {
   const colors = {
-    0: "bg-gray-500",
-    1: "bg-blue-500",
-    2: "bg-green-500",
-    3: "bg-yellow-500 text-black",
-    4: "bg-red-500",
+    0: "bg-muted-foreground",
+    1: "bg-info",
+    2: "bg-success",
+    3: "bg-warning text-warning-foreground",
+    4: "bg-destructive",
   };
   const names = { 0: "PUBLIC", 1: "CONNECTED", 2: "ALLOWLIST", 3: "BETA", 4: "ADMIN" };
   return (
-    <Badge className={colors[level] || "bg-gray-500"}>
+    <Badge className={colors[level] || "bg-muted-foreground"}>
       {names[level] || `LEVEL ${level}`}
     </Badge>
   );
@@ -97,7 +97,7 @@ export default function DefaultAccessPanel({ getAuthHeaders }) {
         {defaultQuery.isLoading ? (
           <p className="text-muted-foreground">Loading...</p>
         ) : defaultQuery.isError ? (
-          <p className="text-sm text-red-500">{defaultQuery.error.message}</p>
+          <p className="text-sm text-destructive">{defaultQuery.error.message}</p>
         ) : (
           <>
             <div className="flex items-center gap-3">
@@ -141,10 +141,10 @@ export default function DefaultAccessPanel({ getAuthHeaders }) {
             </div>
 
             {setDefaultMutation.isError && (
-              <p className="text-sm text-red-500">{setDefaultMutation.error.message}</p>
+              <p className="text-sm text-destructive">{setDefaultMutation.error.message}</p>
             )}
             {setDefaultMutation.isSuccess && (
-              <p className="text-sm text-green-500">Default level updated</p>
+              <p className="text-sm text-success">Default level updated</p>
             )}
           </>
         )}

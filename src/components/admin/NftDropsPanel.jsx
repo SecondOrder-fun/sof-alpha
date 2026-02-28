@@ -310,9 +310,9 @@ function DropListItem({ drop, onSelect }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             {drop.drop_type === "mint" ? (
-              <Sparkles className="h-4 w-4 text-purple-500" />
+              <Sparkles className="h-4 w-4 text-primary" />
             ) : (
-              <Gift className="h-4 w-4 text-green-500" />
+              <Gift className="h-4 w-4 text-success" />
             )}
             <span className="font-medium">{drop.name}</span>
             {drop.is_featured && (
@@ -461,7 +461,7 @@ export function NftDropsPanel() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    <Sparkles className="h-5 w-5 text-primary" />
                     Mint Drops ({mintDrops.length})
                   </CardTitle>
                   <CardDescription>
@@ -494,7 +494,7 @@ export function NftDropsPanel() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Gift className="h-5 w-5 text-green-500" />
+                    <Gift className="h-5 w-5 text-success" />
                     Airdrop Drops ({airdropDrops.length})
                   </CardTitle>
                   <CardDescription>Free NFTs users can claim</CardDescription>

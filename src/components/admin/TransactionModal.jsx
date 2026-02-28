@@ -87,37 +87,37 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
   const getStatusDisplay = () => {
     if (mutation?.isPending && !mutation?.isConfirming) {
       return {
-        icon: <Loader2 className="h-8 w-8 animate-spin text-blue-500" />,
+        icon: <Loader2 className="h-8 w-8 animate-spin text-info" />,
         text: "Waiting for wallet confirmation...",
-        color: "text-blue-500",
+        color: "text-info",
       };
     }
     if (mutation?.isConfirming || (mutation?.hash && !mutation?.isConfirmed && !mutation?.isError)) {
       return {
-        icon: <Loader2 className="h-8 w-8 animate-spin text-amber-500" />,
+        icon: <Loader2 className="h-8 w-8 animate-spin text-warning" />,
         text: "Transaction submitted. Waiting for confirmation...",
-        color: "text-amber-500",
+        color: "text-warning",
       };
     }
     if (mutation?.isConfirmed && mutation?.receipt?.status === "success") {
       return {
-        icon: <CheckCircle2 className="h-8 w-8 text-green-500" />,
+        icon: <CheckCircle2 className="h-8 w-8 text-success" />,
         text: "Transaction confirmed!",
-        color: "text-green-500",
+        color: "text-success",
       };
     }
     if (mutation?.isConfirmed && mutation?.receipt?.status === "reverted") {
       return {
-        icon: <XCircle className="h-8 w-8 text-red-500" />,
+        icon: <XCircle className="h-8 w-8 text-destructive" />,
         text: "Transaction reverted on-chain.",
-        color: "text-red-500",
+        color: "text-destructive",
       };
     }
     if (mutation?.isError) {
       return {
-        icon: <XCircle className="h-8 w-8 text-red-500" />,
+        icon: <XCircle className="h-8 w-8 text-destructive" />,
         text: mutation?.error?.shortMessage || mutation?.error?.message || "Transaction failed",
-        color: "text-red-500",
+        color: "text-destructive",
       };
     }
     return null;
@@ -169,7 +169,7 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
                   target="_blank"
                   rel="noreferrer"
                   onClick={handleLinkClick}
-                  className="mt-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 underline"
+                  className="mt-2 inline-flex items-center gap-1 text-sm text-info hover:text-info/80 underline"
                 >
                   View on explorer
                   <ExternalLink className="h-3 w-3" />
@@ -179,7 +179,7 @@ const TransactionModal = ({ mutation, title = "Transaction Status" }) => {
           )}
 
           {showPendingWarn && (
-            <p className="text-xs text-amber-600 text-center">
+            <p className="text-xs text-warning text-center">
               Transaction pending for over 60s. Verify you are on {netCfg.name} and
               the contract address matches this network.
             </p>

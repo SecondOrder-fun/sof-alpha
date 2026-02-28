@@ -28,7 +28,7 @@ export function RaffleAdminControls({ seasonId }) {
   const displayError = localError || error?.message;
 
   return (
-    <Card className="mt-4 border-red-500" data-testid="admin-controls">
+    <Card className="mt-4 border-destructive" data-testid="admin-controls">
       <CardHeader>
         <CardTitle>Admin Controls</CardTitle>
       </CardHeader>
@@ -52,7 +52,7 @@ export function RaffleAdminControls({ seasonId }) {
           </Alert>
         )}
         {isConfirmed && (
-          <p className="text-green-600 mt-2" data-testid="season-end-confirmed">Season end has been successfully requested. VRF fulfillment is in progress.</p>
+          <p className="text-success mt-2" data-testid="season-end-confirmed">Season end has been successfully requested. VRF fulfillment is in progress.</p>
         )}
       </CardContent>
     </Card>
