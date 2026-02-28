@@ -50,10 +50,10 @@ const TransactionStatus = ({ mutation }) => {
         <p>Transaction submitted. Waiting for confirmation...</p>
       )}
       {mutation.isConfirmed && mutation.receipt?.status === "success" && (
-        <p className="text-green-500">Transaction confirmed!</p>
+        <p className="text-success">Transaction confirmed!</p>
       )}
       {mutation.isConfirmed && mutation.receipt?.status === "reverted" && (
-        <p className="text-red-500">Transaction reverted on-chain.</p>
+        <p className="text-destructive">Transaction reverted on-chain.</p>
       )}
       {mutation.hash && (
         <p className="text-xs text-muted-foreground break-all">
@@ -74,13 +74,13 @@ const TransactionStatus = ({ mutation }) => {
         </p>
       )}
       {showPendingWarn && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-warning">
           Pending for over 60s. Verify you are on {netCfg.name} and the RAFFLE
           address matches this network. Check the explorer link above.
         </p>
       )}
       {mutation.isError && (
-        <p className="text-red-500">
+        <p className="text-destructive">
           Error: {mutation.error?.shortMessage || mutation.error?.message}
         </p>
       )}

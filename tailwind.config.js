@@ -36,6 +36,18 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+        },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
@@ -52,6 +64,11 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        gradientBrand: 'hsl(var(--gradient-brand))',
+        gradientRose: 'hsl(var(--gradient-rose))',
+        gradientTaupe: 'hsl(var(--gradient-taupe))',
+        gradientBlush: 'hsl(var(--gradient-blush))',
+        gradientDusty: 'hsl(var(--gradient-dusty))',
         'pastel-rose': 'hsl(var(--pastel-rose))',
         'fabric-red': 'hsl(var(--fabric-red))',
       },

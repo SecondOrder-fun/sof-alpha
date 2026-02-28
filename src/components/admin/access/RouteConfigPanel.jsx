@@ -31,11 +31,11 @@ import RouteConfigForm from "./RouteConfigForm";
 const API_BASE = import.meta.env.VITE_API_BASE_URL + "/access";
 
 const ROUTE_LEVEL_COLORS = {
-  0: "bg-green-500",
-  1: "bg-blue-500",
-  2: "bg-yellow-500 text-black",
-  3: "bg-purple-500",
-  4: "bg-red-500",
+  0: "bg-success",
+  1: "bg-info",
+  2: "bg-warning text-warning-foreground",
+  3: "bg-primary",
+  4: "bg-destructive",
 };
 
 const ACCESS_LEVEL_OPTIONS = [
@@ -49,7 +49,7 @@ const ACCESS_LEVEL_OPTIONS = [
 function routeLevelBadge(level) {
   const names = { 0: "PUBLIC", 1: "CONNECTED", 2: "ALLOWLIST", 3: "BETA", 4: "ADMIN" };
   return (
-    <Badge className={ROUTE_LEVEL_COLORS[level] || "bg-gray-500"}>
+    <Badge className={ROUTE_LEVEL_COLORS[level] || "bg-muted-foreground"}>
       {names[level] || `LEVEL ${level}`}
     </Badge>
   );
@@ -250,7 +250,7 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
         {configsQuery.isLoading ? (
           <p className="text-muted-foreground">Loading route configs...</p>
         ) : configsQuery.isError ? (
-          <p className="text-sm text-red-500">{configsQuery.error.message}</p>
+          <p className="text-sm text-destructive">{configsQuery.error.message}</p>
         ) : configs.length === 0 ? (
           <p className="text-muted-foreground">No route configs yet</p>
         ) : (
@@ -328,7 +328,7 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
                         <Globe
                           className={`h-5 w-5 ${
                             (cfg.is_public ?? cfg.isPublic)
-                              ? "text-green-500"
+                              ? "text-success"
                               : "text-muted-foreground/40"
                           }`}
                         />
@@ -353,7 +353,7 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
                         <Lock
                           className={`h-5 w-5 ${
                             (cfg.is_disabled ?? cfg.isDisabled)
-                              ? "text-red-500"
+                              ? "text-destructive"
                               : "text-muted-foreground/40"
                           }`}
                         />
@@ -371,7 +371,7 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
                         }}
                         disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -382,13 +382,13 @@ export default function RouteConfigPanel({ getAuthHeaders }) {
         )}
 
         {deleteMutation.isError && (
-          <p className="text-sm text-red-500">{deleteMutation.error.message}</p>
+          <p className="text-sm text-destructive">{deleteMutation.error.message}</p>
         )}
         {togglePublicMutation.isError && (
-          <p className="text-sm text-red-500">{togglePublicMutation.error.message}</p>
+          <p className="text-sm text-destructive">{togglePublicMutation.error.message}</p>
         )}
         {toggleDisabledMutation.isError && (
-          <p className="text-sm text-red-500">{toggleDisabledMutation.error.message}</p>
+          <p className="text-sm text-destructive">{toggleDisabledMutation.error.message}</p>
         )}
       </CardContent>
     </Card>

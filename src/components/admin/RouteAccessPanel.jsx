@@ -113,23 +113,6 @@ export function RouteAccessPanel() {
     },
   });
 
-  // Toggle disabled state - TODO: Add UI button to use this
-  // const toggleDisabledMutation = useMutation({
-  //   mutationFn: async ({ routePattern, isDisabled }) => {
-  //     const res = await fetch(`${API_BASE}/set-disabled`, {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ routePattern, isDisabled }),
-  //     });
-  //     if (!res.ok) throw new Error('Failed to toggle disabled state');
-  //     return res.json();
-  //   },
-  //   onSuccess: () => {
-  //     queryClient.invalidateQueries({ queryKey: ['route-configs'] });
-  //     toast({ title: 'Success', description: 'Disabled state updated' });
-  //   },
-  // });
-
   // Delete route config
   const deleteConfigMutation = useMutation({
     mutationFn: async (routePattern) => {
@@ -258,7 +241,7 @@ export function RouteAccessPanel() {
                         size="sm"
                         variant="ghost"
                         onClick={() => {
-                          // TODO: Implement edit functionality
+                          // TODO(feat): Populate form with existing route data for edit mode
                           setIsCreateDialogOpen(true);
                         }}
                       >

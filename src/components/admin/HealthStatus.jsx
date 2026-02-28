@@ -9,11 +9,13 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 
 function StatusBadge({ ok }) {
+  const { t } = useTranslation("admin");
   return (
     <Badge variant={ok ? "secondary" : "destructive"}>
-      {ok ? "OK" : "DEGRADED"}
+      {ok ? t("ok") : t("degraded")}
     </Badge>
   );
 }
@@ -25,6 +27,7 @@ StatusBadge.propTypes = {
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 export default function HealthStatus() {
+  const { t } = useTranslation("admin");
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["health"],
     queryFn: async () => {
@@ -70,48 +73,48 @@ export default function HealthStatus() {
     <Card>
       <CardHeader className="flex items-center justify-between">
         <div>
-          <CardTitle>Backend Health</CardTitle>
-          <CardDescription>Supabase & RPC connectivity</CardDescription>
+          <CardTitle>{t("backendHealth")}</CardTitle>
+          <CardDescription>{t("supabaseRpc")}</CardDescription>
         </div>
         {isLoading ? (
-          <Badge variant="outline">Loading...</Badge>
+          <Badge variant="outline">{t("loading")}</Badge>
         ) : (
           <StatusBadge ok={data?.status === "OK"} />
         )}
       </CardHeader>
       <CardContent className="space-y-2">
-        {error && <p className="text-sm text-red-600">{error.message}</p>}
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
         {data && (
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Supabase:</span>
+              <span className="text-muted-foreground">{t("supabase")}</span>
               <StatusBadge ok={data.checks?.supabase?.ok} />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">RPC:</span>
+              <span className="text-muted-foreground">{t("rpc")}</span>
               <StatusBadge ok={data.checks?.rpc?.ok} />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Network:</span>
+              <span className="text-muted-foreground">{t("network")}</span>
               <Badge variant="outline">{data.checks?.network}</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">ChainId:</span>
+              <span className="text-muted-foreground">{t("chainId")}</span>
               <Badge variant="outline">
                 {data.checks?.rpc?.chainId || "n/a"}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Env SUPABASE_URL:</span>
+              <span className="text-muted-foreground">{t("envSupabaseUrl")}</span>
               <Badge
                 variant={data.env?.SUPABASE_URL ? "secondary" : "destructive"}
               >
-                {data.env?.SUPABASE_URL ? "set" : "missing"}
+                {data.env?.SUPABASE_URL ? t("set") : t("missing")}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">
-                Env RPC Local/Testnet:
+                {t("envRpcUrl")}
               </span>
               <Badge
                 variant={
@@ -121,8 +124,8 @@ export default function HealthStatus() {
                 }
               >
                 {data.env?.RPC_URL_LOCAL || data.env?.RPC_URL_TESTNET
-                  ? "set"
-                  : "missing"}
+                  ? t("set")
+                  : t("missing")}
               </Badge>
             </div>
           </div>
@@ -130,9 +133,9 @@ export default function HealthStatus() {
         <div className="text-xs text-muted-foreground mt-2">
           {data?._note ? `${data._note} · ` : ""}
           {isFetching
-            ? "Refreshing..."
+            ? t("refreshing")
             : data?.timestamp
-            ? `Updated: ${new Date(data.timestamp).toLocaleString()}`
+            ? t("updated", { time: new Date(data.timestamp).toLocaleString() })
             : ""}
         </div>
         <button
@@ -140,7 +143,7 @@ export default function HealthStatus() {
           className="mt-2 text-xs underline"
           onClick={() => refetch()}
         >
-          Refresh now
+          {t("refreshNow")}
         </button>
       </CardContent>
     </Card>

@@ -94,8 +94,8 @@ const MarketRow = ({ market }) => {
         <p className="text-sm">
           {formatVolume(market.volume24h, market.priceChange24h)}
         </p>
-        {change24h > 0 && <TrendingUp className="h-4 w-4 text-green-500" />}
-        {change24h < 0 && <TrendingDown className="h-4 w-4 text-red-500" />}
+        {change24h > 0 && <TrendingUp className="h-4 w-4 text-success" />}
+        {change24h < 0 && <TrendingDown className="h-4 w-4 text-destructive" />}
       </div>
       
       <div className="col-span-1 flex items-center">
@@ -105,7 +105,7 @@ const MarketRow = ({ market }) => {
       <div className="col-span-1 flex items-center gap-2">
         <Activity className={cn(
           "h-4 w-4",
-          market.isActive ? "text-green-500" : "text-gray-400"
+          market.isActive ? "text-success" : "text-muted-foreground"
         )} />
         <span className="text-xs">
           {market.isActive ? t('infoFiMarkets.active') : t('infoFiMarkets.settled')}

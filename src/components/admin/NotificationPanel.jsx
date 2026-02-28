@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Send, Users, RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -72,6 +73,7 @@ async function sendNotification({ fid, title, body, targetUrl, authHeaders = {} 
 function NotificationPanel() {
   const queryClient = useQueryClient();
   const { getAuthHeaders } = useAdminAuth();
+  const { t } = useTranslation("admin");
 
   // Form state
   const [title, setTitle] = useState("");
@@ -125,25 +127,25 @@ function NotificationPanel() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Notification Stats
+              {t("notifications.stats")}
             </CardTitle>
-            <CardDescription>Users with notifications enabled</CardDescription>
+            <CardDescription>{t("notifications.statsDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             {statsQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading stats...</p>
+              <p className="text-muted-foreground">{t("notifications.loadingStats")}</p>
             ) : statsQuery.error ? (
-              <p className="text-red-500">Error: {statsQuery.error.message}</p>
+              <p className="text-destructive">{t("errorLabel")}: {statsQuery.error.message}</p>
             ) : (
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Total Tokens:</span>
+                  <span className="text-muted-foreground">{t("notifications.totalTokens")}</span>
                   <Badge variant="secondary">
                     {statsQuery.data?.totalTokens || 0}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Unique Users:</span>
+                  <span className="text-muted-foreground">{t("notifications.uniqueUsers")}</span>
                   <Badge variant="secondary">
                     {statsQuery.data?.uniqueUsers || 0}
                   </Badge>
@@ -162,7 +164,7 @@ function NotificationPanel() {
                   className="w-full mt-2"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
+                  {t("notifications.refresh")}
                 </Button>
               </div>
             )}
@@ -174,16 +176,16 @@ function NotificationPanel() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
-              Send Notification
+              {t("notifications.sendNotification")}
             </CardTitle>
-            <CardDescription>Send a push notification to users</CardDescription>
+            <CardDescription>{t("notifications.sendDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{t("notifications.titleLabel")}</Label>
               <Input
                 id="title"
-                placeholder="Notification title"
+                placeholder={t("notifications.titlePlaceholder")}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={50}
@@ -191,10 +193,10 @@ function NotificationPanel() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="body">Message</Label>
+              <Label htmlFor="body">{t("notifications.messageLabel")}</Label>
               <Textarea
                 id="body"
-                placeholder="Notification message"
+                placeholder={t("notifications.messagePlaceholder")}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={200}
@@ -203,7 +205,7 @@ function NotificationPanel() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="targetUrl">Target URL</Label>
+              <Label htmlFor="targetUrl">{t("notifications.targetUrlLabel")}</Label>
               <Input
                 id="targetUrl"
                 placeholder="https://secondorder.fun"
@@ -221,16 +223,16 @@ function NotificationPanel() {
                   onChange={(e) => setSendToAll(e.target.checked)}
                   className="rounded"
                 />
-                <Label htmlFor="sendToAll">Send to all users</Label>
+                <Label htmlFor="sendToAll">{t("notifications.sendToAll")}</Label>
               </div>
 
               {!sendToAll && (
                 <div className="space-y-2">
-                  <Label htmlFor="fid">User FID</Label>
+                  <Label htmlFor="fid">{t("notifications.userFid")}</Label>
                   <Input
                     id="fid"
                     type="number"
-                    placeholder="Enter Farcaster ID"
+                    placeholder={t("notifications.fidPlaceholder")}
                     value={fid}
                     onChange={(e) => setFid(e.target.value)}
                   />
@@ -251,31 +253,31 @@ function NotificationPanel() {
               {sendMutation.isPending ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
+                  {t("notifications.sending")}
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  {sendToAll ? "Send to All Users" : "Send to User"}
+                  {sendToAll ? t("notifications.sendToAllUsers") : t("notifications.sendToUser")}
                 </>
               )}
             </Button>
 
             {sendMutation.isSuccess && (
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md">
-                <p className="text-green-500 text-sm">
-                  Notification sent successfully!
+              <div className="p-3 bg-success/10 border border-success/20 rounded-md">
+                <p className="text-success text-sm">
+                  {t("notifications.sentSuccess")}
                   {sendMutation.data?.totalTokens && (
-                    <span> ({sendMutation.data.totalTokens} tokens)</span>
+                    <span> {t("notifications.sentTokenCount", { count: sendMutation.data.totalTokens })}</span>
                   )}
                 </p>
               </div>
             )}
 
             {sendMutation.isError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md">
-                <p className="text-red-500 text-sm">
-                  Error: {sendMutation.error?.message}
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-destructive text-sm">
+                  {t("errorLabel")}: {sendMutation.error?.message}
                 </p>
               </div>
             )}
@@ -286,29 +288,29 @@ function NotificationPanel() {
       {/* Tokens List */}
       <Card>
         <CardHeader>
-          <CardTitle>Registered Tokens</CardTitle>
+          <CardTitle>{t("notifications.registeredTokens")}</CardTitle>
           <CardDescription>
-            Users who have enabled notifications (most recent first)
+            {t("notifications.registeredTokensDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {tokensQuery.isLoading ? (
-            <p className="text-muted-foreground">Loading tokens...</p>
+            <p className="text-muted-foreground">{t("notifications.loadingTokens")}</p>
           ) : tokensQuery.error ? (
-            <p className="text-red-500">Error: {tokensQuery.error.message}</p>
+            <p className="text-destructive">{t("errorLabel")}: {tokensQuery.error.message}</p>
           ) : tokensQuery.data?.tokens?.length === 0 ? (
             <p className="text-muted-foreground">
-              No notification tokens registered yet.
+              {t("notifications.noTokens")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 px-2">FID</th>
-                    <th className="text-left py-2 px-2">Client</th>
-                    <th className="text-left py-2 px-2">Status</th>
-                    <th className="text-left py-2 px-2">Created</th>
+                    <th className="text-left py-2 px-2">{t("notifications.fidColumn")}</th>
+                    <th className="text-left py-2 px-2">{t("notifications.clientColumn")}</th>
+                    <th className="text-left py-2 px-2">{t("notifications.statusColumn")}</th>
+                    <th className="text-left py-2 px-2">{t("notifications.createdColumn")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -342,11 +344,11 @@ function NotificationPanel() {
                         </td>
                         <td className="py-2 px-2">
                           {token.notifications_enabled ? (
-                            <Badge variant="default" className="bg-green-500">
-                              Enabled
+                            <Badge variant="success">
+                              {t("notifications.enabled")}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary">Disabled</Badge>
+                            <Badge variant="secondary">{t("notifications.disabled")}</Badge>
                           )}
                         </td>
                         <td className="py-2 px-2 text-muted-foreground">

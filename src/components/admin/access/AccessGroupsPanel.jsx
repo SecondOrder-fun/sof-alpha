@@ -389,7 +389,7 @@ export default function AccessGroupsPanel({ getAuthHeaders }) {
                       <p className="text-sm text-destructive">{addMemberMutation.error.message}</p>
                     )}
                     {addMemberMutation.isSuccess && (
-                      <p className="text-sm text-green-500">Member added</p>
+                      <p className="text-sm text-success">Member added</p>
                     )}
 
                     {/* Members Table */}

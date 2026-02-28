@@ -107,7 +107,7 @@ describe('CreateSeasonForm - Name Validation', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
-      expect(nameInput).toHaveClass('border-red-500');
+      expect(nameInput).toHaveClass('border-destructive');
     }, { timeout: 3000 });
   });
 

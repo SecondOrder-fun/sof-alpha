@@ -153,7 +153,7 @@ const InsertBetweenButton = ({ onClick, afterIndex }) => (
       variant="ghost"
       size="sm"
       onClick={onClick}
-      className="h-6 px-2 text-xs text-muted-foreground hover:text-blue-600 hover:bg-blue-50 gap-1"
+      className="h-6 px-2 text-xs text-muted-foreground hover:text-info hover:bg-info/10 gap-1"
       title={`Insert step between ${afterIndex + 1} and ${afterIndex + 2}`}
     >
       <PlusCircle className="h-3 w-3" />

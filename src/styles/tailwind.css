@@ -46,6 +46,21 @@
     /* Card inner background - solid in light mode */
     --card-inner-bg: hsl(var(--card));
 
+    /* Status colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    /* Decorative gradient stops (MeltyLines background) */
+    --gradient-brand: 343 66% 47%;
+    --gradient-rose: 352 70% 64%;
+    --gradient-taupe: 20 9% 63%;
+    --gradient-blush: 346 66% 91%;
+    --gradient-dusty: 0 25% 74%;
+
     --pastel-rose: 346 66% 91%; /* Pastel Rose #f9d6de */
     --fabric-red: 351 70% 60%; /* Fabric Red #e25167 */
 
@@ -92,6 +107,21 @@
 
     /* Card inner background - 75% opacity in dark mode */
     --card-inner-bg: hsl(var(--card) / 0.75);
+
+    /* Status colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    /* Decorative gradient stops (MeltyLines background) */
+    --gradient-brand: 343 66% 47%;
+    --gradient-rose: 352 70% 64%;
+    --gradient-taupe: 20 9% 63%;
+    --gradient-blush: 346 66% 91%;
+    --gradient-dusty: 0 25% 74%;
 
     --pastel-rose: 346 66% 91%; /* Pastel Rose #f9d6de — same across themes */
     --fabric-red: 351 70% 60%; /* Fabric Red #e25167 — same across themes */

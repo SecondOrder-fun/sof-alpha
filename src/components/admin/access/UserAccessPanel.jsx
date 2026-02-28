@@ -33,15 +33,15 @@ const ACCESS_LEVEL_OPTIONS = [
 
 function accessLevelBadge(level) {
   const colors = {
-    0: "bg-gray-500",
-    1: "bg-blue-500",
-    2: "bg-green-500",
-    3: "bg-yellow-500 text-black",
-    4: "bg-red-500",
+    0: "bg-muted-foreground",
+    1: "bg-info",
+    2: "bg-success",
+    3: "bg-warning text-warning-foreground",
+    4: "bg-destructive",
   };
   const names = { 0: "PUBLIC", 1: "CONNECTED", 2: "ALLOWLIST", 3: "BETA", 4: "ADMIN" };
   return (
-    <Badge className={colors[level] || "bg-gray-500"}>
+    <Badge className={colors[level] || "bg-muted-foreground"}>
       {names[level] || `LEVEL ${level}`}
     </Badge>
   );
@@ -148,7 +148,7 @@ export default function UserAccessPanel({ getAuthHeaders }) {
         </div>
 
         {lookupQuery.isError && (
-          <p className="text-sm text-red-500">{lookupQuery.error.message}</p>
+          <p className="text-sm text-destructive">{lookupQuery.error.message}</p>
         )}
 
         {userData && (
@@ -166,7 +166,7 @@ export default function UserAccessPanel({ getAuthHeaders }) {
                 <Label className="text-muted-foreground text-xs">Allowlisted</Label>
                 <p className="mt-1 text-sm">
                   {userData.isAllowlisted ? (
-                    <Badge className="bg-green-500">Yes</Badge>
+                    <Badge variant="success">Yes</Badge>
                   ) : (
                     <Badge variant="secondary">No</Badge>
                   )}
@@ -231,10 +231,10 @@ export default function UserAccessPanel({ getAuthHeaders }) {
             </div>
 
             {setAccessMutation.isError && (
-              <p className="text-sm text-red-500">{setAccessMutation.error.message}</p>
+              <p className="text-sm text-destructive">{setAccessMutation.error.message}</p>
             )}
             {setAccessMutation.isSuccess && (
-              <p className="text-sm text-green-500">Access level updated successfully</p>
+              <p className="text-sm text-success">Access level updated successfully</p>
             )}
           </div>
         )}

@@ -597,7 +597,7 @@ const GraphView = ({
           <span>Drag to adjust</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-blue-500" />
+          <div className="w-3 h-3 rounded-full border-2 border-info bg-info" />
           <span>Shift+click to select</span>
         </div>
         <div className="flex items-center gap-1">

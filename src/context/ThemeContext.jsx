@@ -63,7 +63,7 @@ export const ThemeProvider = ({ children }) => {
 
   const setTheme = (newTheme) => {
     setThemeState(newTheme);
-    // TODO: Sync to backend when user is logged in
+    // TODO(future): Sync theme preference to backend when user is authenticated
   };
 
   return (
