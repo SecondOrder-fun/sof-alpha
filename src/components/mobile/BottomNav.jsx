@@ -81,9 +81,9 @@ export const BottomNav = ({ className = "" }) => {
             return (
               <Button
                 key={tab.id}
-                variant={isActive ? "default" : "secondary"}
+                variant={isActive ? "default" : "outline"}
                 onClick={() => navigate(tab.path)}
-                className={`flex flex-col items-center justify-center gap-1 h-auto py-2 px-1 rounded-lg ${isActive ? "shadow-lg shadow-primary/30" : ""}`}
+                className={`flex flex-col items-center justify-center gap-1 h-auto py-2 px-1 rounded-lg ${isActive ? "shadow-lg shadow-primary/30" : "opacity-60"}`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium leading-tight">

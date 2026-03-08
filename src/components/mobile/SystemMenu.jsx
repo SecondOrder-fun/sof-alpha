@@ -101,7 +101,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
         {/* Menu Content */}
         <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-visible">
           {/* Account Section */}
-          <Card className="border-border bg-card">
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 {isConnected && profile ? (
@@ -159,7 +159,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
           </Card>
 
           {/* Theme Settings Section */}
-          <Card className="border-border bg-card">
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sun className="w-5 h-5 text-primary" />
@@ -186,7 +186,7 @@ const SystemMenu = ({ isOpen, onClose, profile }) => {
           </Card>
 
           {/* Language Settings Section */}
-          <Card className="border-border bg-card">
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Globe className="w-5 h-5 text-primary" />

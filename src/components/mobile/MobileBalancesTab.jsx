@@ -32,7 +32,7 @@ const MobileBalancesTab = ({
   return (
     <div className="space-y-3 mt-3">
       {/* SOF Balance Display */}
-      <Card className="border-border bg-background">
+      <Card>
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground mb-1">
             {t("account:sofBalance")}
@@ -141,7 +141,7 @@ const MobileBalancesTab = ({
         </TabsContent>
 
         <TabsContent value="nfts">
-          <Card className="border-border bg-background">
+          <Card>
             <CardHeader>
               <CardTitle>NFT Gallery</CardTitle>
             </CardHeader>
