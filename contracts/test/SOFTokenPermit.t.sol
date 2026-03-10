@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/token/SOFToken.sol";
+import "../src/token/RaffleToken.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
@@ -105,5 +106,53 @@ contract SOFTokenPermitTest is Test {
         // Replay with same signature should revert (nonce consumed)
         vm.expectRevert();
         token.permit(owner, spender, value, deadline, v, r, s);
+    }
+}
+
+contract RaffleTokenPermitTest is Test {
+    RaffleToken public token;
+    address public owner;
+    uint256 public ownerPk;
+    address public spender = address(0xBEEF);
+    address public admin = address(0xAD);
+
+    function setUp() public {
+        (owner, ownerPk) = makeAddrAndKey("owner");
+        vm.prank(admin);
+        token = new RaffleToken(
+            "SecondOrder Season 1", "SOF-1",
+            1, "Season 1",
+            block.timestamp, block.timestamp + 7 days
+        );
+        vm.startPrank(admin);
+        token.grantRole(token.MINTER_ROLE(), admin);
+        token.mint(owner, 100);
+        vm.stopPrank();
+    }
+
+    function test_permit_setsAllowance() public {
+        uint256 value = 50;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = token.nonces(owner);
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                owner, spender, value, nonce, deadline
+            )
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash)
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+
+        token.permit(owner, spender, value, deadline, v, r, s);
+
+        assertEq(token.allowance(owner, spender), value);
+        assertEq(token.nonces(owner), 1);
+    }
+
+    function test_decimals_stillZero() public view {
+        assertEq(token.decimals(), 0);
     }
 }
