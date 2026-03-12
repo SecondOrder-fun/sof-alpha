@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
  * @title SOLPToken
@@ -122,10 +123,24 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
      * @return lpTokens Amount of LP tokens minted
      */
     function addLiquidity(uint256 amount) external nonReentrant returns (uint256 lpTokens) {
+        return _addLiquidity(msg.sender, amount);
+    }
+
+    function addLiquidityWithPermit(
+        uint256 amount, uint256 deadline,
+        uint8 v, bytes32 r, bytes32 s
+    ) external nonReentrant returns (uint256 lpTokens) {
+        try IERC20Permit(address(collateralToken)).permit(
+            msg.sender, address(this), amount, deadline, v, r, s
+        ) {} catch {}
+        return _addLiquidity(msg.sender, amount);
+    }
+
+    function _addLiquidity(address provider, uint256 amount) internal returns (uint256 lpTokens) {
         require(amount > 0, "Zero amount");
 
-        // Transfer collateral from user
-        require(collateralToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        // Transfer collateral from provider
+        require(collateralToken.transferFrom(provider, address(this), amount), "Transfer failed");
 
         if (totalSupply() == 0) {
             // Initial liquidity: split 50/50
@@ -144,9 +159,9 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
             noReserve += noAdd;
         }
 
-        _mint(msg.sender, lpTokens);
+        _mint(provider, lpTokens);
 
-        emit LiquidityAdded(msg.sender, amount, lpTokens);
+        emit LiquidityAdded(provider, amount, lpTokens);
     }
 
     /**
@@ -186,6 +201,23 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
         nonReentrant
         returns (uint256 amountOut)
     {
+        return _buy(msg.sender, buyYes, amountIn, minAmountOut);
+    }
+
+    function buyWithPermit(
+        bool buyYes, uint256 amountIn, uint256 minAmountOut,
+        uint256 deadline, uint8 v, bytes32 r, bytes32 s
+    ) external nonReentrant returns (uint256 amountOut) {
+        try IERC20Permit(address(collateralToken)).permit(
+            msg.sender, address(this), amountIn, deadline, v, r, s
+        ) {} catch {}
+        return _buy(msg.sender, buyYes, amountIn, minAmountOut);
+    }
+
+    function _buy(address trader, bool buyYes, uint256 amountIn, uint256 minAmountOut)
+        internal
+        returns (uint256 amountOut)
+    {
         require(amountIn > 0, "Zero amount");
 
         uint256 outcomeIndex = buyYes ? 0 : 1;
@@ -194,8 +226,8 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
         amountOut = calcBuyAmount(buyYes, amountIn);
         require(amountOut >= minAmountOut, "Slippage exceeded");
 
-        // Take user's collateral
-        require(collateralToken.transferFrom(msg.sender, address(this), amountIn), "Transfer failed");
+        // Take trader's collateral
+        require(collateralToken.transferFrom(trader, address(this), amountIn), "Transfer failed");
 
         // Calculate fee
         uint256 fee = (amountIn * FEE_BPS) / 10000;
@@ -228,9 +260,9 @@ contract SimpleFPMM is ERC20, ReentrancyGuard {
         }
 
         // Transfer outcome tokens to buyer
-        conditionalTokens.safeTransferFrom(address(this), msg.sender, positionIds[outcomeIndex], amountOut, "");
+        conditionalTokens.safeTransferFrom(address(this), trader, positionIds[outcomeIndex], amountOut, "");
 
-        emit Trade(msg.sender, buyYes, amountIn, amountOut);
+        emit Trade(trader, buyYes, amountIn, amountOut);
     }
 
     /**
