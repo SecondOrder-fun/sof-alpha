@@ -3,24 +3,32 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./ISeasonGating.sol";
 import "./SeasonGatingStorage.sol";
 
 /// @title SeasonGating
 /// @notice Manages participation requirements (gates) for raffle seasons
 /// @dev Uses AND logic - users must pass ALL configured gates to participate
-contract SeasonGating is ISeasonGating, SeasonGatingStorage, AccessControl, ReentrancyGuard {
+contract SeasonGating is ISeasonGating, SeasonGatingStorage, AccessControl, ReentrancyGuard, EIP712 {
     // ============ Roles ============
 
     /// @notice Role for configuring gates (typically the Raffle contract)
     bytes32 public constant GATE_ADMIN_ROLE = keccak256("GATE_ADMIN_ROLE");
+
+    bytes32 private constant SEASON_ALLOWLIST_TYPEHASH = keccak256(
+        "SeasonAllowlist(uint256 seasonId,uint256 gateIndex,address participant,uint256 deadline)"
+    );
 
     // ============ Constructor ============
 
     /// @notice Initializes the SeasonGating contract
     /// @param admin Address that will have admin and gate admin roles
     /// @param _raffleContract Address of the Raffle contract (if known at deploy time)
-    constructor(address admin, address _raffleContract) {
+    constructor(address admin, address _raffleContract)
+        EIP712("SecondOrder.fun SeasonGating", "1")
+    {
         if (admin == address(0)) revert Unauthorized();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -108,6 +116,42 @@ contract SeasonGating is ISeasonGating, SeasonGatingStorage, AccessControl, Reen
         _userVerified[seasonId][msg.sender][gateIndex] = true;
 
         emit UserVerified(seasonId, gateIndex, msg.sender, GateType.PASSWORD);
+    }
+
+    /// @inheritdoc ISeasonGating
+    function verifySignature(
+        uint256 seasonId,
+        uint256 gateIndex,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override nonReentrant {
+        if (seasonId == 0) revert InvalidSeasonId();
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        GateConfig[] storage gates = _seasonGates[seasonId];
+        if (gateIndex >= gates.length) revert InvalidGateIndex();
+
+        GateConfig storage gate = gates[gateIndex];
+        if (gate.gateType != GateType.SIGNATURE) revert GateTypeMismatch();
+        if (!gate.enabled) revert GateNotEnabled();
+        if (_userVerified[seasonId][msg.sender][gateIndex]) revert AlreadyVerified();
+
+        bytes32 structHash = keccak256(abi.encode(
+            SEASON_ALLOWLIST_TYPEHASH,
+            seasonId,
+            gateIndex,
+            msg.sender,
+            deadline
+        ));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recoveredSigner = ECDSA.recover(digest, v, r, s);
+
+        if (recoveredSigner != address(uint160(uint256(gate.configHash)))) revert InvalidSignature();
+
+        _userVerified[seasonId][msg.sender][gateIndex] = true;
+        emit UserVerified(seasonId, gateIndex, msg.sender, GateType.SIGNATURE);
     }
 
     // ============ View Functions ============
