@@ -54,6 +54,20 @@ export function useCurve(bondingCurveAddress) {
   });
 
   /**
+   * @notice Buys raffle tickets using an ERC-2612 permit signature (atomic approve + buy).
+   */
+  const buyTokensWithPermitMutation = useMutation({
+    mutationFn: async ({ tokenAmount, maxSofAmount, deadline, v, r, s }) => {
+      return await writeContractAsync({
+        ...curveContractConfig,
+        functionName: 'buyTokensWithPermit',
+        args: [tokenAmount, maxSofAmount, deadline, v, r, s],
+        gas: 1500000n,
+      });
+    },
+  });
+
+  /**
    * @notice Sells raffle tickets back to the bonding curve.
    */
   const sellTokensMutation = useMutation({
@@ -69,6 +83,7 @@ export function useCurve(bondingCurveAddress) {
   return {
     approve: approveMutation,
     buyTokens: buyTokensMutation,
+    buyTokensWithPermit: buyTokensWithPermitMutation,
     sellTokens: sellTokensMutation,
   };
 }
