@@ -111,6 +111,44 @@
   },
   {
     "type": "function",
+    "name": "buyTokensWithPermit",
+    "inputs": [
+      {
+        "name": "tokenAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxSofAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "v",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "r",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "s",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "calculateBuyPrice",
     "inputs": [
       {
@@ -184,6 +222,11 @@
       },
       {
         "name": "initialized",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "sellOnly",
         "type": "bool",
         "internalType": "bool"
       }
@@ -586,6 +629,13 @@
   },
   {
     "type": "function",
+    "name": "unlockTradingSellOnly",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "unpause",
     "inputs": [],
     "outputs": [],
@@ -856,6 +906,19 @@
   },
   {
     "type": "event",
+    "name": "TradingUnlockedSellOnly",
+    "inputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -1058,6 +1121,11 @@
   {
     "type": "error",
     "name": "TradingNotLocked",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TradingSellOnly",
     "inputs": []
   }
 ]
