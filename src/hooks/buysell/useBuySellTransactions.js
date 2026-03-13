@@ -6,12 +6,13 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useAccount, useWalletClient, useChainId } from "wagmi";
-import { parseSignature } from "viem";
+import { parseSignature, encodeFunctionData } from "viem";
 import { useCurve } from "@/hooks/useCurve";
 import { useSOFToken } from "@/hooks/useSOFToken";
+import { useSmartTransactions } from "@/hooks/useSmartTransactions";
 import { getReadableContractError } from "@/utils/buysell/contractErrors";
 import { applyMaxSlippage, applyMinSlippage } from "@/utils/buysell/slippage";
-import { SOFBondingCurveAbi, SOFTokenAbi } from "@/utils/abis";
+import { SOFBondingCurveAbi, SOFTokenAbi, ERC20Abi } from "@/utils/abis";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 
@@ -36,6 +37,7 @@ export function useBuySellTransactions(
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
   const contracts = getContractAddresses(getStoredNetworkKey());
+  const { hasBatch, hasPaymaster, executeBatch, isBatchPending } = useSmartTransactions();
 
   /**
    * Execute buy transaction
@@ -50,7 +52,52 @@ export function useBuySellTransactions(
       try {
         const cap = applyMaxSlippage(maxSofAmount, slippagePct);
 
-        // Try permit-based atomic flow first
+        // Tier 1: ERC-5792 batch + paymaster (single gasless confirmation)
+        if (hasBatch) {
+          try {
+            const approveTx = {
+              to: contracts.SOF,
+              data: encodeFunctionData({
+                abi: ERC20Abi,
+                functionName: 'approve',
+                args: [bondingCurveAddress, cap],
+              }),
+            };
+            const buyTx = {
+              to: bondingCurveAddress,
+              data: encodeFunctionData({
+                abi: SOFBondingCurveAbi,
+                functionName: 'buyTokens',
+                args: [tokenAmount, cap],
+              }),
+            };
+
+            const batchId = await executeBatch([approveTx, buyTx]);
+
+            onNotify?.({
+              type: "success",
+              message: t("transactions:bought"),
+              hash: batchId || "",
+            });
+
+            onSuccess?.();
+            onComplete?.();
+            void refetchBalance?.();
+
+            return { success: true, hash: batchId || "" };
+          } catch (batchErr) {
+            if (
+              batchErr?.code === 4001 ||
+              batchErr?.name === "UserRejectedRequestError"
+            ) {
+              throw batchErr;
+            }
+            // eslint-disable-next-line no-console
+            console.warn("Batch flow failed, falling back to permit:", batchErr.message);
+          }
+        }
+
+        // Tier 2: Try permit-based atomic flow
         let hash;
         let usedPermit = false;
 
@@ -213,7 +260,7 @@ export function useBuySellTransactions(
         return { success: false, error: message };
       }
     },
-    [approve, buyTokens, buyTokensWithPermit, client, walletClient, address, chainId, contracts, bondingCurveAddress, onNotify, onSuccess, refetchBalance, t]
+    [approve, buyTokens, buyTokensWithPermit, client, walletClient, address, chainId, contracts, bondingCurveAddress, onNotify, onSuccess, refetchBalance, t, hasBatch, executeBatch]
   );
 
   /**
@@ -334,6 +381,6 @@ export function useBuySellTransactions(
   return {
     executeBuy,
     executeSell,
-    isPending: buyTokens.isPending || sellTokens.isPending,
+    isPending: buyTokens.isPending || sellTokens.isPending || isBatchPending,
   };
 }
