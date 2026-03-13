@@ -72,7 +72,7 @@ export function useBuySellTransactions(
               }),
             };
 
-            const batchId = await executeBatch([approveTx, buyTx]);
+            const batchId = await executeBatch([approveTx, buyTx], { sofAmount: cap });
 
             onNotify?.({
               type: "success",
