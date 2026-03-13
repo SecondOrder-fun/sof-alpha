@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 /**
@@ -10,7 +11,7 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
  * @notice ERC20 token representing raffle tickets for a specific season
  * @dev Allows secondary market trading, minted/burned only by bonding curve
  */
-contract RaffleToken is ERC20, ERC20Burnable, AccessControl {
+contract RaffleToken is ERC20, ERC20Burnable, ERC20Permit, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
@@ -35,7 +36,7 @@ contract RaffleToken is ERC20, ERC20Burnable, AccessControl {
         string memory _seasonName,
         uint256 _startTime,
         uint256 _endTime
-    ) ERC20(name, symbol) {
+    ) ERC20(name, symbol) ERC20Permit(name) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         seasonInfo = SeasonInfo({

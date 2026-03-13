@@ -1,5 +1,5 @@
 // src/routes/RaffleDetails.jsx
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useRaffleState } from "@/hooks/useRaffleState";
@@ -38,9 +38,10 @@ import { usePlatform } from "@/hooks/usePlatform";
 import MobileRaffleDetail from "@/components/mobile/MobileRaffleDetail";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import PasswordGateModal from "@/components/gating/PasswordGateModal";
+import SignatureGateModal from "@/components/gating/SignatureGateModal";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
-import { useSeasonGating } from "@/hooks/useSeasonGating";
+import { useSeasonGating, GateType } from "@/hooks/useSeasonGating";
 
 
 const RaffleDetails = () => {
@@ -71,8 +72,15 @@ const RaffleDetails = () => {
   const {
     isVerified: isGatingVerified,
     verifyPassword,
+    verifySignature,
+    gates,
     refetch: refetchGating,
   } = useSeasonGating(seasonIdNumber, { isGated: isSeasonGated });
+
+  const pendingGateType = useMemo(() => {
+    if (!gates || gates.length === 0) return null;
+    return Number(gates[0].gateType);
+  }, [gates]);
   const [gateModalOpen, setGateModalOpen] = useState(false);
   // Track which action to resume after password verification
   const [pendingAction, setPendingAction] = useState(null); // "buy" | "sell" | null
@@ -103,7 +111,7 @@ const RaffleDetails = () => {
   // helpers now imported from lib/curveMath
 
   // Connected wallet (needed for desktop position display guard)
-  const { isConnected } = useAccount();
+  const { isConnected, address: connectedAddress } = useAccount();
 
   // Player position via extracted hook (handles wallet reads + ERC20 fallback)
   const {
@@ -327,13 +335,25 @@ const RaffleDetails = () => {
             refreshPositionNow();
           }}
         />
-        <PasswordGateModal
-          open={gateModalOpen}
-          onOpenChange={setGateModalOpen}
-          seasonName={cfg?.name || ""}
-          onVerify={verifyPassword}
-          onVerified={handleGateVerified}
-        />
+        {pendingGateType === GateType.SIGNATURE ? (
+          <SignatureGateModal
+            open={gateModalOpen}
+            onOpenChange={setGateModalOpen}
+            seasonId={seasonIdNumber}
+            seasonName={cfg?.name || ""}
+            userAddress={connectedAddress}
+            verifySignature={verifySignature}
+            onVerified={handleGateVerified}
+          />
+        ) : (
+          <PasswordGateModal
+            open={gateModalOpen}
+            onOpenChange={setGateModalOpen}
+            seasonName={cfg?.name || ""}
+            onVerify={verifyPassword}
+            onVerified={handleGateVerified}
+          />
+        )}
       </>
     );
   }
@@ -681,13 +701,25 @@ const RaffleDetails = () => {
             </>
           );
         })()}
-      <PasswordGateModal
-        open={gateModalOpen}
-        onOpenChange={setGateModalOpen}
-        seasonName={seasonDetailsQuery?.data?.config?.name || ""}
-        onVerify={verifyPassword}
-        onVerified={handleGateVerified}
-      />
+      {pendingGateType === GateType.SIGNATURE ? (
+        <SignatureGateModal
+          open={gateModalOpen}
+          onOpenChange={setGateModalOpen}
+          seasonId={seasonIdNumber}
+          seasonName={seasonDetailsQuery?.data?.config?.name || ""}
+          userAddress={connectedAddress}
+          verifySignature={verifySignature}
+          onVerified={handleGateVerified}
+        />
+      ) : (
+        <PasswordGateModal
+          open={gateModalOpen}
+          onOpenChange={setGateModalOpen}
+          seasonName={seasonDetailsQuery?.data?.config?.name || ""}
+          onVerify={verifyPassword}
+          onVerified={handleGateVerified}
+        />
+      )}
     </div>
   );
 };

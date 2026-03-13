@@ -217,5 +217,21 @@
   "curveStandardDesc": "{{steps}}ステップ、{{tickets}}チケット、+1 SOF/ステップ",
   "curveAggressiveDesc": "{{steps}}ステップ、{{tickets}}チケット、+3 SOF/ステップ",
   "curveFlatDesc": "{{steps}}ステップ、{{tickets}}チケット、固定価格",
-  "notSponsorMobile": "シーズンを作成するにはスポンサーである必要があります。デスクトップで$SOFをステークしてください。"
+  "notSponsorMobile": "シーズンを作成するにはスポンサーである必要があります。デスクトップで$SOFをステークしてください。",
+  "confirmSeasonTitle": "Confirm Season Creation",
+  "confirmSeasonName": "Season Name",
+  "confirmStartTime": "Start Time",
+  "confirmEndTime": "End Time",
+  "confirmWinnerCount": "Number of Winners",
+  "confirmGrandPrize": "Grand Prize",
+  "confirmTreasury": "Treasury Address",
+  "confirmBondSteps": "Bond Steps",
+  "confirmBuyFee": "Buy Fee",
+  "confirmSellFee": "Sell Fee",
+  "confirmGated": "Gated",
+  "confirmGateType": "Gate Type",
+  "confirmYes": "Yes",
+  "confirmNo": "No",
+  "confirmCancelBtn": "Cancel",
+  "confirmSignBtn": "Confirm & Sign Transaction"
 }

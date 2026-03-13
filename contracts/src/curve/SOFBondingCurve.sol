@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/contracts/utils/Pausable.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IRaffleToken} from "./IRaffleToken.sol";
 import {IRaffle} from "../lib/IRaffle.sol";
 import {RaffleTypes} from "../lib/RaffleTypes.sol";
@@ -184,6 +185,24 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
      * @param maxSofAmount Maximum $SOF willing to spend (slippage protection)
      */
     function buyTokens(uint256 tokenAmount, uint256 maxSofAmount) external nonReentrant whenNotPaused {
+        _buyTokens(msg.sender, tokenAmount, maxSofAmount);
+    }
+
+    function buyTokensWithPermit(
+        uint256 tokenAmount,
+        uint256 maxSofAmount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant whenNotPaused {
+        try IERC20Permit(address(sofToken)).permit(
+            msg.sender, address(this), maxSofAmount, deadline, v, r, s
+        ) {} catch {}
+        _buyTokens(msg.sender, tokenAmount, maxSofAmount);
+    }
+
+    function _buyTokens(address buyer, uint256 tokenAmount, uint256 maxSofAmount) internal {
         if (!curveConfig.initialized) revert CurveNotInitialized();
         if (curveConfig.tradingLocked) revert TradingLocked();
         if (curveConfig.sellOnly) revert TradingSellOnly();
@@ -197,7 +216,7 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         if (totalCost > maxSofAmount) revert SlippageExceeded(totalCost, maxSofAmount);
         // Track old values prior to state mutation
         uint256 preTotal = curveConfig.totalSupply;
-        uint256 oldTickets = playerTickets[msg.sender];
+        uint256 oldTickets = playerTickets[buyer];
 
         // Do not allow supply to exceed the final bond step's cap
         if (bondSteps.length > 0) {
@@ -206,10 +225,10 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
         }
 
         // Transfer $SOF from buyer (base + fee)
-        sofToken.safeTransferFrom(msg.sender, address(this), totalCost);
+        sofToken.safeTransferFrom(buyer, address(this), totalCost);
 
         // Mint raffle tokens to buyer (assumes raffleToken has mint(address,uint256))
-        _mintRaffleTokens(msg.sender, tokenAmount);
+        _mintRaffleTokens(buyer, tokenAmount);
 
         // Update curve state (reserves track only base cost; fees accumulate separately)
         curveConfig.totalSupply += tokenAmount;
@@ -218,21 +237,21 @@ contract SOFBondingCurve is AccessControl, ReentrancyGuard, Pausable {
 
         // Update player position
         uint256 newTickets = oldTickets + tokenAmount;
-        playerTickets[msg.sender] = newTickets;
+        playerTickets[buyer] = newTickets;
 
         _updateCurrentStep();
 
-        emit TokensPurchased(msg.sender, totalCost, tokenAmount, fee);
+        emit TokensPurchased(buyer, totalCost, tokenAmount, fee);
 
         // Emit position update
         uint256 totalTickets = curveConfig.totalSupply;
         uint256 newBps = (newTickets * 10000) / (totalTickets == 0 ? 1 : totalTickets);
 
-        emit PositionUpdate(raffleSeasonId, msg.sender, oldTickets, newTickets, totalTickets, newBps);
+        emit PositionUpdate(raffleSeasonId, buyer, oldTickets, newTickets, totalTickets, newBps);
 
         // Callback to raffle for participant tracking
         if (raffle != address(0)) {
-            IRaffle(raffle).recordParticipant(raffleSeasonId, msg.sender, tokenAmount);
+            IRaffle(raffle).recordParticipant(raffleSeasonId, buyer, tokenAmount);
         }
     }
 

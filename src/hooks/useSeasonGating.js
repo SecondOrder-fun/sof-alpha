@@ -278,6 +278,83 @@ export function useSeasonGating(seasonId, options = {}) {
     ],
   );
 
+  // ── verifySignature write ──
+  const verifySignature = useCallback(
+    async (gateIndex, deadline, v, r, s) => {
+      if (!gatingAddress || sid == null) {
+        throw new Error("Gating contract or season not available");
+      }
+      if (!connectedAddress) {
+        throw new Error("Wallet not connected");
+      }
+
+      const hash = await writeContractAsync({
+        address: gatingAddress,
+        abi: SEASON_GATING_ABI,
+        functionName: "verifySignature",
+        args: [sid, BigInt(gateIndex), BigInt(deadline), v, r, s],
+      });
+
+      // Same dual-verification pattern as verifyPassword
+      if (client && hash) {
+        const receipt = await client.waitForTransactionReceipt({
+          hash,
+          confirmations: 1,
+        });
+
+        // Verify UserVerified event
+        const userVerifiedEvent = receipt.logs.find(log => {
+          if (log.address.toLowerCase() !== gatingAddress.toLowerCase()) return false;
+          if (log.topics.length !== 4) return false;
+          const eventUser = `0x${log.topics[3].slice(26)}`.toLowerCase();
+          return eventUser === connectedAddress.toLowerCase();
+        });
+
+        if (!userVerifiedEvent) {
+          throw new Error(
+            "Signature verification failed: UserVerified event not found in transaction receipt."
+          );
+        }
+
+        // Poll on-chain state
+        const POLL_INTERVAL_MS = 500;
+        const POLL_TIMEOUT_MS = 10000;
+        const startTime = Date.now();
+
+        let isVerified = false;
+        while (!isVerified) {
+          if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+            throw new Error(
+              "Signature verification timeout: event emitted but on-chain status did not update."
+            );
+          }
+          const verified = await client.readContract({
+            address: gatingAddress,
+            abi: SEASON_GATING_ABI,
+            functionName: "isUserVerified",
+            args: [sid, connectedAddress],
+          });
+          if (verified) {
+            isVerified = true;
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+      }
+
+      // Invalidate and refetch cache
+      await queryClient.invalidateQueries({
+        queryKey: ["seasonGating", netKey, "isVerified", String(seasonId), connectedAddress, gatingAddress],
+      });
+      await queryClient.refetchQueries({
+        queryKey: ["seasonGating", netKey, "isVerified", String(seasonId), connectedAddress, gatingAddress],
+      });
+
+      return hash;
+    },
+    [gatingAddress, sid, writeContractAsync, client, queryClient, netKey, seasonId, connectedAddress],
+  );
+
   const refetch = useCallback(async () => {
     await Promise.all([
       verifiedQuery.refetch(),
@@ -292,6 +369,7 @@ export function useSeasonGating(seasonId, options = {}) {
     gates: gatesQuery.data?.gates ?? [],
     isLoading: verifiedQuery.isLoading || gatesQuery.isLoading,
     verifyPassword,
+    verifySignature,
     refetch,
   };
 }

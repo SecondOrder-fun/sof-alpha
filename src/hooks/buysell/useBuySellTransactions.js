@@ -5,11 +5,15 @@
 
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useAccount, useWalletClient, useChainId } from "wagmi";
+import { parseSignature } from "viem";
 import { useCurve } from "@/hooks/useCurve";
 import { useSOFToken } from "@/hooks/useSOFToken";
 import { getReadableContractError } from "@/utils/buysell/contractErrors";
 import { applyMaxSlippage, applyMinSlippage } from "@/utils/buysell/slippage";
-import { SOFBondingCurveAbi } from "@/utils/abis";
+import { SOFBondingCurveAbi, SOFTokenAbi } from "@/utils/abis";
+import { getContractAddresses } from "@/config/contracts";
+import { getStoredNetworkKey } from "@/lib/wagmi";
 
 /**
  * Hook for executing buy/sell transactions
@@ -26,8 +30,12 @@ export function useBuySellTransactions(
   onSuccess
 ) {
   const { t } = useTranslation(["common", "transactions"]);
-  const { buyTokens, sellTokens, approve } = useCurve(bondingCurveAddress);
+  const { buyTokens, buyTokensWithPermit, sellTokens, approve } = useCurve(bondingCurveAddress);
   const { refetchBalance } = useSOFToken();
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
+  const contracts = getContractAddresses(getStoredNetworkKey());
 
   /**
    * Execute buy transaction
@@ -40,27 +48,106 @@ export function useBuySellTransactions(
   const executeBuy = useCallback(
     async ({ tokenAmount, maxSofAmount, slippagePct, onComplete }) => {
       try {
-        // Step 1: Approve maximum amount
-        const maxUint = (1n << 255n) - 1n;
-        const approvalTxHash = await approve.mutateAsync({ amount: maxUint });
+        const cap = applyMaxSlippage(maxSofAmount, slippagePct);
 
-        // Wait for approval confirmation
-        if (client && approvalTxHash) {
-          await client.waitForTransactionReceipt({
-            hash: approvalTxHash,
-            confirmations: 1,
-          });
+        // Try permit-based atomic flow first
+        let hash;
+        let usedPermit = false;
+
+        if (walletClient && address) {
+          try {
+            const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+            const tokenName = await client.readContract({
+              address: contracts.SOF,
+              abi: SOFTokenAbi,
+              functionName: "name",
+            });
+
+            const nonce = await client.readContract({
+              address: contracts.SOF,
+              abi: SOFTokenAbi,
+              functionName: "nonces",
+              args: [address],
+            });
+
+            const domain = {
+              name: tokenName,
+              version: "1",
+              chainId: BigInt(chainId),
+              verifyingContract: contracts.SOF,
+            };
+
+            const types = {
+              Permit: [
+                { name: "owner", type: "address" },
+                { name: "spender", type: "address" },
+                { name: "value", type: "uint256" },
+                { name: "nonce", type: "uint256" },
+                { name: "deadline", type: "uint256" },
+              ],
+            };
+
+            const message = {
+              owner: address,
+              spender: bondingCurveAddress,
+              value: cap,
+              nonce,
+              deadline,
+            };
+
+            const signature = await walletClient.signTypedData({
+              domain,
+              types,
+              primaryType: "Permit",
+              message,
+            });
+
+            const { v, r, s } = parseSignature(signature);
+
+            const tx = await buyTokensWithPermit.mutateAsync({
+              tokenAmount,
+              maxSofAmount: cap,
+              deadline,
+              v: Number(v),
+              r,
+              s,
+            });
+
+            hash = tx?.hash ?? tx ?? "";
+            usedPermit = true;
+          } catch (permitErr) {
+            // If user rejected the signature request, rethrow
+            if (
+              permitErr?.code === 4001 ||
+              permitErr?.name === "UserRejectedRequestError"
+            ) {
+              throw permitErr;
+            }
+            // Otherwise fall through to traditional approve flow
+            // eslint-disable-next-line no-console
+            console.warn("Permit flow failed, falling back to approve:", permitErr.message);
+          }
         }
 
-        // Step 2: Execute buy with slippage protection
-        const cap = applyMaxSlippage(maxSofAmount, slippagePct);
-        const tx = await buyTokens.mutateAsync({
-          tokenAmount,
-          maxSofAmount: cap,
-        });
-        const hash = tx?.hash ?? tx ?? "";
+        // Fallback: traditional approve + buy
+        if (!usedPermit) {
+          const maxUint = (1n << 255n) - 1n;
+          const approvalTxHash = await approve.mutateAsync({ amount: maxUint });
+          if (client && approvalTxHash) {
+            await client.waitForTransactionReceipt({
+              hash: approvalTxHash,
+              confirmations: 1,
+            });
+          }
+          const tx = await buyTokens.mutateAsync({
+            tokenAmount,
+            maxSofAmount: cap,
+          });
+          hash = tx?.hash ?? tx ?? "";
+        }
 
-        // Step 3: Wait for transaction confirmation
+        // Wait for transaction confirmation
         if (client && hash) {
           try {
             const receipt = await client.waitForTransactionReceipt({
@@ -82,11 +169,11 @@ export function useBuySellTransactions(
               message: t("transactions:bought"),
               hash,
             });
-            
+
             onSuccess?.();
             onComplete?.();
             void refetchBalance?.();
-            
+
             return { success: true, hash };
           } catch (waitErr) {
             const waitMsg =
@@ -94,13 +181,13 @@ export function useBuySellTransactions(
                 ? waitErr.message
                 : "Failed waiting for transaction receipt";
             onNotify?.({ type: "error", message: waitMsg, hash });
-            
+
             // Still trigger refresh after delay if wait fails
             setTimeout(() => {
               onSuccess?.();
               onComplete?.();
             }, 2000);
-            
+
             return { success: false, hash, error: waitMsg };
           }
         }
@@ -111,12 +198,12 @@ export function useBuySellTransactions(
           message: t("transactions:bought"),
           hash,
         });
-        
+
         setTimeout(() => {
           onSuccess?.();
           onComplete?.();
         }, 2000);
-        
+
         return { success: true, hash };
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -126,7 +213,7 @@ export function useBuySellTransactions(
         return { success: false, error: message };
       }
     },
-    [approve, buyTokens, client, onNotify, onSuccess, refetchBalance, t]
+    [approve, buyTokens, buyTokensWithPermit, client, walletClient, address, chainId, contracts, bondingCurveAddress, onNotify, onSuccess, refetchBalance, t]
   );
 
   /**

@@ -4,12 +4,20 @@
 import { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
+import { pad } from 'viem';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Lock, Eye, EyeOff, Trash2, Plus, ShieldCheck } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Lock, Eye, EyeOff, Trash2, Plus, ShieldCheck, Pen } from 'lucide-react';
 import { hashPassword, GateType } from '@/hooks/useSeasonGating';
 
 /**
@@ -22,29 +30,59 @@ import { hashPassword, GateType } from '@/hooks/useSeasonGating';
 const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
   const { t } = useTranslation('admin');
 
-  // Local state for password gates
-  const [passwordGates, setPasswordGates] = useState([
-    { password: '', enabled: true, showPassword: false }
+  // Local state for gates (supports PASSWORD and SIGNATURE types)
+  const [gates, setGates] = useState([
+    { gateType: GateType.PASSWORD, password: '', signerAddress: '', enabled: true, showPassword: false }
   ]);
 
+  // Helper: check if a gate has valid input based on its type
+  const isGateConfigured = useCallback((g) => {
+    if (g.gateType === GateType.PASSWORD) {
+      return g.password.trim().length > 0;
+    }
+    if (g.gateType === GateType.SIGNATURE) {
+      return /^0x[0-9a-fA-F]{40}$/.test(g.signerAddress.trim());
+    }
+    return false;
+  }, []);
+
   // Update parent when gates change
-  const updateParent = useCallback((gates) => {
+  const updateParent = useCallback((updatedGates) => {
     if (onGatesChange) {
       // Convert to contract format
-      const formattedGates = gates
-        .filter(g => g.password.trim().length > 0)
-        .map(g => ({
-          gateType: GateType.PASSWORD,
-          enabled: g.enabled,
-          configHash: hashPassword(g.password),
-        }));
+      const formattedGates = updatedGates
+        .filter(g => g.enabled && isGateConfigured(g))
+        .map(g => {
+          if (g.gateType === GateType.SIGNATURE) {
+            return {
+              gateType: GateType.SIGNATURE,
+              enabled: true,
+              configHash: pad(g.signerAddress.trim(), { size: 32 }),
+            };
+          }
+          return {
+            gateType: GateType.PASSWORD,
+            enabled: true,
+            configHash: hashPassword(g.password),
+          };
+        });
       onGatesChange(formattedGates);
     }
-  }, [onGatesChange]);
+  }, [onGatesChange, isGateConfigured]);
+
+  // Handle gate type change
+  const handleGateTypeChange = useCallback((index, newType) => {
+    setGates(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], gateType: Number(newType) };
+      updateParent(updated);
+      return updated;
+    });
+  }, [updateParent]);
 
   // Handle password change
   const handlePasswordChange = useCallback((index, value) => {
-    setPasswordGates(prev => {
+    setGates(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], password: value };
       updateParent(updated);
@@ -52,9 +90,19 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
     });
   }, [updateParent]);
 
+  // Handle signer address change
+  const handleSignerAddressChange = useCallback((index, value) => {
+    setGates(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], signerAddress: value };
+      updateParent(updated);
+      return updated;
+    });
+  }, [updateParent]);
+
   // Handle enabled toggle
   const handleEnabledChange = useCallback((index, enabled) => {
-    setPasswordGates(prev => {
+    setGates(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], enabled };
       updateParent(updated);
@@ -64,21 +112,21 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
 
   // Toggle password visibility
   const togglePasswordVisibility = useCallback((index) => {
-    setPasswordGates(prev => {
+    setGates(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], showPassword: !updated[index].showPassword };
       return updated;
     });
   }, []);
 
-  // Add new password gate
-  const addPasswordGate = useCallback(() => {
-    setPasswordGates(prev => [...prev, { password: '', enabled: true, showPassword: false }]);
+  // Add new gate
+  const addGate = useCallback(() => {
+    setGates(prev => [...prev, { gateType: GateType.PASSWORD, password: '', signerAddress: '', enabled: true, showPassword: false }]);
   }, []);
 
-  // Remove password gate
-  const removePasswordGate = useCallback((index) => {
-    setPasswordGates(prev => {
+  // Remove gate
+  const removeGate = useCallback((index) => {
+    setGates(prev => {
       if (prev.length <= 1) return prev; // Keep at least one
       const updated = prev.filter((_, i) => i !== index);
       updateParent(updated);
@@ -89,13 +137,13 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
   // Check if configuration is valid
   const isValid = useMemo(() => {
     if (!gated) return true;
-    return passwordGates.some(g => g.password.trim().length > 0 && g.enabled);
-  }, [gated, passwordGates]);
+    return gates.some(g => isGateConfigured(g) && g.enabled);
+  }, [gated, gates, isGateConfigured]);
 
   // Count of configured gates
   const configuredCount = useMemo(() => {
-    return passwordGates.filter(g => g.password.trim().length > 0 && g.enabled).length;
-  }, [passwordGates]);
+    return gates.filter(g => isGateConfigured(g) && g.enabled).length;
+  }, [gates, isGateConfigured]);
 
   return (
     <div className="space-y-4">
@@ -128,62 +176,103 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
           : t('gatingDisabledDesc')}
       </p>
 
-      {/* Password Gates Configuration */}
+      {/* Gates Configuration */}
       {gated && (
         <div className="space-y-3 border rounded-lg p-4 bg-muted/20">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              {t('passwordGates')}
+              <ShieldCheck className="h-4 w-4" />
+              {t('gatesConfiguration')}
             </Label>
             <Badge variant={isValid ? 'default' : 'destructive'} className="text-xs">
-              {isValid ? 'Valid' : 'Invalid'}
+              {isValid ? t('valid') : t('invalid')}
             </Badge>
           </div>
 
-          {/* Password Gate List */}
-          <div className="space-y-2">
-            {passwordGates.map((gate, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <div className="flex-1 relative">
-                  <Input
-                    type={gate.showPassword ? 'text' : 'password'}
-                    placeholder={`${t('password')} ${index + 1}`}
-                    value={gate.password}
-                    onChange={(e) => handlePasswordChange(index, e.target.value)}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => togglePasswordVisibility(index)}
+          {/* Gate List */}
+          <div className="space-y-3">
+            {gates.map((gate, index) => (
+              <div key={index} className="space-y-2 border rounded-md p-3 bg-background">
+                {/* Gate type selector row */}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(gate.gateType)}
+                    onValueChange={(value) => handleGateTypeChange(index, value)}
                   >
-                    {gate.showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={String(GateType.PASSWORD)}>
+                        <span className="flex items-center gap-1.5">
+                          <Lock className="h-3.5 w-3.5" />
+                          {t('gateTypePassword')}
+                        </span>
+                      </SelectItem>
+                      <SelectItem value={String(GateType.SIGNATURE)}>
+                        <span className="flex items-center gap-1.5">
+                          <Pen className="h-3.5 w-3.5" />
+                          {t('gateTypeSignature')}
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex-1" />
+
+                  <Switch
+                    checked={gate.enabled}
+                    onCheckedChange={(checked) => handleEnabledChange(index, checked)}
+                    title={gate.enabled ? t('enabled') : t('disabled')}
+                  />
+
+                  {gates.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeGate(index)}
+                      className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
 
-                <Switch
-                  checked={gate.enabled}
-                  onCheckedChange={(checked) => handleEnabledChange(index, checked)}
-                  title={gate.enabled ? 'Enabled' : 'Disabled'}
-                />
+                {/* Gate-specific input */}
+                {gate.gateType === GateType.PASSWORD && (
+                  <div className="relative">
+                    <Input
+                      type={gate.showPassword ? 'text' : 'password'}
+                      placeholder={`${t('password')} ${index + 1}`}
+                      value={gate.password}
+                      onChange={(e) => handlePasswordChange(index, e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => togglePasswordVisibility(index)}
+                    >
+                      {gate.showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                )}
 
-                {passwordGates.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removePasswordGate(index)}
-                    className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                {gate.gateType === GateType.SIGNATURE && (
+                  <Input
+                    type="text"
+                    placeholder={t('signerAddressPlaceholder')}
+                    value={gate.signerAddress}
+                    onChange={(e) => handleSignerAddressChange(index, e.target.value)}
+                    className="font-mono text-xs"
+                  />
                 )}
               </div>
             ))}
@@ -194,11 +283,11 @@ const GatingConfig = ({ gated, onGatedChange, onGatesChange }) => {
             type="button"
             variant="outline"
             size="sm"
-            onClick={addPasswordGate}
+            onClick={addGate}
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {t('addPasswordGate')}
+            {t('addGate')}
           </Button>
 
           {/* Help Text */}

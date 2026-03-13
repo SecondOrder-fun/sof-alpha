@@ -28,6 +28,7 @@ vi.mock('wagmi', () => ({
   }),
   usePublicClient: () => ({}),
   useWalletClient: () => ({ data: null }),
+  useChainId: () => 31337,
 }));
 
 // Minimal stubs for dependencies
@@ -48,6 +49,7 @@ vi.mock('@/hooks/useWallet', () => ({
 vi.mock('@/hooks/useCurve', () => ({
   useCurve: () => ({
     buyTokens: { mutateAsync: vi.fn() },
+    buyTokensWithPermit: { mutateAsync: vi.fn() },
     sellTokens: { mutateAsync: vi.fn() },
     approve: { mutateAsync: vi.fn() },
   }),

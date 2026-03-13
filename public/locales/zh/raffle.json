@@ -217,5 +217,21 @@
   "curveStandardDesc": "{{steps}}个阶梯，{{tickets}}张票，+1 SOF/阶梯",
   "curveAggressiveDesc": "{{steps}}个阶梯，{{tickets}}张票，+3 SOF/阶梯",
   "curveFlatDesc": "{{steps}}个阶梯，{{tickets}}张票，固定价格",
-  "notSponsorMobile": "您必须成为赞助商才能创建赛季。请在桌面端质押$SOF。"
+  "notSponsorMobile": "您必须成为赞助商才能创建赛季。请在桌面端质押$SOF。",
+  "confirmSeasonTitle": "Confirm Season Creation",
+  "confirmSeasonName": "Season Name",
+  "confirmStartTime": "Start Time",
+  "confirmEndTime": "End Time",
+  "confirmWinnerCount": "Number of Winners",
+  "confirmGrandPrize": "Grand Prize",
+  "confirmTreasury": "Treasury Address",
+  "confirmBondSteps": "Bond Steps",
+  "confirmBuyFee": "Buy Fee",
+  "confirmSellFee": "Sell Fee",
+  "confirmGated": "Gated",
+  "confirmGateType": "Gate Type",
+  "confirmYes": "Yes",
+  "confirmNo": "No",
+  "confirmCancelBtn": "Cancel",
+  "confirmSignBtn": "Confirm & Sign Transaction"
 }

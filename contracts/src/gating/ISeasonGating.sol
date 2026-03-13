@@ -76,6 +76,12 @@ interface ISeasonGating {
     /// @notice No gates configured for this season
     error NoGatesConfigured();
 
+    /// @notice Signature has expired
+    error SignatureExpired();
+
+    /// @notice Recovered signer does not match expected signer
+    error InvalidSignature();
+
     // ============ Admin Functions ============
 
     /// @notice Configure gates for a season (called by admin/Raffle)
@@ -127,5 +133,21 @@ interface ISeasonGating {
         uint256 seasonId,
         uint256 gateIndex,
         string calldata password
+    ) external;
+
+    /// @notice Submit EIP-712 signature to verify for SIGNATURE gate
+    /// @param seasonId The season
+    /// @param gateIndex Which gate in the array
+    /// @param deadline Signature expiration timestamp
+    /// @param v ECDSA recovery id
+    /// @param r ECDSA signature component
+    /// @param s ECDSA signature component
+    function verifySignature(
+        uint256 seasonId,
+        uint256 gateIndex,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external;
 }
