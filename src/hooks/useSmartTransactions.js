@@ -6,11 +6,11 @@ import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
 
 /**
- * SOF fee amount charged per sponsored transaction batch.
- * This fee is transferred to treasury as the first call in every ERC-5792 batch.
- * Phase 1: fixed fee. Phase 2: dynamic fee based on gas estimate * SOF/ETH rate.
+ * SOF fee rate charged per sponsored transaction batch (0.05%).
+ * Fee = sofAmount * SOF_FEE_BPS / 10_000
+ * Transferred to treasury as the first call in every ERC-5792 batch.
  */
-const SOF_GAS_FEE = 100n * 10n ** 18n; // 100 SOF per batch
+const SOF_FEE_BPS = 5n; // 0.05% (5 basis points)
 
 export function useSmartTransactions() {
   const { address } = useAccount();
@@ -40,42 +40,47 @@ export function useSmartTransactions() {
 
   /**
    * Build the SOF fee transfer call that gets prepended to every sponsored batch.
-   * Transfers SOF_GAS_FEE from user to treasury (deployer wallet for now).
+   * Fee is 0.05% of the SOF amount involved in the transaction.
+   * @param {bigint} sofAmount - SOF amount to calculate fee from
    */
-  const buildFeeCall = useCallback(() => {
+  const buildFeeCall = useCallback((sofAmount) => {
     const contracts = getContractAddresses(getStoredNetworkKey());
     const treasury = import.meta.env.VITE_TREASURY_ADDRESS || contracts.SOF_EXCHANGE;
+    const fee = (sofAmount * SOF_FEE_BPS) / 10_000n;
     return {
       to: contracts.SOF,
       data: encodeFunctionData({
         abi: ERC20Abi,
         functionName: 'transfer',
-        args: [treasury, SOF_GAS_FEE],
+        args: [treasury, fee],
       }),
     };
   }, []);
 
   /**
    * Execute a batch of calls via ERC-5792 with optional paymaster sponsorship.
-   * When paymaster is active, prepends a SOF fee transfer as the first call.
+   * When paymaster is active, prepends a SOF fee transfer (0.05% of sofAmount).
    *
    * @param {Array<{to: string, data: string, value?: bigint}>} calls - Raw calls to batch
    * @param {object} options - Additional options for sendCalls
+   * @param {bigint} [options.sofAmount] - SOF amount for fee calculation (required when paymaster is active)
    */
   const executeBatch = useCallback(async (calls, options = {}) => {
+    const { sofAmount, ...sendOptions } = options;
     const batchCapabilities = {};
     let finalCalls = calls;
 
     if (chainCaps.hasPaymaster && paymasterUrl) {
       batchCapabilities.paymasterService = { url: paymasterUrl };
-      // Prepend SOF fee transfer when gas is sponsored
-      finalCalls = [buildFeeCall(), ...calls];
+      if (sofAmount && sofAmount > 0n) {
+        finalCalls = [buildFeeCall(sofAmount), ...calls];
+      }
     }
 
     return await sendCallsAsync({
       calls: finalCalls,
       capabilities: batchCapabilities,
-      ...options,
+      ...sendOptions,
     });
   }, [chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
 
@@ -85,6 +90,6 @@ export function useSmartTransactions() {
     batchId,
     callsStatus,
     isBatchPending,
-    sofGasFee: SOF_GAS_FEE,
+    sofFeeBps: SOF_FEE_BPS,
   };
 }
