@@ -92,6 +92,24 @@ contract BondingCurvePermitTest is Test {
         assertEq(raffleToken.balanceOf(buyer), tokenAmount);
     }
 
+    function test_fullLifecycle_permitBuyThenSell() public {
+        // Buy with permit
+        uint256 tokenAmount = 10;
+        uint256 maxSof = 20e18;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(buyer, buyerPk, address(curve), maxSof, deadline);
+
+        vm.prank(buyer);
+        curve.buyTokensWithPermit(tokenAmount, maxSof, deadline, v, r, s);
+        assertEq(raffleToken.balanceOf(buyer), tokenAmount);
+
+        // Sell (no permit needed — uses burnFrom with BURNER_ROLE)
+        vm.prank(buyer);
+        curve.sellTokens(5, 0);
+        assertEq(raffleToken.balanceOf(buyer), 5);
+    }
+
     function test_buyTokens_stillWorksWithTraditionalApprove() public {
         vm.startPrank(buyer);
         sofToken.approve(address(curve), type(uint256).max);
