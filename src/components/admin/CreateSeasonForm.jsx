@@ -5,6 +5,7 @@ import { usePublicClient, useWriteContract } from "wagmi";
 import { isAddress, decodeEventLog } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon, Gift } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -47,6 +48,10 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   const [nameError, setNameError] = useState("");
   const [treasuryError, setTreasuryError] = useState("");
+
+  // Confirmation dialog
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
 
   // Bonding curve data from editor
   const [curveData, setCurveData] = useState({
@@ -350,7 +355,34 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     setFormError("");
     const buyFeeBps = 10; // 0.10%
     const sellFeeBps = 70; // 0.70%
-    createSeason.mutate({ config, bondSteps, buyFeeBps, sellFeeBps });
+
+    // Store data and show confirmation dialog instead of submitting immediately
+    setPendingSubmitData({ config, bondSteps, buyFeeBps, sellFeeBps });
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmCreate = () => {
+    if (!pendingSubmitData) return;
+    setShowConfirmation(false);
+    createSeason.mutate(pendingSubmitData);
+    setPendingSubmitData(null);
+  };
+
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setPendingSubmitData(null);
+  };
+
+  // Helper to truncate an address for display
+  const truncateAddress = (addr) => {
+    if (!addr || addr.length < 12) return addr;
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  // Helper to format epoch seconds for confirmation display
+  const formatConfirmationTime = (epochBigInt) => {
+    const d = new Date(Number(epochBigInt) * 1000);
+    return d.toLocaleString();
   };
 
   return (
@@ -532,6 +564,76 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           )}
         </>
       )}
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("confirmSeasonTitle")}</DialogTitle>
+          </DialogHeader>
+          {pendingSubmitData && (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmSeasonName")}</span>
+                <span className="font-medium">{pendingSubmitData.config.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmStartTime")}</span>
+                <span className="font-medium">{formatConfirmationTime(pendingSubmitData.config.startTime)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmEndTime")}</span>
+                <span className="font-medium">{formatConfirmationTime(pendingSubmitData.config.endTime)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmWinnerCount")}</span>
+                <span className="font-medium">{pendingSubmitData.config.winnerCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmGrandPrize")}</span>
+                <span className="font-medium">{pendingSubmitData.config.grandPrizeBps / 100}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmTreasury")}</span>
+                <span className="font-medium font-mono">{truncateAddress(pendingSubmitData.config.treasuryAddress)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmBondSteps")}</span>
+                <span className="font-medium">{pendingSubmitData.bondSteps.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmBuyFee")}</span>
+                <span className="font-medium">{pendingSubmitData.buyFeeBps / 100}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmSellFee")}</span>
+                <span className="font-medium">{pendingSubmitData.sellFeeBps / 100}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t("confirmGated")}</span>
+                <span className="font-medium">
+                  {pendingSubmitData.config.gated ? t("confirmYes") : t("confirmNo")}
+                </span>
+              </div>
+              {pendingSubmitData.config.gated && gatingGates.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("confirmGateType")}</span>
+                  <span className="font-medium">
+                    {gatingGates.map((g) => g.gateType).join(", ")}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="cancel" onClick={handleCancelConfirmation}>
+              {t("confirmCancelBtn")}
+            </Button>
+            <Button type="button" onClick={handleConfirmCreate}>
+              {t("confirmSignBtn")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 };

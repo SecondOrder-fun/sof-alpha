@@ -217,5 +217,21 @@
   "curveStandardDesc": "{{steps}} livelli, {{tickets}} ticket, +1 SOF/livello",
   "curveAggressiveDesc": "{{steps}} livelli, {{tickets}} ticket, +3 SOF/livello",
   "curveFlatDesc": "{{steps}} livelli, {{tickets}} ticket, prezzo fisso",
-  "notSponsorMobile": "Devi essere uno sponsor per creare stagioni. Fai stake di $SOF dal desktop."
+  "notSponsorMobile": "Devi essere uno sponsor per creare stagioni. Fai stake di $SOF dal desktop.",
+  "confirmSeasonTitle": "Confirm Season Creation",
+  "confirmSeasonName": "Season Name",
+  "confirmStartTime": "Start Time",
+  "confirmEndTime": "End Time",
+  "confirmWinnerCount": "Number of Winners",
+  "confirmGrandPrize": "Grand Prize",
+  "confirmTreasury": "Treasury Address",
+  "confirmBondSteps": "Bond Steps",
+  "confirmBuyFee": "Buy Fee",
+  "confirmSellFee": "Sell Fee",
+  "confirmGated": "Gated",
+  "confirmGateType": "Gate Type",
+  "confirmYes": "Yes",
+  "confirmNo": "No",
+  "confirmCancelBtn": "Cancel",
+  "confirmSignBtn": "Confirm & Sign Transaction"
 }

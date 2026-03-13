@@ -217,5 +217,21 @@
   "curveStandardDesc": "{{steps}} шагов, {{tickets}} билетов, +1 SOF/шаг",
   "curveAggressiveDesc": "{{steps}} шагов, {{tickets}} билетов, +3 SOF/шаг",
   "curveFlatDesc": "{{steps}} шагов, {{tickets}} билетов, фиксированная цена",
-  "notSponsorMobile": "Вы должны быть спонсором для создания сезонов. Застейкайте $SOF на десктопе."
+  "notSponsorMobile": "Вы должны быть спонсором для создания сезонов. Застейкайте $SOF на десктопе.",
+  "confirmSeasonTitle": "Confirm Season Creation",
+  "confirmSeasonName": "Season Name",
+  "confirmStartTime": "Start Time",
+  "confirmEndTime": "End Time",
+  "confirmWinnerCount": "Number of Winners",
+  "confirmGrandPrize": "Grand Prize",
+  "confirmTreasury": "Treasury Address",
+  "confirmBondSteps": "Bond Steps",
+  "confirmBuyFee": "Buy Fee",
+  "confirmSellFee": "Sell Fee",
+  "confirmGated": "Gated",
+  "confirmGateType": "Gate Type",
+  "confirmYes": "Yes",
+  "confirmNo": "No",
+  "confirmCancelBtn": "Cancel",
+  "confirmSignBtn": "Confirm & Sign Transaction"
 }
