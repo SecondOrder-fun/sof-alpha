@@ -20,8 +20,9 @@ import SeasonCardSkeleton from "@/components/common/skeletons/SeasonCardSkeleton
 import { useState, useCallback, useMemo } from "react";
 import BuySellSheet from "@/components/mobile/BuySellSheet";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
-import { useSeasonGating } from "@/hooks/useSeasonGating";
+import { useSeasonGating, GateType } from "@/hooks/useSeasonGating";
 import PasswordGateModal from "@/components/gating/PasswordGateModal";
+import SignatureGateModal from "@/components/gating/SignatureGateModal";
 import { useProfileData } from "@/hooks/useProfileData";
 
 const ActiveSeasonCard = ({ season, renderBadge, winnerSummary }) => {
@@ -256,9 +257,14 @@ const RaffleList = () => {
 
   // Gating hook — tracks the carousel-visible season
   const isActiveGated = Boolean(activeSeason?.config?.gated);
-  const { isVerified, verifyPassword, refetch: refetchGating } = useSeasonGating(
+  const { isVerified, verifyPassword, verifySignature, gates, refetch: refetchGating } = useSeasonGating(
     activeSeason?.id, { isGated: isActiveGated }
   );
+
+  const pendingGateType = useMemo(() => {
+    if (!gates || gates.length === 0) return null;
+    return Number(gates[0].gateType);
+  }, [gates]);
 
   const handleActiveSeasonChange = useCallback((season) => {
     setActiveSeason(season);
@@ -421,13 +427,25 @@ const RaffleList = () => {
             }}
           />
         )}
-        <PasswordGateModal
-          open={gateModalOpen}
-          onOpenChange={setGateModalOpen}
-          seasonName={selectedSeason?.config?.name || activeSeason?.config?.name}
-          onVerify={verifyPassword}
-          onVerified={handleGateVerified}
-        />
+        {pendingGateType === GateType.SIGNATURE ? (
+          <SignatureGateModal
+            open={gateModalOpen}
+            onOpenChange={setGateModalOpen}
+            seasonId={selectedSeason?.id || activeSeason?.id}
+            seasonName={selectedSeason?.config?.name || activeSeason?.config?.name}
+            userAddress={address}
+            verifySignature={verifySignature}
+            onVerified={handleGateVerified}
+          />
+        ) : (
+          <PasswordGateModal
+            open={gateModalOpen}
+            onOpenChange={setGateModalOpen}
+            seasonName={selectedSeason?.config?.name || activeSeason?.config?.name}
+            onVerify={verifyPassword}
+            onVerified={handleGateVerified}
+          />
+        )}
       </>
     );
   }
