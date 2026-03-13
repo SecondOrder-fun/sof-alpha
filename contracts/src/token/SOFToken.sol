@@ -12,6 +12,8 @@ import "openzeppelin-contracts/contracts/access/AccessControl.sol";
  *      Fee collection is handled directly by bonding curves (direct transfer to treasury)
  */
 contract SOFToken is ERC20, ERC20Permit, AccessControl {
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
     constructor(string memory name, string memory symbol, uint256 initialSupply)
         ERC20(name, symbol)
         ERC20Permit(name)
@@ -20,5 +22,14 @@ contract SOFToken is ERC20, ERC20Permit, AccessControl {
 
         // Mint initial supply to deployer
         _mint(msg.sender, initialSupply);
+    }
+
+    /**
+     * @notice Mint new tokens (restricted to MINTER_ROLE)
+     * @param to Address to mint tokens to
+     * @param amount Amount of tokens to mint
+     */
+    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
+        _mint(to, amount);
     }
 }

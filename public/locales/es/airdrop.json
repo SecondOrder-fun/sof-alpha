@@ -1,0 +1,12 @@
+{
+  "welcomeTitle": "Welcome to SecondOrder.fun!",
+  "welcomeMessage": "Claim your initial $SOF to get started",
+  "claimInitial": "Claim {{amount}} $SOF",
+  "claimDaily": "Claim {{amount}} $SOF",
+  "dailyCooldown": "Next claim in",
+  "claiming": "Claiming...",
+  "claimed": "Claimed!",
+  "claimError": "Claim failed",
+  "dismiss": "Dismiss",
+  "dailyDrip": "Daily Drip"
+}

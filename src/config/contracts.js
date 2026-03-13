@@ -16,6 +16,9 @@
  * @property {`0x${string}` | string} VRF_COORDINATOR
  * @property {`0x${string}` | string} PRIZE_DISTRIBUTOR
  * @property {`0x${string}` | string} SOF_FAUCET
+ * @property {`0x${string}` | string} SOF_EXCHANGE
+ * @property {`0x${string}` | string} SOF_AIRDROP
+ * @property {`0x${string}` | string} USDC
  */
 
 import RAFFLE_ABI_JSON from "../contracts/abis/Raffle.json";
@@ -44,6 +47,9 @@ export const CONTRACTS = {
     PRIZE_DISTRIBUTOR:
       import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_LOCAL || "",
     SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_LOCAL || "",
+    SOF_EXCHANGE: import.meta.env.VITE_SOF_EXCHANGE_ADDRESS_LOCAL || "",
+    SOF_AIRDROP: import.meta.env.VITE_SOF_AIRDROP_ADDRESS_LOCAL || "",
+    USDC: import.meta.env.VITE_USDC_ADDRESS_LOCAL || "",
   },
   TESTNET: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_TESTNET || "",
@@ -62,6 +68,9 @@ export const CONTRACTS = {
     PRIZE_DISTRIBUTOR:
       import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_TESTNET || "",
     SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_TESTNET || "",
+    SOF_EXCHANGE: import.meta.env.VITE_SOF_EXCHANGE_ADDRESS_TESTNET || "",
+    SOF_AIRDROP: import.meta.env.VITE_SOF_AIRDROP_ADDRESS_TESTNET || "",
+    USDC: import.meta.env.VITE_USDC_ADDRESS_TESTNET || "",
   },
   MAINNET: {
     RAFFLE: import.meta.env.VITE_RAFFLE_ADDRESS_MAINNET || "",
@@ -80,6 +89,9 @@ export const CONTRACTS = {
     PRIZE_DISTRIBUTOR:
       import.meta.env.VITE_PRIZE_DISTRIBUTOR_ADDRESS_MAINNET || "",
     SOF_FAUCET: import.meta.env.VITE_SOF_FAUCET_ADDRESS_MAINNET || "",
+    SOF_EXCHANGE: import.meta.env.VITE_SOF_EXCHANGE_ADDRESS_MAINNET || "",
+    SOF_AIRDROP: import.meta.env.VITE_SOF_AIRDROP_ADDRESS_MAINNET || "",
+    USDC: import.meta.env.VITE_USDC_ADDRESS_MAINNET || "",
   },
 };
 

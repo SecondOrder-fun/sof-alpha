@@ -28,5 +28,6 @@
   "connectWallet": "Connect Wallet",
   "browseRaffles": "Parcourir les loteries",
   "myRaffles": "Mes loteries",
-  "createRaffle": "Créer une loterie"
+  "createRaffle": "Créer une loterie",
+  "getSOF": "Get SOF"
 }

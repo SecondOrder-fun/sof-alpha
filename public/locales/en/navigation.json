@@ -28,5 +28,6 @@
   "connectWallet": "Connect Wallet",
   "browseRaffles": "Browse Raffles",
   "myRaffles": "My Raffles",
-  "createRaffle": "Create Raffle"
+  "createRaffle": "Create Raffle",
+  "getSOF": "Get SOF"
 }

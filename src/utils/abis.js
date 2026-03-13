@@ -67,3 +67,9 @@ import _StakingEligibilityAbi from '@/contracts/abis/StakingEligibility.json';
 
 export const HatsAbi = extractAbi(_HatsAbi);
 export const StakingEligibilityAbi = extractAbi(_StakingEligibilityAbi);
+
+// Token Exchange & Distribution
+import _SOFExchangeAbi from '@/contracts/abis/SOFExchange.json';
+import _SOFAirdropAbi from '@/contracts/abis/SOFAirdrop.json';
+export const SOFExchangeAbi = extractAbi(_SOFExchangeAbi);
+export const SOFAirdropAbi = extractAbi(_SOFAirdropAbi);

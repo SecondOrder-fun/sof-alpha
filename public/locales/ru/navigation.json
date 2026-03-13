@@ -28,5 +28,6 @@
   "connectWallet": "Connect Wallet",
   "browseRaffles": "Просмотр розыгрышей",
   "myRaffles": "Мои розыгрыши",
-  "createRaffle": "Создать розыгрыш"
+  "createRaffle": "Создать розыгрыш",
+  "getSOF": "Get SOF"
 }

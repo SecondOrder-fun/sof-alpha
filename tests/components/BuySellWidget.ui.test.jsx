@@ -29,6 +29,9 @@ vi.mock('wagmi', () => ({
   usePublicClient: () => ({}),
   useWalletClient: () => ({ data: null }),
   useChainId: () => 31337,
+  useCapabilities: () => ({ data: undefined }),
+  useSendCalls: () => ({ sendCallsAsync: vi.fn(), data: undefined, isPending: false }),
+  useCallsStatus: () => ({ data: undefined }),
 }));
 
 // Minimal stubs for dependencies

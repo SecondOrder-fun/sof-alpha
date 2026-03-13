@@ -16,6 +16,10 @@ vi.mock("react-i18next", () => ({
 // Minimal stubs for web3 + services used by BuySellSheet
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: "0x1111111111111111111111111111111111111111" }),
+  useChainId: () => 31337,
+  useCapabilities: () => ({ data: undefined }),
+  useSendCalls: () => ({ sendCallsAsync: vi.fn(), data: undefined, isPending: false }),
+  useCallsStatus: () => ({ data: undefined }),
 }));
 
 vi.mock("@/hooks/useCurve", () => ({
