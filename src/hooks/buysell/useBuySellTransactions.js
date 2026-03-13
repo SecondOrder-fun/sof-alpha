@@ -37,7 +37,7 @@ export function useBuySellTransactions(
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
   const contracts = getContractAddresses(getStoredNetworkKey());
-  const { hasBatch, hasPaymaster, executeBatch, isBatchPending } = useSmartTransactions();
+  const { hasBatch, executeBatch, isBatchPending } = useSmartTransactions();
 
   /**
    * Execute buy transaction

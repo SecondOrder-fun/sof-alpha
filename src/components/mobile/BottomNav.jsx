@@ -7,7 +7,7 @@
 import PropTypes from "prop-types";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Ticket, TrendingUp, Wallet, Trophy } from "lucide-react";
+import { Ticket, TrendingUp, Wallet, Trophy, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSafeArea } from "@/hooks/useSafeArea";
 
@@ -42,6 +42,12 @@ export const BottomNav = ({ className = "" }) => {
       icon: Trophy,
       path: "/leaderboard",
     },
+    {
+      id: "swap",
+      label: t("navigation:getSOF"),
+      icon: ArrowLeftRight,
+      path: "/swap",
+    },
   ];
 
   const getActiveTab = () => {
@@ -53,6 +59,7 @@ export const BottomNav = ({ className = "" }) => {
     if (path.startsWith("/portfolio")) return "portfolio";
     if (path.startsWith("/leaderboard") || path.startsWith("/users"))
       return "ranking";
+    if (path.startsWith("/swap")) return "swap";
     return "raffles";
   };
 
@@ -73,7 +80,7 @@ export const BottomNav = ({ className = "" }) => {
     >
       <div className="max-w-screen-sm mx-auto">
         {/* Navigation Buttons */}
-        <div className="grid grid-cols-4 gap-1.5 px-1.5 pt-3">
+        <div className="grid grid-cols-5 gap-1.5 px-1.5 pt-3">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

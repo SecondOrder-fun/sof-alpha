@@ -28,5 +28,6 @@
   "connectWallet": "ウォレット接続",
   "browseRaffles": "ラッフル一覧",
   "myRaffles": "マイラッフル",
-  "createRaffle": "ラッフル作成"
+  "createRaffle": "ラッフル作成",
+  "getSOF": "Get SOF"
 }

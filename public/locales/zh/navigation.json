@@ -28,5 +28,6 @@
   "connectWallet": "Connect Wallet",
   "browseRaffles": "浏览抽奖",
   "myRaffles": "我的抽奖",
-  "createRaffle": "创建抽奖"
+  "createRaffle": "创建抽奖",
+  "getSOF": "Get SOF"
 }

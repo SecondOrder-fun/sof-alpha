@@ -28,5 +28,6 @@
   "connectWallet": "Connect Wallet",
   "browseRaffles": "Verlosungen durchsuchen",
   "myRaffles": "Meine Verlosungen",
-  "createRaffle": "Verlosung erstellen"
+  "createRaffle": "Verlosung erstellen",
+  "getSOF": "Get SOF"
 }
