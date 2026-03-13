@@ -1,5 +1,4 @@
 // src/components/airdrop/DailyClaimButton.jsx
-import PropTypes from "prop-types";
 import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
