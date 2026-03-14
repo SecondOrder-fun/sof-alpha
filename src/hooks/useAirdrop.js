@@ -83,6 +83,13 @@ export function useAirdrop() {
     query: { enabled: Boolean(airdropAddress) },
   });
 
+  const { data: basicAmountRaw } = useReadContract({
+    address: airdropAddress,
+    abi: SOFAirdropAbi,
+    functionName: "basicAmount",
+    query: { enabled: Boolean(airdropAddress) },
+  });
+
   const { data: dailyAmountRaw } = useReadContract({
     address: airdropAddress,
     abi: SOFAirdropAbi,
@@ -186,6 +193,36 @@ export function useAirdrop() {
     [address, airdropAddress, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]
   );
 
+  // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
+
+  const claimInitialBasic = useCallback(async () => {
+    if (!address || !airdropAddress) return;
+
+    setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
+
+    try {
+      await writeContractAsync({
+        address: airdropAddress,
+        abi: SOFAirdropAbi,
+        functionName: "claimInitialBasic",
+        args: [],
+      });
+
+      setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
+
+      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+      refetchHasClaimed();
+      refetchLastDaily();
+    } catch (err) {
+      setClaimInitialState({
+        isPending: false,
+        isSuccess: false,
+        isError: true,
+        error: err.message || "Claim failed",
+      });
+    }
+  }, [address, airdropAddress, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]);
+
   // ── Write: claimDaily ────────────────────────────────────────────────────────
 
   const [claimDailyState, setClaimDailyState] = useState({
@@ -237,6 +274,10 @@ export function useAirdrop() {
     ? parseFloat(formatUnits(initialAmountRaw, 18))
     : 0;
 
+  const basicAmount = basicAmountRaw
+    ? parseFloat(formatUnits(basicAmountRaw, 18))
+    : 0;
+
   const dailyAmount = dailyAmountRaw
     ? parseFloat(formatUnits(dailyAmountRaw, 18))
     : 0;
@@ -247,6 +288,7 @@ export function useAirdrop() {
     lastDailyClaim: lastClaimTs,
     cooldown,
     initialAmount,
+    basicAmount,
     dailyAmount,
     // Derived
     canClaimDaily,
@@ -254,6 +296,7 @@ export function useAirdrop() {
     timeUntilClaim,
     // Actions
     claimInitial,
+    claimInitialBasic,
     claimInitialState,
     resetInitialState,
     claimDaily,

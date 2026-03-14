@@ -15,6 +15,7 @@ contract SOFAirdropTest is Test {
     address public user;
 
     uint256 public constant INITIAL_AMOUNT = 10_000 ether;
+    uint256 public constant BASIC_AMOUNT = 5_000 ether;
     uint256 public constant DAILY_AMOUNT = 1_000 ether;
     uint256 public constant COOLDOWN = 86400; // 1 day
     uint256 public constant FID = 12345;
@@ -22,7 +23,7 @@ contract SOFAirdropTest is Test {
     bytes32 private constant FARCASTER_ATTESTATION_TYPEHASH =
         keccak256("FarcasterAttestation(address wallet,uint256 fid,uint256 deadline)");
 
-    event InitialClaimed(address indexed user, uint256 amount);
+    event InitialClaimed(address indexed user, uint256 amount, bool farcasterVerified);
     event DailyClaimed(address indexed user, uint256 amount);
 
     function setUp() public {
@@ -38,6 +39,7 @@ contract SOFAirdropTest is Test {
             address(token),
             attestor,
             INITIAL_AMOUNT,
+            BASIC_AMOUNT,
             DAILY_AMOUNT,
             COOLDOWN
         );
@@ -80,7 +82,7 @@ contract SOFAirdropTest is Test {
 
         vm.prank(user);
         vm.expectEmit(true, false, false, true);
-        emit InitialClaimed(user, INITIAL_AMOUNT);
+        emit InitialClaimed(user, INITIAL_AMOUNT, true);
         airdrop.claimInitial(FID, deadline, v, r, s);
 
         assertTrue(airdrop.hasClaimed(user));
@@ -182,13 +184,60 @@ contract SOFAirdropTest is Test {
         airdrop.claimInitial(FID, deadline, v, r, s);
     }
 
+    function test_claimInitialBasic() public {
+        vm.prank(user);
+        vm.expectEmit(true, false, false, true);
+        emit InitialClaimed(user, BASIC_AMOUNT, false);
+        airdrop.claimInitialBasic();
+
+        assertTrue(airdrop.hasClaimed(user));
+        assertEq(token.balanceOf(user), BASIC_AMOUNT);
+    }
+
+    function test_revert_basicThenFarcaster() public {
+        // Claim basic first
+        vm.prank(user);
+        airdrop.claimInitialBasic();
+
+        // Try Farcaster claim — should revert
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(attestorKey, user, FID, deadline);
+
+        vm.prank(user);
+        vm.expectRevert(SOFAirdrop.AlreadyClaimed.selector);
+        airdrop.claimInitial(FID, deadline, v, r, s);
+    }
+
+    function test_revert_basicClaimTwice() public {
+        vm.startPrank(user);
+        airdrop.claimInitialBasic();
+
+        vm.expectRevert(SOFAirdrop.AlreadyClaimed.selector);
+        airdrop.claimInitialBasic();
+        vm.stopPrank();
+    }
+
+    function test_dailyAfterBasicClaim() public {
+        // Basic claim first
+        vm.prank(user);
+        airdrop.claimInitialBasic();
+
+        // Daily claim should work
+        vm.prank(user);
+        airdrop.claimDaily();
+
+        assertEq(token.balanceOf(user), BASIC_AMOUNT + DAILY_AMOUNT);
+    }
+
     function test_adminSetAmounts() public {
         uint256 newInitial = 20_000 ether;
+        uint256 newBasic = 8_000 ether;
         uint256 newDaily = 2_000 ether;
 
-        airdrop.setAmounts(newInitial, newDaily);
+        airdrop.setAmounts(newInitial, newBasic, newDaily);
 
         assertEq(airdrop.initialAmount(), newInitial);
+        assertEq(airdrop.basicAmount(), newBasic);
         assertEq(airdrop.dailyAmount(), newDaily);
     }
 
