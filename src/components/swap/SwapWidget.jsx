@@ -151,8 +151,9 @@ const SwapWidget = () => {
       setAmountIn('');
       setEstimatedOut('');
       refetchBalance();
-    } catch {
-      // error exposed via isError / error from the mutation
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Swap transaction error:', err);
     }
   }, [amountIn, tokenIn, tokenOut, tokens, executeSwap, refetchBalance]);
 

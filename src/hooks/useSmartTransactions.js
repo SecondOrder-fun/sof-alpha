@@ -16,7 +16,7 @@ export function useSmartTransactions() {
   const { address } = useAccount();
   const chainId = useChainId();
   const { data: capabilities } = useCapabilities({ account: address });
-  const { sendCallsAsync, data: batchId, isPending: isBatchPending } = useSendCalls();
+  const { sendCallsAsync, data: batchId } = useSendCalls();
 
   const { data: callsStatus } = useCallsStatus({
     id: batchId,
@@ -89,7 +89,6 @@ export function useSmartTransactions() {
     executeBatch,
     batchId,
     callsStatus,
-    isBatchPending,
     sofFeeBps: SOF_FEE_BPS,
   };
 }

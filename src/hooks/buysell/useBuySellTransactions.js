@@ -37,7 +37,7 @@ export function useBuySellTransactions(
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
   const contracts = getContractAddresses(getStoredNetworkKey());
-  const { hasBatch, executeBatch, isBatchPending } = useSmartTransactions();
+  const { hasBatch, executeBatch } = useSmartTransactions();
 
   /**
    * Execute buy transaction
@@ -381,6 +381,6 @@ export function useBuySellTransactions(
   return {
     executeBuy,
     executeSell,
-    isPending: buyTokens.isPending || sellTokens.isPending || isBatchPending,
+    isPending: buyTokens.isPending || sellTokens.isPending,
   };
 }
