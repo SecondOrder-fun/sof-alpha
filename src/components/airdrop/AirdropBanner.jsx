@@ -24,7 +24,9 @@ const AirdropBanner = () => {
   const {
     hasClaimed,
     initialAmount,
+    basicAmount,
     claimInitial,
+    claimInitialBasic,
     claimInitialState,
     resetInitialState,
   } = useAirdrop();
@@ -35,9 +37,14 @@ const AirdropBanner = () => {
   if (!isConnected || hasClaimed || dismissed) return null;
 
   const { isPending, isSuccess, isError, error } = claimInitialState;
+  const hasFarcaster = Boolean(fid);
 
   const handleClaim = () => {
-    claimInitial(fid ?? 0);
+    if (hasFarcaster) {
+      claimInitial(fid);
+    } else {
+      claimInitialBasic();
+    }
   };
 
   const handleDismiss = () => {
@@ -45,7 +52,9 @@ const AirdropBanner = () => {
     setDismissed(true);
   };
 
-  const formattedAmount = initialAmount.toLocaleString();
+  const formattedAmount = hasFarcaster
+    ? initialAmount.toLocaleString()
+    : basicAmount.toLocaleString();
 
   return (
     <Card className="border-primary bg-card mb-6">
@@ -68,11 +77,14 @@ const AirdropBanner = () => {
                 <Button
                   onClick={handleClaim}
                   disabled={isPending || isSuccess}
+                  variant={hasFarcaster ? "farcaster" : "default"}
                   className="w-full sm:w-auto"
                 >
                   {isPending
                     ? t("claiming")
-                    : t("claimInitial", { amount: formattedAmount })}
+                    : hasFarcaster
+                      ? t("claimInitial", { amount: formattedAmount })
+                      : t("claimBasic", { amount: formattedAmount })}
                 </Button>
 
                 {isError && error && (

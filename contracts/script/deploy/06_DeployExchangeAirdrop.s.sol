@@ -32,8 +32,11 @@ contract DeployExchangeAirdrop is Script {
     /// @dev Daily sell limit: 50,000 SOF
     uint256 constant DAILY_SELL_LIMIT = 50_000e18;
 
-    /// @dev Airdrop initial claim: 10,000 SOF
+    /// @dev Airdrop initial claim (Farcaster-verified): 10,000 SOF
     uint256 constant AIRDROP_INITIAL_AMOUNT = 10_000e18;
+
+    /// @dev Airdrop basic claim (no Farcaster): 5,000 SOF
+    uint256 constant AIRDROP_BASIC_AMOUNT = 5_000e18;
 
     /// @dev Airdrop daily drip: 1,000 SOF
     uint256 constant AIRDROP_DAILY_AMOUNT = 1_000e18;
@@ -75,6 +78,7 @@ contract DeployExchangeAirdrop is Script {
             sofTokenAddress,
             backendWallet,
             AIRDROP_INITIAL_AMOUNT,
+            AIRDROP_BASIC_AMOUNT,
             AIRDROP_DAILY_AMOUNT,
             AIRDROP_COOLDOWN
         );

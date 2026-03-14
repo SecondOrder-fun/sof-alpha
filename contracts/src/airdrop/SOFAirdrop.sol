@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../token/SOFToken.sol";
 
 /// @title SOFAirdrop
-/// @notice One-time beta airdrop + daily SOF drip with Farcaster anti-sybil verification
-/// @dev Uses EIP-712 signatures from a backend attestor to verify Farcaster FID ownership
+/// @notice One-time beta airdrop + daily SOF drip with optional Farcaster anti-sybil
+/// @dev Farcaster-verified users get full initialAmount; unverified get basicAmount
 contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
     // ============ Errors ============
 
@@ -21,7 +21,7 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     // ============ Events ============
 
-    event InitialClaimed(address indexed user, uint256 amount);
+    event InitialClaimed(address indexed user, uint256 amount, bool farcasterVerified);
     event DailyClaimed(address indexed user, uint256 amount);
 
     // ============ Constants ============
@@ -33,6 +33,7 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     SOFToken public immutable sofToken;
     uint256 public initialAmount;
+    uint256 public basicAmount;
     uint256 public dailyAmount;
     uint256 public cooldown;
     address public attestor;
@@ -44,13 +45,15 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     /// @param _sofToken Address of the SOFToken contract
     /// @param _attestor Backend signer for FID attestation
-    /// @param _initialAmount One-time claim amount
+    /// @param _initialAmount Full claim amount (Farcaster-verified)
+    /// @param _basicAmount Reduced claim amount (no Farcaster)
     /// @param _dailyAmount Daily drip amount
     /// @param _cooldown Seconds between daily claims
     constructor(
         address _sofToken,
         address _attestor,
         uint256 _initialAmount,
+        uint256 _basicAmount,
         uint256 _dailyAmount,
         uint256 _cooldown
     ) EIP712("SecondOrder.fun SOFAirdrop", "1") {
@@ -60,6 +63,7 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
         sofToken = SOFToken(_sofToken);
         attestor = _attestor;
         initialAmount = _initialAmount;
+        basicAmount = _basicAmount;
         dailyAmount = _dailyAmount;
         cooldown = _cooldown;
 
@@ -68,7 +72,7 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     // ============ Claim Functions ============
 
-    /// @notice One-time initial claim with Farcaster FID attestation
+    /// @notice One-time initial claim with Farcaster FID attestation (full amount)
     /// @param fid The Farcaster user ID
     /// @param deadline Signature expiration timestamp
     /// @param v ECDSA recovery id
@@ -95,7 +99,17 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
         hasClaimed[msg.sender] = true;
         sofToken.mint(msg.sender, initialAmount);
 
-        emit InitialClaimed(msg.sender, initialAmount);
+        emit InitialClaimed(msg.sender, initialAmount, true);
+    }
+
+    /// @notice One-time initial claim without Farcaster (reduced amount)
+    function claimInitialBasic() external nonReentrant {
+        if (hasClaimed[msg.sender]) revert AlreadyClaimed();
+
+        hasClaimed[msg.sender] = true;
+        sofToken.mint(msg.sender, basicAmount);
+
+        emit InitialClaimed(msg.sender, basicAmount, false);
     }
 
     /// @notice Daily refill claim (must have completed initial claim)
@@ -116,9 +130,10 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     // ============ Admin Functions ============
 
-    /// @notice Set initial and daily claim amounts
-    function setAmounts(uint256 _initial, uint256 _daily) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @notice Set claim amounts
+    function setAmounts(uint256 _initial, uint256 _basic, uint256 _daily) external onlyRole(DEFAULT_ADMIN_ROLE) {
         initialAmount = _initial;
+        basicAmount = _basic;
         dailyAmount = _daily;
     }
 
