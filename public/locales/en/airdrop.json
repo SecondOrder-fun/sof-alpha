@@ -9,5 +9,6 @@
   "claimed": "Claimed!",
   "claimError": "Claim failed",
   "dismiss": "Dismiss",
-  "dailyDrip": "Daily Drip"
+  "dailyDrip": "Daily Drip",
+  "connectFarcaster": "Link your Farcaster account to claim your initial $SOF"
 }

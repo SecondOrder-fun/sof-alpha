@@ -1,11 +1,12 @@
 // src/hooks/useAirdrop.js
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { SOFAirdropAbi } from "@/utils/abis";
+import FarcasterContext from "@/context/farcasterContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -45,6 +46,7 @@ function formatCountdown(remaining) {
 export function useAirdrop() {
   const { address, isConnected } = useAccount();
   const queryClient = useQueryClient();
+  const farcasterAuth = useContext(FarcasterContext);
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
   const airdropAddress = contracts.SOF_AIRDROP;
@@ -155,9 +157,10 @@ export function useAirdrop() {
 
       try {
         // Fetch EIP-712 attestation from backend
+        const authHeaders = farcasterAuth?.getAuthHeaders?.() ?? {};
         const res = await fetch(`${API_BASE}/api/airdrop/attestation`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders },
           body: JSON.stringify({ fid, address }),
         });
 
@@ -190,7 +193,7 @@ export function useAirdrop() {
         });
       }
     },
-    [address, airdropAddress, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]
+    [address, airdropAddress, farcasterAuth, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]
   );
 
   // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────

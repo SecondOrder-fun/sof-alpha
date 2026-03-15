@@ -78,11 +78,12 @@ export function useSmartTransactions() {
     }
 
     return await sendCallsAsync({
+      account: address,
       calls: finalCalls,
       capabilities: batchCapabilities,
       ...sendOptions,
     });
-  }, [chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
+  }, [address, chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
 
   return {
     ...chainCaps,

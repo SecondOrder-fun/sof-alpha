@@ -1,5 +1,5 @@
 // src/components/airdrop/AirdropBanner.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAirdrop } from "@/hooks/useAirdrop";
 import { useAppIdentity } from "@/hooks/useAppIdentity";
+import { useToast } from "@/hooks/useToast";
 
 /**
  * AirdropBanner
@@ -31,18 +32,38 @@ const AirdropBanner = () => {
     resetInitialState,
   } = useAirdrop();
 
+  const { toast } = useToast();
   const [dismissed, setDismissed] = useState(false);
+
+  const { isPending, isSuccess, isError, error } = claimInitialState;
+
+  // Show errors via toast instead of inline
+  useEffect(() => {
+    if (isError && error) {
+      toast({ title: t("claimError"), variant: "destructive" });
+      resetInitialState();
+    }
+  }, [isError, error, toast, t, resetInitialState]);
+
+  // Show success via toast
+  useEffect(() => {
+    if (isSuccess) {
+      toast({ title: t("claimed") });
+    }
+  }, [isSuccess, toast, t]);
 
   // Only render if wallet connected and user has not yet claimed
   if (!isConnected || hasClaimed || dismissed) return null;
 
-  const { isPending, isSuccess, isError, error } = claimInitialState;
   const hasFarcaster = Boolean(fid);
+
+  // If basicAmount isn't available (old contract), fall back to Farcaster-only flow
+  const hasBasicClaim = basicAmount > 0;
 
   const handleClaim = () => {
     if (hasFarcaster) {
       claimInitial(fid);
-    } else {
+    } else if (hasBasicClaim) {
       claimInitialBasic();
     }
   };
@@ -54,7 +75,7 @@ const AirdropBanner = () => {
 
   const formattedAmount = hasFarcaster
     ? initialAmount.toLocaleString()
-    : basicAmount.toLocaleString();
+    : (hasBasicClaim ? basicAmount : initialAmount).toLocaleString();
 
   return (
     <Card className="border-primary bg-card mb-6">
@@ -74,21 +95,31 @@ const AirdropBanner = () => {
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                <Button
-                  onClick={handleClaim}
-                  disabled={isPending || isSuccess}
-                  variant={hasFarcaster ? "farcaster" : "default"}
-                  className="w-full sm:w-auto"
-                >
-                  {isPending
-                    ? t("claiming")
-                    : hasFarcaster
-                      ? t("claimInitial", { amount: formattedAmount })
+                {hasFarcaster ? (
+                  <Button
+                    onClick={handleClaim}
+                    disabled={isPending}
+                    variant="farcaster"
+                    className="w-full sm:w-auto"
+                  >
+                    {isPending
+                      ? t("claiming")
+                      : t("claimInitial", { amount: formattedAmount })}
+                  </Button>
+                ) : hasBasicClaim ? (
+                  <Button
+                    onClick={handleClaim}
+                    disabled={isPending}
+                    className="w-full sm:w-auto"
+                  >
+                    {isPending
+                      ? t("claiming")
                       : t("claimBasic", { amount: formattedAmount })}
-                </Button>
-
-                {isError && error && (
-                  <p className="text-sm text-destructive">{t("claimError")}</p>
+                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t("connectFarcaster")}
+                  </p>
                 )}
               </div>
             )}
