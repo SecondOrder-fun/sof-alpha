@@ -66,11 +66,11 @@ export function useSmartTransactions() {
    * @param {bigint} [options.sofAmount] - SOF amount for fee calculation (required when paymaster is active)
    */
   const executeBatch = useCallback(async (calls, options = {}) => {
-    const { sofAmount, ...sendOptions } = options;
+    const { sofAmount, usePaymaster = false, ...sendOptions } = options;
     const batchCapabilities = {};
     let finalCalls = calls;
 
-    if (chainCaps.hasPaymaster && paymasterUrl) {
+    if (usePaymaster && chainCaps.hasPaymaster && paymasterUrl) {
       batchCapabilities.paymasterService = { url: paymasterUrl };
       if (sofAmount && sofAmount > 0n) {
         finalCalls = [buildFeeCall(sofAmount), ...calls];
