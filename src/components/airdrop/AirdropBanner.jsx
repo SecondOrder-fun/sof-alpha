@@ -41,9 +41,8 @@ const AirdropBanner = () => {
   useEffect(() => {
     if (isError && error) {
       toast({ title: t("claimError"), variant: "destructive" });
-      resetInitialState();
     }
-  }, [isError, error, toast, t, resetInitialState]);
+  }, [isError, error, toast, t]);
 
   // Show success via toast
   useEffect(() => {

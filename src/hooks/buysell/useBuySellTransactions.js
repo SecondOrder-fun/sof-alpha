@@ -121,7 +121,7 @@ export function useBuySellTransactions(
             const domain = {
               name: tokenName,
               version: "1",
-              chainId: BigInt(chainId),
+              chainId,
               verifyingContract: contracts.SOF,
             };
 
