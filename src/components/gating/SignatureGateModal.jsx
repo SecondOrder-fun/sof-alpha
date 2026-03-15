@@ -43,7 +43,7 @@ const SignatureGateModal = ({
 
       // Fetch signature from backend
       const res = await fetch(
-        `${API_BASE}/api/gating/signature/${seasonId}/${userAddress}`
+        `${API_BASE}/gating/signature/${seasonId}/${userAddress}`
       );
 
       if (res.status === 404) {

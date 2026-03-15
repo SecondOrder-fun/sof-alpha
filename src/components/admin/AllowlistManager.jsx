@@ -144,7 +144,7 @@ const AllowlistManager = ({
       // Upload to backend
       setStatus('uploading');
       const res = await fetch(
-        `${API_BASE}/api/gating/signatures/${seasonId}`,
+        `${API_BASE}/gating/signatures/${seasonId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
