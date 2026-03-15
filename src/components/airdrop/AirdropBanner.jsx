@@ -1,5 +1,5 @@
 // src/components/airdrop/AirdropBanner.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
@@ -33,23 +33,28 @@ const AirdropBanner = () => {
   } = useAirdrop();
 
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const tRef = useRef(t);
+  tRef.current = t;
+
   const [dismissed, setDismissed] = useState(false);
 
   const { isPending, isSuccess, isError, error } = claimInitialState;
 
-  // Show errors via toast instead of inline
+  // Show errors via toast — refs prevent re-render loop from unstable toast/t
   useEffect(() => {
     if (isError && error) {
-      toast({ title: t("claimError"), variant: "destructive" });
+      toastRef.current({ title: tRef.current("claimError"), variant: "destructive" });
     }
-  }, [isError, error, toast, t]);
+  }, [isError, error]);
 
   // Show success via toast
   useEffect(() => {
     if (isSuccess) {
-      toast({ title: t("claimed") });
+      toastRef.current({ title: tRef.current("claimed") });
     }
-  }, [isSuccess, toast, t]);
+  }, [isSuccess]);
 
   // Only render if wallet connected and user has not yet claimed
   if (!isConnected || hasClaimed || dismissed) return null;
