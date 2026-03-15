@@ -1,7 +1,7 @@
 // src/hooks/useSeasonBlock.js
 import { useQuery } from "@tanstack/react-query";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 /**
  * Fetch season's created_block from backend API
@@ -12,7 +12,7 @@ export function useSeasonBlock(seasonId) {
   const query = useQuery({
     queryKey: ["seasonBlock", seasonId],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/seasons/${seasonId}`);
+      const res = await fetch(`${API_BASE}/seasons/${seasonId}`);
       if (!res.ok) return null;
       const data = await res.json();
       return data?.created_block || null;

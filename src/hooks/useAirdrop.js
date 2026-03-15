@@ -158,7 +158,7 @@ export function useAirdrop() {
       try {
         // Fetch EIP-712 attestation from backend
         const authHeaders = farcasterAuth?.getAuthHeaders?.() ?? {};
-        const res = await fetch(`${API_BASE}/api/airdrop/attestation`, {
+        const res = await fetch(`${API_BASE}/airdrop/attestation`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders },
           body: JSON.stringify({ fid, address }),
