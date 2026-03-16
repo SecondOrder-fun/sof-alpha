@@ -76,12 +76,16 @@ export function useProfileData(address) {
             }),
           ]);
           if ((bal ?? 0n) > 0n) {
+            const base = 10n ** BigInt(decimals);
+            const ticketCount = (bal / base).toString();
             results.push({
               seasonId: s.id,
               name: s?.config?.name,
               token: raffleTokenAddr,
+              bondingCurve: curveAddr,
               balance: bal,
               decimals,
+              ticketCount,
             });
           }
         } catch {
