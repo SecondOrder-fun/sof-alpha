@@ -1,5 +1,5 @@
 // tests/hooks/useAirdrop.executeBatch.test.js
-// Verify useAirdrop uses the same executeBatch + fallback pattern as buy/sell
+// Verify useAirdrop: executeBatch + on-chain verification before success
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
@@ -87,18 +87,22 @@ vi.mock("@/context/farcasterContext", () => ({
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
+describe("useAirdrop - executeBatch + on-chain verification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
     hasClaimedValue = true;
     mockExecuteBatch.mockResolvedValue("0xBatchId");
     mockWriteContractAsync.mockResolvedValue("0xTxHash");
+    // Default: hasClaimed returns true on first poll (tx already mined)
     mockRefetchHasClaimed.mockResolvedValue({ data: true });
     mockRefetchLastDaily.mockResolvedValue({ data: 0n });
   });
 
   test("claimDaily calls executeBatch with encoded airdrop call", async () => {
+    // For daily: lastDailyClaim poll returns a new timestamp
+    mockRefetchLastDaily.mockResolvedValue({ data: 999n });
+
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
 
@@ -112,20 +116,15 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
     expect(calls[0]).toHaveProperty("data");
   });
 
-  test("claimDaily sets isSuccess immediately when executeBatch resolves", async () => {
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimDaily();
+  test("claimInitialBasic shows success only after on-chain hasClaimed confirms", async () => {
+    // First poll: not confirmed yet. Second poll: confirmed.
+    hasClaimedValue = false;
+    let pollCount = 0;
+    mockRefetchHasClaimed.mockImplementation(async () => {
+      pollCount++;
+      return { data: pollCount >= 2 };
     });
 
-    expect(result.current.claimDailyState.isSuccess).toBe(true);
-    expect(result.current.claimDailyState.isPending).toBe(false);
-    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
-  });
-
-  test("claimInitialBasic calls executeBatch and sets success on resolve", async () => {
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
 
@@ -133,8 +132,10 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
       await result.current.claimInitialBasic();
     });
 
-    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
+    // Should have polled at least twice
+    expect(pollCount).toBeGreaterThanOrEqual(2);
     expect(result.current.claimInitialState.isSuccess).toBe(true);
+    expect(result.current.claimInitialState.isPending).toBe(false);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
   });
 
@@ -147,11 +148,11 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
     const { result } = renderHook(() => useAirdrop());
 
     await act(async () => {
-      await result.current.claimDaily();
+      await result.current.claimInitialBasic();
     });
 
-    expect(result.current.claimDailyState.isError).toBe(true);
-    expect(result.current.claimDailyState.error).toContain("User rejected");
+    expect(result.current.claimInitialState.isError).toBe(true);
+    expect(result.current.claimInitialState.error).toContain("User rejected");
     expect(mockWriteContractAsync).not.toHaveBeenCalled();
   });
 
@@ -162,7 +163,7 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
     const { result } = renderHook(() => useAirdrop());
 
     await act(async () => {
-      await result.current.claimDaily();
+      await result.current.claimInitialBasic();
     });
 
     expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
@@ -170,29 +171,10 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
     expect(mockWriteContractAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         address: "0xAirdrop",
-        functionName: "claimDaily",
-      })
-    );
-    // writeContractAsync resolved → success
-    expect(result.current.claimDailyState.isSuccess).toBe(true);
-  });
-
-  test("claimInitialBasic falls back to writeContractAsync on batch failure", async () => {
-    mockExecuteBatch.mockRejectedValue(new Error("Unsupported"));
-
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimInitialBasic();
-    });
-
-    expect(mockWriteContractAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        address: "0xAirdrop",
         functionName: "claimInitialBasic",
       })
     );
+    // Verified on-chain → success
     expect(result.current.claimInitialState.isSuccess).toBe(true);
   });
 
@@ -204,10 +186,26 @@ describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
     const { result } = renderHook(() => useAirdrop());
 
     await act(async () => {
-      await result.current.claimDaily();
+      await result.current.claimInitialBasic();
     });
 
-    expect(result.current.claimDailyState.isError).toBe(true);
-    expect(result.current.claimDailyState.error).toContain("Insufficient funds");
+    expect(result.current.claimInitialState.isError).toBe(true);
+    expect(result.current.claimInitialState.error).toContain("Insufficient funds");
   });
+
+  test("shows error when tx accepted but on-chain state never changes", async () => {
+    // hasClaimed always returns false (tx reverted on-chain)
+    hasClaimedValue = false;
+    mockRefetchHasClaimed.mockResolvedValue({ data: false });
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimInitialBasic();
+    });
+
+    expect(result.current.claimInitialState.isError).toBe(true);
+    expect(result.current.claimInitialState.error).toContain("not confirmed on-chain");
+  }, 35_000); // Allow time for the 30s polling timeout
 });

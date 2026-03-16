@@ -61,7 +61,8 @@ const AirdropBanner = () => {
   }, [isSuccess]);
 
   // Only render if wallet connected and user has not yet claimed
-  if (!isConnected || hasClaimed || dismissed) return null;
+  // isSuccess covers the window between tx confirmation and hasClaimed refetch
+  if (!isConnected || hasClaimed || isSuccess || dismissed) return null;
 
   const hasFarcaster = Boolean(fid);
 
