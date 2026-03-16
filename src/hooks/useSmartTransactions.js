@@ -34,10 +34,6 @@ export function useSmartTransactions() {
     // Farcaster) support wallet_sendCalls but don't implement getCapabilities.
     const hasBatch = true;
 
-    // Paymaster requires explicit capability reporting — wallets that don't
-    // support it would error if we pass a paymasterService URL in the batch.
-    let hasPaymaster = false;
-
     // MetaMask reports atomic batch status via `atomic.status`:
     //   "supported" = Smart Account already active, batch executes atomically
     //   "ready"     = Smart Account available but not enabled — wallet_sendCalls
@@ -45,10 +41,17 @@ export function useSmartTransactions() {
     //   null        = wallet doesn't report atomic capability (Farcaster, old wallets)
     let atomicStatus = null;
 
+    // Paymaster detection: explicit `paymasterService.supported` OR active Smart
+    // Account (`atomic.status === "supported"`). MetaMask Smart Accounts support
+    // ERC-4337 paymasters but don't always report paymasterService in capabilities.
+    let hasPaymaster = false;
+
     if (capabilities && chainId) {
       const caps = capabilities[chainId];
-      hasPaymaster = !!caps?.paymasterService?.supported;
       atomicStatus = caps?.atomic?.status || null;
+      hasPaymaster =
+        !!caps?.paymasterService?.supported ||
+        atomicStatus === 'supported';
     }
 
     return { hasBatch, hasPaymaster, atomicStatus };
@@ -76,29 +79,50 @@ export function useSmartTransactions() {
   }, []);
 
   /**
-   * Execute a batch of calls via ERC-5792 with optional paymaster sponsorship.
+   * Execute a batch of calls via ERC-5792 with automatic paymaster sponsorship.
+   * Paymaster is auto-enabled when the wallet reports support and a URL is configured.
    * When paymaster is active, prepends a SOF fee transfer (0.05% of sofAmount).
+   * If the paymaster attempt fails, retries the batch without sponsorship so
+   * batching is preserved even when the paymaster is unavailable.
    *
    * @param {Array<{to: string, data: string, value?: bigint}>} calls - Raw calls to batch
    * @param {object} options - Additional options for sendCalls
    * @param {bigint} [options.sofAmount] - SOF amount for fee calculation (required when paymaster is active)
    */
   const executeBatch = useCallback(async (calls, options = {}) => {
-    const { sofAmount, usePaymaster = false, ...sendOptions } = options;
-    const batchCapabilities = {};
-    let finalCalls = calls;
+    const { sofAmount, ...sendOptions } = options;
+    const shouldSponsor = chainCaps.hasPaymaster && paymasterUrl;
 
-    if (usePaymaster && chainCaps.hasPaymaster && paymasterUrl) {
-      batchCapabilities.paymasterService = { url: paymasterUrl };
+    if (shouldSponsor) {
+      const batchCapabilities = { paymasterService: { url: paymasterUrl } };
+      let finalCalls = calls;
       if (sofAmount && sofAmount > 0n) {
         finalCalls = [buildFeeCall(sofAmount), ...calls];
       }
+
+      try {
+        return await sendCallsAsync({
+          account: address,
+          calls: finalCalls,
+          capabilities: batchCapabilities,
+          ...sendOptions,
+        });
+      } catch (err) {
+        // User rejection → rethrow immediately (don't retry without paymaster)
+        if (err?.code === 4001 || err?.name === 'UserRejectedRequestError') {
+          throw err;
+        }
+        // Paymaster failed → retry batch without sponsorship
+        // eslint-disable-next-line no-console
+        console.warn('[SmartTx] Paymaster failed, retrying batch without sponsorship:', err.message);
+      }
     }
 
+    // Unsponsored batch (either paymaster not available or paymaster retry)
     return await sendCallsAsync({
       account: address,
-      calls: finalCalls,
-      capabilities: batchCapabilities,
+      calls,
+      capabilities: {},
       ...sendOptions,
     });
   }, [address, chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
