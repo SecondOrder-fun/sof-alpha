@@ -7,6 +7,7 @@ import { renderHook, act } from "@testing-library/react";
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockExecuteBatch = vi.fn();
+const mockWriteContractAsync = vi.fn();
 let callsStatusRef = { current: undefined };
 
 vi.mock("@/hooks/useSmartTransactions", () => ({
@@ -26,6 +27,7 @@ let hasClaimedValue = true; // default: already claimed (for daily tests)
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: "0xUser", isConnected: true }),
+  useWriteContract: () => ({ writeContractAsync: mockWriteContractAsync }),
   useReadContract: vi.fn(({ functionName }) => {
     const defaults = {
       hasClaimed: { data: hasClaimedValue, refetch: mockRefetchHasClaimed },
@@ -96,6 +98,7 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
     callsStatusRef.current = undefined;
     hasClaimedValue = true;
     mockExecuteBatch.mockResolvedValue("0xBatchId");
+    mockWriteContractAsync.mockResolvedValue("0xTxHash");
     mockRefetchHasClaimed.mockResolvedValue({ data: hasClaimedValue });
     mockRefetchLastDaily.mockResolvedValue({ data: 0n });
   });
@@ -194,8 +197,10 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
     vi.useRealTimers();
   });
 
-  test("claimDaily sets isError with message on executeBatch failure", async () => {
-    mockExecuteBatch.mockRejectedValue(new Error("User rejected"));
+  test("claimDaily re-throws user rejection (code 4001) without fallback", async () => {
+    const userRejection = new Error("User rejected");
+    userRejection.code = 4001;
+    mockExecuteBatch.mockRejectedValue(userRejection);
 
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
@@ -206,6 +211,68 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
 
     expect(result.current.claimDailyState.isError).toBe(true);
     expect(result.current.claimDailyState.error).toContain("User rejected");
+    // Should NOT have tried writeContractAsync fallback
+    expect(mockWriteContractAsync).not.toHaveBeenCalled();
+  });
+
+  test("claimDaily falls back to writeContractAsync when executeBatch times out", async () => {
+    mockExecuteBatch.mockRejectedValue(new Error("Batch execution timeout"));
+    mockWriteContractAsync.mockResolvedValue("0xFallbackHash");
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimDaily();
+    });
+
+    // Should have tried executeBatch first, then fallen back
+    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
+    expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
+    expect(mockWriteContractAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: "0xAirdrop",
+        functionName: "claimDaily",
+      })
+    );
+    // Should still be pending (waiting for on-chain confirmation)
+    expect(result.current.claimDailyState.isPending).toBe(true);
+  });
+
+  test("claimInitialBasic falls back to writeContractAsync when executeBatch fails", async () => {
+    mockExecuteBatch.mockRejectedValue(new Error("Wallet does not support batch calls"));
+    mockWriteContractAsync.mockResolvedValue("0xFallbackHash");
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimInitialBasic();
+    });
+
+    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
+    expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
+    expect(mockWriteContractAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: "0xAirdrop",
+        functionName: "claimInitialBasic",
+      })
+    );
+  });
+
+  test("sets error when both executeBatch and writeContractAsync fail", async () => {
+    mockExecuteBatch.mockRejectedValue(new Error("Batch timeout"));
+    mockWriteContractAsync.mockRejectedValue(new Error("Insufficient funds"));
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimDaily();
+    });
+
+    expect(result.current.claimDailyState.isError).toBe(true);
+    expect(result.current.claimDailyState.error).toContain("Insufficient funds");
   });
 
   test("does not invalidate queries until confirmation", async () => {

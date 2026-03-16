@@ -50,7 +50,7 @@ Update `package.json` version following semver:
 - **MINOR** (0.x.0): New features, backward compatible
 - **PATCH** (0.0.x): Bug fixes, backward compatible
 
-Current version: `0.14.9`
+Current version: `0.14.10`
 
 ### 3. Test-Driven Development
 
