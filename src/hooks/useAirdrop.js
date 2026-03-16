@@ -12,6 +12,23 @@ import FarcasterContext from "@/context/farcasterContext";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 /**
+ * Poll an on-chain read until a condition is met or timeout expires.
+ * @param {Function} refetchFn - wagmi refetch that returns { data }
+ * @param {Function} checkFn  - (data) => boolean, true when confirmed
+ * @param {number}   timeoutMs - max wait (default 30s)
+ * @returns {Promise<boolean>} true if confirmed, false if timed out
+ */
+async function waitForOnChain(refetchFn, checkFn, timeoutMs = 30_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await refetchFn();
+    if (checkFn(data)) return true;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return false;
+}
+
+/**
  * Format a seconds-remaining value into "Xh Ym" countdown string.
  * @param {number} remaining - seconds until next claim
  * @returns {string}
@@ -139,17 +156,41 @@ export function useAirdrop() {
     error: null,
   });
 
-  // ── Shared success handler (mirrors buy/sell pattern) ─────────────────────
+  // ── On-chain verification after tx accepted ───────────────────────────────
+  // executeBatch resolves when the wallet ACCEPTS the batch, not when it's
+  // mined. We poll the contract to confirm the state actually changed.
 
-  const onClaimSuccess = useCallback((type) => {
-    queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
-    void refetchHasClaimed();
-    void refetchLastDaily();
+  const verifyInitialClaim = useCallback(async () => {
+    const confirmed = await waitForOnChain(
+      refetchHasClaimed,
+      (data) => data === true,
+    );
+    if (confirmed) {
+      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+      void refetchLastDaily();
+      setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
+    } else {
+      setClaimInitialState({
+        isPending: false, isSuccess: false, isError: true,
+        error: "Transaction submitted but not confirmed on-chain — check your wallet",
+      });
+    }
+  }, [queryClient, refetchHasClaimed, refetchLastDaily]);
 
-    if (type === "daily") {
+  const verifyDailyClaim = useCallback(async (prevLastClaimTs) => {
+    const confirmed = await waitForOnChain(
+      refetchLastDaily,
+      (data) => data && Number(data) > prevLastClaimTs,
+    );
+    if (confirmed) {
+      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+      void refetchHasClaimed();
       setClaimDailyState({ isPending: false, isSuccess: true, isError: false, error: null });
     } else {
-      setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
+      setClaimDailyState({
+        isPending: false, isSuccess: false, isError: true,
+        error: "Transaction submitted but not confirmed on-chain — check your wallet",
+      });
     }
   }, [queryClient, refetchHasClaimed, refetchLastDaily]);
 
@@ -178,34 +219,33 @@ export function useAirdrop() {
         const { deadline, v, r, s } = await res.json();
         const claimArgs = [BigInt(fid), BigInt(deadline), v, r, s];
 
-        // Tier 1: ERC-5792 batch + paymaster (same as buy/sell)
+        const callData = encodeFunctionData({
+          abi: SOFAirdropAbi,
+          functionName: "claimInitial",
+          args: claimArgs,
+        });
+
+        // Tier 1: ERC-5792 batch + paymaster
         try {
-          await executeBatch([{
-            to: airdropAddress,
-            data: encodeFunctionData({
-              abi: SOFAirdropAbi,
-              functionName: "claimInitial",
-              args: claimArgs,
-            }),
-          }]);
-          onClaimSuccess("initial");
-          return;
+          await executeBatch([{ to: airdropAddress, data: callData }]);
         } catch (batchErr) {
           if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
             throw batchErr;
           }
           // eslint-disable-next-line no-console
           console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
+
+          // Tier 2: direct writeContractAsync (user pays gas)
+          await writeContractAsync({
+            address: airdropAddress,
+            abi: SOFAirdropAbi,
+            functionName: "claimInitial",
+            args: claimArgs,
+          });
         }
 
-        // Tier 2: direct writeContractAsync (user pays gas)
-        await writeContractAsync({
-          address: airdropAddress,
-          abi: SOFAirdropAbi,
-          functionName: "claimInitial",
-          args: claimArgs,
-        });
-        onClaimSuccess("initial");
+        // Tx accepted by wallet — now verify on-chain
+        await verifyInitialClaim();
       } catch (err) {
         setClaimInitialState({
           isPending: false,
@@ -215,7 +255,7 @@ export function useAirdrop() {
         });
       }
     },
-    [address, airdropAddress, farcasterAuth, executeBatch, writeContractAsync, onClaimSuccess]
+    [address, airdropAddress, farcasterAuth, executeBatch, writeContractAsync, verifyInitialClaim]
   );
 
   // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
@@ -236,24 +276,24 @@ export function useAirdrop() {
             args: [],
           }),
         }]);
-        onClaimSuccess("initial");
-        return;
       } catch (batchErr) {
         if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
           throw batchErr;
         }
         // eslint-disable-next-line no-console
         console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
+
+        // Tier 2: direct writeContractAsync
+        await writeContractAsync({
+          address: airdropAddress,
+          abi: SOFAirdropAbi,
+          functionName: "claimInitialBasic",
+          args: [],
+        });
       }
 
-      // Tier 2: direct writeContractAsync
-      await writeContractAsync({
-        address: airdropAddress,
-        abi: SOFAirdropAbi,
-        functionName: "claimInitialBasic",
-        args: [],
-      });
-      onClaimSuccess("initial");
+      // Tx accepted — verify on-chain
+      await verifyInitialClaim();
     } catch (err) {
       setClaimInitialState({
         isPending: false,
@@ -262,7 +302,7 @@ export function useAirdrop() {
         error: err.message || "Claim failed",
       });
     }
-  }, [address, airdropAddress, executeBatch, writeContractAsync, onClaimSuccess]);
+  }, [address, airdropAddress, executeBatch, writeContractAsync, verifyInitialClaim]);
 
   // ── Write: claimDaily ────────────────────────────────────────────────────────
 
@@ -270,6 +310,7 @@ export function useAirdrop() {
     if (!address || !airdropAddress || !canClaimDaily) return;
 
     setClaimDailyState({ isPending: true, isSuccess: false, isError: false, error: null });
+    const prevLastClaimTs = lastClaimTs;
 
     try {
       // Tier 1: ERC-5792 batch + paymaster
@@ -282,24 +323,24 @@ export function useAirdrop() {
             args: [],
           }),
         }]);
-        onClaimSuccess("daily");
-        return;
       } catch (batchErr) {
         if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
           throw batchErr;
         }
         // eslint-disable-next-line no-console
         console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
+
+        // Tier 2: direct writeContractAsync
+        await writeContractAsync({
+          address: airdropAddress,
+          abi: SOFAirdropAbi,
+          functionName: "claimDaily",
+          args: [],
+        });
       }
 
-      // Tier 2: direct writeContractAsync
-      await writeContractAsync({
-        address: airdropAddress,
-        abi: SOFAirdropAbi,
-        functionName: "claimDaily",
-        args: [],
-      });
-      onClaimSuccess("daily");
+      // Tx accepted — verify on-chain
+      await verifyDailyClaim(prevLastClaimTs);
     } catch (err) {
       setClaimDailyState({
         isPending: false,
@@ -308,7 +349,7 @@ export function useAirdrop() {
         error: err.message || "Daily claim failed",
       });
     }
-  }, [address, airdropAddress, canClaimDaily, executeBatch, writeContractAsync, onClaimSuccess]);
+  }, [address, airdropAddress, canClaimDaily, executeBatch, writeContractAsync, verifyDailyClaim, lastClaimTs]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });
