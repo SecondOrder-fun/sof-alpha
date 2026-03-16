@@ -162,6 +162,35 @@ describe('AirdropBanner', () => {
     expect(allToastCalls).toHaveLength(1);
   });
 
+  it('error toast includes actual error message, not just generic key', async () => {
+    airdropState = defaultAirdropState({
+      claimInitialState: {
+        isPending: false,
+        isSuccess: false,
+        isError: true,
+        error: 'Cooldown not elapsed',
+      },
+    });
+
+    const { default: AirdropBanner } = await import(
+      '@/components/airdrop/AirdropBanner'
+    );
+
+    await act(async () => {
+      render(<AirdropBanner />);
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100));
+    });
+
+    const errorToasts = allToastCalls.filter((c) => c.variant === 'destructive');
+    expect(errorToasts).toHaveLength(1);
+    // The toast should include the actual error message, not just a generic i18n key
+    const toastContent = JSON.stringify(errorToasts[0]);
+    expect(toastContent).toContain('Cooldown not elapsed');
+  });
+
   it('does not fire any toast when state is idle', async () => {
     const { default: AirdropBanner } = await import(
       '@/components/airdrop/AirdropBanner'

@@ -50,7 +50,7 @@ Update `package.json` version following semver:
 - **MINOR** (0.x.0): New features, backward compatible
 - **PATCH** (0.0.x): Bug fixes, backward compatible
 
-Current version: `0.14.5`
+Current version: `0.14.6`
 
 ### 3. Test-Driven Development
 
@@ -285,6 +285,16 @@ chore: update dependencies
 - Sanitize all user inputs
 - Use environment variables for sensitive data (VITE\_ prefix)
 - Validate data at system boundaries
+
+### On-Chain Transactions (CRITICAL)
+
+**ALL on-chain operations MUST use the ERC-5792 batched transaction flow via `useSmartTransactions.executeBatch`** with the same three-tier fallback as ticket purchases:
+
+1. **Tier 1:** ERC-5792 batch + paymaster (single gasless confirmation)
+2. **Tier 2:** ERC-2612 permit (signature + single tx)
+3. **Tier 3:** Traditional approve + tx (two confirmations)
+
+This applies to: airdrop claims, token swaps, ticket buy/sell, InfoFi market trades, and any future on-chain operation. **Never use raw `writeContractAsync` for user-facing transactions** — always go through `executeBatch` so users get gas sponsorship and batching where supported. If a feature currently uses `writeContractAsync` directly, it must be migrated to `executeBatch`.
 
 ## Gotchas
 

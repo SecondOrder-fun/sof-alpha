@@ -1,4 +1,5 @@
 // src/components/airdrop/DailyClaimButton.jsx
+import { useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -24,12 +25,21 @@ const DailyClaimButton = () => {
     timeUntilClaim,
     claimDaily,
     claimDailyState,
+    resetDailyState,
   } = useAirdrop();
+
+  const { isPending, isSuccess, isError, error } = claimDailyState;
+
+  // Auto-reset success state after 3 seconds so the button re-enables on next cooldown
+  useEffect(() => {
+    if (!isSuccess) return;
+    const timer = setTimeout(() => resetDailyState(), 3000);
+    return () => clearTimeout(timer);
+  }, [isSuccess, resetDailyState]);
 
   // Only render for users who have completed the initial claim
   if (!isConnected || !hasClaimed) return null;
 
-  const { isPending, isSuccess, isError } = claimDailyState;
   const formattedAmount = dailyAmount.toLocaleString();
 
   const handleClaim = () => {
@@ -65,7 +75,7 @@ const DailyClaimButton = () => {
           : t("claimDaily", { amount: formattedAmount })}
       </Button>
       {isError && (
-        <span className="text-xs text-destructive">{t("claimError")}</span>
+        <span className="text-xs text-destructive">{error || t("claimError")}</span>
       )}
     </div>
   );
