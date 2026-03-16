@@ -26,6 +26,8 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
 
     // ============ Constants ============
 
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+
     bytes32 private constant FARCASTER_ATTESTATION_TYPEHASH =
         keccak256("FarcasterAttestation(address wallet,uint256 fid,uint256 deadline)");
 
@@ -126,6 +128,71 @@ contract SOFAirdrop is AccessControl, ReentrancyGuard, EIP712 {
         sofToken.mint(msg.sender, dailyAmount);
 
         emit DailyClaimed(msg.sender, dailyAmount);
+    }
+
+    // ============ Relayer Functions ============
+
+    /// @notice Relay a Farcaster-verified initial claim on behalf of a user
+    /// @param user The user address to claim for
+    /// @param fid The Farcaster user ID
+    /// @param deadline Signature expiration timestamp
+    /// @param v ECDSA recovery id
+    /// @param r ECDSA signature component
+    /// @param s ECDSA signature component
+    function claimInitialFor(
+        address user,
+        uint256 fid,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external onlyRole(RELAYER_ROLE) nonReentrant {
+        if (user == address(0)) revert ZeroAddress();
+        if (hasClaimed[user]) revert AlreadyClaimed();
+        if (block.timestamp > deadline) revert AttestationExpired();
+
+        bytes32 structHash = keccak256(
+            abi.encode(FARCASTER_ATTESTATION_TYPEHASH, user, fid, deadline)
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recoveredSigner = ECDSA.recover(digest, v, r, s);
+
+        if (recoveredSigner != attestor) revert InvalidAttestor();
+
+        hasClaimed[user] = true;
+        sofToken.mint(user, initialAmount);
+
+        emit InitialClaimed(user, initialAmount, true);
+    }
+
+    /// @notice Relay a basic initial claim on behalf of a user
+    /// @param user The user address to claim for
+    function claimInitialBasicFor(address user) external onlyRole(RELAYER_ROLE) nonReentrant {
+        if (user == address(0)) revert ZeroAddress();
+        if (hasClaimed[user]) revert AlreadyClaimed();
+
+        hasClaimed[user] = true;
+        sofToken.mint(user, basicAmount);
+
+        emit InitialClaimed(user, basicAmount, false);
+    }
+
+    /// @notice Relay a daily claim on behalf of a user
+    /// @param user The user address to claim for
+    function claimDailyFor(address user) external onlyRole(RELAYER_ROLE) nonReentrant {
+        if (user == address(0)) revert ZeroAddress();
+        if (!hasClaimed[user]) revert AlreadyClaimed();
+
+        uint256 lastClaim = lastDailyClaim[user];
+        if (lastClaim != 0) {
+            uint256 nextClaimAt = lastClaim + cooldown;
+            if (block.timestamp < nextClaimAt) revert CooldownNotElapsed(nextClaimAt);
+        }
+
+        lastDailyClaim[user] = block.timestamp;
+        sofToken.mint(user, dailyAmount);
+
+        emit DailyClaimed(user, dailyAmount);
     }
 
     // ============ Admin Functions ============

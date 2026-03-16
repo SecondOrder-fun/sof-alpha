@@ -13,6 +13,7 @@ contract SOFAirdropTest is Test {
     address public attestor;
     uint256 public attestorKey;
     address public user;
+    address public relayer;
 
     uint256 public constant INITIAL_AMOUNT = 10_000 ether;
     uint256 public constant BASIC_AMOUNT = 5_000 ether;
@@ -30,6 +31,7 @@ contract SOFAirdropTest is Test {
         admin = address(this);
         (attestor, attestorKey) = makeAddrAndKey("attestor");
         user = makeAddr("user");
+        relayer = makeAddr("relayer");
 
         // Deploy SOFToken with zero initial supply (airdrop mints on demand)
         token = new SOFToken("SOF Token", "SOF", 0);
@@ -46,6 +48,9 @@ contract SOFAirdropTest is Test {
 
         // Grant MINTER_ROLE to airdrop contract
         token.grantRole(token.MINTER_ROLE(), address(airdrop));
+
+        // Grant RELAYER_ROLE to relayer
+        airdrop.grantRole(airdrop.RELAYER_ROLE(), relayer);
     }
 
     // ============ Helpers ============
@@ -247,5 +252,109 @@ contract SOFAirdropTest is Test {
         airdrop.setCooldown(newCooldown);
 
         assertEq(airdrop.cooldown(), newCooldown);
+    }
+
+    // ============ Relayer Tests ============
+
+    function test_relayerClaimInitialFor() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(attestorKey, user, FID, deadline);
+
+        vm.prank(relayer);
+        vm.expectEmit(true, false, false, true);
+        emit InitialClaimed(user, INITIAL_AMOUNT, true);
+        airdrop.claimInitialFor(user, FID, deadline, v, r, s);
+
+        assertTrue(airdrop.hasClaimed(user));
+        assertEq(token.balanceOf(user), INITIAL_AMOUNT);
+        // Relayer should not have any tokens
+        assertEq(token.balanceOf(relayer), 0);
+    }
+
+    function test_revert_unauthorizedRelayer() public {
+        address unauthorized = makeAddr("unauthorized");
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(attestorKey, user, FID, deadline);
+
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        airdrop.claimInitialFor(user, FID, deadline, v, r, s);
+    }
+
+    function test_revert_relayerClaimInitialForAlreadyClaimed() public {
+        // User claims directly first
+        vm.prank(user);
+        airdrop.claimInitialBasic();
+
+        // Relayer tries to claim for same user
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(attestorKey, user, FID, deadline);
+
+        vm.prank(relayer);
+        vm.expectRevert(SOFAirdrop.AlreadyClaimed.selector);
+        airdrop.claimInitialFor(user, FID, deadline, v, r, s);
+    }
+
+    function test_revert_relayerClaimInitialForZeroAddress() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signAttestation(attestorKey, address(0), FID, deadline);
+
+        vm.prank(relayer);
+        vm.expectRevert(SOFAirdrop.ZeroAddress.selector);
+        airdrop.claimInitialFor(address(0), FID, deadline, v, r, s);
+    }
+
+    function test_relayerClaimInitialBasicFor() public {
+        vm.prank(relayer);
+        vm.expectEmit(true, false, false, true);
+        emit InitialClaimed(user, BASIC_AMOUNT, false);
+        airdrop.claimInitialBasicFor(user);
+
+        assertTrue(airdrop.hasClaimed(user));
+        assertEq(token.balanceOf(user), BASIC_AMOUNT);
+        assertEq(token.balanceOf(relayer), 0);
+    }
+
+    function test_revert_relayerBasicForZeroAddress() public {
+        vm.prank(relayer);
+        vm.expectRevert(SOFAirdrop.ZeroAddress.selector);
+        airdrop.claimInitialBasicFor(address(0));
+    }
+
+    function test_relayerClaimDailyFor() public {
+        // User must have initial claim first
+        vm.prank(relayer);
+        airdrop.claimInitialBasicFor(user);
+
+        // Relayer claims daily for user
+        vm.prank(relayer);
+        vm.expectEmit(true, false, false, true);
+        emit DailyClaimed(user, DAILY_AMOUNT);
+        airdrop.claimDailyFor(user);
+
+        assertEq(token.balanceOf(user), BASIC_AMOUNT + DAILY_AMOUNT);
+        assertEq(token.balanceOf(relayer), 0);
+    }
+
+    function test_revert_relayerDailyForCooldown() public {
+        // Initial claim
+        vm.prank(relayer);
+        airdrop.claimInitialBasicFor(user);
+
+        // First daily
+        vm.prank(relayer);
+        airdrop.claimDailyFor(user);
+
+        // Second daily too soon
+        vm.prank(relayer);
+        uint256 nextClaimAt = block.timestamp + COOLDOWN;
+        vm.expectRevert(abi.encodeWithSelector(SOFAirdrop.CooldownNotElapsed.selector, nextClaimAt));
+        airdrop.claimDailyFor(user);
+    }
+
+    function test_revert_relayerDailyForNoInitialClaim() public {
+        vm.prank(relayer);
+        vm.expectRevert(SOFAirdrop.AlreadyClaimed.selector);
+        airdrop.claimDailyFor(user);
     }
 }

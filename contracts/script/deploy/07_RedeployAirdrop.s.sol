@@ -63,6 +63,11 @@ contract RedeployAirdrop is Script {
         sofToken.grantRole(minterRole, address(airdrop));
         console2.log("MINTER_ROLE granted to new SOFAirdrop");
 
+        // 3. Grant RELAYER_ROLE to backend wallet for gasless claims
+        bytes32 relayerRole = keccak256("RELAYER_ROLE");
+        airdrop.grantRole(relayerRole, backendWallet);
+        console2.log("RELAYER_ROLE granted to backend wallet:", backendWallet);
+
         vm.stopBroadcast();
 
         console2.log("\n============================================================");
