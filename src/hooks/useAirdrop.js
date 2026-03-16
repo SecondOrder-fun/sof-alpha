@@ -1,6 +1,6 @@
 // src/hooks/useAirdrop.js
 import { useState, useEffect, useCallback, useContext, useRef } from "react";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits, encodeFunctionData } from "viem";
 import { getContractAddresses } from "@/config/contracts";
@@ -53,6 +53,7 @@ export function useAirdrop() {
   const airdropAddress = contracts.SOF_AIRDROP;
 
   const { executeBatch, callsStatus } = useSmartTransactions();
+  const { writeContractAsync } = useWriteContract();
 
   const isEnabled = Boolean(address && isConnected && airdropAddress);
 
@@ -248,21 +249,37 @@ export function useAirdrop() {
         }
 
         const { deadline, v, r, s } = await res.json();
+        const claimArgs = [BigInt(fid), BigInt(deadline), v, r, s];
 
-        const callData = encodeFunctionData({
+        // Tier 1: ERC-5792 batch + paymaster
+        try {
+          const callData = encodeFunctionData({
+            abi: SOFAirdropAbi,
+            functionName: "claimInitial",
+            args: claimArgs,
+          });
+
+          setPendingAction("initial");
+          await executeBatch([{ to: airdropAddress, data: callData }]);
+          return; // polling takes over from here
+        } catch (batchErr) {
+          if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
+            throw batchErr;
+          }
+          // eslint-disable-next-line no-console
+          console.warn("[Airdrop] Batch flow failed, falling back to direct tx:", batchErr.message);
+          setPendingAction(null);
+        }
+
+        // Tier 2 fallback: direct writeContractAsync
+        setPendingAction("initial");
+        await writeContractAsync({
+          address: airdropAddress,
           abi: SOFAirdropAbi,
           functionName: "claimInitial",
-          args: [BigInt(fid), BigInt(deadline), v, r, s],
+          args: claimArgs,
         });
-
-        // Start polling BEFORE executeBatch — the Farcaster wallet may never
-        // return the ERC-5792 response, but the tx is still submitted on-chain.
-        // Polling detects confirmation even if executeBatch hangs.
-        setPendingAction("initial");
-
-        await executeBatch([{ to: airdropAddress, data: callData }]);
       } catch (err) {
-        // Only set error if polling hasn't already confirmed the tx
         if (!confirmedRef.current) {
           setPendingAction(null);
           setClaimInitialState({
@@ -274,7 +291,7 @@ export function useAirdrop() {
         }
       }
     },
-    [address, airdropAddress, farcasterAuth, executeBatch]
+    [address, airdropAddress, farcasterAuth, executeBatch, writeContractAsync]
   );
 
   // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
@@ -286,14 +303,34 @@ export function useAirdrop() {
     confirmedRef.current = false;
 
     try {
-      const callData = encodeFunctionData({
+      // Tier 1: ERC-5792 batch + paymaster
+      try {
+        const callData = encodeFunctionData({
+          abi: SOFAirdropAbi,
+          functionName: "claimInitialBasic",
+          args: [],
+        });
+
+        setPendingAction("basic");
+        await executeBatch([{ to: airdropAddress, data: callData }]);
+        return;
+      } catch (batchErr) {
+        if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
+          throw batchErr;
+        }
+        // eslint-disable-next-line no-console
+        console.warn("[Airdrop] Batch flow failed, falling back to direct tx:", batchErr.message);
+        setPendingAction(null);
+      }
+
+      // Tier 2 fallback: direct writeContractAsync
+      setPendingAction("basic");
+      await writeContractAsync({
+        address: airdropAddress,
         abi: SOFAirdropAbi,
         functionName: "claimInitialBasic",
         args: [],
       });
-
-      setPendingAction("basic");
-      await executeBatch([{ to: airdropAddress, data: callData }]);
     } catch (err) {
       if (!confirmedRef.current) {
         setPendingAction(null);
@@ -305,7 +342,7 @@ export function useAirdrop() {
         });
       }
     }
-  }, [address, airdropAddress, executeBatch]);
+  }, [address, airdropAddress, executeBatch, writeContractAsync]);
 
   // ── Write: claimDaily ────────────────────────────────────────────────────────
 
@@ -314,17 +351,37 @@ export function useAirdrop() {
 
     setClaimDailyState({ isPending: true, isSuccess: false, isError: false, error: null });
     confirmedRef.current = false;
+    preClaimDailyTs.current = lastClaimTs;
 
     try {
-      const callData = encodeFunctionData({
+      // Tier 1: ERC-5792 batch + paymaster
+      try {
+        const callData = encodeFunctionData({
+          abi: SOFAirdropAbi,
+          functionName: "claimDaily",
+          args: [],
+        });
+
+        setPendingAction("daily");
+        await executeBatch([{ to: airdropAddress, data: callData }]);
+        return;
+      } catch (batchErr) {
+        if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
+          throw batchErr;
+        }
+        // eslint-disable-next-line no-console
+        console.warn("[Airdrop] Batch flow failed, falling back to direct tx:", batchErr.message);
+        setPendingAction(null);
+      }
+
+      // Tier 2 fallback: direct writeContractAsync
+      setPendingAction("daily");
+      await writeContractAsync({
+        address: airdropAddress,
         abi: SOFAirdropAbi,
         functionName: "claimDaily",
         args: [],
       });
-
-      preClaimDailyTs.current = lastClaimTs;
-      setPendingAction("daily");
-      await executeBatch([{ to: airdropAddress, data: callData }]);
     } catch (err) {
       if (!confirmedRef.current) {
         setPendingAction(null);
@@ -336,7 +393,7 @@ export function useAirdrop() {
         });
       }
     }
-  }, [address, airdropAddress, canClaimDaily, executeBatch, lastClaimTs]);
+  }, [address, airdropAddress, canClaimDaily, executeBatch, writeContractAsync, lastClaimTs]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });

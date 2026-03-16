@@ -106,12 +106,23 @@ export function useSmartTransactions() {
       }
     }
 
-    return await sendCallsAsync({
-      account: address,
-      calls: finalCalls,
-      capabilities: batchCapabilities,
-      ...sendOptions,
-    });
+    // Race against a 30s timeout so wallets that never resolve
+    // (e.g. Farcaster miniapp) don't hang the UI forever.
+    const BATCH_TIMEOUT_MS = 30_000;
+    return await Promise.race([
+      sendCallsAsync({
+        account: address,
+        calls: finalCalls,
+        capabilities: batchCapabilities,
+        ...sendOptions,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Batch execution timeout — wallet did not respond')),
+          BATCH_TIMEOUT_MS,
+        ),
+      ),
+    ]);
   }, [address, paymasterUrl, sendCallsAsync, buildFeeCall]);
 
   return {
