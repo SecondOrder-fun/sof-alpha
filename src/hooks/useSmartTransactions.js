@@ -37,12 +37,21 @@ export function useSmartTransactions() {
     // Paymaster requires explicit capability reporting — wallets that don't
     // support it would error if we pass a paymasterService URL in the batch.
     let hasPaymaster = false;
+
+    // MetaMask reports atomic batch status via `atomic.status`:
+    //   "supported" = Smart Account already active, batch executes atomically
+    //   "ready"     = Smart Account available but not enabled — wallet_sendCalls
+    //                 will auto-prompt the user to upgrade their EOA via EIP-7702
+    //   null        = wallet doesn't report atomic capability (Farcaster, old wallets)
+    let atomicStatus = null;
+
     if (capabilities && chainId) {
       const caps = capabilities[chainId];
       hasPaymaster = !!caps?.paymasterService?.supported;
+      atomicStatus = caps?.atomic?.status || null;
     }
 
-    return { hasBatch, hasPaymaster };
+    return { hasBatch, hasPaymaster, atomicStatus };
   }, [capabilities, chainId]);
 
   const paymasterUrl = import.meta.env.VITE_PAYMASTER_PROXY_URL || '';
@@ -100,5 +109,8 @@ export function useSmartTransactions() {
     batchId,
     callsStatus,
     sofFeeBps: SOF_FEE_BPS,
+    // True when wallet needs Smart Account upgrade (MetaMask EIP-7702).
+    // wallet_sendCalls will auto-prompt the upgrade — no manual action needed.
+    needsSmartAccountUpgrade: chainCaps.atomicStatus === 'ready',
   };
 }
