@@ -1,5 +1,5 @@
 // tests/hooks/useAirdrop.executeBatch.test.js
-// TDD: Verify useAirdrop uses executeBatch and waits for on-chain confirmation
+// TDD: Verify useAirdrop uses executeBatch with dual-path confirmation
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
@@ -7,8 +7,6 @@ import { renderHook, act } from "@testing-library/react";
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockExecuteBatch = vi.fn();
-
-// Mutable callsStatus — update .current to simulate confirmation
 let callsStatusRef = { current: undefined };
 
 vi.mock("@/hooks/useSmartTransactions", () => ({
@@ -23,11 +21,14 @@ const mockInvalidateQueries = vi.fn();
 const mockRefetchHasClaimed = vi.fn();
 const mockRefetchLastDaily = vi.fn();
 
+// Track hasClaimed state for on-chain polling simulation
+let hasClaimedValue = true; // default: already claimed (for daily tests)
+
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: "0xUser", isConnected: true }),
   useReadContract: vi.fn(({ functionName }) => {
     const defaults = {
-      hasClaimed: { data: true, refetch: mockRefetchHasClaimed },
+      hasClaimed: { data: hasClaimedValue, refetch: mockRefetchHasClaimed },
       lastDailyClaim: { data: 0n, refetch: mockRefetchLastDaily },
       cooldown: { data: 0n },
       initialAmount: { data: 1000000000000000000000n },
@@ -93,7 +94,10 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
     vi.clearAllMocks();
     vi.resetModules();
     callsStatusRef.current = undefined;
+    hasClaimedValue = true;
     mockExecuteBatch.mockResolvedValue("0xBatchId");
+    mockRefetchHasClaimed.mockResolvedValue({ data: hasClaimedValue });
+    mockRefetchLastDaily.mockResolvedValue({ data: 0n });
   });
 
   test("claimDaily calls executeBatch with encoded airdrop call", async () => {
@@ -132,57 +136,65 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
       await result.current.claimDaily();
     });
 
-    // executeBatch resolved, but callsStatus is not CONFIRMED yet
-    // Should still be pending (waiting for on-chain confirmation)
+    // executeBatch resolved, but not confirmed yet
     expect(result.current.claimDailyState.isPending).toBe(true);
     expect(result.current.claimDailyState.isSuccess).toBe(false);
   });
 
-  test("claimDaily sets isSuccess only after callsStatus is CONFIRMED", async () => {
+  test("Path 1: confirms via callsStatus (ERC-5792 wallets)", async () => {
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result, rerender } = renderHook(() => useAirdrop());
 
-    // Submit the claim
     await act(async () => {
       await result.current.claimDaily();
     });
 
     expect(result.current.claimDailyState.isPending).toBe(true);
-    expect(result.current.claimDailyState.isSuccess).toBe(false);
 
-    // Simulate on-chain confirmation
+    // Simulate ERC-5792 confirmation
     callsStatusRef.current = { status: "CONFIRMED" };
     await act(async () => {
       rerender();
     });
 
-    // NOW it should be success
     expect(result.current.claimDailyState.isSuccess).toBe(true);
     expect(result.current.claimDailyState.isPending).toBe(false);
-  });
-
-  test("invalidateQueries is called only after confirmation, not on submit", async () => {
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result, rerender } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimDaily();
-    });
-
-    // Should NOT have invalidated yet
-    expect(mockInvalidateQueries).not.toHaveBeenCalled();
-
-    // Simulate confirmation
-    callsStatusRef.current = { status: "CONFIRMED" };
-    await act(async () => {
-      rerender();
-    });
-
-    // NOW queries should be invalidated
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
   });
 
-  test("claimDaily sets isError with message on failure", async () => {
+  test("Path 2: confirms via on-chain state polling (Farcaster fallback)", async () => {
+    vi.useFakeTimers();
+
+    // For initial claim: hasClaimed starts false, becomes true after mining
+    hasClaimedValue = false;
+    mockRefetchHasClaimed.mockResolvedValue({ data: false });
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimInitialBasic();
+    });
+
+    expect(result.current.claimInitialState.isPending).toBe(true);
+
+    // Simulate on-chain confirmation: next refetch returns hasClaimed = true
+    mockRefetchHasClaimed.mockResolvedValue({ data: true });
+
+    // Advance timers to trigger the 2s poll interval
+    await act(async () => {
+      vi.advanceTimersByTime(2100);
+      // Flush the promise queue for the async refetch
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.claimInitialState.isSuccess).toBe(true);
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
+
+    vi.useRealTimers();
+  });
+
+  test("claimDaily sets isError with message on executeBatch failure", async () => {
     mockExecuteBatch.mockRejectedValue(new Error("User rejected"));
 
     const { useAirdrop } = await import("@/hooks/useAirdrop");
@@ -196,25 +208,14 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
     expect(result.current.claimDailyState.error).toContain("User rejected");
   });
 
-  test("claimInitialBasic refetches hasClaimed only after confirmation", async () => {
+  test("does not invalidate queries until confirmation", async () => {
     const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result, rerender } = renderHook(() => useAirdrop());
+    const { result } = renderHook(() => useAirdrop());
 
     await act(async () => {
-      await result.current.claimInitialBasic();
+      await result.current.claimDaily();
     });
 
-    // Should NOT have refetched yet
-    expect(mockRefetchHasClaimed).not.toHaveBeenCalled();
-
-    // Simulate confirmation
-    callsStatusRef.current = { status: "CONFIRMED" };
-    await act(async () => {
-      rerender();
-    });
-
-    // NOW hasClaimed should be refetched
-    expect(mockRefetchHasClaimed).toHaveBeenCalled();
-    expect(result.current.claimInitialState.isSuccess).toBe(true);
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 });
