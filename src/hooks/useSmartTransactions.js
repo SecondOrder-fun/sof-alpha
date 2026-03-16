@@ -28,25 +28,31 @@ export function useSmartTransactions() {
   });
 
   const chainCaps = useMemo(() => {
-    // Always attempt wallet_sendCalls (ERC-5792) for batching — callers
-    // wrap executeBatch in try/catch and fall back to sequential if it fails.
-    // We don't gate on wallet_getCapabilities because some wallets (e.g.
-    // Farcaster) support wallet_sendCalls but don't implement getCapabilities.
     const hasBatch = true;
-
-    // MetaMask reports atomic batch status via `atomic.status`:
-    //   "supported" = Smart Account already active, batch executes atomically
-    //   "ready"     = Smart Account available but not enabled — wallet_sendCalls
-    //                 will auto-prompt the user to upgrade their EOA via EIP-7702
-    //   null        = wallet doesn't report atomic capability (Farcaster, old wallets)
     let atomicStatus = null;
+    let hasPaymaster = false;
 
     if (capabilities && chainId) {
       const caps = capabilities[chainId];
       atomicStatus = caps?.atomic?.status || null;
+      hasPaymaster = !!caps?.paymasterService?.supported;
+
+      // eslint-disable-next-line no-console -- diagnostic: remove after paymaster is confirmed working
+      console.log('[SmartTx] wallet_getCapabilities →', {
+        chainId: `0x${chainId.toString(16)}`,
+        raw: caps,
+        atomicStatus,
+        hasPaymaster,
+      });
+    } else {
+      // eslint-disable-next-line no-console -- diagnostic
+      console.log('[SmartTx] wallet_getCapabilities → no data', {
+        capabilities,
+        chainId,
+      });
     }
 
-    return { hasBatch, atomicStatus };
+    return { hasBatch, hasPaymaster, atomicStatus };
   }, [capabilities, chainId]);
 
   const paymasterUrl = import.meta.env.VITE_PAYMASTER_PROXY_URL || '';
@@ -84,9 +90,15 @@ export function useSmartTransactions() {
   const executeBatch = useCallback(async (calls, options = {}) => {
     const { sofAmount, ...sendOptions } = options;
 
-    // Always attempt paymaster when URL is configured — don't gate on
-    // wallet_getCapabilities because wallets report it inconsistently.
-    // If the wallet doesn't support it, the catch block retries without.
+    // eslint-disable-next-line no-console -- diagnostic
+    console.log('[SmartTx] executeBatch →', {
+      paymasterUrl: paymasterUrl ? `${paymasterUrl.slice(0, 40)}...` : '(empty)',
+      hasPaymaster: chainCaps.hasPaymaster,
+      callCount: calls.length,
+    });
+
+    // Attempt paymaster when URL is configured and wallet reports support,
+    // OR always attempt (optimistic) — retry without if it fails.
     if (paymasterUrl) {
       const batchCapabilities = { paymasterService: { url: paymasterUrl } };
       let finalCalls = calls;
@@ -95,18 +107,31 @@ export function useSmartTransactions() {
       }
 
       try {
-        return await sendCallsAsync({
+        // eslint-disable-next-line no-console -- diagnostic
+        console.log('[SmartTx] Attempting sponsored batch...', { capabilities: batchCapabilities });
+        const result = await sendCallsAsync({
           account: address,
           calls: finalCalls,
           capabilities: batchCapabilities,
           ...sendOptions,
         });
+        // eslint-disable-next-line no-console -- diagnostic
+        console.log('[SmartTx] Sponsored batch succeeded:', result);
+        return result;
       } catch (err) {
         if (err?.code === 4001 || err?.name === 'UserRejectedRequestError') {
           throw err;
         }
+        // eslint-disable-next-line no-console -- diagnostic
+        console.error('[SmartTx] Paymaster FAILED:', {
+          message: err.message,
+          code: err?.code,
+          name: err?.name,
+          details: err?.details,
+          cause: err?.cause?.message,
+        });
         // eslint-disable-next-line no-console
-        console.warn('[SmartTx] Paymaster failed, retrying batch without sponsorship:', err.message);
+        console.warn('[SmartTx] Retrying batch without sponsorship...');
       }
     }
 
@@ -117,7 +142,7 @@ export function useSmartTransactions() {
       capabilities: {},
       ...sendOptions,
     });
-  }, [address, paymasterUrl, sendCallsAsync, buildFeeCall]);
+  }, [address, chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
 
   return {
     ...chainCaps,
