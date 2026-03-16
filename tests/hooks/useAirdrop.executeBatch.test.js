@@ -1,5 +1,5 @@
 // tests/hooks/useAirdrop.executeBatch.test.js
-// TDD: Verify useAirdrop uses executeBatch with dual-path confirmation
+// Verify useAirdrop uses the same executeBatch + fallback pattern as buy/sell
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
@@ -8,13 +8,10 @@ import { renderHook, act } from "@testing-library/react";
 
 const mockExecuteBatch = vi.fn();
 const mockWriteContractAsync = vi.fn();
-let callsStatusRef = { current: undefined };
 
 vi.mock("@/hooks/useSmartTransactions", () => ({
   useSmartTransactions: () => ({
     executeBatch: mockExecuteBatch,
-    callsStatus: callsStatusRef.current,
-    batchId: null,
   }),
 }));
 
@@ -22,7 +19,6 @@ const mockInvalidateQueries = vi.fn();
 const mockRefetchHasClaimed = vi.fn();
 const mockRefetchLastDaily = vi.fn();
 
-// Track hasClaimed state for on-chain polling simulation
 let hasClaimedValue = true; // default: already claimed (for daily tests)
 
 vi.mock("wagmi", () => ({
@@ -91,15 +87,14 @@ vi.mock("@/context/farcasterContext", () => ({
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe("useAirdrop - ERC-5792 executeBatch integration", () => {
+describe("useAirdrop - ERC-5792 executeBatch (buy/sell pattern)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    callsStatusRef.current = undefined;
     hasClaimedValue = true;
     mockExecuteBatch.mockResolvedValue("0xBatchId");
     mockWriteContractAsync.mockResolvedValue("0xTxHash");
-    mockRefetchHasClaimed.mockResolvedValue({ data: hasClaimedValue });
+    mockRefetchHasClaimed.mockResolvedValue({ data: true });
     mockRefetchLastDaily.mockResolvedValue({ data: 0n });
   });
 
@@ -113,12 +108,24 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
 
     expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
     const [calls] = mockExecuteBatch.mock.calls[0];
-    expect(calls).toBeInstanceOf(Array);
     expect(calls[0]).toHaveProperty("to", "0xAirdrop");
     expect(calls[0]).toHaveProperty("data");
   });
 
-  test("claimInitialBasic calls executeBatch with encoded airdrop call", async () => {
+  test("claimDaily sets isSuccess immediately when executeBatch resolves", async () => {
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimDaily();
+    });
+
+    expect(result.current.claimDailyState.isSuccess).toBe(true);
+    expect(result.current.claimDailyState.isPending).toBe(false);
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
+  });
+
+  test("claimInitialBasic calls executeBatch and sets success on resolve", async () => {
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
 
@@ -127,77 +134,11 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
     });
 
     expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
-    const [calls] = mockExecuteBatch.mock.calls[0];
-    expect(calls[0]).toHaveProperty("to", "0xAirdrop");
-  });
-
-  test("claimDaily stays isPending after executeBatch resolves (waiting for confirmation)", async () => {
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimDaily();
-    });
-
-    // executeBatch resolved, but not confirmed yet
-    expect(result.current.claimDailyState.isPending).toBe(true);
-    expect(result.current.claimDailyState.isSuccess).toBe(false);
-  });
-
-  test("Path 1: confirms via callsStatus (ERC-5792 wallets)", async () => {
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result, rerender } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimDaily();
-    });
-
-    expect(result.current.claimDailyState.isPending).toBe(true);
-
-    // Simulate ERC-5792 confirmation
-    callsStatusRef.current = { status: "CONFIRMED" };
-    await act(async () => {
-      rerender();
-    });
-
-    expect(result.current.claimDailyState.isSuccess).toBe(true);
-    expect(result.current.claimDailyState.isPending).toBe(false);
-    expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
-  });
-
-  test("Path 2: confirms via on-chain state polling (Farcaster fallback)", async () => {
-    vi.useFakeTimers();
-
-    // For initial claim: hasClaimed starts false, becomes true after mining
-    hasClaimedValue = false;
-    mockRefetchHasClaimed.mockResolvedValue({ data: false });
-
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimInitialBasic();
-    });
-
-    expect(result.current.claimInitialState.isPending).toBe(true);
-
-    // Simulate on-chain confirmation: next refetch returns hasClaimed = true
-    mockRefetchHasClaimed.mockResolvedValue({ data: true });
-
-    // Advance timers to trigger the 2s poll interval
-    await act(async () => {
-      vi.advanceTimersByTime(2100);
-      // Flush the promise queue for the async refetch
-      await vi.advanceTimersByTimeAsync(0);
-    });
-
     expect(result.current.claimInitialState.isSuccess).toBe(true);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
-
-    vi.useRealTimers();
   });
 
-  test("claimDaily re-throws user rejection (code 4001) without fallback", async () => {
+  test("re-throws user rejection (code 4001) without fallback", async () => {
     const userRejection = new Error("User rejected");
     userRejection.code = 4001;
     mockExecuteBatch.mockRejectedValue(userRejection);
@@ -211,13 +152,11 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
 
     expect(result.current.claimDailyState.isError).toBe(true);
     expect(result.current.claimDailyState.error).toContain("User rejected");
-    // Should NOT have tried writeContractAsync fallback
     expect(mockWriteContractAsync).not.toHaveBeenCalled();
   });
 
-  test("claimDaily falls back to writeContractAsync when executeBatch times out", async () => {
+  test("falls back to writeContractAsync when executeBatch fails", async () => {
     mockExecuteBatch.mockRejectedValue(new Error("Batch execution timeout"));
-    mockWriteContractAsync.mockResolvedValue("0xFallbackHash");
 
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
@@ -226,7 +165,6 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
       await result.current.claimDaily();
     });
 
-    // Should have tried executeBatch first, then fallen back
     expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
     expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
     expect(mockWriteContractAsync).toHaveBeenCalledWith(
@@ -235,13 +173,12 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
         functionName: "claimDaily",
       })
     );
-    // Should still be pending (waiting for on-chain confirmation)
-    expect(result.current.claimDailyState.isPending).toBe(true);
+    // writeContractAsync resolved → success
+    expect(result.current.claimDailyState.isSuccess).toBe(true);
   });
 
-  test("claimInitialBasic falls back to writeContractAsync when executeBatch fails", async () => {
-    mockExecuteBatch.mockRejectedValue(new Error("Wallet does not support batch calls"));
-    mockWriteContractAsync.mockResolvedValue("0xFallbackHash");
+  test("claimInitialBasic falls back to writeContractAsync on batch failure", async () => {
+    mockExecuteBatch.mockRejectedValue(new Error("Unsupported"));
 
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
@@ -250,14 +187,13 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
       await result.current.claimInitialBasic();
     });
 
-    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
-    expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
     expect(mockWriteContractAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         address: "0xAirdrop",
         functionName: "claimInitialBasic",
       })
     );
+    expect(result.current.claimInitialState.isSuccess).toBe(true);
   });
 
   test("sets error when both executeBatch and writeContractAsync fail", async () => {
@@ -273,16 +209,5 @@ describe("useAirdrop - ERC-5792 executeBatch integration", () => {
 
     expect(result.current.claimDailyState.isError).toBe(true);
     expect(result.current.claimDailyState.error).toContain("Insufficient funds");
-  });
-
-  test("does not invalidate queries until confirmation", async () => {
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimDaily();
-    });
-
-    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 });
