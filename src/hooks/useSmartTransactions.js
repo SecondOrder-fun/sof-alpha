@@ -89,60 +89,30 @@ export function useSmartTransactions() {
    */
   const executeBatch = useCallback(async (calls, options = {}) => {
     const { sofAmount, ...sendOptions } = options;
+    const batchCapabilities = {};
+    let finalCalls = calls;
 
-    // eslint-disable-next-line no-console -- diagnostic
-    console.log('[SmartTx] executeBatch →', {
-      paymasterUrl: paymasterUrl ? `${paymasterUrl.slice(0, 40)}...` : '(empty)',
-      hasPaymaster: chainCaps.hasPaymaster,
-      callCount: calls.length,
-    });
-
-    // Attempt paymaster when URL is configured and wallet reports support,
-    // OR always attempt (optimistic) — retry without if it fails.
+    // Include paymasterService as optional — wallets that support it (Coinbase
+    // Wallet) will use it; wallets that don't (MetaMask) will ignore it and
+    // proceed without sponsorship. ERC-5792 `optional: true` prevents viem
+    // from throwing when the wallet hasn't reported paymasterService support.
     if (paymasterUrl) {
-      const batchCapabilities = { paymasterService: { url: paymasterUrl } };
-      let finalCalls = calls;
+      batchCapabilities.paymasterService = {
+        url: paymasterUrl,
+        optional: true,
+      };
       if (sofAmount && sofAmount > 0n) {
         finalCalls = [buildFeeCall(sofAmount), ...calls];
       }
-
-      try {
-        // eslint-disable-next-line no-console -- diagnostic
-        console.log('[SmartTx] Attempting sponsored batch...', { capabilities: batchCapabilities });
-        const result = await sendCallsAsync({
-          account: address,
-          calls: finalCalls,
-          capabilities: batchCapabilities,
-          ...sendOptions,
-        });
-        // eslint-disable-next-line no-console -- diagnostic
-        console.log('[SmartTx] Sponsored batch succeeded:', result);
-        return result;
-      } catch (err) {
-        if (err?.code === 4001 || err?.name === 'UserRejectedRequestError') {
-          throw err;
-        }
-        // eslint-disable-next-line no-console -- diagnostic
-        console.error('[SmartTx] Paymaster FAILED:', {
-          message: err.message,
-          code: err?.code,
-          name: err?.name,
-          details: err?.details,
-          cause: err?.cause?.message,
-        });
-        // eslint-disable-next-line no-console
-        console.warn('[SmartTx] Retrying batch without sponsorship...');
-      }
     }
 
-    // Unsponsored batch (no paymaster URL or paymaster retry)
     return await sendCallsAsync({
       account: address,
-      calls,
-      capabilities: {},
+      calls: finalCalls,
+      capabilities: batchCapabilities,
       ...sendOptions,
     });
-  }, [address, chainCaps, paymasterUrl, sendCallsAsync, buildFeeCall]);
+  }, [address, paymasterUrl, sendCallsAsync, buildFeeCall]);
 
   return {
     ...chainCaps,
