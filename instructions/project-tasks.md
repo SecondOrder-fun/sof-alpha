@@ -105,6 +105,59 @@ Comprehensive security audit of Chainlink VRF usage in Raffle contracts. All Cri
 
 ## Critical Priority Tasks (2025-10-03)
 
+## MetaMask Gas Sponsorship via ERC-4337 (2026-03-16)
+
+MetaMask's `wallet_sendCalls` does NOT support the `paymasterService` capability.
+Sponsorship on Coinbase Wallet and Farcaster works via built-in wallet-level sponsorship.
+For MetaMask, we need to implement the ERC-4337 bundler + paymaster flow using the
+MetaMask Smart Accounts Kit.
+
+**Current state:** Batching works on all wallets (Farcaster, Coinbase, MetaMask).
+Sponsorship works on Farcaster (built-in frame) and Coinbase Wallet (built-in CDP).
+MetaMask paymasterService is marked `optional: true` so it doesn't error — but MetaMask
+ignores it, so users still pay gas.
+
+### Phase 1: CDP Paymaster Proxy Verification
+- [ ] Verify Railway backend `/api/paymaster` correctly proxies ERC-7677 requests to CDP
+- [ ] Confirm `PAYMASTER_RPC_URL_TESTNET` is set correctly on Railway
+- [ ] Test proxy with real `pm_getPaymasterStubData` / `pm_getPaymasterData` requests
+- [ ] Confirm Coinbase Wallet sponsorship uses our CDP proxy (not just built-in)
+
+### Phase 2: MetaMask Smart Account Bundler Integration
+- [ ] Install `@metamask/smart-accounts-kit` and `permissionless` (Pimlico)
+- [ ] Create `useMetaMaskSmartAccount` hook that detects MetaMask Smart Account
+- [ ] Set up bundler client pointing to CDP RPC endpoint
+- [ ] Set up paymaster client pointing to CDP RPC endpoint
+- [ ] Implement `sendUserOperation` path as alternative to `wallet_sendCalls`
+
+### Phase 3: Unified Transaction Hook
+- [ ] Extend `useSmartTransactions` to detect wallet type via capabilities:
+  - `paymasterService.supported` → use `wallet_sendCalls` with paymaster (Coinbase Wallet)
+  - `atomic.status === "supported"` → use ERC-4337 bundler + paymaster (MetaMask)
+  - Neither → use `wallet_sendCalls` without paymaster, fallback to sequential
+- [ ] Keep single `executeBatch` API — internal routing is transparent to callers
+- [ ] Preserve three-tier fallback: sponsored batch → unsponsored batch → sequential
+
+### Phase 4: ERC-20 Gas Payments (Mainnet)
+- [ ] Implement CDP ERC-20 paymaster flow (user pays gas in USDC, no ETH needed)
+- [ ] Check user's USDC allowance to CDP paymaster contract (`0x2FAEB0760D4230Ef2aC21496Bb4F0b47D634FD4c`)
+- [ ] Auto-prepend USDC approval call to batch if allowance insufficient
+- [ ] Pass `erc20` context in `pm_getPaymasterData` requests via proxy
+- [ ] Only for Base Mainnet (USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
+
+### Phase 5: Testing & Cleanup
+- [ ] Remove diagnostic `console.log` from `useSmartTransactions`
+- [ ] Add tests for capability detection and routing logic
+- [ ] Test all wallets: MetaMask (with/without Smart Account), Coinbase, Farcaster
+- [ ] Update memory with confirmed wallet support matrix
+
+**References:**
+- [MetaMask Send Gasless Transaction](https://docs.metamask.io/smart-accounts-kit/development/guides/smart-accounts/send-gasless-transaction/)
+- [viem toMetaMaskSmartAccount](https://viem.sh/account-abstraction/accounts/smart/toMetaMaskSmartAccount)
+- [Pimlico MetaMask Guide](https://docs.pimlico.io/guides/how-to/accounts/use-metamask-account)
+- [CDP ERC-20 Gas Payments](https://docs.cdp.coinbase.com/paymaster/guides/erc20-gas-payments)
+- [CDP Paymaster Quickstart](https://docs.cdp.coinbase.com/paymaster/guides/quickstart)
+
 ## Frontend Tasks (2026-01-21)
 
 - [x] **Farcaster Raffle Details: "Your Tickets" now auto-refreshes after purchase (2026-01-28)**
