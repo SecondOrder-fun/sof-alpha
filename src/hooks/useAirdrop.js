@@ -159,8 +159,10 @@ export function useAirdrop() {
 
   const [pendingAction, setPendingAction] = useState(null); // 'initial' | 'basic' | 'daily'
   const preClaimDailyTs = useRef(0);
+  const confirmedRef = useRef(false); // prevents catch from overwriting success
 
   const confirmClaim = useCallback((action) => {
+    confirmedRef.current = true;
     queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
 
     if (action === "daily") {
@@ -229,6 +231,7 @@ export function useAirdrop() {
       if (!address || !airdropAddress || !fid) return;
 
       setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
+      confirmedRef.current = false;
 
       try {
         // Fetch EIP-712 attestation from backend
@@ -252,17 +255,23 @@ export function useAirdrop() {
           args: [BigInt(fid), BigInt(deadline), v, r, s],
         });
 
-        await executeBatch([{ to: airdropAddress, data: callData }]);
-
-        // Batch submitted — wait for on-chain confirmation via callsStatus effect
+        // Start polling BEFORE executeBatch — the Farcaster wallet may never
+        // return the ERC-5792 response, but the tx is still submitted on-chain.
+        // Polling detects confirmation even if executeBatch hangs.
         setPendingAction("initial");
+
+        await executeBatch([{ to: airdropAddress, data: callData }]);
       } catch (err) {
-        setClaimInitialState({
-          isPending: false,
-          isSuccess: false,
-          isError: true,
-          error: err.message || "Claim failed",
-        });
+        // Only set error if polling hasn't already confirmed the tx
+        if (!confirmedRef.current) {
+          setPendingAction(null);
+          setClaimInitialState({
+            isPending: false,
+            isSuccess: false,
+            isError: true,
+            error: err.message || "Claim failed",
+          });
+        }
       }
     },
     [address, airdropAddress, farcasterAuth, executeBatch]
@@ -274,6 +283,7 @@ export function useAirdrop() {
     if (!address || !airdropAddress) return;
 
     setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
+    confirmedRef.current = false;
 
     try {
       const callData = encodeFunctionData({
@@ -282,17 +292,18 @@ export function useAirdrop() {
         args: [],
       });
 
-      await executeBatch([{ to: airdropAddress, data: callData }]);
-
-      // Batch submitted — wait for on-chain confirmation via callsStatus effect
       setPendingAction("basic");
+      await executeBatch([{ to: airdropAddress, data: callData }]);
     } catch (err) {
-      setClaimInitialState({
-        isPending: false,
-        isSuccess: false,
-        isError: true,
-        error: err.message || "Claim failed",
-      });
+      if (!confirmedRef.current) {
+        setPendingAction(null);
+        setClaimInitialState({
+          isPending: false,
+          isSuccess: false,
+          isError: true,
+          error: err.message || "Claim failed",
+        });
+      }
     }
   }, [address, airdropAddress, executeBatch]);
 
@@ -302,6 +313,7 @@ export function useAirdrop() {
     if (!address || !airdropAddress || !canClaimDaily) return;
 
     setClaimDailyState({ isPending: true, isSuccess: false, isError: false, error: null });
+    confirmedRef.current = false;
 
     try {
       const callData = encodeFunctionData({
@@ -311,17 +323,18 @@ export function useAirdrop() {
       });
 
       preClaimDailyTs.current = lastClaimTs;
-      await executeBatch([{ to: airdropAddress, data: callData }]);
-
-      // Batch submitted — wait for on-chain confirmation via polling/callsStatus
       setPendingAction("daily");
+      await executeBatch([{ to: airdropAddress, data: callData }]);
     } catch (err) {
-      setClaimDailyState({
-        isPending: false,
-        isSuccess: false,
-        isError: true,
-        error: err.message || "Daily claim failed",
-      });
+      if (!confirmedRef.current) {
+        setPendingAction(null);
+        setClaimDailyState({
+          isPending: false,
+          isSuccess: false,
+          isError: true,
+          error: err.message || "Daily claim failed",
+        });
+      }
     }
   }, [address, airdropAddress, canClaimDaily, executeBatch, lastClaimTs]);
 
