@@ -4,7 +4,6 @@ import { encodeFunctionData } from 'viem';
 import { ERC20Abi } from '@/utils/abis';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { useAppIdentity } from '@/hooks/useAppIdentity';
 
 /**
  * SOF fee rate charged per sponsored transaction batch (0.05%).
@@ -16,7 +15,6 @@ const SOF_FEE_BPS = 5n; // 0.05% (5 basis points)
 export function useSmartTransactions() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const { isMiniApp } = useAppIdentity();
   const { data: capabilities } = useCapabilities({ account: address });
   const { sendCallsAsync, data: batchId } = useSendCalls();
 
@@ -30,17 +28,22 @@ export function useSmartTransactions() {
   });
 
   const chainCaps = useMemo(() => {
-    // Disable ERC-5792 batch in Farcaster MiniApp — wallet_sendCalls responses
-    // don't propagate back through the MiniApp SDK transport reliably,
-    // causing transactions to hang after user confirms.
-    if (isMiniApp) return { hasBatch: false, hasPaymaster: false };
-    if (!capabilities || !chainId) return { hasBatch: false, hasPaymaster: false };
-    const caps = capabilities[chainId];
-    return {
-      hasBatch: !!caps?.atomicBatch?.supported,
-      hasPaymaster: !!caps?.paymasterService?.supported,
-    };
-  }, [capabilities, chainId, isMiniApp]);
+    // Always attempt wallet_sendCalls (ERC-5792) for batching — callers
+    // wrap executeBatch in try/catch and fall back to sequential if it fails.
+    // We don't gate on wallet_getCapabilities because some wallets (e.g.
+    // Farcaster) support wallet_sendCalls but don't implement getCapabilities.
+    const hasBatch = true;
+
+    // Paymaster requires explicit capability reporting — wallets that don't
+    // support it would error if we pass a paymasterService URL in the batch.
+    let hasPaymaster = false;
+    if (capabilities && chainId) {
+      const caps = capabilities[chainId];
+      hasPaymaster = !!caps?.paymasterService?.supported;
+    }
+
+    return { hasBatch, hasPaymaster };
+  }, [capabilities, chainId]);
 
   const paymasterUrl = import.meta.env.VITE_PAYMASTER_PROXY_URL || '';
 
