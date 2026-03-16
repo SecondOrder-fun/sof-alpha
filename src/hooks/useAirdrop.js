@@ -52,7 +52,7 @@ export function useAirdrop() {
   const contracts = getContractAddresses(netKey);
   const airdropAddress = contracts.SOF_AIRDROP;
 
-  const { executeBatch } = useSmartTransactions();
+  const { executeBatch, callsStatus } = useSmartTransactions();
 
   const isEnabled = Boolean(address && isConnected && airdropAddress);
 
@@ -134,7 +134,7 @@ export function useAirdrop() {
     return () => clearInterval(timer);
   }, [canClaimDaily, nextClaimAtSecs]);
 
-  // ── Write: claimInitial ──────────────────────────────────────────────────────
+  // ── Write state ────────────────────────────────────────────────────────────
 
   const [claimInitialState, setClaimInitialState] = useState({
     isPending: false,
@@ -142,6 +142,40 @@ export function useAirdrop() {
     isError: false,
     error: null,
   });
+
+  const [claimDailyState, setClaimDailyState] = useState({
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
+  });
+
+  // ── Confirmation tracking ──────────────────────────────────────────────────
+  // executeBatch resolves when the user approves, NOT when the tx is mined.
+  // We track which action is pending and wait for callsStatus === 'CONFIRMED'
+  // before invalidating queries or setting isSuccess.
+
+  const [pendingAction, setPendingAction] = useState(null); // 'initial' | 'basic' | 'daily'
+
+  useEffect(() => {
+    if (!pendingAction || callsStatus?.status !== "CONFIRMED") return;
+
+    // Transaction confirmed on-chain — safe to invalidate and update state
+    queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
+
+    if (pendingAction === "daily") {
+      setClaimDailyState({ isPending: false, isSuccess: true, isError: false, error: null });
+      refetchLastDaily();
+    } else {
+      setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
+      refetchHasClaimed();
+      refetchLastDaily();
+    }
+
+    setPendingAction(null);
+  }, [pendingAction, callsStatus, queryClient, refetchHasClaimed, refetchLastDaily]);
+
+  // ── Write: claimInitial ──────────────────────────────────────────────────────
 
   const claimInitial = useCallback(
     async (fid) => {
@@ -173,12 +207,8 @@ export function useAirdrop() {
 
         await executeBatch([{ to: airdropAddress, data: callData }]);
 
-        setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
-
-        // Refresh reads after success
-        queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
-        refetchHasClaimed();
-        refetchLastDaily();
+        // Batch submitted — wait for on-chain confirmation via callsStatus effect
+        setPendingAction("initial");
       } catch (err) {
         setClaimInitialState({
           isPending: false,
@@ -188,7 +218,7 @@ export function useAirdrop() {
         });
       }
     },
-    [address, airdropAddress, farcasterAuth, executeBatch, queryClient, refetchHasClaimed, refetchLastDaily]
+    [address, airdropAddress, farcasterAuth, executeBatch]
   );
 
   // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
@@ -207,11 +237,8 @@ export function useAirdrop() {
 
       await executeBatch([{ to: airdropAddress, data: callData }]);
 
-      setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
-
-      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
-      refetchHasClaimed();
-      refetchLastDaily();
+      // Batch submitted — wait for on-chain confirmation via callsStatus effect
+      setPendingAction("basic");
     } catch (err) {
       setClaimInitialState({
         isPending: false,
@@ -220,16 +247,9 @@ export function useAirdrop() {
         error: err.message || "Claim failed",
       });
     }
-  }, [address, airdropAddress, executeBatch, queryClient, refetchHasClaimed, refetchLastDaily]);
+  }, [address, airdropAddress, executeBatch]);
 
   // ── Write: claimDaily ────────────────────────────────────────────────────────
-
-  const [claimDailyState, setClaimDailyState] = useState({
-    isPending: false,
-    isSuccess: false,
-    isError: false,
-    error: null,
-  });
 
   const claimDaily = useCallback(async () => {
     if (!address || !airdropAddress || !canClaimDaily) return;
@@ -245,10 +265,8 @@ export function useAirdrop() {
 
       await executeBatch([{ to: airdropAddress, data: callData }]);
 
-      setClaimDailyState({ isPending: false, isSuccess: true, isError: false, error: null });
-
-      queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
-      refetchLastDaily();
+      // Batch submitted — wait for on-chain confirmation via callsStatus effect
+      setPendingAction("daily");
     } catch (err) {
       setClaimDailyState({
         isPending: false,
@@ -257,7 +275,7 @@ export function useAirdrop() {
         error: err.message || "Daily claim failed",
       });
     }
-  }, [address, airdropAddress, canClaimDaily, executeBatch, queryClient, refetchLastDaily]);
+  }, [address, airdropAddress, canClaimDaily, executeBatch]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });
