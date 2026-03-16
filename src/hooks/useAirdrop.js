@@ -1,5 +1,5 @@
 // src/hooks/useAirdrop.js
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits, encodeFunctionData } from "viem";
@@ -152,18 +152,18 @@ export function useAirdrop() {
 
   // ── Confirmation tracking ──────────────────────────────────────────────────
   // executeBatch resolves when the user approves, NOT when the tx is mined.
-  // We track which action is pending and wait for callsStatus === 'CONFIRMED'
-  // before invalidating queries or setting isSuccess.
+  // Two confirmation paths run in parallel:
+  //   1. ERC-5792 callsStatus (fast, Coinbase Wallet)
+  //   2. On-chain state polling (universal fallback — works with Farcaster, etc.)
+  // Whichever fires first wins. 60s timeout catches reverted txs.
 
   const [pendingAction, setPendingAction] = useState(null); // 'initial' | 'basic' | 'daily'
+  const preClaimDailyTs = useRef(0);
 
-  useEffect(() => {
-    if (!pendingAction || callsStatus?.status !== "CONFIRMED") return;
-
-    // Transaction confirmed on-chain — safe to invalidate and update state
+  const confirmClaim = useCallback((action) => {
     queryClient.invalidateQueries({ queryKey: ["sofBalance"] });
 
-    if (pendingAction === "daily") {
+    if (action === "daily") {
       setClaimDailyState({ isPending: false, isSuccess: true, isError: false, error: null });
       refetchLastDaily();
     } else {
@@ -173,7 +173,54 @@ export function useAirdrop() {
     }
 
     setPendingAction(null);
-  }, [pendingAction, callsStatus, queryClient, refetchHasClaimed, refetchLastDaily]);
+  }, [queryClient, refetchHasClaimed, refetchLastDaily]);
+
+  // Path 1: ERC-5792 callsStatus (Coinbase Wallet, wallets supporting wallet_getCallsStatus)
+  useEffect(() => {
+    if (!pendingAction || callsStatus?.status !== "CONFIRMED") return;
+    confirmClaim(pendingAction);
+  }, [pendingAction, callsStatus, confirmClaim]);
+
+  // Path 2: On-chain state polling (universal fallback)
+  // Polls hasClaimed / lastDailyClaim every 2s. When state changes, tx is confirmed.
+  useEffect(() => {
+    if (!pendingAction) return;
+
+    const poll = setInterval(async () => {
+      if (pendingAction === "daily") {
+        const { data } = await refetchLastDaily();
+        if (data && Number(data) > preClaimDailyTs.current) {
+          confirmClaim("daily");
+        }
+      } else {
+        const { data } = await refetchHasClaimed();
+        if (data === true) {
+          confirmClaim(pendingAction);
+        }
+      }
+    }, 2000);
+
+    // Timeout: if no confirmation after 60s, assume revert
+    const timeout = setTimeout(() => {
+      if (pendingAction === "daily") {
+        setClaimDailyState({
+          isPending: false, isSuccess: false, isError: true,
+          error: "Transaction may have failed — check your wallet",
+        });
+      } else {
+        setClaimInitialState({
+          isPending: false, isSuccess: false, isError: true,
+          error: "Transaction may have failed — check your wallet",
+        });
+      }
+      setPendingAction(null);
+    }, 60_000);
+
+    return () => {
+      clearInterval(poll);
+      clearTimeout(timeout);
+    };
+  }, [pendingAction, refetchHasClaimed, refetchLastDaily, confirmClaim]);
 
   // ── Write: claimInitial ──────────────────────────────────────────────────────
 
@@ -263,9 +310,10 @@ export function useAirdrop() {
         args: [],
       });
 
+      preClaimDailyTs.current = lastClaimTs;
       await executeBatch([{ to: airdropAddress, data: callData }]);
 
-      // Batch submitted — wait for on-chain confirmation via callsStatus effect
+      // Batch submitted — wait for on-chain confirmation via polling/callsStatus
       setPendingAction("daily");
     } catch (err) {
       setClaimDailyState({
@@ -275,7 +323,7 @@ export function useAirdrop() {
         error: err.message || "Daily claim failed",
       });
     }
-  }, [address, airdropAddress, canClaimDaily, executeBatch]);
+  }, [address, airdropAddress, canClaimDaily, executeBatch, lastClaimTs]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });
