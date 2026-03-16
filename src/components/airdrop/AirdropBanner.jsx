@@ -45,7 +45,11 @@ const AirdropBanner = () => {
   // Show errors via toast — refs prevent re-render loop from unstable toast/t
   useEffect(() => {
     if (isError && error) {
-      toastRef.current({ title: tRef.current("claimError"), variant: "destructive" });
+      toastRef.current({
+        title: tRef.current("claimError"),
+        description: error,
+        variant: "destructive",
+      });
     }
   }, [isError, error]);
 

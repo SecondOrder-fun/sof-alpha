@@ -1,11 +1,12 @@
 // src/hooks/useAirdrop.js
 import { useState, useEffect, useCallback, useContext } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatUnits } from "viem";
+import { formatUnits, encodeFunctionData } from "viem";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { SOFAirdropAbi } from "@/utils/abis";
+import { useSmartTransactions } from "@/hooks/useSmartTransactions";
 import FarcasterContext from "@/context/farcasterContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
@@ -50,6 +51,8 @@ export function useAirdrop() {
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
   const airdropAddress = contracts.SOF_AIRDROP;
+
+  const { executeBatch } = useSmartTransactions();
 
   const isEnabled = Boolean(address && isConnected && airdropAddress);
 
@@ -133,15 +136,6 @@ export function useAirdrop() {
 
   // ── Write: claimInitial ──────────────────────────────────────────────────────
 
-  const {
-    writeContractAsync: writeContractAsync,
-    isPending: isWritePending,
-    isSuccess: isWriteSuccess,
-    isError: isWriteError,
-    error: writeError,
-    reset: resetWrite,
-  } = useWriteContract();
-
   const [claimInitialState, setClaimInitialState] = useState({
     isPending: false,
     isSuccess: false,
@@ -171,12 +165,13 @@ export function useAirdrop() {
 
         const { deadline, v, r, s } = await res.json();
 
-        await writeContractAsync({
-          address: airdropAddress,
+        const callData = encodeFunctionData({
           abi: SOFAirdropAbi,
           functionName: "claimInitial",
           args: [BigInt(fid), BigInt(deadline), v, r, s],
         });
+
+        await executeBatch([{ to: airdropAddress, data: callData }]);
 
         setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
 
@@ -193,7 +188,7 @@ export function useAirdrop() {
         });
       }
     },
-    [address, airdropAddress, farcasterAuth, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]
+    [address, airdropAddress, farcasterAuth, executeBatch, queryClient, refetchHasClaimed, refetchLastDaily]
   );
 
   // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
@@ -204,12 +199,13 @@ export function useAirdrop() {
     setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
 
     try {
-      await writeContractAsync({
-        address: airdropAddress,
+      const callData = encodeFunctionData({
         abi: SOFAirdropAbi,
         functionName: "claimInitialBasic",
         args: [],
       });
+
+      await executeBatch([{ to: airdropAddress, data: callData }]);
 
       setClaimInitialState({ isPending: false, isSuccess: true, isError: false, error: null });
 
@@ -224,7 +220,7 @@ export function useAirdrop() {
         error: err.message || "Claim failed",
       });
     }
-  }, [address, airdropAddress, writeContractAsync, queryClient, refetchHasClaimed, refetchLastDaily]);
+  }, [address, airdropAddress, executeBatch, queryClient, refetchHasClaimed, refetchLastDaily]);
 
   // ── Write: claimDaily ────────────────────────────────────────────────────────
 
@@ -241,12 +237,13 @@ export function useAirdrop() {
     setClaimDailyState({ isPending: true, isSuccess: false, isError: false, error: null });
 
     try {
-      await writeContractAsync({
-        address: airdropAddress,
+      const callData = encodeFunctionData({
         abi: SOFAirdropAbi,
         functionName: "claimDaily",
         args: [],
       });
+
+      await executeBatch([{ to: airdropAddress, data: callData }]);
 
       setClaimDailyState({ isPending: false, isSuccess: true, isError: false, error: null });
 
@@ -260,7 +257,7 @@ export function useAirdrop() {
         error: err.message || "Daily claim failed",
       });
     }
-  }, [address, airdropAddress, canClaimDaily, writeContractAsync, queryClient, refetchLastDaily]);
+  }, [address, airdropAddress, canClaimDaily, executeBatch, queryClient, refetchLastDaily]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });
@@ -268,8 +265,7 @@ export function useAirdrop() {
 
   const resetInitialState = useCallback(() => {
     setClaimInitialState({ isPending: false, isSuccess: false, isError: false, error: null });
-    resetWrite();
-  }, [resetWrite]);
+  }, []);
 
   // ── Formatted amounts ────────────────────────────────────────────────────────
 
@@ -306,10 +302,6 @@ export function useAirdrop() {
     claimDailyState,
     resetDailyState,
     // General
-    isWritePending,
-    isWriteSuccess,
-    isWriteError,
-    writeError,
     airdropAddress,
   };
 }
