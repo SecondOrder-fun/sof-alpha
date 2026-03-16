@@ -15,9 +15,11 @@ export function useFormatSOF(decimals) {
   return useCallback(
     (amountWei) => {
       try {
-        return Number(formatUnits(amountWei ?? 0n, decimals)).toFixed(4);
+        const num = Number(formatUnits(amountWei ?? 0n, decimals));
+        // Max 3 decimal places, strip trailing zeros
+        return parseFloat(num.toFixed(3)).toString();
       } catch {
-        return "0.0000";
+        return "0";
       }
     },
     [decimals]
