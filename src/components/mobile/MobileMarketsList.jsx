@@ -2,7 +2,6 @@
 import PropTypes from "prop-types";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,6 @@ MobileActiveMarketCard.propTypes = {
  * Pattern: MobileRafflesList.jsx
  */
 const MobileMarketsList = ({ markets = [], isLoading, batchPositions = {} }) => {
-  const { t } = useTranslation(["market", "common"]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardHeight, setCardHeight] = useState(null);
   const cardRef = useRef(null);
@@ -112,17 +110,9 @@ const MobileMarketsList = ({ markets = [], isLoading, batchPositions = {} }) => 
     return <MobileCardSkeleton />;
   }
 
-  // Empty
+  // Empty — parent (MobileMarkets) handles the empty state with icon + explanation
   if (markets.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <p className="text-center text-muted-foreground">
-            {t("market:noMarketsAvailable")}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (

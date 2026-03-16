@@ -203,7 +203,7 @@ const SwapWidget = () => {
                 value={amountIn}
                 onChange={(e) => setAmountIn(e.target.value)}
                 disabled={isPending}
-                className="pr-14"
+                className={isSellingSOF ? "pr-14" : ""}
               />
               {isSellingSOF && (
                 <button

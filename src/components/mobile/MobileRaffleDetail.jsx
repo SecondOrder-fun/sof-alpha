@@ -80,13 +80,13 @@ export const MobileRaffleDetail = ({
       const supply = Number(curveSupply ?? 0n);
       if (supply <= 1) return 0n;
       const reserves = totalPrizePool ?? 0n;
-      const grand = (reserves * 6500n) / 10000n;
-      const consolationPool = reserves - grand;
+      const consolationPool = reserves - grandPrize;
+      if (consolationPool <= 0n) return 0n;
       return consolationPool / BigInt(supply - 1);
     } catch {
       return 0n;
     }
-  }, [totalPrizePool, curveSupply]);
+  }, [totalPrizePool, curveSupply, grandPrize]);
 
   const now = Math.floor(Date.now() / 1000);
   const startTimeSec = seasonConfig?.startTime
