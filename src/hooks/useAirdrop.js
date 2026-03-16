@@ -1,12 +1,11 @@
 // src/hooks/useAirdrop.js
 import { useState, useEffect, useCallback, useContext } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWalletClient } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatUnits, encodeFunctionData } from "viem";
+import { formatUnits } from "viem";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { SOFAirdropAbi } from "@/utils/abis";
-import { useSmartTransactions } from "@/hooks/useSmartTransactions";
 import FarcasterContext from "@/context/farcasterContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
@@ -45,20 +44,17 @@ function formatCountdown(remaining) {
 /**
  * Hook for interacting with the SOFAirdrop contract.
  *
- * Uses the same ERC-5792 batch + paymaster flow as buy/sell:
- *   Tier 1: executeBatch (gasless via paymaster)
- *   Tier 2: writeContractAsync (direct tx, user pays gas)
+ * Claims are relayed via the backend (gasless for users).
+ * The backend wallet submits transactions using the paymaster.
  */
 export function useAirdrop() {
   const { address, isConnected } = useAccount();
   const queryClient = useQueryClient();
   const farcasterAuth = useContext(FarcasterContext);
+  const { data: walletClient } = useWalletClient();
   const netKey = getStoredNetworkKey();
   const contracts = getContractAddresses(netKey);
   const airdropAddress = contracts.SOF_AIRDROP;
-
-  const { executeBatch } = useSmartTransactions();
-  const { writeContractAsync } = useWriteContract();
 
   const isEnabled = Boolean(address && isConnected && airdropAddress);
 
@@ -156,9 +152,7 @@ export function useAirdrop() {
     error: null,
   });
 
-  // ── On-chain verification after tx accepted ───────────────────────────────
-  // executeBatch resolves when the wallet ACCEPTS the batch, not when it's
-  // mined. We poll the contract to confirm the state actually changed.
+  // ── On-chain verification after backend relay ───────────────────────────
 
   const verifyInitialClaim = useCallback(async () => {
     const confirmed = await waitForOnChain(
@@ -194,7 +188,7 @@ export function useAirdrop() {
     }
   }, [queryClient, refetchHasClaimed, refetchLastDaily]);
 
-  // ── Write: claimInitial ──────────────────────────────────────────────────────
+  // ── Write: claimInitial (Farcaster-verified, via backend relay) ───────────
 
   const claimInitial = useCallback(
     async (fid) => {
@@ -203,48 +197,19 @@ export function useAirdrop() {
       setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
 
       try {
-        // Fetch EIP-712 attestation from backend
         const authHeaders = farcasterAuth?.getAuthHeaders?.() ?? {};
-        const res = await fetch(`${API_BASE}/airdrop/attestation`, {
+        const res = await fetch(`${API_BASE}/airdrop/claim`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders },
-          body: JSON.stringify({ fid, address }),
+          body: JSON.stringify({ address, fid, type: "initial" }),
         });
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body.message || `Attestation request failed: ${res.status}`);
+          throw new Error(body.error || `Claim failed: ${res.status}`);
         }
 
-        const { deadline, v, r, s } = await res.json();
-        const claimArgs = [BigInt(fid), BigInt(deadline), v, r, s];
-
-        const callData = encodeFunctionData({
-          abi: SOFAirdropAbi,
-          functionName: "claimInitial",
-          args: claimArgs,
-        });
-
-        // Tier 1: ERC-5792 batch + paymaster
-        try {
-          await executeBatch([{ to: airdropAddress, data: callData }]);
-        } catch (batchErr) {
-          if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
-            throw batchErr;
-          }
-          // eslint-disable-next-line no-console
-          console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
-
-          // Tier 2: direct writeContractAsync (user pays gas)
-          await writeContractAsync({
-            address: airdropAddress,
-            abi: SOFAirdropAbi,
-            functionName: "claimInitial",
-            args: claimArgs,
-          });
-        }
-
-        // Tx accepted by wallet — now verify on-chain
+        // Backend confirmed the tx — verify on-chain state
         await verifyInitialClaim();
       } catch (err) {
         setClaimInitialState({
@@ -255,10 +220,10 @@ export function useAirdrop() {
         });
       }
     },
-    [address, airdropAddress, farcasterAuth, executeBatch, writeContractAsync, verifyInitialClaim]
+    [address, airdropAddress, farcasterAuth, verifyInitialClaim]
   );
 
-  // ── Write: claimInitialBasic (no Farcaster) ─────────────────────────────────
+  // ── Write: claimInitialBasic (no Farcaster, wallet signature proof) ───────
 
   const claimInitialBasic = useCallback(async () => {
     if (!address || !airdropAddress) return;
@@ -266,33 +231,26 @@ export function useAirdrop() {
     setClaimInitialState({ isPending: true, isSuccess: false, isError: false, error: null });
 
     try {
-      // Tier 1: ERC-5792 batch + paymaster
-      try {
-        await executeBatch([{
-          to: airdropAddress,
-          data: encodeFunctionData({
-            abi: SOFAirdropAbi,
-            functionName: "claimInitialBasic",
-            args: [],
-          }),
-        }]);
-      } catch (batchErr) {
-        if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
-          throw batchErr;
-        }
-        // eslint-disable-next-line no-console
-        console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
-
-        // Tier 2: direct writeContractAsync
-        await writeContractAsync({
-          address: airdropAddress,
-          abi: SOFAirdropAbi,
-          functionName: "claimInitialBasic",
-          args: [],
-        });
+      // Sign message to prove wallet ownership
+      if (!walletClient) {
+        throw new Error("Wallet not connected");
       }
 
-      // Tx accepted — verify on-chain
+      const message = `Claim SOF airdrop for ${address}`;
+      const signature = await walletClient.signMessage({ message });
+
+      const res = await fetch(`${API_BASE}/airdrop/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, type: "basic", signature }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Claim failed: ${res.status}`);
+      }
+
+      // Backend confirmed — verify on-chain
       await verifyInitialClaim();
     } catch (err) {
       setClaimInitialState({
@@ -302,9 +260,9 @@ export function useAirdrop() {
         error: err.message || "Claim failed",
       });
     }
-  }, [address, airdropAddress, executeBatch, writeContractAsync, verifyInitialClaim]);
+  }, [address, airdropAddress, walletClient, verifyInitialClaim]);
 
-  // ── Write: claimDaily ────────────────────────────────────────────────────────
+  // ── Write: claimDaily (via backend relay) ─────────────────────────────────
 
   const claimDaily = useCallback(async () => {
     if (!address || !airdropAddress || !canClaimDaily) return;
@@ -313,33 +271,19 @@ export function useAirdrop() {
     const prevLastClaimTs = lastClaimTs;
 
     try {
-      // Tier 1: ERC-5792 batch + paymaster
-      try {
-        await executeBatch([{
-          to: airdropAddress,
-          data: encodeFunctionData({
-            abi: SOFAirdropAbi,
-            functionName: "claimDaily",
-            args: [],
-          }),
-        }]);
-      } catch (batchErr) {
-        if (batchErr?.code === 4001 || batchErr?.name === "UserRejectedRequestError") {
-          throw batchErr;
-        }
-        // eslint-disable-next-line no-console
-        console.warn("[Airdrop] Batch failed, falling back:", batchErr.message);
+      const authHeaders = farcasterAuth?.getAuthHeaders?.() ?? {};
+      const res = await fetch(`${API_BASE}/airdrop/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ address, type: "daily" }),
+      });
 
-        // Tier 2: direct writeContractAsync
-        await writeContractAsync({
-          address: airdropAddress,
-          abi: SOFAirdropAbi,
-          functionName: "claimDaily",
-          args: [],
-        });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Daily claim failed: ${res.status}`);
       }
 
-      // Tx accepted — verify on-chain
+      // Backend confirmed — verify on-chain
       await verifyDailyClaim(prevLastClaimTs);
     } catch (err) {
       setClaimDailyState({
@@ -349,7 +293,7 @@ export function useAirdrop() {
         error: err.message || "Daily claim failed",
       });
     }
-  }, [address, airdropAddress, canClaimDaily, executeBatch, writeContractAsync, verifyDailyClaim, lastClaimTs]);
+  }, [address, airdropAddress, canClaimDaily, farcasterAuth, verifyDailyClaim, lastClaimTs]);
 
   const resetDailyState = useCallback(() => {
     setClaimDailyState({ isPending: false, isSuccess: false, isError: false, error: null });

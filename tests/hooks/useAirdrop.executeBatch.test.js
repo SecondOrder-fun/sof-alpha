@@ -1,19 +1,13 @@
 // tests/hooks/useAirdrop.executeBatch.test.js
-// Verify useAirdrop: executeBatch + on-chain verification before success
+// Verify useAirdrop: backend relay API calls + on-chain verification
+/* eslint-disable no-undef */
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
-const mockExecuteBatch = vi.fn();
-const mockWriteContractAsync = vi.fn();
-
-vi.mock("@/hooks/useSmartTransactions", () => ({
-  useSmartTransactions: () => ({
-    executeBatch: mockExecuteBatch,
-  }),
-}));
+const mockSignMessage = vi.fn();
 
 const mockInvalidateQueries = vi.fn();
 const mockRefetchHasClaimed = vi.fn();
@@ -23,7 +17,9 @@ let hasClaimedValue = true; // default: already claimed (for daily tests)
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: "0xUser", isConnected: true }),
-  useWriteContract: () => ({ writeContractAsync: mockWriteContractAsync }),
+  useWalletClient: () => ({
+    data: { signMessage: mockSignMessage },
+  }),
   useReadContract: vi.fn(({ functionName }) => {
     const defaults = {
       hasClaimed: { data: hasClaimedValue, refetch: mockRefetchHasClaimed },
@@ -50,35 +46,7 @@ vi.mock("@/lib/wagmi", () => ({
 }));
 
 vi.mock("@/utils/abis", () => ({
-  SOFAirdropAbi: [
-    {
-      type: "function",
-      name: "claimInitial",
-      inputs: [
-        { name: "fid", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-        { name: "v", type: "uint8" },
-        { name: "r", type: "bytes32" },
-        { name: "s", type: "bytes32" },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "claimInitialBasic",
-      inputs: [],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "claimDaily",
-      inputs: [],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-  ],
+  SOFAirdropAbi: [],
 }));
 
 vi.mock("@/context/farcasterContext", () => ({
@@ -87,19 +55,23 @@ vi.mock("@/context/farcasterContext", () => ({
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe("useAirdrop - executeBatch + on-chain verification", () => {
+describe("useAirdrop - backend relay API calls + on-chain verification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
     hasClaimedValue = true;
-    mockExecuteBatch.mockResolvedValue("0xBatchId");
-    mockWriteContractAsync.mockResolvedValue("0xTxHash");
+    mockSignMessage.mockResolvedValue("0xSignature");
     // Default: hasClaimed returns true on first poll (tx already mined)
     mockRefetchHasClaimed.mockResolvedValue({ data: true });
     mockRefetchLastDaily.mockResolvedValue({ data: 0n });
+    // Default: API returns success
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true, hash: "0xRelayTxHash" }),
+    });
   });
 
-  test("claimDaily calls executeBatch with encoded airdrop call", async () => {
+  test("claimDaily calls POST /airdrop/claim with type=daily", async () => {
     // For daily: lastDailyClaim poll returns a new timestamp
     mockRefetchLastDaily.mockResolvedValue({ data: 999n });
 
@@ -110,14 +82,42 @@ describe("useAirdrop - executeBatch + on-chain verification", () => {
       await result.current.claimDaily();
     });
 
-    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
-    const [calls] = mockExecuteBatch.mock.calls[0];
-    expect(calls[0]).toHaveProperty("to", "0xAirdrop");
-    expect(calls[0]).toHaveProperty("data");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = global.fetch.mock.calls[0];
+    expect(url).toContain("/airdrop/claim");
+    const body = JSON.parse(opts.body);
+    expect(body.type).toBe("daily");
+    expect(body.address).toBe("0xUser");
+  });
+
+  test("claimInitialBasic signs message and calls API with signature", async () => {
+    hasClaimedValue = false;
+    mockRefetchHasClaimed.mockResolvedValue({ data: true });
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimInitialBasic();
+    });
+
+    // Should have signed a message
+    expect(mockSignMessage).toHaveBeenCalledTimes(1);
+    expect(mockSignMessage).toHaveBeenCalledWith({
+      message: "Claim SOF airdrop for 0xUser",
+    });
+
+    // Should have called API
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = global.fetch.mock.calls[0];
+    expect(url).toContain("/airdrop/claim");
+    const body = JSON.parse(opts.body);
+    expect(body.type).toBe("basic");
+    expect(body.signature).toBe("0xSignature");
+    expect(body.address).toBe("0xUser");
   });
 
   test("claimInitialBasic shows success only after on-chain hasClaimed confirms", async () => {
-    // First poll: not confirmed yet. Second poll: confirmed.
     hasClaimedValue = false;
     let pollCount = 0;
     mockRefetchHasClaimed.mockImplementation(async () => {
@@ -139,10 +139,28 @@ describe("useAirdrop - executeBatch + on-chain verification", () => {
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ["sofBalance"] });
   });
 
-  test("re-throws user rejection (code 4001) without fallback", async () => {
-    const userRejection = new Error("User rejected");
-    userRejection.code = 4001;
-    mockExecuteBatch.mockRejectedValue(userRejection);
+  test("sets error when API returns non-ok response", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Already claimed" }),
+    });
+
+    const { useAirdrop } = await import("@/hooks/useAirdrop");
+    const { result } = renderHook(() => useAirdrop());
+
+    await act(async () => {
+      await result.current.claimInitialBasic();
+    });
+
+    expect(result.current.claimInitialState.isError).toBe(true);
+    expect(result.current.claimInitialState.error).toContain("Already claimed");
+  });
+
+  test("sets error when wallet signMessage is rejected", async () => {
+    hasClaimedValue = false;
+    const userRejection = new Error("User rejected the request");
+    mockSignMessage.mockRejectedValue(userRejection);
 
     const { useAirdrop } = await import("@/hooks/useAirdrop");
     const { result } = renderHook(() => useAirdrop());
@@ -153,44 +171,8 @@ describe("useAirdrop - executeBatch + on-chain verification", () => {
 
     expect(result.current.claimInitialState.isError).toBe(true);
     expect(result.current.claimInitialState.error).toContain("User rejected");
-    expect(mockWriteContractAsync).not.toHaveBeenCalled();
-  });
-
-  test("falls back to writeContractAsync when executeBatch fails", async () => {
-    mockExecuteBatch.mockRejectedValue(new Error("Batch execution timeout"));
-
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimInitialBasic();
-    });
-
-    expect(mockExecuteBatch).toHaveBeenCalledTimes(1);
-    expect(mockWriteContractAsync).toHaveBeenCalledTimes(1);
-    expect(mockWriteContractAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        address: "0xAirdrop",
-        functionName: "claimInitialBasic",
-      })
-    );
-    // Verified on-chain → success
-    expect(result.current.claimInitialState.isSuccess).toBe(true);
-  });
-
-  test("sets error when both executeBatch and writeContractAsync fail", async () => {
-    mockExecuteBatch.mockRejectedValue(new Error("Batch timeout"));
-    mockWriteContractAsync.mockRejectedValue(new Error("Insufficient funds"));
-
-    const { useAirdrop } = await import("@/hooks/useAirdrop");
-    const { result } = renderHook(() => useAirdrop());
-
-    await act(async () => {
-      await result.current.claimInitialBasic();
-    });
-
-    expect(result.current.claimInitialState.isError).toBe(true);
-    expect(result.current.claimInitialState.error).toContain("Insufficient funds");
+    // Should NOT have called the API
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test("shows error when tx accepted but on-chain state never changes", async () => {
