@@ -311,6 +311,11 @@ const SwapWidget = () => {
           {isPending ? t('swapping') : t('swap')}
         </Button>
 
+        {/* Testnet notice */}
+        <p className="text-xs text-destructive text-center">
+          {t('testnetNotice')}
+        </p>
+
         {/* Not connected hint */}
         {!isConnected && (
           <p className="text-xs text-center text-muted-foreground">

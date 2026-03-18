@@ -12,5 +12,6 @@
   "swapSuccess": "Swap successful!",
   "swapError": "Swap failed",
   "selectToken": "Select token",
-  "enterAmount": "Enter amount"
+  "enterAmount": "Enter amount",
+  "testnetNotice": "$SOFと交換するにはBase Sepoliaの$ETHが必要です。これらはテストネットトークンであり、価値はありません。"
 }
