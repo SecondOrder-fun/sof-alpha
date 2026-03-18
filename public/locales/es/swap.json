@@ -12,5 +12,6 @@
   "swapSuccess": "Swap successful!",
   "swapError": "Swap failed",
   "selectToken": "Select token",
-  "enterAmount": "Enter amount"
+  "enterAmount": "Enter amount",
+  "testnetNotice": "Necesitarás $ETH de Base Sepolia para intercambiar por $SOF. Estos son tokens de testnet y no tienen ningún valor."
 }
