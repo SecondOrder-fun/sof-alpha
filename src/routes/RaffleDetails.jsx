@@ -40,6 +40,9 @@ import BuySellSheet from "@/components/mobile/BuySellSheet";
 import PasswordGateModal from "@/components/gating/PasswordGateModal";
 import SignatureGateModal from "@/components/gating/SignatureGateModal";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
+import { SponsoredPrizesDisplay } from "@/components/prizes/SponsoredPrizesDisplay";
+import { SponsorPrizeWidget } from "@/components/prizes/SponsorPrizeWidget";
+import { ClaimPrizeWidget } from "@/components/prizes/ClaimPrizeWidget";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 import { useSeasonGating, GateType } from "@/hooks/useSeasonGating";
 
@@ -516,6 +519,25 @@ const RaffleDetails = () => {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              )}
+
+              {/* Sponsored Prizes Display */}
+              <div className="px-6 mt-3">
+                <SponsoredPrizesDisplay seasonId={seasonId} isCompleted={isCompletedSeason} />
+              </div>
+
+              {/* Claim Prize Widget (for winners) */}
+              {isCompletedSeason && (
+                <div className="px-6 mt-3 flex justify-center">
+                  <ClaimPrizeWidget seasonId={seasonId} />
+                </div>
+              )}
+
+              {/* Sponsor Prize Widget (for active seasons) */}
+              {!isCompletedSeason && statusNum >= 1 && (
+                <div className="px-6 mt-3">
+                  <SponsorPrizeWidget seasonId={seasonId} />
                 </div>
               )}
 

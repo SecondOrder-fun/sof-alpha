@@ -1,10 +1,22 @@
 import { useTranslation } from "react-i18next";
 import { useRafflePrizes } from "@/hooks/useRafflePrizes";
+import { useSponsoredPrizes } from "@/hooks/useSponsoredPrizes";
+import { useSponsorPrizeClaim } from "@/hooks/useSponsorPrize";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { FaTrophy } from "react-icons/fa";
+import { Gift } from "lucide-react";
+import { formatEther } from "viem";
 import PropTypes from "prop-types";
 import ExplorerLink from "@/components/common/ExplorerLink";
+
+function getTierName(index, t) {
+  if (index === 0) return t("tierGrandPrize");
+  if (index === 1) return t("tierRunnerUp");
+  if (index === 2) return t("tierThirdPlace");
+  return t("tierLabel", { number: index + 1 });
+}
 
 export function ClaimPrizeWidget({ seasonId }) {
   const { t } = useTranslation(["raffle", "common", "transactions"]);
@@ -19,17 +31,35 @@ export function ClaimPrizeWidget({ seasonId }) {
     claimTxHash,
   } = useRafflePrizes(seasonId);
 
+  const {
+    winnerTier,
+    sponsoredERC20,
+    sponsoredERC721,
+    tierConfigs,
+    hasSponsoredPrizes,
+  } = useSponsoredPrizes(seasonId);
+
+  const {
+    claimAll: claimSponsoredAll,
+    isClaiming: isClaimingSponsored,
+  } = useSponsorPrizeClaim(seasonId);
+
   if (isLoading) {
     return <div>{t("common:loading")}</div>;
   }
 
-  // Only show this widget when the connected wallet is actually the
-  // grand prize winner. For non-winners or incomplete seasons, we
-  // hide the panel entirely so the Completed Season Prizes section
-  // only lists true wins for the current user.
-  if (!isWinner) {
+  const isTierWinner = winnerTier?.isTierWinner;
+  const tierIndex = winnerTier?.tierIndex ?? 0;
+
+  // Show widget if user is grand winner OR a tier winner with sponsored prizes
+  if (!isWinner && !isTierWinner) {
     return null;
   }
+
+  // Calculate sponsored ERC-20 share for this tier
+  const tierWinnerCount = tierConfigs[tierIndex]?.winnerCount || 1;
+  const tierERC20 = sponsoredERC20.filter((p) => Number(p.targetTier) === tierIndex);
+  const tierERC721 = sponsoredERC721.filter((p) => Number(p.targetTier) === tierIndex);
 
   const prizeType = t("raffle:grandPrize");
 
@@ -38,53 +68,98 @@ export function ClaimPrizeWidget({ seasonId }) {
       <CardHeader>
         <CardTitle className="flex items-center justify-center gap-2">
           <FaTrophy className="h-5 w-5 text-yellow-500" />
-          <span>Congratulations!</span>
+          <span>{t("raffle:congratulations")}</span>
           <FaTrophy className="h-5 w-5 text-yellow-500" />
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <>
-            <p className="text-lg text-center">
-              You won the {prizeType} of Season {String(seasonId)}!
-            </p>
-            <div className="text-2xl font-bold text-center">
-              {claimableAmount} SOF
+          {/* Tier badge */}
+          {tierConfigs.length > 0 && (
+            <div className="text-center">
+              <Badge variant={tierIndex === 0 ? "default" : "secondary"}>
+                {t("raffle:youWonTier", { tier: getTierName(tierIndex, t) })}
+              </Badge>
             </div>
-            <Button
-              onClick={handleClaimGrandPrize}
-              disabled={isConfirming || isConfirmed}
-              className="w-full"
-              variant={isConfirmed ? "outline" : "default"}
-            >
-              {isConfirming
-                ? t("transactions:claiming")
-                : isConfirmed
-                ? t("raffle:prizeClaimed")
-                : t("raffle:claimPrize")}
-            </Button>
-            {claimStatus === "completed" && (
-              <div className="text-center space-y-1">
-                {claimTxHash ? (
+          )}
+
+          {/* Grand Prize (SOF) — only for tier 0 / grand winner */}
+          {isWinner && (
+            <>
+              <p className="text-lg text-center">
+                {t("raffle:youWon")} {prizeType} — Season {String(seasonId)}
+              </p>
+              <div className="text-2xl font-bold text-center">
+                {claimableAmount} SOF
+              </div>
+              <Button
+                onClick={handleClaimGrandPrize}
+                disabled={isConfirming || isConfirmed}
+                className="w-full"
+                variant={isConfirmed ? "outline" : "default"}
+              >
+                {isConfirming
+                  ? t("transactions:claiming")
+                  : isConfirmed
+                  ? t("raffle:prizeClaimed")
+                  : t("raffle:claimPrize")}
+              </Button>
+              {claimStatus === "completed" && claimTxHash && (
+                <div className="text-center">
                   <ExplorerLink
                     value={claimTxHash}
                     type="tx"
                     text="View transaction on Explorer"
                     className="text-sm text-muted-foreground underline"
                   />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {t("transactions:confirmed")}
-                  </p>
-                )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Sponsored prizes for this tier */}
+          {hasSponsoredPrizes && (tierERC20.length > 0 || tierERC721.length > 0) && (
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Gift className="h-4 w-4" />
+                {t("raffle:claimSponsoredPrizes")}
               </div>
-            )}
-            {claimStatus === "claiming" && !isConfirmed && (
-              <p className="text-center text-amber-600">
-                {t("transactions:confirming")}
-              </p>
-            )}
-          </>
+
+              {/* ERC-20 shares */}
+              {tierERC20.map((prize, i) => {
+                const share = BigInt(prize.amount) / BigInt(tierWinnerCount);
+                return (
+                  <div key={`erc20-${i}`} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {prize.token?.slice(0, 6)}...{prize.token?.slice(-4)}
+                    </span>
+                    <span className="font-mono">{formatEther(share)}</span>
+                  </div>
+                );
+              })}
+
+              {/* ERC-721 */}
+              {tierERC721.map((prize, i) => (
+                <div key={`erc721-${i}`} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    NFT {prize.token?.slice(0, 6)}...{prize.token?.slice(-4)}
+                  </span>
+                  <Badge variant="outline">#{String(prize.tokenId)}</Badge>
+                </div>
+              ))}
+
+              <Button
+                onClick={claimSponsoredAll}
+                disabled={isClaimingSponsored}
+                className="w-full"
+                variant="secondary"
+              >
+                {isClaimingSponsored
+                  ? t("transactions:claiming")
+                  : t("raffle:claimSponsoredPrizes")}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

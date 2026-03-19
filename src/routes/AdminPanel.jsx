@@ -158,9 +158,10 @@ function AdminPanelInner() {
         </p>
       </div>
 
-      <Tabs defaultValue="seasons" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="seasons">Seasons</TabsTrigger>
+      <Tabs defaultValue="create" className="w-full">
+        <TabsList className="grid w-full grid-cols-8">
+          <TabsTrigger value="create">Create Season</TabsTrigger>
+          <TabsTrigger value="raffles">Manage Raffles</TabsTrigger>
           <TabsTrigger value="backend">Services</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
@@ -169,55 +170,55 @@ function AdminPanelInner() {
           <TabsTrigger value="localization">Localization</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="seasons" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create New Season</CardTitle>
-                <CardDescription>Set up a new raffle season.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <CreateSeasonForm
-                  createSeason={createSeason}
-                  chainTimeQuery={chainTimeQuery}
-                />
-              </CardContent>
-            </Card>
+        <TabsContent value="create" className="space-y-4">
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Create New Season</CardTitle>
+              <CardDescription>Set up a new raffle season with tier configuration.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CreateSeasonForm
+                createSeason={createSeason}
+                chainTimeQuery={chainTimeQuery}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle>Manage Seasons</CardTitle>
-                <CardDescription>
-                  Start or end existing raffle seasons.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {(createSeason?.isPending ||
-                  (createSeason?.hash && !createSeason?.isConfirmed)) && (
-                  <TransactionStatus mutation={createSeason} />
-                )}
+        <TabsContent value="raffles" className="space-y-4">
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Manage Raffles</CardTitle>
+              <CardDescription>
+                Start, end, and fund existing raffle seasons.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(createSeason?.isPending ||
+                (createSeason?.hash && !createSeason?.isConfirmed)) && (
+                <TransactionStatus mutation={createSeason} />
+              )}
 
-                {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
-                {allSeasonsQuery.error && (
-                  <p>Error loading seasons: {allSeasonsQuery.error.message}</p>
-                )}
+              {allSeasonsQuery.isLoading && <p>Loading seasons...</p>}
+              {allSeasonsQuery.error && (
+                <p>Error loading seasons: {allSeasonsQuery.error.message}</p>
+              )}
 
-                <SeasonList
-                  seasons={allSeasonsQuery.data || []}
-                  hasCreatorRole={hasCreatorRole}
-                  hasEmergencyRole={hasEmergencyRole}
-                  chainId={chainId}
-                  networkConfig={netCfg}
-                  startSeason={startSeason}
-                  requestSeasonEnd={requestSeasonEnd}
-                  fundDistributor={fundDistributorManual}
-                  verify={verify}
-                  endingE2EId={endingE2EId}
-                  endStatus={endStatus}
-                />
-              </CardContent>
-            </Card>
-          </div>
+              <SeasonList
+                seasons={allSeasonsQuery.data || []}
+                hasCreatorRole={hasCreatorRole}
+                hasEmergencyRole={hasEmergencyRole}
+                chainId={chainId}
+                networkConfig={netCfg}
+                startSeason={startSeason}
+                requestSeasonEnd={requestSeasonEnd}
+                fundDistributor={fundDistributorManual}
+                verify={verify}
+                endingE2EId={endingE2EId}
+                endStatus={endStatus}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="backend" className="space-y-4">

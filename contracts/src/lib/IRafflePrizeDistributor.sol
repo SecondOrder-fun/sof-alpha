@@ -12,6 +12,10 @@ interface IRafflePrizeDistributor {
         bool grandClaimed;
     }
 
+    struct TierConfig {
+        uint16 winnerCount;
+    }
+
     event SeasonConfigured(
         uint256 indexed seasonId,
         address indexed token,
@@ -25,6 +29,9 @@ interface IRafflePrizeDistributor {
     event GrandClaimed(uint256 indexed seasonId, address indexed winner, uint256 amount);
     event ConsolationClaimed(uint256 indexed seasonId, address indexed account, uint256 amount);
 
+    event TiersConfigured(uint256 indexed seasonId, uint256 tierCount, uint256 totalWinners);
+    event TierWinnersSet(uint256 indexed seasonId, uint256 tierCount);
+
     function configureSeason(
         uint256 seasonId,
         address token,
@@ -33,6 +40,12 @@ interface IRafflePrizeDistributor {
         uint256 consolationAmount,
         uint256 totalParticipants
     ) external;
+
+    function configureTiers(uint256 seasonId, TierConfig[] calldata tiers) external;
+
+    function setTierWinners(uint256 seasonId, address[] calldata allWinners) external;
+
+    function lockSponsorships(uint256 seasonId) external;
 
     function fundSeason(uint256 seasonId, uint256 amount) external;
 
@@ -43,4 +56,10 @@ interface IRafflePrizeDistributor {
     function isConsolationClaimed(uint256 seasonId, address account) external view returns (bool);
 
     function getSeason(uint256 seasonId) external view returns (SeasonPayouts memory);
+
+    function getTierConfigs(uint256 seasonId) external view returns (TierConfig[] memory);
+
+    function getTierWinners(uint256 seasonId, uint256 tierIndex) external view returns (address[] memory);
+
+    function getWinnerTier(uint256 seasonId, address winner) external view returns (bool isTierWinner, uint256 tierIndex);
 }

@@ -105,6 +105,130 @@ export async function isConsolationClaimed({
   return !!claimed;
 }
 
+// ── Tiered / Sponsored Prize functions ───────────────────────
+
+export async function getTierConfigs({
+  seasonId,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const distributor = await getPrizeDistributor({ networkKey });
+  if (distributor === "0x0000000000000000000000000000000000000000") return [];
+  const tiers = await client.readContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "getTierConfigs",
+    args: [BigInt(seasonId)],
+  });
+  return tiers || [];
+}
+
+export async function getTierWinners({
+  seasonId,
+  tierIndex,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const distributor = await getPrizeDistributor({ networkKey });
+  if (distributor === "0x0000000000000000000000000000000000000000") return [];
+  const winners = await client.readContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "getTierWinners",
+    args: [BigInt(seasonId), BigInt(tierIndex)],
+  });
+  return winners || [];
+}
+
+export async function getWinnerTier({
+  seasonId,
+  account,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const distributor = await getPrizeDistributor({ networkKey });
+  if (distributor === "0x0000000000000000000000000000000000000000") return { isTierWinner: false, tierIndex: 0 };
+  const [isTierWinner, tierIndex] = await client.readContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "getWinnerTier",
+    args: [BigInt(seasonId), getAddress(account)],
+  });
+  return { isTierWinner, tierIndex: Number(tierIndex) };
+}
+
+export async function getSponsoredERC20({
+  seasonId,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const distributor = await getPrizeDistributor({ networkKey });
+  if (distributor === "0x0000000000000000000000000000000000000000") return [];
+  const prizes = await client.readContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "getSponsoredERC20",
+    args: [BigInt(seasonId)],
+  });
+  return prizes || [];
+}
+
+export async function getSponsoredERC721({
+  seasonId,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const client = buildClient(networkKey);
+  const distributor = await getPrizeDistributor({ networkKey });
+  if (distributor === "0x0000000000000000000000000000000000000000") return [];
+  const prizes = await client.readContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "getSponsoredERC721",
+    args: [BigInt(seasonId)],
+  });
+  return prizes || [];
+}
+
+export async function claimSponsoredERC20({
+  seasonId,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const wallet = await getWalletClient(wagmiConfig);
+  if (!wallet) throw new Error("Connect wallet first");
+  const account = wallet.account?.address;
+  if (!account) throw new Error("Connect wallet first");
+
+  const distributor = await getPrizeDistributor({ networkKey });
+  const hash = await wallet.writeContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "claimSponsoredERC20",
+    args: [BigInt(seasonId)],
+    account,
+  });
+  return hash;
+}
+
+export async function claimSponsoredERC721({
+  seasonId,
+  networkKey = getStoredNetworkKey(),
+}) {
+  const wallet = await getWalletClient(wagmiConfig);
+  if (!wallet) throw new Error("Connect wallet first");
+  const account = wallet.account?.address;
+  if (!account) throw new Error("Connect wallet first");
+
+  const distributor = await getPrizeDistributor({ networkKey });
+  const hash = await wallet.writeContract({
+    address: distributor,
+    abi: RafflePrizeDistributorAbi,
+    functionName: "claimSponsoredERC721",
+    args: [BigInt(seasonId)],
+    account,
+  });
+  return hash;
+}
+
 /**
  * Check if an account was a participant in a given season.
  * A participant is someone who has ticketCount > 0.

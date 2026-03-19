@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
-import { CalendarIcon, Gift } from "lucide-react";
+import { CalendarIcon, Gift, Plus, Trash2 } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
@@ -64,6 +64,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   const [gated, setGated] = useState(false);
   const [gatingGates, setGatingGates] = useState([]);
   const [gatingStatus, setGatingStatus] = useState(""); // "", "pending", "success", "error"
+
+  // Tier configuration
+  const [tiers, setTiers] = useState([{ winnerCount: 1 }]); // Default: 1 grand prize winner
 
   const publicClient = usePublicClient();
   const netKey = getStoredNetworkKey();
@@ -223,6 +226,32 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     setEndTime("");
   }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, writeGatingContract, publicClient]);
 
+  // Tier helpers
+  const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
+
+  const addTier = () => {
+    if (tiers.length >= 5) return;
+    setTiers([...tiers, { winnerCount: 1 }]);
+  };
+
+  const removeTier = (index) => {
+    if (tiers.length <= 1) return;
+    setTiers(tiers.filter((_, i) => i !== index));
+  };
+
+  const updateTierWinnerCount = (index, count) => {
+    const updated = [...tiers];
+    updated[index] = { ...updated[index], winnerCount: Math.max(1, Math.min(10, Number(count) || 1)) };
+    setTiers(updated);
+  };
+
+  const getTierLabel = (index) => {
+    if (index === 0) return t("tierGrandPrize");
+    if (index === 1) return t("tierRunnerUp");
+    if (index === 2) return t("tierThirdPlace");
+    return t("tierLabel", { number: index + 1 });
+  };
+
   const handleCreateSeason = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -321,11 +350,17 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
       return;
     }
     const grandPrizeBps = Math.round(grandParsedPct * 100); // convert % -> BPS
+    // Validate total winners
+    if (totalWinnerCount === 0 || totalWinnerCount > 10) {
+      setFormError(t("tierValidation", { max: 10 }));
+      return;
+    }
+
     const config = {
       name,
       startTime: BigInt(start),
       endTime: BigInt(end),
-      winnerCount: 1,
+      winnerCount: totalWinnerCount,
       grandPrizeBps,
       treasuryAddress: treasuryAddress.trim(),
       raffleToken: "0x0000000000000000000000000000000000000000",
@@ -356,8 +391,13 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     const buyFeeBps = 10; // 0.10%
     const sellFeeBps = 70; // 0.70%
 
+    // Build tier configs for contract (only if > 1 tier or tier 0 has > 1 winner)
+    const tierConfigs = tiers.length > 1 || tiers[0].winnerCount > 1
+      ? tiers.map((t) => ({ winnerCount: t.winnerCount }))
+      : [];
+
     // Store data and show confirmation dialog instead of submitting immediately
-    setPendingSubmitData({ config, bondSteps, buyFeeBps, sellFeeBps });
+    setPendingSubmitData({ config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs });
     setShowConfirmation(true);
   };
 
@@ -512,7 +552,55 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             </p>
           </div>
 
-          {/* Sponsored Prize (placeholder) */}
+          {/* Prize Tiers */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">{t("tierConfigTitle")}</label>
+                <p className="text-xs text-muted-foreground">{t("tierConfigHelp")}</p>
+              </div>
+              {tiers.length < 5 && (
+                <Button type="button" variant="outline" size="sm" onClick={addTier} className="flex items-center gap-1">
+                  <Plus className="h-3 w-3" />
+                  {t("addTier")}
+                </Button>
+              )}
+            </div>
+
+            {tiers.map((tier, index) => (
+              <div key={index} className="flex items-center gap-3 p-2 border border-border rounded-lg">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Gift className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium truncate">{getTierLabel(index)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">{t("tierWinnerCount")}</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={tier.winnerCount}
+                    onChange={(e) => updateTierWinnerCount(index, e.target.value)}
+                    className="w-16 h-8 text-center"
+                  />
+                </div>
+                {tiers.length > 1 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeTier(index)} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+
+            <p className="text-xs text-muted-foreground">
+              {t("tierTotalWinners", { count: totalWinnerCount })}
+              {totalWinnerCount > 10 && (
+                <span className="text-destructive ml-1">{t("tierValidation", { max: 10 })}</span>
+              )}
+            </p>
+          </div>
+
+          {/* Sponsored Prize Info */}
           <div className="p-3 border border-dashed border-border rounded-lg">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Gift className="h-4 w-4" />
@@ -548,7 +636,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             type="submit"
             size="lg"
             className="w-full"
-            disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0 || !treasuryAddress || !isAddress(treasuryAddress.trim()) || !curveData.isValid}
+            disabled={createSeason?.isPending || startTooSoonUi || !name || name.trim().length === 0 || !treasuryAddress || !isAddress(treasuryAddress.trim()) || !curveData.isValid || totalWinnerCount === 0 || totalWinnerCount > 10}
           >
             {createSeason?.isPending ? t("creatingBtn") : t("createSeasonBtn")}
           </Button>
@@ -608,6 +696,14 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 <span className="text-muted-foreground">{t("confirmSellFee")}</span>
                 <span className="font-medium">{pendingSubmitData.sellFeeBps / 100}%</span>
               </div>
+              {pendingSubmitData.tierConfigs && pendingSubmitData.tierConfigs.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("confirmTiers")}</span>
+                  <span className="font-medium">
+                    {pendingSubmitData.tierConfigs.map((tc, i) => `${getTierLabel(i)}: ${tc.winnerCount}`).join(", ")}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("confirmGated")}</span>
                 <span className="font-medium">

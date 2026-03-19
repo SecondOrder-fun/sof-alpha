@@ -25,12 +25,14 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         address token;
         uint256 amount;
         address sponsor;
+        uint256 targetTier; // 0-indexed tier
     }
 
     struct SponsoredERC721 {
         address token;
         uint256 tokenId;
         address sponsor;
+        uint256 targetTier; // 0-indexed tier
     }
 
     struct Season {
@@ -58,6 +60,20 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
 
     // seasonId => token => total amount (for ERC-20)
     mapping(uint256 => mapping(address => uint256)) private _erc20TotalByToken;
+
+    // Tier configuration: seasonId => TierConfig[] (index 0 = tier 1, etc.)
+    mapping(uint256 => IRafflePrizeDistributor.TierConfig[]) private _tierConfigs;
+
+    // Tier winners: seasonId => tier index => winner addresses
+    mapping(uint256 => mapping(uint256 => address[])) private _tierWinners;
+
+    // Reverse lookup: seasonId => address => (isTierWinner, tierIndex)
+    mapping(uint256 => mapping(address => uint256)) private _winnerTierIndex;
+    mapping(uint256 => mapping(address => bool)) private _isTierWinner;
+
+    // Claim tracking for tiered sponsored prizes: seasonId => prize index => winner => claimed
+    mapping(uint256 => mapping(uint256 => mapping(address => bool))) private _sponsoredERC20Claimed;
+    mapping(uint256 => mapping(uint256 => bool)) private _sponsoredERC721Claimed;
 
     event AdminGranted(address indexed account);
     event AdminRevoked(address indexed account);
@@ -183,23 +199,32 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
     // ----------------------- Sponsorship functions --------------------
 
     /**
-     * @notice Sponsor ERC-20 tokens to a season's prize pool
+     * @notice Sponsor ERC-20 tokens to a season's prize pool at a specific tier
      * @param seasonId The season to sponsor
      * @param token The ERC-20 token address
      * @param amount The amount to sponsor
+     * @param targetTier The 0-indexed tier this prize is for
      */
-    function sponsorERC20(uint256 seasonId, address token, uint256 amount) external nonReentrant {
+    function sponsorERC20(uint256 seasonId, address token, uint256 amount, uint256 targetTier) external nonReentrant {
         require(seasonId > 0, "Distributor: invalid season");
         require(token != address(0), "Distributor: zero address");
         require(amount > 0, "Distributor: zero amount");
         Season storage s = _seasons[seasonId];
         require(!s.sponsorshipsLocked, "Distributor: sponsorships locked");
 
+        // Validate target tier if tiers are configured
+        IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
+        if (tiers.length > 0) {
+            require(targetTier < tiers.length, "Distributor: invalid tier");
+        }
+
         // Transfer tokens from sponsor to this contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         // Record sponsorship
-        _sponsoredERC20[seasonId].push(SponsoredERC20({token: token, amount: amount, sponsor: msg.sender}));
+        _sponsoredERC20[seasonId].push(
+            SponsoredERC20({token: token, amount: amount, sponsor: msg.sender, targetTier: targetTier})
+        );
 
         // Update total for this token
         _erc20TotalByToken[seasonId][token] += amount;
@@ -208,22 +233,31 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
     }
 
     /**
-     * @notice Sponsor an ERC-721 NFT to a season's prize pool
+     * @notice Sponsor an ERC-721 NFT to a season's prize pool at a specific tier
      * @param seasonId The season to sponsor
      * @param token The ERC-721 token address
      * @param tokenId The NFT token ID
+     * @param targetTier The 0-indexed tier this NFT goes to (first winner of that tier receives it)
      */
-    function sponsorERC721(uint256 seasonId, address token, uint256 tokenId) external nonReentrant {
+    function sponsorERC721(uint256 seasonId, address token, uint256 tokenId, uint256 targetTier) external nonReentrant {
         require(seasonId > 0, "Distributor: invalid season");
         require(token != address(0), "Distributor: zero address");
         Season storage s = _seasons[seasonId];
         require(!s.sponsorshipsLocked, "Distributor: sponsorships locked");
 
+        // Validate target tier if tiers are configured
+        IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
+        if (tiers.length > 0) {
+            require(targetTier < tiers.length, "Distributor: invalid tier");
+        }
+
         // Transfer NFT from sponsor to this contract
         IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
 
         // Record sponsorship
-        _sponsoredERC721[seasonId].push(SponsoredERC721({token: token, tokenId: tokenId, sponsor: msg.sender}));
+        _sponsoredERC721[seasonId].push(
+            SponsoredERC721({token: token, tokenId: tokenId, sponsor: msg.sender, targetTier: targetTier})
+        );
 
         emit ERC721Sponsored(seasonId, msg.sender, token, tokenId);
     }
@@ -240,43 +274,140 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
     }
 
     /**
-     * @notice Claim all sponsored ERC-20 tokens for a season (winner only)
+     * @notice Configure tier structure for a season's sponsored prizes
+     * @param seasonId The season to configure
+     * @param tiers Array of TierConfig (index 0 = tier 1, etc.)
+     */
+    function configureTiers(uint256 seasonId, IRafflePrizeDistributor.TierConfig[] calldata tiers)
+        external
+        onlyRole(RAFFLE_ROLE)
+    {
+        require(seasonId > 0, "Distributor: invalid season");
+        require(tiers.length > 0, "Distributor: no tiers");
+
+        // Clear existing tiers
+        delete _tierConfigs[seasonId];
+
+        uint256 totalWinners = 0;
+        for (uint256 i = 0; i < tiers.length; i++) {
+            require(tiers[i].winnerCount > 0, "Distributor: zero winners in tier");
+            _tierConfigs[seasonId].push(tiers[i]);
+            totalWinners += tiers[i].winnerCount;
+        }
+
+        emit TiersConfigured(seasonId, tiers.length, totalWinners);
+    }
+
+    /**
+     * @notice Map the flat winner array from VRF to tiers
+     * @param seasonId The season
+     * @param allWinners Flat array of winners ordered by tier (tier 0 winners first, then tier 1, etc.)
+     */
+    function setTierWinners(uint256 seasonId, address[] calldata allWinners) external onlyRole(RAFFLE_ROLE) {
+        IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
+        require(tiers.length > 0, "Distributor: no tiers configured");
+
+        uint256 offset = 0;
+        for (uint256 t = 0; t < tiers.length; t++) {
+            // Clear existing tier winners
+            delete _tierWinners[seasonId][t];
+
+            uint256 count = tiers[t].winnerCount;
+            for (uint256 w = 0; w < count && offset + w < allWinners.length; w++) {
+                address winner = allWinners[offset + w];
+                _tierWinners[seasonId][t].push(winner);
+                _winnerTierIndex[seasonId][winner] = t;
+                _isTierWinner[seasonId][winner] = true;
+            }
+            offset += count;
+        }
+
+        emit TierWinnersSet(seasonId, tiers.length);
+    }
+
+    /**
+     * @notice Claim sponsored ERC-20 tokens for caller's tier
      * @param seasonId The season to claim from
      */
     function claimSponsoredERC20(uint256 seasonId) external nonReentrant {
         Season storage s = _seasons[seasonId];
         require(s.funded, "Distributor: not funded");
-        require(msg.sender == s.grandWinner, "Distributor: not winner");
         require(s.sponsorshipsLocked, "Distributor: not locked");
 
-        SponsoredERC20[] memory sponsored = _sponsoredERC20[seasonId];
-        for (uint256 i = 0; i < sponsored.length; i++) {
-            IERC20(sponsored[i].token).safeTransfer(msg.sender, sponsored[i].amount);
-            emit SponsoredERC20Claimed(seasonId, msg.sender, sponsored[i].token, sponsored[i].amount);
+        IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
+
+        // If no tiers configured, fall back to legacy behavior (grand winner gets all)
+        if (tiers.length == 0) {
+            require(msg.sender == s.grandWinner, "Distributor: not winner");
+            SponsoredERC20[] memory legacySponsored = _sponsoredERC20[seasonId];
+            for (uint256 i = 0; i < legacySponsored.length; i++) {
+                IERC20(legacySponsored[i].token).safeTransfer(msg.sender, legacySponsored[i].amount);
+                emit SponsoredERC20Claimed(seasonId, msg.sender, legacySponsored[i].token, legacySponsored[i].amount);
+            }
+            delete _sponsoredERC20[seasonId];
+            return;
         }
 
-        // Clear the array to prevent double claims
-        delete _sponsoredERC20[seasonId];
+        // Tiered claim: caller must be a tier winner
+        require(_isTierWinner[seasonId][msg.sender], "Distributor: not a tier winner");
+        uint256 callerTier = _winnerTierIndex[seasonId][msg.sender];
+        uint256 tierWinnerCount = _tierWinners[seasonId][callerTier].length;
+        require(tierWinnerCount > 0, "Distributor: no winners in tier");
+
+        SponsoredERC20[] storage sponsored = _sponsoredERC20[seasonId];
+        for (uint256 i = 0; i < sponsored.length; i++) {
+            if (sponsored[i].targetTier != callerTier) continue;
+            if (_sponsoredERC20Claimed[seasonId][i][msg.sender]) continue;
+
+            uint256 share = sponsored[i].amount / tierWinnerCount;
+            if (share == 0) continue;
+
+            _sponsoredERC20Claimed[seasonId][i][msg.sender] = true;
+            IERC20(sponsored[i].token).safeTransfer(msg.sender, share);
+            emit SponsoredERC20Claimed(seasonId, msg.sender, sponsored[i].token, share);
+        }
     }
 
     /**
-     * @notice Claim all sponsored ERC-721 tokens for a season (winner only)
+     * @notice Claim sponsored ERC-721 tokens for caller's tier
      * @param seasonId The season to claim from
      */
     function claimSponsoredERC721(uint256 seasonId) external nonReentrant {
         Season storage s = _seasons[seasonId];
         require(s.funded, "Distributor: not funded");
-        require(msg.sender == s.grandWinner, "Distributor: not winner");
         require(s.sponsorshipsLocked, "Distributor: not locked");
 
-        SponsoredERC721[] memory sponsored = _sponsoredERC721[seasonId];
+        IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
+
+        // If no tiers configured, fall back to legacy behavior
+        if (tiers.length == 0) {
+            require(msg.sender == s.grandWinner, "Distributor: not winner");
+            SponsoredERC721[] memory legacySponsored = _sponsoredERC721[seasonId];
+            for (uint256 i = 0; i < legacySponsored.length; i++) {
+                IERC721(legacySponsored[i].token).safeTransferFrom(address(this), msg.sender, legacySponsored[i].tokenId);
+                emit SponsoredERC721Claimed(seasonId, msg.sender, legacySponsored[i].token, legacySponsored[i].tokenId);
+            }
+            delete _sponsoredERC721[seasonId];
+            return;
+        }
+
+        // Tiered claim: NFTs go to the first winner of the target tier
+        require(_isTierWinner[seasonId][msg.sender], "Distributor: not a tier winner");
+        uint256 callerTier = _winnerTierIndex[seasonId][msg.sender];
+
+        SponsoredERC721[] storage sponsored = _sponsoredERC721[seasonId];
         for (uint256 i = 0; i < sponsored.length; i++) {
+            if (sponsored[i].targetTier != callerTier) continue;
+            if (_sponsoredERC721Claimed[seasonId][i]) continue;
+
+            // NFT goes to first winner of the tier only
+            address firstWinner = _tierWinners[seasonId][callerTier][0];
+            if (msg.sender != firstWinner) continue;
+
+            _sponsoredERC721Claimed[seasonId][i] = true;
             IERC721(sponsored[i].token).safeTransferFrom(address(this), msg.sender, sponsored[i].tokenId);
             emit SponsoredERC721Claimed(seasonId, msg.sender, sponsored[i].token, sponsored[i].tokenId);
         }
-
-        // Clear the array to prevent double claims
-        delete _sponsoredERC721[seasonId];
     }
 
     /**
@@ -305,5 +436,57 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
      */
     function getERC20TotalByToken(uint256 seasonId, address token) external view returns (uint256) {
         return _erc20TotalByToken[seasonId][token];
+    }
+
+    /**
+     * @notice Get tier configuration for a season
+     * @param seasonId The season to query
+     * @return Array of TierConfig structs
+     */
+    function getTierConfigs(uint256 seasonId) external view returns (IRafflePrizeDistributor.TierConfig[] memory) {
+        return _tierConfigs[seasonId];
+    }
+
+    /**
+     * @notice Get winners for a specific tier
+     * @param seasonId The season to query
+     * @param tierIndex The 0-indexed tier
+     * @return Array of winner addresses
+     */
+    function getTierWinners(uint256 seasonId, uint256 tierIndex) external view returns (address[] memory) {
+        return _tierWinners[seasonId][tierIndex];
+    }
+
+    /**
+     * @notice Get which tier a winner is in
+     * @param seasonId The season to query
+     * @param winner The address to check
+     * @return isTierWinner Whether the address is a tier winner
+     * @return tierIndex The 0-indexed tier (only valid if isTierWinner is true)
+     */
+    function getWinnerTier(uint256 seasonId, address winner) external view returns (bool isTierWinner, uint256 tierIndex) {
+        isTierWinner = _isTierWinner[seasonId][winner];
+        tierIndex = _winnerTierIndex[seasonId][winner];
+    }
+
+    /**
+     * @notice Check if a specific ERC-20 prize has been claimed by a winner
+     * @param seasonId The season
+     * @param prizeIndex The index in the sponsored ERC-20 array
+     * @param winner The winner address
+     * @return Whether it has been claimed
+     */
+    function isSponsoredERC20Claimed(uint256 seasonId, uint256 prizeIndex, address winner) external view returns (bool) {
+        return _sponsoredERC20Claimed[seasonId][prizeIndex][winner];
+    }
+
+    /**
+     * @notice Check if a specific ERC-721 prize has been claimed
+     * @param seasonId The season
+     * @param prizeIndex The index in the sponsored ERC-721 array
+     * @return Whether it has been claimed
+     */
+    function isSponsoredERC721Claimed(uint256 seasonId, uint256 prizeIndex) external view returns (bool) {
+        return _sponsoredERC721Claimed[seasonId][prizeIndex];
     }
 }

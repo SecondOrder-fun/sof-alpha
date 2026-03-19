@@ -70,7 +70,7 @@ contract PrizeSponsorshipTest is Test {
         // Approve and sponsor
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), sponsorAmount);
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount, 0);
         vm.stopPrank();
 
         // Verify sponsorship recorded
@@ -94,13 +94,13 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor 1 sponsors USDC
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), amount1);
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), amount1);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), amount1, 0);
         vm.stopPrank();
 
         // Sponsor 2 sponsors SOF
         vm.startPrank(sponsor2);
         sofToken.approve(address(distributor), amount2);
-        distributor.sponsorERC20(SEASON_ID, address(sofToken), amount2);
+        distributor.sponsorERC20(SEASON_ID, address(sofToken), amount2, 0);
         vm.stopPrank();
 
         // Verify both sponsorships
@@ -118,7 +118,7 @@ contract PrizeSponsorshipTest is Test {
         // Approve and sponsor NFT
         vm.startPrank(sponsor1);
         nftToken.approve(address(distributor), tokenId);
-        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId);
+        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId, 0);
         vm.stopPrank();
 
         // Verify sponsorship recorded
@@ -139,13 +139,13 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor 1 sponsors NFT
         vm.startPrank(sponsor1);
         nftToken.approve(address(distributor), tokenId1);
-        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId1);
+        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId1, 0);
         vm.stopPrank();
 
         // Sponsor 2 sponsors NFT
         vm.startPrank(sponsor2);
         nftToken.approve(address(distributor), tokenId2);
-        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId2);
+        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId2, 0);
         vm.stopPrank();
 
         // Verify both sponsorships
@@ -162,7 +162,7 @@ contract PrizeSponsorshipTest is Test {
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), 1000 ether);
         vm.expectRevert("Distributor: sponsorships locked");
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 0);
         vm.stopPrank();
     }
 
@@ -172,7 +172,7 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor tokens
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), sponsorAmount);
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount, 0);
         vm.stopPrank();
 
         // Configure season with winner
@@ -212,7 +212,7 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor NFT
         vm.startPrank(sponsor1);
         nftToken.approve(address(distributor), tokenId);
-        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId);
+        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId, 0);
         vm.stopPrank();
 
         // Configure season with winner
@@ -252,7 +252,7 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor tokens
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), sponsorAmount);
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount, 0);
         vm.stopPrank();
 
         // Configure season
@@ -282,7 +282,7 @@ contract PrizeSponsorshipTest is Test {
         // Sponsor tokens
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), sponsorAmount);
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), sponsorAmount, 0);
         vm.stopPrank();
 
         // Configure season
@@ -310,14 +310,14 @@ contract PrizeSponsorshipTest is Test {
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), 1000 ether);
         vm.expectRevert("Distributor: zero amount");
-        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 0);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 0, 0);
         vm.stopPrank();
     }
 
     function testRevertSponsorZeroAddress() public {
         vm.startPrank(sponsor1);
         vm.expectRevert("Distributor: zero address");
-        distributor.sponsorERC20(SEASON_ID, address(0), 1000 ether);
+        distributor.sponsorERC20(SEASON_ID, address(0), 1000 ether, 0);
         vm.stopPrank();
     }
 
@@ -325,7 +325,205 @@ contract PrizeSponsorshipTest is Test {
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), 1000 ether);
         vm.expectRevert("Distributor: invalid season");
-        distributor.sponsorERC20(0, address(usdcToken), 1000 ether);
+        distributor.sponsorERC20(0, address(usdcToken), 1000 ether, 0);
         vm.stopPrank();
+    }
+
+    // ===================== Tiered Distribution Tests =====================
+
+    address public winner2 = address(0x5);
+    address public winner3 = address(0x6);
+
+    function _setupTiers() internal {
+        // Configure 2 tiers: tier 0 = 1 winner, tier 1 = 2 winners
+        IRafflePrizeDistributor.TierConfig[] memory tiers = new IRafflePrizeDistributor.TierConfig[](2);
+        tiers[0] = IRafflePrizeDistributor.TierConfig({winnerCount: 1});
+        tiers[1] = IRafflePrizeDistributor.TierConfig({winnerCount: 2});
+
+        vm.prank(raffle);
+        distributor.configureTiers(SEASON_ID, tiers);
+    }
+
+    function _setupTierWinners() internal {
+        // Set 3 winners: winner=tier0, winner2+winner3=tier1
+        address[] memory winners = new address[](3);
+        winners[0] = winner;
+        winners[1] = winner2;
+        winners[2] = winner3;
+
+        vm.prank(raffle);
+        distributor.setTierWinners(SEASON_ID, winners);
+    }
+
+    function _setupFullTieredSeason() internal {
+        _setupTiers();
+
+        // Configure and fund season
+        vm.startPrank(raffle);
+        distributor.configureSeason(
+            SEASON_ID, address(sofToken), winner,
+            1000 ether, 500 ether, 10
+        );
+        sofToken.mint(address(distributor), 1500 ether);
+        distributor.fundSeason(SEASON_ID, 1500 ether);
+        vm.stopPrank();
+
+        _setupTierWinners();
+
+        vm.prank(raffle);
+        distributor.lockSponsorships(SEASON_ID);
+    }
+
+    function testConfigureTiers() public {
+        _setupTiers();
+
+        IRafflePrizeDistributor.TierConfig[] memory tiers = distributor.getTierConfigs(SEASON_ID);
+        assertEq(tiers.length, 2);
+        assertEq(tiers[0].winnerCount, 1);
+        assertEq(tiers[1].winnerCount, 2);
+    }
+
+    function testSetTierWinners() public {
+        _setupTiers();
+        _setupTierWinners();
+
+        // Verify tier 0 winners
+        address[] memory tier0Winners = distributor.getTierWinners(SEASON_ID, 0);
+        assertEq(tier0Winners.length, 1);
+        assertEq(tier0Winners[0], winner);
+
+        // Verify tier 1 winners
+        address[] memory tier1Winners = distributor.getTierWinners(SEASON_ID, 1);
+        assertEq(tier1Winners.length, 2);
+        assertEq(tier1Winners[0], winner2);
+        assertEq(tier1Winners[1], winner3);
+
+        // Verify reverse lookup
+        (bool isTier, uint256 tierIdx) = distributor.getWinnerTier(SEASON_ID, winner);
+        assertTrue(isTier);
+        assertEq(tierIdx, 0);
+
+        (isTier, tierIdx) = distributor.getWinnerTier(SEASON_ID, winner2);
+        assertTrue(isTier);
+        assertEq(tierIdx, 1);
+    }
+
+    function testTieredERC20Claim() public {
+        _setupTiers();
+
+        // Sponsor 1000 USDC to tier 0, 600 USDC to tier 1
+        vm.startPrank(sponsor1);
+        usdcToken.approve(address(distributor), 1600 ether);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 0);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 600 ether, 1);
+        vm.stopPrank();
+
+        _setupFullTieredSeason();
+
+        // Tier 0 winner claims: should get 1000 USDC (sole winner)
+        vm.prank(winner);
+        distributor.claimSponsoredERC20(SEASON_ID);
+        assertEq(usdcToken.balanceOf(winner), 1000 ether);
+
+        // Tier 1 winner2 claims: should get 300 USDC (600/2)
+        vm.prank(winner2);
+        distributor.claimSponsoredERC20(SEASON_ID);
+        assertEq(usdcToken.balanceOf(winner2), 300 ether);
+
+        // Tier 1 winner3 claims: should get 300 USDC (600/2)
+        vm.prank(winner3);
+        distributor.claimSponsoredERC20(SEASON_ID);
+        assertEq(usdcToken.balanceOf(winner3), 300 ether);
+    }
+
+    function testTieredERC721Claim() public {
+        _setupTiers();
+
+        // Sponsor NFT to tier 1 — goes to first winner of tier 1 (winner2)
+        uint256 tokenId = 0;
+        vm.startPrank(sponsor1);
+        nftToken.approve(address(distributor), tokenId);
+        distributor.sponsorERC721(SEASON_ID, address(nftToken), tokenId, 1);
+        vm.stopPrank();
+
+        _setupFullTieredSeason();
+
+        // winner3 (second in tier 1) tries to claim — should get nothing
+        vm.prank(winner3);
+        distributor.claimSponsoredERC721(SEASON_ID);
+        assertEq(nftToken.ownerOf(tokenId), address(distributor)); // still in escrow
+
+        // winner2 (first in tier 1) claims — should succeed
+        vm.prank(winner2);
+        distributor.claimSponsoredERC721(SEASON_ID);
+        assertEq(nftToken.ownerOf(tokenId), winner2);
+    }
+
+    function testTieredClaimRevertNonWinner() public {
+        _setupTiers();
+
+        vm.startPrank(sponsor1);
+        usdcToken.approve(address(distributor), 1000 ether);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 0);
+        vm.stopPrank();
+
+        _setupFullTieredSeason();
+
+        // Non-winner tries to claim
+        vm.prank(sponsor1);
+        vm.expectRevert("Distributor: not a tier winner");
+        distributor.claimSponsoredERC20(SEASON_ID);
+    }
+
+    function testTieredDoubleClaim() public {
+        _setupTiers();
+
+        vm.startPrank(sponsor1);
+        usdcToken.approve(address(distributor), 1000 ether);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 0);
+        vm.stopPrank();
+
+        _setupFullTieredSeason();
+
+        // Winner claims once
+        vm.prank(winner);
+        distributor.claimSponsoredERC20(SEASON_ID);
+        assertEq(usdcToken.balanceOf(winner), 1000 ether);
+
+        // Winner claims again — should get nothing extra (no revert, just skips)
+        vm.prank(winner);
+        distributor.claimSponsoredERC20(SEASON_ID);
+        assertEq(usdcToken.balanceOf(winner), 1000 ether);
+    }
+
+    function testRevertSponsorInvalidTier() public {
+        _setupTiers(); // 2 tiers (index 0 and 1)
+
+        vm.startPrank(sponsor1);
+        usdcToken.approve(address(distributor), 1000 ether);
+        vm.expectRevert("Distributor: invalid tier");
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 5); // tier 5 doesn't exist
+        vm.stopPrank();
+    }
+
+    function testMultipleTokensTiered() public {
+        _setupTiers();
+
+        // Sponsor USDC + SOF to tier 0
+        vm.startPrank(sponsor1);
+        usdcToken.approve(address(distributor), 500 ether);
+        distributor.sponsorERC20(SEASON_ID, address(usdcToken), 500 ether, 0);
+        sofToken.approve(address(distributor), 200 ether);
+        distributor.sponsorERC20(SEASON_ID, address(sofToken), 200 ether, 0);
+        vm.stopPrank();
+
+        _setupFullTieredSeason();
+
+        uint256 sofBefore = sofToken.balanceOf(winner);
+        vm.prank(winner);
+        distributor.claimSponsoredERC20(SEASON_ID);
+
+        assertEq(usdcToken.balanceOf(winner), 500 ether);
+        assertEq(sofToken.balanceOf(winner) - sofBefore, 200 ether);
     }
 }
