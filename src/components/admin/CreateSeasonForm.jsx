@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import { usePublicClient, useWriteContract } from "wagmi";
-import { isAddress, decodeEventLog } from "viem";
+import { isAddress, decodeEventLog, encodeFunctionData, parseEther } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -12,7 +12,8 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { ERC20Abi } from '@/utils/abis';
+import { ERC20Abi, RafflePrizeDistributorAbi } from '@/utils/abis';
+import { useSmartTransactions } from '@/hooks/useSmartTransactions';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 import TransactionModal from "@/components/admin/TransactionModal";
 import BondingCurveEditor from "@/components/admin/BondingCurveEditor";
@@ -67,6 +68,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   // Tier configuration
   const [tiers, setTiers] = useState([{ winnerCount: 1 }]); // Default: 1 grand prize winner
+
+  // Sponsored prizes (collected during creation, executed after season tx confirms)
+  const [sponsoredPrizes, setSponsoredPrizes] = useState([]);
+  const [sponsorStatus, setSponsorStatus] = useState(""); // "", "pending", "success", "error"
+
+  const { executeBatch } = useSmartTransactions();
 
   const publicClient = usePublicClient();
   const netKey = getStoredNetworkKey();
@@ -221,10 +228,81 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
         });
     }
 
+    // Execute sponsored prize transactions if any were configured
+    if (sponsoredPrizes.length > 0 && addresses.RAFFLE) {
+      setSponsorStatus("pending");
+
+      (async () => {
+        try {
+          // Read distributor address from the newly deployed Raffle
+          const distributorAddr = await publicClient.readContract({
+            address: addresses.RAFFLE,
+            abi: RAFFLE_ABI,
+            functionName: "prizeDistributor",
+          });
+
+          // Build batch calls: approve + sponsor for each prize
+          const calls = [];
+          for (const prize of sponsoredPrizes) {
+            const tokenAddr = prize.tokenAddress.trim();
+            const tier = BigInt(prize.targetTier || 0);
+
+            if (prize.type === "erc20") {
+              const parsedAmount = parseEther(prize.amount);
+              calls.push({
+                to: tokenAddr,
+                data: encodeFunctionData({
+                  abi: ERC20Abi,
+                  functionName: "approve",
+                  args: [distributorAddr, parsedAmount],
+                }),
+              });
+              calls.push({
+                to: distributorAddr,
+                data: encodeFunctionData({
+                  abi: RafflePrizeDistributorAbi,
+                  functionName: "sponsorERC20",
+                  args: [seasonId, tokenAddr, parsedAmount, tier],
+                }),
+              });
+            } else {
+              // ERC-721
+              const nftTokenId = BigInt(prize.tokenId);
+              const ERC721ApproveAbi = [{ name: "approve", type: "function", inputs: [{ name: "to", type: "address" }, { name: "tokenId", type: "uint256" }], outputs: [] }];
+              calls.push({
+                to: tokenAddr,
+                data: encodeFunctionData({
+                  abi: ERC721ApproveAbi,
+                  functionName: "approve",
+                  args: [distributorAddr, nftTokenId],
+                }),
+              });
+              calls.push({
+                to: distributorAddr,
+                data: encodeFunctionData({
+                  abi: RafflePrizeDistributorAbi,
+                  functionName: "sponsorERC721",
+                  args: [seasonId, tokenAddr, nftTokenId, tier],
+                }),
+              });
+            }
+          }
+
+          if (calls.length > 0) {
+            await executeBatch(calls);
+          }
+          setSponsorStatus("success");
+        } catch (err) {
+          setSponsorStatus("error");
+          setFormError(`Season created but failed to sponsor prizes: ${err.message}`);
+        }
+      })();
+    }
+
     // Reset form
     setStartTime("");
     setEndTime("");
-  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, writeGatingContract, publicClient]);
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, sponsoredPrizes, executeBatch]);
 
   // Tier helpers
   const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
@@ -250,6 +328,21 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     if (index === 1) return t("tierRunnerUp");
     if (index === 2) return t("tierThirdPlace");
     return t("tierLabel", { number: index + 1 });
+  };
+
+  // Sponsored prize helpers
+  const addSponsoredPrize = () => {
+    setSponsoredPrizes([...sponsoredPrizes, { type: "erc20", tokenAddress: "", amount: "", tokenId: "", targetTier: 0 }]);
+  };
+
+  const removeSponsoredPrize = (index) => {
+    setSponsoredPrizes(sponsoredPrizes.filter((_, i) => i !== index));
+  };
+
+  const updateSponsoredPrize = (index, field, value) => {
+    const updated = [...sponsoredPrizes];
+    updated[index] = { ...updated[index], [field]: value };
+    setSponsoredPrizes(updated);
   };
 
   const handleCreateSeason = async (e) => {
@@ -396,8 +489,24 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
       ? tiers.map((t) => ({ winnerCount: t.winnerCount }))
       : [];
 
+    // Validate sponsored prizes
+    for (const prize of sponsoredPrizes) {
+      if (!isAddress(prize.tokenAddress.trim())) {
+        setFormError(t("invalidAddress"));
+        return;
+      }
+      if (prize.type === "erc20" && (!prize.amount || Number(prize.amount) <= 0)) {
+        setFormError(t("amountMustBePositive"));
+        return;
+      }
+      if (prize.type === "erc721" && !prize.tokenId) {
+        setFormError(t("tokenIdRequired"));
+        return;
+      }
+    }
+
     // Store data and show confirmation dialog instead of submitting immediately
-    setPendingSubmitData({ config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs });
+    setPendingSubmitData({ config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs, sponsoredPrizes });
     setShowConfirmation(true);
   };
 
@@ -600,16 +709,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             </p>
           </div>
 
-          {/* Sponsored Prize Info */}
-          <div className="p-3 border border-dashed border-border rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Gift className="h-4 w-4" />
-              <span className="font-medium">{t("sponsoredPrizeLabel")}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("sponsoredPrizeHelp")}
-            </p>
-          </div>
         </div>
       )}
 
@@ -621,8 +720,97 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
         />
       )}
 
-      {/* Form-level errors & submit — only on curve step or "all" */}
-      {(activeSection === "all" || activeSection === "curve") && (
+      {/* ── Section 4: Sponsored Prizes ──────────────────────── */}
+      {(activeSection === "all" || activeSection === "sponsored") && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium">{t("sponsoredPrizeLabel")}</label>
+              <p className="text-xs text-muted-foreground">{t("sponsoredPrizeHelp")}</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={addSponsoredPrize} className="flex items-center gap-1">
+              <Plus className="h-3 w-3" />
+              {t("addTier")}
+            </Button>
+          </div>
+
+          {sponsoredPrizes.length === 0 && (
+            <div className="p-4 border border-dashed border-border rounded-lg text-center">
+              <Gift className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">{t("noSponsoredPrizes")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("defaultTierHelp")}</p>
+            </div>
+          )}
+
+          {sponsoredPrizes.map((prize, index) => (
+            <div key={index} className="p-3 border border-border rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {t("sponsoredPrizeLabel")} #{index + 1}
+                </span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeSponsoredPrize(index)} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* Type selector */}
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={prize.type === "erc20" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "erc20")}>
+                  {t("sponsorPrizeERC20")}
+                </Button>
+                <Button type="button" size="sm" variant={prize.type === "erc721" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "erc721")}>
+                  {t("sponsorPrizeERC721")}
+                </Button>
+              </div>
+
+              {/* Token address */}
+              <Input
+                placeholder={t("sponsorTokenAddress")}
+                value={prize.tokenAddress}
+                onChange={(e) => updateSponsoredPrize(index, "tokenAddress", e.target.value)}
+              />
+
+              {/* Amount for ERC-20 */}
+              {prize.type === "erc20" && (
+                <Input
+                  type="number"
+                  placeholder={t("sponsorAmount")}
+                  value={prize.amount}
+                  onChange={(e) => updateSponsoredPrize(index, "amount", e.target.value)}
+                />
+              )}
+
+              {/* Token ID for ERC-721 */}
+              {prize.type === "erc721" && (
+                <Input
+                  placeholder={t("sponsorTokenId")}
+                  value={prize.tokenId}
+                  onChange={(e) => updateSponsoredPrize(index, "tokenId", e.target.value)}
+                />
+              )}
+
+              {/* Tier selector */}
+              {tiers.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">{t("sponsorTargetTier")}</label>
+                  <select
+                    value={prize.targetTier}
+                    onChange={(e) => updateSponsoredPrize(index, "targetTier", Number(e.target.value))}
+                    className="text-sm border border-border rounded px-2 py-1 bg-background"
+                  >
+                    {tiers.map((_, tierIdx) => (
+                      <option key={tierIdx} value={tierIdx}>{getTierLabel(tierIdx)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Form-level errors & submit — on sponsored step, curve step, or "all" */}
+      {(activeSection === "all" || activeSection === "sponsored" || activeSection === "curve") && (
         <>
           {formError && (
             <p className="text-xs text-destructive">{formError}</p>
@@ -649,6 +837,15 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           )}
           {gatingStatus === "error" && (
             <p className="text-xs text-destructive">{t("gatesConfigFailed")}</p>
+          )}
+          {sponsorStatus === "pending" && (
+            <p className="text-xs text-warning">{t("sponsoring")}</p>
+          )}
+          {sponsorStatus === "success" && (
+            <p className="text-xs text-success">{t("sponsoredPrizes")} ✓</p>
+          )}
+          {sponsorStatus === "error" && (
+            <p className="text-xs text-destructive">{formError}</p>
           )}
         </>
       )}
@@ -718,6 +915,14 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                   </span>
                 </div>
               )}
+              {pendingSubmitData.sponsoredPrizes && pendingSubmitData.sponsoredPrizes.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("sponsoredPrizeLabel")}</span>
+                  <span className="font-medium">
+                    {pendingSubmitData.sponsoredPrizes.length} {pendingSubmitData.sponsoredPrizes.length === 1 ? "prize" : "prizes"}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -737,7 +942,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 CreateSeasonForm.propTypes = {
   createSeason: PropTypes.object.isRequired,
   chainTimeQuery: PropTypes.object.isRequired,
-  activeSection: PropTypes.oneOf(["all", "details", "prizes", "curve"]),
+  activeSection: PropTypes.oneOf(["all", "details", "prizes", "curve", "sponsored"]),
 };
 
 export default CreateSeasonForm;
