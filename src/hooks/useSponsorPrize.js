@@ -1,52 +1,56 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import {
-  claimSponsoredERC20,
-  claimSponsoredERC721,
+  buildClaimSponsoredERC20Call,
+  buildClaimSponsoredERC721Call,
 } from "@/services/onchainRaffleDistributor";
-import { useToast } from "@/hooks/useToast";
+import { useSmartTransactions } from "@/hooks/useSmartTransactions";
 
 /**
  * Hook for claiming sponsored prizes (ERC-20 and ERC-721).
+ * Uses executeBatch for ERC-5792 gas sponsorship.
+ * Toast messages are handled by the component via onSuccess/onError callbacks.
  */
-export function useSponsorPrizeClaim(seasonId) {
+export function useSponsorPrizeClaim(seasonId, { onSuccess, onError } = {}) {
   const netKey = getStoredNetworkKey();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { executeBatch } = useSmartTransactions();
 
   const claimERC20Mutation = useMutation({
-    mutationFn: () => claimSponsoredERC20({ seasonId, networkKey: netKey }),
+    mutationFn: async () => {
+      const call = await buildClaimSponsoredERC20Call({ seasonId, networkKey: netKey });
+      return executeBatch([call]);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sponsoredERC20"] });
-      toast({ title: "Sponsored ERC-20 prizes claimed!", variant: "success" });
+      onSuccess?.("erc20");
     },
     onError: (error) => {
-      toast({
-        title: "Claim Failed",
-        description: error.message || "Failed to claim sponsored tokens",
-        variant: "destructive",
-      });
+      onError?.("erc20", error);
     },
   });
 
   const claimERC721Mutation = useMutation({
-    mutationFn: () => claimSponsoredERC721({ seasonId, networkKey: netKey }),
+    mutationFn: async () => {
+      const call = await buildClaimSponsoredERC721Call({ seasonId, networkKey: netKey });
+      return executeBatch([call]);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sponsoredERC721"] });
-      toast({ title: "Sponsored NFT prizes claimed!", variant: "success" });
+      onSuccess?.("erc721");
     },
     onError: (error) => {
-      toast({
-        title: "Claim Failed",
-        description: error.message || "Failed to claim sponsored NFTs",
-        variant: "destructive",
-      });
+      onError?.("erc721", error);
     },
   });
 
   const claimAll = async () => {
-    await claimERC20Mutation.mutateAsync();
-    await claimERC721Mutation.mutateAsync();
+    // Run independently so one failure doesn't block the other
+    const results = await Promise.allSettled([
+      claimERC20Mutation.mutateAsync(),
+      claimERC721Mutation.mutateAsync(),
+    ]);
+    return results;
   };
 
   return {

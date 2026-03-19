@@ -189,44 +189,44 @@ export async function getSponsoredERC721({
   return prizes || [];
 }
 
-export async function claimSponsoredERC20({
+/**
+ * Build ERC-5792 batch calls for claiming sponsored ERC-20 prizes.
+ * Returns { to, data } for use with executeBatch.
+ */
+export async function buildClaimSponsoredERC20Call({
   seasonId,
   networkKey = getStoredNetworkKey(),
 }) {
-  const wallet = await getWalletClient(wagmiConfig);
-  if (!wallet) throw new Error("Connect wallet first");
-  const account = wallet.account?.address;
-  if (!account) throw new Error("Connect wallet first");
-
+  const { encodeFunctionData } = await import("viem");
   const distributor = await getPrizeDistributor({ networkKey });
-  const hash = await wallet.writeContract({
-    address: distributor,
-    abi: RafflePrizeDistributorAbi,
-    functionName: "claimSponsoredERC20",
-    args: [BigInt(seasonId)],
-    account,
-  });
-  return hash;
+  return {
+    to: distributor,
+    data: encodeFunctionData({
+      abi: RafflePrizeDistributorAbi,
+      functionName: "claimSponsoredERC20",
+      args: [BigInt(seasonId)],
+    }),
+  };
 }
 
-export async function claimSponsoredERC721({
+/**
+ * Build ERC-5792 batch calls for claiming sponsored ERC-721 prizes.
+ * Returns { to, data } for use with executeBatch.
+ */
+export async function buildClaimSponsoredERC721Call({
   seasonId,
   networkKey = getStoredNetworkKey(),
 }) {
-  const wallet = await getWalletClient(wagmiConfig);
-  if (!wallet) throw new Error("Connect wallet first");
-  const account = wallet.account?.address;
-  if (!account) throw new Error("Connect wallet first");
-
+  const { encodeFunctionData } = await import("viem");
   const distributor = await getPrizeDistributor({ networkKey });
-  const hash = await wallet.writeContract({
-    address: distributor,
-    abi: RafflePrizeDistributorAbi,
-    functionName: "claimSponsoredERC721",
-    args: [BigInt(seasonId)],
-    account,
-  });
-  return hash;
+  return {
+    to: distributor,
+    data: encodeFunctionData({
+      abi: RafflePrizeDistributorAbi,
+      functionName: "claimSponsoredERC721",
+      args: [BigInt(seasonId)],
+    }),
+  };
 }
 
 /**

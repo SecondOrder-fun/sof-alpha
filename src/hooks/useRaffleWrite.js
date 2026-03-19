@@ -123,12 +123,15 @@ export function useRaffleWrite() {
   const hasAddress = Boolean(raffleContractConfig.address);
 
   const createSeason = useContractWriteWithFeedback({
-    contractConfig: ({ config, bondSteps, buyFeeBps, sellFeeBps }) => {
+    contractConfig: ({ config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs }) => {
       if (!hasAddress) throw new Error('Raffle contract address not configured');
+      const hasTiers = tierConfigs && tierConfigs.length > 0;
       return {
         ...raffleContractConfig,
-        functionName: 'createSeason',
-        args: [config, bondSteps, buyFeeBps, sellFeeBps],
+        functionName: hasTiers ? 'createSeasonWithTiers' : 'createSeason',
+        args: hasTiers
+          ? [config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs]
+          : [config, bondSteps, buyFeeBps, sellFeeBps],
       };
     },
     // Preflight check: ensure RAFFLE address has code on current chain

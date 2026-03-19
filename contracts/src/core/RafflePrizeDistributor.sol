@@ -10,6 +10,13 @@ import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 // MerkleProof import removed - no longer needed
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
 
+error InvalidTier(uint256 tier, uint256 maxTier);
+error NoTiersConfigured(uint256 seasonId);
+error ZeroWinnersInTier(uint256 tierIndex);
+error NotATierWinner(uint256 seasonId, address caller);
+error NoWinnersInTier(uint256 seasonId, uint256 tierIndex);
+error TierConfigFailed();
+
 /**
  * @title RafflePrizeDistributor
  * @notice Holds SOF funds for each season and enables claims for the grand winner and
@@ -215,7 +222,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         // Validate target tier if tiers are configured
         IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
         if (tiers.length > 0) {
-            require(targetTier < tiers.length, "Distributor: invalid tier");
+            if (targetTier >= tiers.length) revert InvalidTier(targetTier, tiers.length);
         }
 
         // Transfer tokens from sponsor to this contract
@@ -248,7 +255,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         // Validate target tier if tiers are configured
         IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
         if (tiers.length > 0) {
-            require(targetTier < tiers.length, "Distributor: invalid tier");
+            if (targetTier >= tiers.length) revert InvalidTier(targetTier, tiers.length);
         }
 
         // Transfer NFT from sponsor to this contract
@@ -282,15 +289,15 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         external
         onlyRole(RAFFLE_ROLE)
     {
-        require(seasonId > 0, "Distributor: invalid season");
-        require(tiers.length > 0, "Distributor: no tiers");
+        if (seasonId == 0) revert("Distributor: invalid season");
+        if (tiers.length == 0) revert NoTiersConfigured(seasonId);
 
         // Clear existing tiers
         delete _tierConfigs[seasonId];
 
         uint256 totalWinners = 0;
         for (uint256 i = 0; i < tiers.length; i++) {
-            require(tiers[i].winnerCount > 0, "Distributor: zero winners in tier");
+            if (tiers[i].winnerCount == 0) revert ZeroWinnersInTier(i);
             _tierConfigs[seasonId].push(tiers[i]);
             totalWinners += tiers[i].winnerCount;
         }
@@ -305,7 +312,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
      */
     function setTierWinners(uint256 seasonId, address[] calldata allWinners) external onlyRole(RAFFLE_ROLE) {
         IRafflePrizeDistributor.TierConfig[] storage tiers = _tierConfigs[seasonId];
-        require(tiers.length > 0, "Distributor: no tiers configured");
+        if (tiers.length == 0) revert NoTiersConfigured(seasonId);
 
         uint256 offset = 0;
         for (uint256 t = 0; t < tiers.length; t++) {
@@ -349,10 +356,10 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         }
 
         // Tiered claim: caller must be a tier winner
-        require(_isTierWinner[seasonId][msg.sender], "Distributor: not a tier winner");
+        if (!_isTierWinner[seasonId][msg.sender]) revert NotATierWinner(seasonId, msg.sender);
         uint256 callerTier = _winnerTierIndex[seasonId][msg.sender];
         uint256 tierWinnerCount = _tierWinners[seasonId][callerTier].length;
-        require(tierWinnerCount > 0, "Distributor: no winners in tier");
+        if (tierWinnerCount == 0) revert NoWinnersInTier(seasonId, callerTier);
 
         SponsoredERC20[] storage sponsored = _sponsoredERC20[seasonId];
         for (uint256 i = 0; i < sponsored.length; i++) {
@@ -392,7 +399,7 @@ contract RafflePrizeDistributor is IRafflePrizeDistributor, AccessControl, Reent
         }
 
         // Tiered claim: NFTs go to the first winner of the target tier
-        require(_isTierWinner[seasonId][msg.sender], "Distributor: not a tier winner");
+        if (!_isTierWinner[seasonId][msg.sender]) revert NotATierWinner(seasonId, msg.sender);
         uint256 callerTier = _winnerTierIndex[seasonId][msg.sender];
 
         SponsoredERC721[] storage sponsored = _sponsoredERC721[seasonId];

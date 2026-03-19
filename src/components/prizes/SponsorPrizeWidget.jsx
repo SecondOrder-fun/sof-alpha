@@ -52,7 +52,7 @@ export function SponsorPrizeWidget({ seasonId }) {
   const handleSponsorERC20 = async () => {
     setError("");
     if (!isAddress(tokenAddress)) { setError(t("invalidAddress")); return; }
-    if (!amount || Number(amount) <= 0) { setError("Amount must be > 0"); return; }
+    if (!amount || Number(amount) <= 0) { setError(t("amountMustBePositive")); return; }
 
     setIsPending(true);
     try {
@@ -88,7 +88,7 @@ export function SponsorPrizeWidget({ seasonId }) {
       setTokenAddress("");
       setAmount("");
     } catch (err) {
-      setError(err.message || "Transaction failed");
+      setError(err.message || t("transactionFailed"));
     } finally {
       setIsPending(false);
     }
@@ -97,7 +97,7 @@ export function SponsorPrizeWidget({ seasonId }) {
   const handleSponsorERC721 = async () => {
     setError("");
     if (!isAddress(tokenAddress)) { setError(t("invalidAddress")); return; }
-    if (!tokenId) { setError("Token ID required"); return; }
+    if (!tokenId) { setError(t("tokenIdRequired")); return; }
 
     setIsPending(true);
     try {
@@ -131,7 +131,7 @@ export function SponsorPrizeWidget({ seasonId }) {
       setTokenAddress("");
       setTokenId("");
     } catch (err) {
-      setError(err.message || "Transaction failed");
+      setError(err.message || t("transactionFailed"));
     } finally {
       setIsPending(false);
     }
@@ -161,7 +161,7 @@ export function SponsorPrizeWidget({ seasonId }) {
       setTokenId("");
       setDescription("");
     } catch (err) {
-      setError(err.message || "Failed to create off-chain prize");
+      setError(err.message || t("offchainPrizeFailed"));
     } finally {
       setIsPending(false);
     }
@@ -233,10 +233,10 @@ export function SponsorPrizeWidget({ seasonId }) {
                 onChange={(e) => setChainId(Number(e.target.value))}
                 className="text-sm border border-border rounded px-2 py-1 bg-background"
               >
-                <option value={1}>Ethereum</option>
-                <option value={8453}>Base</option>
-                <option value={10}>Optimism</option>
-                <option value={42161}>Arbitrum</option>
+                <option value={1}>{t("chainEthereum")}</option>
+                <option value={8453}>{t("chainBase")}</option>
+                <option value={10}>{t("chainOptimism")}</option>
+                <option value={42161}>{t("chainArbitrum")}</option>
               </select>
             </div>
           </>

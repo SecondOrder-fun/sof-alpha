@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/core/RafflePrizeDistributor.sol";
+import {InvalidTier, NotATierWinner} from "../src/core/RafflePrizeDistributor.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 
@@ -471,7 +472,7 @@ contract PrizeSponsorshipTest is Test {
 
         // Non-winner tries to claim
         vm.prank(sponsor1);
-        vm.expectRevert("Distributor: not a tier winner");
+        vm.expectRevert(abi.encodeWithSelector(NotATierWinner.selector, SEASON_ID, sponsor1));
         distributor.claimSponsoredERC20(SEASON_ID);
     }
 
@@ -501,7 +502,7 @@ contract PrizeSponsorshipTest is Test {
 
         vm.startPrank(sponsor1);
         usdcToken.approve(address(distributor), 1000 ether);
-        vm.expectRevert("Distributor: invalid tier");
+        vm.expectRevert(abi.encodeWithSelector(InvalidTier.selector, 5, 2));
         distributor.sponsorERC20(SEASON_ID, address(usdcToken), 1000 ether, 5); // tier 5 doesn't exist
         vm.stopPrank();
     }

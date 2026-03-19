@@ -17,6 +17,7 @@ import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import "../lib/IHats.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
+import {TierConfigFailed} from "./RafflePrizeDistributor.sol";
 import {ITrackerACL} from "../lib/ITrackerACL.sol";
 import {ISeasonGating} from "../gating/ISeasonGating.sol";
 
@@ -261,8 +262,14 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
             seasonId,
             configs
         );
-        (bool success,) = prizeDistributor.call(data);
-        require(success, "Raffle: tier config failed");
+        (bool success, bytes memory returnData) = prizeDistributor.call(data);
+        if (!success) {
+            // Bubble up the revert reason from the distributor
+            if (returnData.length > 0) {
+                assembly { revert(add(returnData, 32), mload(returnData)) }
+            }
+            revert TierConfigFailed();
+        }
     }
 
     function startSeason(uint256 seasonId) external {
@@ -521,8 +528,13 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
                 seasonId,
                 winners
             );
-            (bool success,) = prizeDistributor.call(data);
-            require(success, "Raffle: set tier winners failed");
+            (bool success, bytes memory returnData) = prizeDistributor.call(data);
+            if (!success) {
+                if (returnData.length > 0) {
+                    assembly { revert(add(returnData, 32), mload(returnData)) }
+                }
+                revert TierConfigFailed();
+            }
         }
 
         // Lock sponsorships (non-fatal if already locked)
