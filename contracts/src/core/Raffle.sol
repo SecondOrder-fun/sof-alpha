@@ -17,6 +17,7 @@ import "../lib/ISeasonFactory.sol";
 import "../lib/RaffleTypes.sol";
 import "../lib/IHats.sol";
 import {IRafflePrizeDistributor} from "../lib/IRafflePrizeDistributor.sol";
+import {TierConfigFailed} from "./RafflePrizeDistributor.sol";
 import {ITrackerACL} from "../lib/ITrackerACL.sol";
 import {ISeasonGating} from "../gating/ISeasonGating.sol";
 
@@ -184,18 +185,48 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         uint16 buyFeeBps,
         uint16 sellFeeBps
     ) external nonReentrant returns (uint256 seasonId) {
+        return _createSeasonInternal(config, bondSteps, buyFeeBps, sellFeeBps, new IRafflePrizeDistributor.TierConfig[](0));
+    }
+
+    function createSeasonWithTiers(
+        RaffleTypes.SeasonConfig memory config,
+        RaffleTypes.BondStep[] memory bondSteps,
+        uint16 buyFeeBps,
+        uint16 sellFeeBps,
+        IRafflePrizeDistributor.TierConfig[] memory tierConfigs
+    ) external nonReentrant returns (uint256 seasonId) {
+        return _createSeasonInternal(config, bondSteps, buyFeeBps, sellFeeBps, tierConfigs);
+    }
+
+    function _createSeasonInternal(
+        RaffleTypes.SeasonConfig memory config,
+        RaffleTypes.BondStep[] memory bondSteps,
+        uint16 buyFeeBps,
+        uint16 sellFeeBps,
+        IRafflePrizeDistributor.TierConfig[] memory tierConfigs
+    ) internal returns (uint256 seasonId) {
         // Check authorization: must have SEASON_CREATOR_ROLE or valid Sponsor hat
         if (!canCreateSeason(msg.sender)) revert UnauthorizedCaller();
-        
+
         if (address(seasonFactory) == address(0)) revert FactoryNotSet();
         if (bytes(config.name).length == 0) revert InvalidSeasonName();
         if (config.startTime <= block.timestamp) revert InvalidStartTime(config.startTime, block.timestamp);
         if (config.endTime <= config.startTime) revert InvalidEndTime(config.endTime, config.startTime);
-        if (config.winnerCount == 0) revert InvalidWinnerCount(0);
-        if (config.winnerCount > MAX_WINNER_COUNT) revert InvalidWinnerCount(config.winnerCount);
         if (config.grandPrizeBps > 10000) revert InvalidBasisPoints(config.grandPrizeBps);
         if (config.treasuryAddress == address(0)) revert InvalidTreasuryAddress();
         if (bondSteps.length == 0) revert InvalidBondSteps();
+
+        // Derive winnerCount from tier config if provided
+        if (tierConfigs.length > 0) {
+            uint16 totalWinners = 0;
+            for (uint256 i = 0; i < tierConfigs.length; i++) {
+                totalWinners += tierConfigs[i].winnerCount;
+            }
+            config.winnerCount = totalWinners;
+        }
+
+        if (config.winnerCount == 0) revert InvalidWinnerCount(0);
+        if (config.winnerCount > MAX_WINNER_COUNT) revert InvalidWinnerCount(config.winnerCount);
 
         seasonId = ++currentSeasonId;
 
@@ -214,7 +245,31 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
         // Allow the curve to call participant hooks
         _grantRole(BONDING_CURVE_ROLE, curveAddr);
 
+        // Configure tiers on the prize distributor if provided
+        if (tierConfigs.length > 0 && prizeDistributor != address(0)) {
+            // Convert memory array to calldata-compatible format via external call
+            IRafflePrizeDistributor.TierConfig[] memory configs = tierConfigs;
+            _configureTiersOnDistributor(seasonId, configs);
+        }
+
         emit SeasonCreated(seasonId, config.name, config.startTime, config.endTime, raffleTokenAddr, curveAddr);
+    }
+
+    function _configureTiersOnDistributor(uint256 seasonId, IRafflePrizeDistributor.TierConfig[] memory configs) internal {
+        // We need to use a low-level call since configureTiers expects calldata
+        bytes memory data = abi.encodeWithSelector(
+            IRafflePrizeDistributor.configureTiers.selector,
+            seasonId,
+            configs
+        );
+        (bool success, bytes memory returnData) = prizeDistributor.call(data);
+        if (!success) {
+            // Bubble up the revert reason from the distributor
+            if (returnData.length > 0) {
+                assembly { revert(add(returnData, 32), mload(returnData)) }
+            }
+            revert TierConfigFailed();
+        }
     }
 
     function startSeason(uint256 seasonId) external {
@@ -454,10 +509,36 @@ contract Raffle is RaffleStorage, AccessControl, ReentrancyGuard, VRFConsumerBas
 
         IRafflePrizeDistributor(prizeDistributor).fundSeason(seasonId, totalPrizePool);
 
+        // Map winners to tiers and lock sponsorships
+        _finalizeTiersAndSponsorships(seasonId, winners);
+
         cfg.isCompleted = true;
         state.status = SeasonStatus.Completed;
         emit PrizeDistributionSetup(seasonId, prizeDistributor);
         emit SeasonCompleted(seasonId);
+    }
+
+    function _finalizeTiersAndSponsorships(uint256 seasonId, address[] memory winners) internal {
+        // Set tier winners if tiers are configured
+        IRafflePrizeDistributor.TierConfig[] memory tiers = IRafflePrizeDistributor(prizeDistributor).getTierConfigs(seasonId);
+        if (tiers.length > 0 && winners.length > 0) {
+            // Use low-level call for calldata encoding
+            bytes memory data = abi.encodeWithSelector(
+                IRafflePrizeDistributor.setTierWinners.selector,
+                seasonId,
+                winners
+            );
+            (bool success, bytes memory returnData) = prizeDistributor.call(data);
+            if (!success) {
+                if (returnData.length > 0) {
+                    assembly { revert(add(returnData, 32), mload(returnData)) }
+                }
+                revert TierConfigFailed();
+            }
+        }
+
+        // Lock sponsorships (non-fatal if already locked)
+        try IRafflePrizeDistributor(prizeDistributor).lockSponsorships(seasonId) {} catch {}
     }
 
     /// @notice Compute and store a keccak256 hash of participant addresses and ticket counts
