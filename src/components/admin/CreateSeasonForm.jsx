@@ -12,7 +12,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { ERC20Abi, RafflePrizeDistributorAbi } from '@/utils/abis';
+import { ERC20Abi, ERC721ApproveAbi, RafflePrizeDistributorAbi } from '@/utils/abis';
 import { useSmartTransactions } from '@/hooks/useSmartTransactions';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 import TransactionModal from "@/components/admin/TransactionModal";
@@ -277,7 +277,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             } else {
               // ERC-721
               const nftTokenId = BigInt(prize.tokenId);
-              const ERC721ApproveAbi = [{ name: "approve", type: "function", inputs: [{ name: "to", type: "address" }, { name: "tokenId", type: "uint256" }], outputs: [] }];
               calls.push({
                 to: tokenAddr,
                 data: encodeFunctionData({
