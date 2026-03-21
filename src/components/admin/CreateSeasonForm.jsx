@@ -1,7 +1,7 @@
 // src/components/admin/CreateSeasonForm.jsx
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { usePublicClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { isAddress, decodeEventLog, encodeFunctionData, parseUnits } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   const { executeBatch } = useSmartTransactions();
 
   const publicClient = usePublicClient();
+  const { address } = useAccount();
   const netKey = getStoredNetworkKey();
   const addresses = getContractAddresses(netKey);
   
@@ -250,6 +251,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           // Build batch calls: approve + sponsor for each prize
           const calls = [];
           for (const prize of confirmedPrizes) {
+            if (prize.type === "offchain") continue; // handled separately via backend API
             const tokenAddr = prize.tokenAddress.trim();
             const tier = BigInt(prize.targetTier || 0);
 
@@ -301,6 +303,26 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           if (calls.length > 0) {
             await executeBatch(calls);
           }
+
+          // Handle offchain prizes via backend API
+          const offchainPrizes = confirmedPrizes.filter(p => p.type === "offchain");
+          for (const prize of offchainPrizes) {
+            const res = await fetch(`/api/sponsor-prizes/${seasonId}/offchain`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chainId: prize.chainId,
+                tokenAddress: prize.tokenAddress.trim(),
+                tokenId: prize.tokenId || undefined,
+                description: prize.description || undefined,
+                sponsorAddress: address,
+                targetTier: prize.targetTier,
+                prizeType: prize.tokenId ? "erc721" : "erc20",
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to create off-chain prize");
+          }
+
           if (!cancelled) setSponsorStatus("success");
         } catch (err) {
           if (!cancelled) {
@@ -348,7 +370,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   // Sponsored prize helpers
   const addSponsoredPrize = () => {
-    setSponsoredPrizes([...sponsoredPrizes, { type: "erc20", tokenAddress: "", amount: "", tokenId: "", targetTier: 0 }]);
+    setSponsoredPrizes([...sponsoredPrizes, { type: "erc20", tokenAddress: "", amount: "", tokenId: "", targetTier: 0, description: "", chainId: 8453 }]);
   };
 
   const removeSponsoredPrize = (index) => {
@@ -520,6 +542,10 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           setFormError(t("tokenIdRequired"));
           return;
         }
+      }
+      if (prize.type === "offchain" && !isAddress(prize.tokenAddress.trim())) {
+        setFormError(t("invalidAddress"));
+        return;
       }
     }
 
@@ -780,6 +806,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 <Button type="button" size="sm" variant={prize.type === "erc721" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "erc721")}>
                   {t("sponsorPrizeERC721")}
                 </Button>
+                <Button type="button" size="sm" variant={prize.type === "offchain" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "offchain")}>
+                  {t("sponsorPrizeOffchain")}
+                </Button>
               </div>
 
               {/* Token address */}
@@ -806,6 +835,35 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                   value={prize.tokenId}
                   onChange={(e) => updateSponsoredPrize(index, "tokenId", e.target.value)}
                 />
+              )}
+
+              {/* Offchain fields */}
+              {prize.type === "offchain" && (
+                <>
+                  <Input
+                    placeholder={t("sponsorTokenId")}
+                    value={prize.tokenId}
+                    onChange={(e) => updateSponsoredPrize(index, "tokenId", e.target.value)}
+                  />
+                  <Input
+                    placeholder={t("sponsorDescription")}
+                    value={prize.description}
+                    onChange={(e) => updateSponsoredPrize(index, "description", e.target.value)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">{t("sponsorChain")}</label>
+                    <select
+                      value={prize.chainId}
+                      onChange={(e) => updateSponsoredPrize(index, "chainId", Number(e.target.value))}
+                      className="text-sm border border-border rounded px-2 py-1 bg-background"
+                    >
+                      <option value={1}>{t("chainEthereum")}</option>
+                      <option value={8453}>{t("chainBase")}</option>
+                      <option value={10}>{t("chainOptimism")}</option>
+                      <option value={42161}>{t("chainArbitrum")}</option>
+                    </select>
+                  </div>
+                </>
               )}
 
               {/* Tier selector */}
