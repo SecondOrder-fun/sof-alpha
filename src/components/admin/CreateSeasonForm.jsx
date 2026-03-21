@@ -170,8 +170,10 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   // Configure gates and reset form on successful season creation
   useEffect(() => {
+    let cancelled = false;
+
     if (!createSeason?.isConfirmed || !createSeason?.receipt) return;
-    
+
     // Parse seasonId from SeasonCreated event in receipt
     const seasonCreatedLog = createSeason.receipt.logs.find((log) => {
       try {
@@ -202,7 +204,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     // If gated with gates configured, call configureGates
     if (gated && gatingGates.length > 0 && addresses.SEASON_GATING) {
       setGatingStatus("pending");
-      
+
       // Format gates for contract: [{ gateType, enabled, configHash }]
       const formattedGates = gatingGates.map((g) => ({
         gateType: g.gateType,
@@ -298,10 +300,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           if (calls.length > 0) {
             await executeBatch(calls);
           }
-          setSponsorStatus("success");
+          if (!cancelled) setSponsorStatus("success");
         } catch (err) {
-          setSponsorStatus("error");
-          setFormError(`Season created but failed to sponsor prizes: ${err.message}`);
+          if (!cancelled) {
+            setSponsorStatus("error");
+            setFormError(`Season created but failed to sponsor prizes: ${err.message}`);
+          }
         }
       })();
     }
@@ -312,6 +316,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     setSponsoredPrizes([]);
     setSponsorStatus("");
     confirmedDataRef.current = null;
+    return () => { cancelled = true; };
   }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch]);
 
   // Tier helpers
