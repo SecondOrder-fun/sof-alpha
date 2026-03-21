@@ -123,7 +123,10 @@ export const useFarcasterSignIn = ({ onSuccess, onError } = {}) => {
   // When channelToken arrives from connect(), start manual polling.
   // useEffect ensures proper cleanup on unmount and avoids render-body side effects.
   useEffect(() => {
-    if (!channelToken || !isConnecting || pollingTokenRef.current === channelToken) return;
+    // Only start polling when a NEW channelToken arrives.
+    // pollingTokenRef guards against double-polling; no need for isConnecting
+    // in the dep array (which would cause cleanup to abort the poll immediately).
+    if (!channelToken || pollingTokenRef.current === channelToken) return;
 
     pollingTokenRef.current = channelToken;
     setIsConnecting(false);
@@ -176,7 +179,8 @@ export const useFarcasterSignIn = ({ onSuccess, onError } = {}) => {
         abortRef.current = null;
       }
     };
-  }, [channelToken, isConnecting, authKitUrl, pollRelay, verifyWithBackend, toast, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelToken]);
 
   const handleCancel = useCallback(() => {
     if (abortRef.current) {
