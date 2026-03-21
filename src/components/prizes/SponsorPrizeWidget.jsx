@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAccount, usePublicClient } from "wagmi";
-import { isAddress, parseEther, encodeFunctionData } from "viem";
+import { isAddress, parseUnits, encodeFunctionData } from "viem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { useSmartTransactions } from "@/hooks/useSmartTransactions";
 import { getContractAddresses } from "@/config/contracts";
 import { getStoredNetworkKey } from "@/lib/wagmi";
 import { RafflePrizeDistributorAbi } from "@/utils/abis";
-import { ERC20Abi } from "@/utils/abis";
+import { ERC20Abi, ERC721ApproveAbi } from "@/utils/abis";
 import PropTypes from "prop-types";
 
 const TAB_KEYS = {
@@ -56,7 +56,12 @@ export function SponsorPrizeWidget({ seasonId }) {
 
     setIsPending(true);
     try {
-      const parsedAmount = parseEther(amount);
+      const tokenDecimals = await publicClient.readContract({
+        address: tokenAddress,
+        abi: ERC20Abi,
+        functionName: "decimals",
+      });
+      const parsedAmount = parseUnits(amount, tokenDecimals);
 
       // Read distributor address from Raffle contract
       const distributorAddr = await publicClient.readContract({
@@ -97,7 +102,7 @@ export function SponsorPrizeWidget({ seasonId }) {
   const handleSponsorERC721 = async () => {
     setError("");
     if (!isAddress(tokenAddress)) { setError(t("invalidAddress")); return; }
-    if (!tokenId) { setError(t("tokenIdRequired")); return; }
+    if (!tokenId || !/^\d+$/.test(tokenId.trim())) { setError(t("tokenIdRequired")); return; }
 
     setIsPending(true);
     try {
@@ -106,8 +111,6 @@ export function SponsorPrizeWidget({ seasonId }) {
         abi: [{ name: "prizeDistributor", type: "function", inputs: [], outputs: [{ type: "address" }] }],
         functionName: "prizeDistributor",
       });
-
-      const ERC721ApproveAbi = [{ name: "approve", type: "function", inputs: [{ name: "to", type: "address" }, { name: "tokenId", type: "uint256" }], outputs: [] }];
 
       await executeBatch([
         {
