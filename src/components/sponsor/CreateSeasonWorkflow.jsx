@@ -13,6 +13,7 @@ import { decodeEventLog } from "viem";
 import { ChevronLeft, ChevronRight, Crown, ExternalLink, Loader2 } from "lucide-react";
 import PropTypes from "prop-types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+// Sponsored prizes are now collected inline in CreateSeasonForm step 4
 import { Button } from "@/components/ui/button";
 import {
   Workflow,
@@ -167,8 +168,8 @@ function WorkflowInner() {
     );
   }
 
-  /* ── Creation Workflow (4 steps) ── */
-  const formSection = { details: "details", prizes: "prizes", curve: "curve" }[currentStep] || null;
+  /* ── Creation Workflow (5 steps) ── */
+  const formSection = { details: "details", prizes: "prizes", curve: "curve", sponsored: "sponsored" }[currentStep] || null;
   const isFormStep = !!formSection;
 
   return (
@@ -177,11 +178,12 @@ function WorkflowInner() {
         <WorkflowStep value="details" label={t("sectionMainDetails")} stepNumber={1} />
         <WorkflowStep value="prizes" label={t("sectionPrizeSettings")} stepNumber={2} />
         <WorkflowStep value="curve" label={t("sectionBondingCurve")} stepNumber={3} />
-        <WorkflowStep value="confirm" label={t("stepDone")} stepNumber={4} />
+        <WorkflowStep value="sponsored" label={t("sponsoredPrizeLabel")} stepNumber={4} />
+        <WorkflowStep value="confirm" label={t("stepDone")} stepNumber={5} />
       </WorkflowSteps>
 
-      {/* Steps 1-3: Form sections — auth gate or section content */}
-      {["details", "prizes", "curve"].map((step) => (
+      {/* Steps 1-4: Form sections — auth gate or section content */}
+      {["details", "prizes", "curve", "sponsored"].map((step) => (
         <WorkflowContent key={step} value={step}>
           {!isAuthenticated ? (
             <Card>
@@ -219,7 +221,7 @@ function WorkflowInner() {
         <FormStepNav
           step={currentStep}
           isAuthenticated={isAuthenticated}
-          showNext={currentStep !== "curve"}
+          showNext={currentStep !== "sponsored"}
           onBackToSponsor={currentStep === "details" ? handleBackToSponsor : undefined}
         />
       )}
@@ -244,6 +246,7 @@ function WorkflowInner() {
             </Button>
           </CardContent>
         </Card>
+
       </WorkflowContent>
     </Workflow>
   );
