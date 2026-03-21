@@ -128,6 +128,8 @@ className = "text-muted-foreground hover:text-primary";
 - `bg-card`, `text-card-foreground` - card surfaces
 - `border-border`, `border-primary` - borders
 - `bg-destructive`, `text-destructive` - error states
+- `bg-success`, `text-success` - success states
+- `bg-warning`, `text-warning` - warning states
 
 **CSS variables are defined in `src/styles/tailwind.css`** - this is the ONLY place colors should be defined. Components reference these via Tailwind's semantic classes.
 

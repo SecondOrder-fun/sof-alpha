@@ -1,7 +1,7 @@
 // src/components/sponsor/CreateSeasonWorkflow.jsx
 // Two-panel create-season flow:
 //   Panel 1: SponsorStakingCard (stake/unstake management)
-//   Panel 2: 4-step workflow (Details → Prizes → Curve → Done)
+//   Panel 2: 5-step workflow (Details → Prizes → Curve → Sponsored Prizes → Done)
 // "Back" on Details returns to the sponsor panel so users can unstake.
 import { useState, useEffect, useCallback } from "react";
 import { useAccount, usePublicClient } from "wagmi";
