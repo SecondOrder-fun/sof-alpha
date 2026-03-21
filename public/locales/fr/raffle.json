@@ -194,6 +194,8 @@
   "sponsorPrizeBtn": "Sponsoriser un prix",
   "sponsoring": "Sponsoring...",
   "sponsoredPrizes": "Prix sponsorisés",
+  "sponsoredPrizeCount_one": "{{count}} prix",
+  "sponsoredPrizeCount_other": "{{count}} prix",
   "sponsoredBy": "Sponsorisé par {{address}}",
   "distributedBySponsor": "Distribué par le sponsor",
   "crossChainBadge": "{{chain}}",

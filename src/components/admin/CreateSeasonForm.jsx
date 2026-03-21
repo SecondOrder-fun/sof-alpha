@@ -919,7 +919,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("sponsoredPrizeLabel")}</span>
                   <span className="font-medium">
-                    {pendingSubmitData.sponsoredPrizes.length} {pendingSubmitData.sponsoredPrizes.length === 1 ? "prize" : "prizes"}
+                    {t("sponsoredPrizeCount", { count: pendingSubmitData.sponsoredPrizes.length })}
                   </span>
                 </div>
               )}
