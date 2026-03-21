@@ -4,13 +4,17 @@ import { useFarcaster } from "@/hooks/useFarcaster";
 import { useToast } from "@/hooks/useToast";
 import { useTranslation } from "react-i18next";
 
+const SIWF_TIMEOUT_MS = 300_000; // 5 minutes
+const SIWF_POLL_INTERVAL_MS = 1_500; // 1.5 seconds
+const RELAY_URL = "https://relay.farcaster.xyz/v1/channel/status";
+
 /**
- * Extracted SIWF (Sign In With Farcaster) state machine.
+ * SIWF (Sign In With Farcaster) hook.
  *
- * Manages: nonce fetching, channel creation, QR polling, success/error
- * callbacks, and backend verification.
- *
- * Used by both LoginModal (inline QR view) and FarcasterAuth (standalone Dialog).
+ * Uses auth-kit's useSignIn for channel creation only, then manually polls
+ * the Farcaster relay via a Promise-based approach. This avoids auth-kit's
+ * internal watchStatus effect which re-triggers on dependency changes and
+ * polls consumed channels (causing 401 floods).
  *
  * @param {object} [opts]
  * @param {() => void} [opts.onSuccess] - called after successful backend verification
@@ -21,62 +25,20 @@ export const useFarcasterSignIn = ({ onSuccess, onError } = {}) => {
   const { fetchNonce, verifyWithBackend, isVerifying } = useFarcaster();
   const { toast } = useToast();
 
-  const [wantsToSignIn, setWantsToSignIn] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [showQrView, setShowQrView] = useState(false);
+  const [url, setUrl] = useState(null);
 
   const nonceRef = useRef(null);
+  const abortRef = useRef(null);
+  const pollingTokenRef = useRef(null);
 
-  const handleSuccess = useCallback(
-    async (res) => {
-      const { message, signature } = res;
-      const nonce = nonceRef.current;
-
-      if (!message || !signature || !nonce) {
-        toast({
-          title: t("siwfError", "Authentication Error"),
-          description: "Missing SIWF response data",
-          variant: "destructive",
-        });
-        setWantsToSignIn(false);
-        setShowQrView(false);
-        return;
-      }
-
-      try {
-        const { user } = await verifyWithBackend({ message, signature, nonce });
-        toast({
-          title: t("siwfSuccess", "Signed In"),
-          description: `${t("welcome", "Welcome")}, ${user.displayName || user.username || `FID ${user.fid}`}!`,
-        });
-        onSuccess?.();
-      } catch (err) {
-        toast({
-          title: t("siwfError", "Authentication Error"),
-          description: err.message,
-          variant: "destructive",
-        });
-      }
-      setWantsToSignIn(false);
-      setShowQrView(false);
-    },
-    [verifyWithBackend, toast, t, onSuccess],
-  );
-
-  const handleError = useCallback(
-    (error) => {
-      toast({
-        title: t("siwfError", "Authentication Error"),
-        description: error?.message || "Sign in failed",
-        variant: "destructive",
-      });
-      setWantsToSignIn(false);
-      setIsConnecting(false);
-      setShowQrView(false);
-      onError?.();
-    },
-    [toast, t, onError],
-  );
+  // Refs for callbacks to avoid stale closures in the polling Promise chain
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   const nonceGetter = useCallback(async () => {
     const nonce = await fetchNonce();
@@ -85,45 +47,147 @@ export const useFarcasterSignIn = ({ onSuccess, onError } = {}) => {
   }, [fetchNonce]);
 
   const {
-    signIn,
     signOut,
     connect,
     reconnect,
-    isPolling,
     channelToken,
-    url,
+    url: authKitUrl,
     isError,
   } = useSignIn({
     nonce: nonceGetter,
-    onSuccess: handleSuccess,
-    onError: handleError,
-    timeout: 300000,
-    interval: 1500,
+    timeout: SIWF_TIMEOUT_MS,
+    interval: SIWF_POLL_INTERVAL_MS,
   });
 
-  // Once the channel is created, start polling and show QR
-  useEffect(() => {
-    if (wantsToSignIn && channelToken && !isPolling) {
-      signIn();
-      setIsConnecting(false);
-      setShowQrView(true);
+  /**
+   * Poll relay until the user confirms in Farcaster.
+   * Returns a Promise that resolves with the signed message data,
+   * or null if aborted.
+   */
+  const pollRelay = useCallback((token) => {
+    // Abort any in-flight poll first
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
-  }, [wantsToSignIn, channelToken, isPolling, signIn]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    return new Promise((resolve, reject) => {
+      const deadline = Date.now() + SIWF_TIMEOUT_MS;
+
+      const tick = () => {
+        if (controller.signal.aborted) return resolve(null);
+        if (Date.now() > deadline) return reject(new Error("Sign-in timed out"));
+
+        fetch(RELAY_URL, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        })
+          .then((res) => {
+            if (res.status === 401) throw new Error("Channel expired or unauthorized");
+            if (!res.ok) throw new Error(`Relay returned ${res.status}`);
+            return res.json();
+          })
+          .then((data) => {
+            if (data.state === "completed" && data.message && data.signature) {
+              resolve(data);
+            } else {
+              setTimeout(tick, SIWF_POLL_INTERVAL_MS);
+            }
+          })
+          .catch((err) => {
+            if (err.name === "AbortError") resolve(null);
+            else reject(err);
+          });
+      };
+
+      tick();
+    });
+  }, []);
 
   const handleSignInClick = useCallback(() => {
-    setWantsToSignIn(true);
+    if (isConnecting || isPolling) return; // guard against double-click
     setIsConnecting(true);
     if (isError) {
       reconnect();
     } else {
       connect();
     }
-  }, [connect, reconnect, isError]);
+  }, [connect, reconnect, isError, isConnecting, isPolling]);
+
+  // When channelToken arrives from connect(), start manual polling.
+  // useEffect ensures proper cleanup on unmount and avoids render-body side effects.
+  useEffect(() => {
+    if (!channelToken || !isConnecting || pollingTokenRef.current === channelToken) return;
+
+    pollingTokenRef.current = channelToken;
+    setIsConnecting(false);
+    setIsPolling(true);
+    setShowQrView(true);
+    setUrl(authKitUrl || null);
+
+    pollRelay(channelToken)
+      .then(async (data) => {
+        if (!data) return; // aborted
+
+        const { message, signature } = data;
+        const nonce = nonceRef.current;
+
+        if (!message || !signature || !nonce) {
+          toast({
+            title: t("siwfError", "Authentication Error"),
+            description: "Missing SIWF response data",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { user } = await verifyWithBackend({ message, signature, nonce });
+        toast({
+          title: t("siwfSuccess", "Signed In"),
+          description: `${t("welcome", "Welcome")}, ${user.displayName || user.username || `FID ${user.fid}`}!`,
+        });
+        onSuccessRef.current?.();
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        toast({
+          title: t("siwfError", "Authentication Error"),
+          description: err.message || "Sign in failed",
+          variant: "destructive",
+        });
+        onErrorRef.current?.();
+      })
+      .finally(() => {
+        setIsPolling(false);
+        setShowQrView(false);
+        pollingTokenRef.current = null;
+      });
+
+    // Cleanup: abort polling on unmount or if channelToken changes
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+    };
+  }, [channelToken, isConnecting, authKitUrl, pollRelay, verifyWithBackend, toast, t]);
 
   const handleCancel = useCallback(() => {
-    signOut(); // Reset auth-kit channel to stop stale 401 polling
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    signOut();
     setShowQrView(false);
-    setWantsToSignIn(false);
+    setIsConnecting(false);
+    setIsPolling(false);
+    pollingTokenRef.current = null;
   }, [signOut]);
 
   const isLoading = isVerifying || (isConnecting && !isPolling);
