@@ -309,6 +309,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     // Reset form
     setStartTime("");
     setEndTime("");
+    setSponsoredPrizes([]);
+    setSponsorStatus("");
+    confirmedDataRef.current = null;
   }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch]);
 
   // Tier helpers
