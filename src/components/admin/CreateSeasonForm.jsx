@@ -1,5 +1,5 @@
 // src/components/admin/CreateSeasonForm.jsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import { usePublicClient, useWriteContract } from "wagmi";
 import { isAddress, decodeEventLog, encodeFunctionData, parseUnits } from "viem";
@@ -53,6 +53,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   // Confirmation dialog
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
+  const confirmedDataRef = useRef(null);
 
   // Bonding curve data from editor
   const [curveData, setCurveData] = useState({
@@ -229,7 +230,8 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     }
 
     // Execute sponsored prize transactions if any were configured
-    if (sponsoredPrizes.length > 0 && addresses.RAFFLE) {
+    const confirmedPrizes = confirmedDataRef.current?.sponsoredPrizes || [];
+    if (confirmedPrizes.length > 0 && addresses.RAFFLE) {
       setSponsorStatus("pending");
 
       (async () => {
@@ -243,7 +245,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
           // Build batch calls: approve + sponsor for each prize
           const calls = [];
-          for (const prize of sponsoredPrizes) {
+          for (const prize of confirmedPrizes) {
             const tokenAddr = prize.tokenAddress.trim();
             const tier = BigInt(prize.targetTier || 0);
 
@@ -307,7 +309,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     // Reset form
     setStartTime("");
     setEndTime("");
-  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, sponsoredPrizes, executeBatch]);
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch]);
 
   // Tier helpers
   const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
@@ -519,6 +521,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   const handleConfirmCreate = () => {
     if (!pendingSubmitData) return;
+    confirmedDataRef.current = pendingSubmitData;
     setShowConfirmation(false);
     createSeason.mutate(pendingSubmitData);
     setPendingSubmitData(null);
