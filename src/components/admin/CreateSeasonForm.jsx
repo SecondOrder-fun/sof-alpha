@@ -499,9 +499,11 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
         setFormError(t("amountMustBePositive"));
         return;
       }
-      if (prize.type === "erc721" && !prize.tokenId) {
-        setFormError(t("tokenIdRequired"));
-        return;
+      if (prize.type === "erc721") {
+        if (!prize.tokenId || !/^\d+$/.test(prize.tokenId.trim())) {
+          setFormError(t("tokenIdRequired"));
+          return;
+        }
       }
     }
 
