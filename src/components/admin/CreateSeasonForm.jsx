@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
-import { CalendarIcon, Gift, Plus, Trash2 } from "lucide-react";
+import { CalendarIcon, Check, Gift, Plus, Trash2 } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
@@ -859,7 +859,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             <p className="text-xs text-warning">{t("sponsoring")}</p>
           )}
           {sponsorStatus === "success" && (
-            <p className="text-xs text-success">{t("sponsoredPrizes")} ✓</p>
+            <p className="text-xs text-success flex items-center gap-1">{t("sponsoredPrizes")} <Check className="h-3 w-3" /></p>
           )}
           {sponsorStatus === "error" && (
             <p className="text-xs text-destructive">{formError}</p>
