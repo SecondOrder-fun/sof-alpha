@@ -223,11 +223,13 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           if (publicClient) {
             await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
           }
-          setGatingStatus("success");
+          if (!cancelled) setGatingStatus("success");
         })
         .catch((err) => {
-          setGatingStatus("error");
-          setFormError(`Season created but failed to configure gates: ${err.message}`);
+          if (!cancelled) {
+            setGatingStatus("error");
+            setFormError(`Season created but failed to configure gates: ${err.message}`);
+          }
         });
     }
 
@@ -313,7 +315,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     setStartTime("");
     setEndTime("");
     setSponsoredPrizes([]);
-    setSponsorStatus("");
+    if (confirmedPrizes.length === 0) setSponsorStatus("");
     confirmedDataRef.current = null;
     return () => { cancelled = true; };
   }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch]);
