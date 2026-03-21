@@ -121,9 +121,10 @@ export const useFarcasterSignIn = ({ onSuccess, onError } = {}) => {
   }, [connect, reconnect, isError]);
 
   const handleCancel = useCallback(() => {
+    signOut(); // Reset auth-kit channel to stop stale 401 polling
     setShowQrView(false);
     setWantsToSignIn(false);
-  }, []);
+  }, [signOut]);
 
   const isLoading = isVerifying || (isConnecting && !isPolling);
 
