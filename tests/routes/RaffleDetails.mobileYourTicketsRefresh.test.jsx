@@ -34,6 +34,31 @@ vi.mock("wagmi", () => ({
 
 vi.mock("@/lib/wagmi", () => ({
   getStoredNetworkKey: () => "LOCAL",
+  getChainConfig: () => ({ id: 31337, name: "Local", rpcUrl: "http://127.0.0.1:8545" }),
+}));
+
+vi.mock("@/hooks/useSeasonGating", () => ({
+  useSeasonGating: () => ({ gates: [], isGated: false, isLoading: false }),
+  GateType: { PASSWORD: "PASSWORD", SIGNATURE: "SIGNATURE" },
+}));
+
+vi.mock("@/hooks/useSponsoredPrizes", () => ({
+  useSponsoredPrizes: () => ({ tierConfigs: [], prizes: [], isLoading: false }),
+}));
+
+vi.mock("@/hooks/useSmartTransactions", () => ({
+  useSmartTransactions: () => ({
+    executeBatch: vi.fn(),
+    isSmartWallet: false,
+  }),
+}));
+
+vi.mock("@/components/prizes/SponsorPrizeWidget", () => ({
+  SponsorPrizeWidget: () => null,
+}));
+
+vi.mock("@/components/prizes/ClaimPrizeWidget", () => ({
+  ClaimPrizeWidget: () => null,
 }));
 
 vi.mock("@/hooks/useRaffleState", () => ({

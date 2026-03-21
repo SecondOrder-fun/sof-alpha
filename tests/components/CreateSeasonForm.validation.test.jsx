@@ -31,6 +31,16 @@ vi.mock('wagmi', () => ({
     isLoading: false,
     isSuccess: false,
   }),
+  useChainId: () => 8453,
+  useCapabilities: () => ({ data: {} }),
+  useSendCalls: () => ({
+    sendCallsAsync: vi.fn(),
+    data: undefined,
+  }),
+  useCallsStatus: () => ({
+    data: undefined,
+    query: {},
+  }),
 }));
 
 vi.mock('react-i18next', () => ({
