@@ -340,7 +340,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     if (confirmedPrizes.length === 0) setSponsorStatus("");
     confirmedDataRef.current = null;
     return () => { cancelled = true; };
-  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch]);
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch, address]);
 
   // Tier helpers
   const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
