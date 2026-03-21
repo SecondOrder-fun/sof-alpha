@@ -1,36 +1,57 @@
+/*
+  @vitest-environment jsdom
+*/
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// AllowlistPanel reads `import.meta.env.VITE_API_BASE_URL` at module scope.
+// We must stub the env BEFORE importing the component and reset modules so
+// the component module re-evaluates with the stubbed value.
+vi.stubEnv("VITE_API_BASE_URL", "https://example.com/api");
+vi.stubEnv("VITE_ADMIN_BEARER_TOKEN", "test-token");
+
 vi.mock("@/hooks/useAdminAuth", () => ({
   useAdminAuth: () => ({
     getAuthHeaders: () => ({
-      Authorization: `Bearer ${import.meta.env.VITE_ADMIN_BEARER_TOKEN}`,
+      Authorization: "Bearer test-token",
     }),
   }),
 }));
 
-import AllowlistPanel from "@/components/admin/AllowlistPanel";
-
-const originalEnv = import.meta.env;
-let originalFetch;
-let queryClient;
+// Dynamic import so the component module loads AFTER vi.stubEnv above.
+// In Vitest, vi.mock calls are hoisted but vi.stubEnv is not; using a lazy
+// import ensures the module evaluates after the env has been patched.
+let AllowlistPanel;
 
 describe("AllowlistPanel auth headers", () => {
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
+  beforeEach(async () => {
+    // Force a fresh module evaluation on each test so the module-level
+    // `const API_BASE` re-reads the (now stubbed) env var.
+    vi.resetModules();
 
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const url = typeof input === "string" ? input : input?.url;
-      const urlStr = String(url || "");
+    // Re-apply the hook mock after resetModules clears the module registry.
+    vi.doMock("@/hooks/useAdminAuth", () => ({
+      useAdminAuth: () => ({
+        getAuthHeaders: () => ({
+          Authorization: "Bearer test-token",
+        }),
+      }),
+    }));
+
+    AllowlistPanel = (await import("@/components/admin/AllowlistPanel")).default;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const urlStr = String(typeof input === "string" ? input : input?.url || "");
 
       if (urlStr.includes("/allowlist/stats")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            active_entries: 0,
-            total_entries: 0,
-            window_open: false,
+            active: 0,
+            withWallet: 0,
+            pendingResolution: 0,
+            windowOpen: false,
           }),
         });
       }
@@ -42,10 +63,17 @@ describe("AllowlistPanel auth headers", () => {
         });
       }
 
-      return originalFetch(input, init);
+      return Promise.resolve({ ok: true, json: async () => ({}) });
     });
+  });
 
-    queryClient = new QueryClient({
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("adds Authorization header to stats + entries requests", async () => {
+    const queryClient = new QueryClient({
       defaultOptions: {
         queries: {
           retry: false,
@@ -53,24 +81,6 @@ describe("AllowlistPanel auth headers", () => {
       },
     });
 
-    Object.assign(import.meta.env, {
-      VITE_API_BASE_URL: "https://example.com/api",
-      VITE_ADMIN_BEARER_TOKEN: "test-token",
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    // Restore env object contents (don't try to replace the env object reference).
-    for (const key of Object.keys(import.meta.env)) {
-      if (!(key in originalEnv)) {
-        delete import.meta.env[key];
-      }
-    }
-    Object.assign(import.meta.env, originalEnv);
-  });
-
-  it("adds Authorization header to stats + entries requests", async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <AllowlistPanel />
@@ -79,7 +89,7 @@ describe("AllowlistPanel auth headers", () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalled();
-    });
+    }, { timeout: 5000 });
 
     const calls = globalThis.fetch.mock.calls;
 

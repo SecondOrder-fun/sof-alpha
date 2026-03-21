@@ -254,3 +254,4 @@ local/
 !README.md
 !CLAUDE.md
 .vercel
+.worktrees/

@@ -14,7 +14,8 @@ beforeAll(() => {
   };
 });
 
-// Mock dependencies
+// Mock dependencies — mock useSmartTransactions directly to avoid
+// needing to re-export every wagmi hook
 vi.mock('wagmi', () => ({
   usePublicClient: () => ({
     readContract: vi.fn().mockResolvedValue(18),
@@ -31,6 +32,11 @@ vi.mock('wagmi', () => ({
     isLoading: false,
     isSuccess: false,
   }),
+  // Required by useSmartTransactions (transitively imported)
+  useChainId: () => 8453,
+  useCapabilities: () => ({ data: {} }),
+  useSendCalls: () => ({ sendCallsAsync: vi.fn(), data: undefined }),
+  useCallsStatus: () => ({ data: undefined, query: {} }),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -50,6 +56,13 @@ vi.mock('@/lib/wagmi', () => ({
 
 vi.mock('@/lib/jsonUtils', () => ({
   safeStringify: (obj) => JSON.stringify(obj),
+}));
+
+vi.mock('@/hooks/useSmartTransactions', () => ({
+  useSmartTransactions: () => ({
+    executeBatch: vi.fn(),
+    isSmartWallet: false,
+  }),
 }));
 
 import CreateSeasonForm from '@/components/admin/CreateSeasonForm';

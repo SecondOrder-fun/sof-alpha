@@ -41,7 +41,7 @@ import PasswordGateModal from "@/components/gating/PasswordGateModal";
 import SignatureGateModal from "@/components/gating/SignatureGateModal";
 import UsernameDisplay from "@/components/user/UsernameDisplay";
 import { SponsoredPrizesDisplay } from "@/components/prizes/SponsoredPrizesDisplay";
-// SponsorPrizeWidget removed — prizes are now added during season creation
+import { SponsorPrizeWidget } from "@/components/prizes/SponsorPrizeWidget";
 import { ClaimPrizeWidget } from "@/components/prizes/ClaimPrizeWidget";
 import { useSeasonWinnerSummary } from "@/hooks/useSeasonWinnerSummaries";
 import { useSeasonGating, GateType } from "@/hooks/useSeasonGating";
@@ -526,6 +526,13 @@ const RaffleDetails = () => {
               <div className="px-6 mt-3">
                 <SponsoredPrizesDisplay seasonId={seasonId} isCompleted={isCompletedSeason} />
               </div>
+
+              {/* Sponsor Prize Widget (for active seasons) */}
+              {!isCompletedSeason && statusNum >= 1 && (
+                <div className="px-6 mt-3">
+                  <SponsorPrizeWidget seasonId={seasonId} />
+                </div>
+              )}
 
               {/* Claim Prize Widget (for winners) */}
               {isCompletedSeason && (

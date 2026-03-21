@@ -61,6 +61,11 @@ import _AccessControlAbi from '@/contracts/abis/AccessControl.json';
 export const ERC20Abi = extractAbi(_ERC20Abi);
 export const AccessControlAbi = extractAbi(_AccessControlAbi);
 
+// Minimal ERC-721 ABI for approve calls
+export const ERC721ApproveAbi = [
+  { name: "approve", type: "function", inputs: [{ name: "to", type: "address" }, { name: "tokenId", type: "uint256" }], outputs: [] },
+];
+
 // Hats Protocol (Sponsor Staking)
 import _HatsAbi from '@/contracts/abis/Hats.json';
 import _StakingEligibilityAbi from '@/contracts/abis/StakingEligibility.json';

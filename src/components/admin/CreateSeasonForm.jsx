@@ -1,18 +1,18 @@
 // src/components/admin/CreateSeasonForm.jsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { usePublicClient, useWriteContract } from "wagmi";
-import { isAddress, decodeEventLog, encodeFunctionData, parseEther } from "viem";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { isAddress, decodeEventLog, encodeFunctionData, parseUnits } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
-import { CalendarIcon, Gift, Plus, Trash2 } from "lucide-react";
+import { CalendarIcon, Check, Gift, Plus, Trash2 } from "lucide-react";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { AUTO_START_BUFFER_SECONDS } from "@/lib/seasonTime";
 import { getContractAddresses, RAFFLE_ABI, SEASON_GATING_ABI } from "@/config/contracts";
 import { getStoredNetworkKey } from '@/lib/wagmi';
-import { ERC20Abi, RafflePrizeDistributorAbi } from '@/utils/abis';
+import { ERC20Abi, ERC721ApproveAbi, RafflePrizeDistributorAbi } from '@/utils/abis';
 import { useSmartTransactions } from '@/hooks/useSmartTransactions';
 import { MetaMaskCircuitBreakerAlert } from "@/components/common/MetaMaskCircuitBreakerAlert";
 import TransactionModal from "@/components/admin/TransactionModal";
@@ -53,6 +53,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   // Confirmation dialog
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
+  const confirmedDataRef = useRef(null);
 
   // Bonding curve data from editor
   const [curveData, setCurveData] = useState({
@@ -76,6 +77,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
   const { executeBatch } = useSmartTransactions();
 
   const publicClient = usePublicClient();
+  const { address } = useAccount();
   const netKey = getStoredNetworkKey();
   const addresses = getContractAddresses(netKey);
   
@@ -169,8 +171,10 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   // Configure gates and reset form on successful season creation
   useEffect(() => {
+    let cancelled = false;
+
     if (!createSeason?.isConfirmed || !createSeason?.receipt) return;
-    
+
     // Parse seasonId from SeasonCreated event in receipt
     const seasonCreatedLog = createSeason.receipt.logs.find((log) => {
       try {
@@ -201,7 +205,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     // If gated with gates configured, call configureGates
     if (gated && gatingGates.length > 0 && addresses.SEASON_GATING) {
       setGatingStatus("pending");
-      
+
       // Format gates for contract: [{ gateType, enabled, configHash }]
       const formattedGates = gatingGates.map((g) => ({
         gateType: g.gateType,
@@ -220,16 +224,19 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           if (publicClient) {
             await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
           }
-          setGatingStatus("success");
+          if (!cancelled) setGatingStatus("success");
         })
         .catch((err) => {
-          setGatingStatus("error");
-          setFormError(`Season created but failed to configure gates: ${err.message}`);
+          if (!cancelled) {
+            setGatingStatus("error");
+            setFormError(`Season created but failed to configure gates: ${err.message}`);
+          }
         });
     }
 
     // Execute sponsored prize transactions if any were configured
-    if (sponsoredPrizes.length > 0 && addresses.RAFFLE) {
+    const confirmedPrizes = confirmedDataRef.current?.sponsoredPrizes || [];
+    if (confirmedPrizes.length > 0 && addresses.RAFFLE) {
       setSponsorStatus("pending");
 
       (async () => {
@@ -243,12 +250,18 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
           // Build batch calls: approve + sponsor for each prize
           const calls = [];
-          for (const prize of sponsoredPrizes) {
+          for (const prize of confirmedPrizes) {
+            if (prize.type === "offchain") continue; // handled separately via backend API
             const tokenAddr = prize.tokenAddress.trim();
             const tier = BigInt(prize.targetTier || 0);
 
             if (prize.type === "erc20") {
-              const parsedAmount = parseEther(prize.amount);
+              const tokenDecimals = await publicClient.readContract({
+                address: tokenAddr,
+                abi: ERC20Abi,
+                functionName: "decimals",
+              });
+              const parsedAmount = parseUnits(prize.amount, tokenDecimals);
               calls.push({
                 to: tokenAddr,
                 data: encodeFunctionData({
@@ -268,7 +281,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             } else {
               // ERC-721
               const nftTokenId = BigInt(prize.tokenId);
-              const ERC721ApproveAbi = [{ name: "approve", type: "function", inputs: [{ name: "to", type: "address" }, { name: "tokenId", type: "uint256" }], outputs: [] }];
               calls.push({
                 to: tokenAddr,
                 data: encodeFunctionData({
@@ -291,10 +303,32 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           if (calls.length > 0) {
             await executeBatch(calls);
           }
-          setSponsorStatus("success");
+
+          // Handle offchain prizes via backend API
+          const offchainPrizes = confirmedPrizes.filter(p => p.type === "offchain");
+          for (const prize of offchainPrizes) {
+            const res = await fetch(`/api/sponsor-prizes/${seasonId}/offchain`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chainId: prize.chainId,
+                tokenAddress: prize.tokenAddress.trim(),
+                tokenId: prize.tokenId || undefined,
+                description: prize.description || undefined,
+                sponsorAddress: address,
+                targetTier: prize.targetTier,
+                prizeType: prize.tokenId ? "erc721" : "erc20",
+              }),
+            });
+            if (!res.ok) throw new Error(t("offchainPrizeFailed"));
+          }
+
+          if (!cancelled) setSponsorStatus("success");
         } catch (err) {
-          setSponsorStatus("error");
-          setFormError(`Season created but failed to sponsor prizes: ${err.message}`);
+          if (!cancelled) {
+            setSponsorStatus("error");
+            setFormError(`Season created but failed to sponsor prizes: ${err.message}`);
+          }
         }
       })();
     }
@@ -302,7 +336,11 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     // Reset form
     setStartTime("");
     setEndTime("");
-  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, sponsoredPrizes, executeBatch]);
+    setSponsoredPrizes([]);
+    if (confirmedPrizes.length === 0) setSponsorStatus("");
+    confirmedDataRef.current = null;
+    return () => { cancelled = true; };
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch, address, t]);
 
   // Tier helpers
   const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
@@ -332,7 +370,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   // Sponsored prize helpers
   const addSponsoredPrize = () => {
-    setSponsoredPrizes([...sponsoredPrizes, { type: "erc20", tokenAddress: "", amount: "", tokenId: "", targetTier: 0 }]);
+    setSponsoredPrizes([...sponsoredPrizes, { type: "erc20", tokenAddress: "", amount: "", tokenId: "", targetTier: 0, description: "", chainId: 8453 }]);
   };
 
   const removeSponsoredPrize = (index) => {
@@ -499,9 +537,11 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
         setFormError(t("amountMustBePositive"));
         return;
       }
-      if (prize.type === "erc721" && !prize.tokenId) {
-        setFormError(t("tokenIdRequired"));
-        return;
+      if (prize.type === "erc721") {
+        if (!prize.tokenId || !/^\d+$/.test(prize.tokenId.trim())) {
+          setFormError(t("tokenIdRequired"));
+          return;
+        }
       }
     }
 
@@ -512,6 +552,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
 
   const handleConfirmCreate = () => {
     if (!pendingSubmitData) return;
+    confirmedDataRef.current = pendingSubmitData;
     setShowConfirmation(false);
     createSeason.mutate(pendingSubmitData);
     setPendingSubmitData(null);
@@ -761,6 +802,9 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 <Button type="button" size="sm" variant={prize.type === "erc721" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "erc721")}>
                   {t("sponsorPrizeERC721")}
                 </Button>
+                <Button type="button" size="sm" variant={prize.type === "offchain" ? "default" : "outline"} onClick={() => updateSponsoredPrize(index, "type", "offchain")}>
+                  {t("sponsorPrizeOffchain")}
+                </Button>
               </div>
 
               {/* Token address */}
@@ -787,6 +831,35 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                   value={prize.tokenId}
                   onChange={(e) => updateSponsoredPrize(index, "tokenId", e.target.value)}
                 />
+              )}
+
+              {/* Offchain fields */}
+              {prize.type === "offchain" && (
+                <>
+                  <Input
+                    placeholder={t("sponsorTokenId")}
+                    value={prize.tokenId}
+                    onChange={(e) => updateSponsoredPrize(index, "tokenId", e.target.value)}
+                  />
+                  <Input
+                    placeholder={t("sponsorDescription")}
+                    value={prize.description}
+                    onChange={(e) => updateSponsoredPrize(index, "description", e.target.value)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">{t("sponsorChain")}</label>
+                    <select
+                      value={prize.chainId}
+                      onChange={(e) => updateSponsoredPrize(index, "chainId", Number(e.target.value))}
+                      className="text-sm border border-border rounded px-2 py-1 bg-background"
+                    >
+                      <option value={1}>{t("chainEthereum")}</option>
+                      <option value={8453}>{t("chainBase")}</option>
+                      <option value={10}>{t("chainOptimism")}</option>
+                      <option value={42161}>{t("chainArbitrum")}</option>
+                    </select>
+                  </div>
+                </>
               )}
 
               {/* Tier selector */}
@@ -842,7 +915,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             <p className="text-xs text-warning">{t("sponsoring")}</p>
           )}
           {sponsorStatus === "success" && (
-            <p className="text-xs text-success">{t("sponsoredPrizes")} ✓</p>
+            <p className="text-xs text-success flex items-center gap-1">{t("sponsoredPrizes")} <Check className="h-3 w-3" /></p>
           )}
           {sponsorStatus === "error" && (
             <p className="text-xs text-destructive">{formError}</p>
@@ -919,7 +992,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("sponsoredPrizeLabel")}</span>
                   <span className="font-medium">
-                    {pendingSubmitData.sponsoredPrizes.length} {pendingSubmitData.sponsoredPrizes.length === 1 ? "prize" : "prizes"}
+                    {t("sponsoredPrizeCount", { count: pendingSubmitData.sponsoredPrizes.length })}
                   </span>
                 </div>
               )}

@@ -198,6 +198,8 @@
   "sponsorPrizeBtn": "賞品をスポンサー",
   "sponsoring": "スポンサー中...",
   "sponsoredPrizes": "スポンサー賞品",
+  "sponsoredPrizeCount_one": "{{count}}個の賞品",
+  "sponsoredPrizeCount_other": "{{count}}個の賞品",
   "sponsoredBy": "{{address}} がスポンサー",
   "distributedBySponsor": "スポンサーが配布",
   "crossChainBadge": "{{chain}}",
