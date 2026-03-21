@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import { usePublicClient, useWriteContract } from "wagmi";
-import { isAddress, decodeEventLog, encodeFunctionData, parseEther } from "viem";
+import { isAddress, decodeEventLog, encodeFunctionData, parseUnits } from "viem";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -248,7 +248,12 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
             const tier = BigInt(prize.targetTier || 0);
 
             if (prize.type === "erc20") {
-              const parsedAmount = parseEther(prize.amount);
+              const tokenDecimals = await publicClient.readContract({
+                address: tokenAddr,
+                abi: ERC20Abi,
+                functionName: "decimals",
+              });
+              const parsedAmount = parseUnits(prize.amount, tokenDecimals);
               calls.push({
                 to: tokenAddr,
                 data: encodeFunctionData({
