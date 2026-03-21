@@ -320,7 +320,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
                 prizeType: prize.tokenId ? "erc721" : "erc20",
               }),
             });
-            if (!res.ok) throw new Error("Failed to create off-chain prize");
+            if (!res.ok) throw new Error(t("offchainPrizeFailed"));
           }
 
           if (!cancelled) setSponsorStatus("success");
@@ -340,7 +340,7 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
     if (confirmedPrizes.length === 0) setSponsorStatus("");
     confirmedDataRef.current = null;
     return () => { cancelled = true; };
-  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch, address]);
+  }, [createSeason?.isConfirmed, createSeason?.receipt, gated, gatingGates, addresses.SEASON_GATING, addresses.RAFFLE, writeGatingContract, publicClient, executeBatch, address, t]);
 
   // Tier helpers
   const totalWinnerCount = useMemo(() => tiers.reduce((sum, t) => sum + (t.winnerCount || 0), 0), [tiers]);
@@ -542,10 +542,6 @@ const CreateSeasonForm = ({ createSeason, chainTimeQuery, activeSection = "all" 
           setFormError(t("tokenIdRequired"));
           return;
         }
-      }
-      if (prize.type === "offchain" && !isAddress(prize.tokenAddress.trim())) {
-        setFormError(t("invalidAddress"));
-        return;
       }
     }
 
