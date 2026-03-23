@@ -8,7 +8,7 @@
  *  - Expiry detection on mount
  */
 
-import { useEffect, useState, useContext, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useContext, useCallback, useMemo } from "react";
 import { useProfile } from "@farcaster/auth-kit";
 import PropTypes from "prop-types";
 import FarcasterContext from "./farcasterContext";
@@ -67,9 +67,13 @@ const FarcasterProvider = ({ children }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState(null);
 
-  // Clear JWT when auth-kit logs out
+  // Clear backend JWT when auth-kit transitions from authenticated → unauthenticated
+  // (i.e., user explicitly signs out via auth-kit). We track the previous state
+  // to avoid clearing on mount when auth-kit was never authenticated (our manual
+  // relay polling bypasses auth-kit's internal state).
+  const wasAuthKitAuthenticated = useRef(isAuthKitAuthenticated);
   useEffect(() => {
-    if (!isAuthKitAuthenticated && backendJwt) {
+    if (wasAuthKitAuthenticated.current && !isAuthKitAuthenticated && backendJwt) {
       setBackendJwt(null);
       setBackendUser(null);
       try {
@@ -79,6 +83,7 @@ const FarcasterProvider = ({ children }) => {
         // noop
       }
     }
+    wasAuthKitAuthenticated.current = isAuthKitAuthenticated;
   }, [isAuthKitAuthenticated, backendJwt]);
 
   /**
