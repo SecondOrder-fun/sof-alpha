@@ -21,6 +21,7 @@ export async function fetchPaymasterSession(apiBase, jwt) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${jwt}`,
       },
+      body: '{}',
     });
     if (!res.ok) return null;
     const { sessionToken } = await res.json();
