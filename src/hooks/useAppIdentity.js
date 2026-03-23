@@ -30,12 +30,16 @@ export function useAppIdentity() {
   const { address } = useAccount();
   const farcasterAuth = useContext(FarcasterContext);
   const isAuthenticated = Boolean(farcasterAuth?.isAuthenticated);
+  const isBackendAuthenticated = Boolean(farcasterAuth?.isBackendAuthenticated);
   const profile = farcasterAuth?.profile ?? null;
+  const backendUser = farcasterAuth?.backendUser ?? null;
 
   const { context: miniAppContext, isInFarcasterClient } = useMiniAppSDK();
 
   const miniAppFid = miniAppContext?.user?.fid ?? null;
   const authKitFid = isAuthenticated ? (profile?.fid ?? null) : null;
+  // Fallback: backend-verified FID from our manual SIWF polling flow
+  const backendFid = isBackendAuthenticated ? (backendUser?.fid ?? null) : null;
 
   const clientFid = miniAppContext?.client?.clientFid ?? null;
   const platformType = miniAppContext?.client?.platformType ?? null;
@@ -57,9 +61,9 @@ export function useAppIdentity() {
     };
   }
 
-  if (authKitFid) {
+  if (authKitFid || backendFid) {
     return {
-      fid: authKitFid,
+      fid: authKitFid || backendFid,
       walletAddress: address ?? null,
       isMiniApp,
       clientFid,
