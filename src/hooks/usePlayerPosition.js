@@ -115,12 +115,16 @@ export function usePlayerPosition(bondingCurveAddress, { seasonDetails } = {}) {
     }
   }, [isConnected, address, bondingCurveAddress, seasonDetails]);
 
-  // Initial load: fetch position when wallet + curve address are available
+  // Initial load: fetch position when wallet + curve address are available.
+  // Deliberately omit refreshNow from deps — it changes reference when
+  // seasonDetails changes (new object from React Query on every render),
+  // which would cause an infinite RPC polling loop → 429 rate limit.
   useEffect(() => {
     if (isConnected && address && bondingCurveAddress) {
       refreshNow();
     }
-  }, [isConnected, address, bondingCurveAddress, refreshNow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, bondingCurveAddress]);
 
   return { position, isRefreshing, setIsRefreshing, setPosition, refreshNow };
 }
