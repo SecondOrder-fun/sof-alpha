@@ -1,9 +1,10 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useContext, useRef } from 'react';
 import { useAccount, useChainId, useCapabilities, useSendCalls, useCallsStatus } from 'wagmi';
 import { encodeFunctionData } from 'viem';
 import { ERC20Abi } from '@/utils/abis';
 import { getContractAddresses } from '@/config/contracts';
 import { getStoredNetworkKey } from '@/lib/wagmi';
+import FarcasterContext from '@/context/farcasterContext';
 
 /**
  * SOF fee rate charged per sponsored transaction batch (0.05%).
@@ -12,11 +13,32 @@ import { getStoredNetworkKey } from '@/lib/wagmi';
  */
 const SOF_FEE_BPS = 5n; // 0.05% (5 basis points)
 
+export async function fetchPaymasterSession(apiBase, jwt) {
+  try {
+    const res = await fetch(`${apiBase}/paymaster/session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwt}`,
+      },
+    });
+    if (!res.ok) return null;
+    const { sessionToken } = await res.json();
+    return sessionToken;
+  } catch {
+    return null;
+  }
+}
+
 export function useSmartTransactions() {
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const chainId = useChainId();
   const { data: capabilities } = useCapabilities({ account: address });
   const { sendCallsAsync, data: batchId } = useSendCalls();
+  const farcasterAuth = useContext(FarcasterContext);
+  const backendJwt = farcasterAuth?.backendJwt ?? null;
+  const sessionCacheRef = useRef({ token: null, expiresAt: 0 });
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
 
   const { data: callsStatus } = useCallsStatus({
     id: batchId,
@@ -55,8 +77,6 @@ export function useSmartTransactions() {
     return { hasBatch, hasPaymaster, atomicStatus };
   }, [capabilities, chainId]);
 
-  const paymasterUrl = import.meta.env.VITE_PAYMASTER_PROXY_URL || '';
-
   /**
    * Build the SOF fee transfer call that gets prepended to every sponsored batch.
    * Fee is 0.05% of the SOF amount involved in the transaction.
@@ -78,8 +98,8 @@ export function useSmartTransactions() {
 
   /**
    * Execute a batch of calls via ERC-5792 with automatic paymaster sponsorship.
-   * Always attempts paymaster when a URL is configured — same optimistic approach
-   * as hasBatch. If the paymaster attempt fails, retries the batch without
+   * Routes to Coinbase CDP paymaster for Coinbase wallets, or Pimlico (session-gated)
+   * for all other wallets. If the paymaster attempt fails, retries the batch without
    * sponsorship so batching is preserved.
    * When paymaster is active, prepends a SOF fee transfer (0.05% of sofAmount).
    *
@@ -92,17 +112,35 @@ export function useSmartTransactions() {
     const batchCapabilities = {};
     let finalCalls = calls;
 
-    // Include paymasterService as optional — wallets that support it (Coinbase
-    // Wallet) will use it; wallets that don't (MetaMask) will ignore it and
-    // proceed without sponsorship. ERC-5792 `optional: true` prevents viem
-    // from throwing when the wallet hasn't reported paymasterService support.
-    if (paymasterUrl) {
+    const isCoinbaseWallet = connector?.id === 'coinbaseWalletSDK';
+
+    if (isCoinbaseWallet && apiBase) {
       batchCapabilities.paymasterService = {
-        url: paymasterUrl,
+        url: `${apiBase}/paymaster/coinbase`,
         optional: true,
       };
       if (sofAmount && sofAmount > 0n) {
         finalCalls = [buildFeeCall(sofAmount), ...calls];
+      }
+    } else if (!isCoinbaseWallet && apiBase && backendJwt) {
+      const now = Date.now();
+      let sessionToken;
+      if (sessionCacheRef.current.token && sessionCacheRef.current.expiresAt > now) {
+        sessionToken = sessionCacheRef.current.token;
+      } else {
+        sessionToken = await fetchPaymasterSession(apiBase, backendJwt);
+        if (sessionToken) {
+          sessionCacheRef.current = { token: sessionToken, expiresAt: now + 4 * 60 * 1000 };
+        }
+      }
+      if (sessionToken) {
+        batchCapabilities.paymasterService = {
+          url: `${apiBase}/paymaster/pimlico?session=${sessionToken}`,
+          optional: true,
+        };
+        if (sofAmount && sofAmount > 0n) {
+          finalCalls = [buildFeeCall(sofAmount), ...calls];
+        }
       }
     }
 
@@ -123,7 +161,7 @@ export function useSmartTransactions() {
         ),
       ),
     ]);
-  }, [address, paymasterUrl, sendCallsAsync, buildFeeCall]);
+  }, [address, apiBase, backendJwt, connector, sendCallsAsync, buildFeeCall]);
 
   return {
     ...chainCaps,
